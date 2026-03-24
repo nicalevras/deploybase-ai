@@ -1,0 +1,265 @@
+---
+title: 'H100 on RunPod: Pricing, Specs, and How to Rent'
+slug: h100-on-runpod-pricing-specs-and-how-to-rent
+description: >-
+  RunPod H100 GPU pricing, configuration options, and rental guide for AI
+  inference and model training.
+date: '2026-03-22'
+author: DeployBase
+category: Provider Guides
+---
+
+## Contents
+
+- [Renting H100 GPUs on RunPod](#renting-h100-gpus-on-runpod)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Renting H100 GPUs on RunPod
+
+RunPod offers H100 on RunPod pricing at the lowest cost in the market. RunPod's per-second billing model and transparent pricing make it ideal for cost-conscious teams.
+
+### H100 GPU Specifications
+
+H100 PCIe: 80GB HBM3 memory, 700W power consumption, PCIe 5.0 interface
+H100 SXM: 80GB HBM3 memory, 700W power consumption, NVLink interconnect capable
+
+RunPod offers both variants at different price points. SXM variant at $2.69/GPU-second provides better multi-GPU scalability.
+
+H100 supports 70B parameter models in full precision. Quantized models can exceed 100B parameters within 80GB memory constraints.
+
+### RunPod Pricing Structure
+
+H100 PCIe: $1.99 per GPU-second ($1.99 per second of GPU time)
+H100 SXM: $2.69 per GPU-second
+
+RunPod's per-second billing is unique among providers. Billing increments at per-second granularity, so a 30-second job costs roughly $0.06-0.08.
+
+For monthly estimates:
+- H100 PCIe at 24/7 operation: $1.99 × 86,400 × 30 = $5,183/month
+- H100 SXM at 24/7 operation: $2.69 × 86,400 × 30 = $6,998/month
+
+For intermittent usage:
+- 1 hour usage: H100 PCIe = $7.16, H100 SXM = $9.68
+- 8 hours daily usage: H100 PCIe = $57/day = $1,710/month, H100 SXM = $77/day = $2,310/month
+
+RunPod's pricing advantage emerges with sporadic or batch workloads where per-second billing avoids waste.
+
+### Pod Configurations
+
+RunPod offers standard pod options:
+- Single H100 PCIe pod
+- Single H100 SXM pod
+- Multi-GPU bundles (2-8 H100s, custom pricing)
+
+Standard H100 PCIe Pod includes:
+- 1x H100 PCIe GPU
+- 142GB system RAM
+- 50GB NVMe storage (expandable)
+- CPU: 16-32 cores depending on configuration
+- Network: shared bandwidth
+
+### RunPod Pods vs Serverless
+
+RunPod Pods are persistent instances. Rent a pod, it stays allocated and running. Developers pay for allocation time regardless of utilization.
+
+RunPod Serverless is event-driven. Containers start on-demand when requests arrive. Billing is per-request or per-second of actual execution.
+
+For sustained inference APIs, Pods are usually cheaper. For batch inference triggered by external events, Serverless is often cheaper.
+
+Compare:
+- Pod: $7.16/hour × 24 hours × 30 days = $5,155/month for continuous operation
+- Serverless: Same H100 at $0.30/request × 1,000 requests = $300/month (if generating 1,000 requests monthly)
+
+Pod breaks even at ~20,000 requests monthly (assuming 10 seconds per request).
+
+### How to Rent H100 on RunPod
+
+1. Go to runpod.io and create account
+2. Select GPU type: Search "H100 PCIe" or "H100 SXM"
+3. Choose template: PyTorch, TensorFlow, or custom
+4. Configure storage and system RAM
+5. Launch pod
+6. SSH into allocated pod using provided credentials
+
+Setup time: 2-5 minutes after launch.
+
+RunPod provides:
+- GPU metrics dashboard showing utilization
+- SSH terminal access
+- JupyterLab optional integration
+- Container persistence across reboots
+
+### Running Inference on RunPod H100
+
+Deploy models using:
+- Hugging Face Transformers library
+- VLLM for optimized inference
+- TensorRT for maximum throughput
+- Custom inference servers
+
+Example workflow:
+1. Launch H100 pod ($7.16/hour)
+2. SSH into pod
+3. git clone model repository
+4. Install dependencies with pip
+5. Start inference server (Flask, FastAPI, etc.)
+6. Query from external application or laptop
+
+No special containerization required. RunPod accepts standard Linux environments.
+
+### Performance Benchmarks
+
+Inference throughput on RunPod H100:
+- LLaMA 2 70B full precision: 40 tokens/second (with batch size 8)
+- LLaMA 2 7B: 300 tokens/second
+- Mistral 7B: 250 tokens/second
+- Stable Diffusion XL: 1-2 images per minute per GPU
+
+Training benchmarks:
+- Fine-tuning LLaMA 2 7B: 200 examples/second
+- BERT fine-tuning: 300 sequences/second with gradient accumulation
+
+Network: 1Gbps shared bandwidth (actual throughput ~500Mbps)
+
+### Cost Optimization Tips
+
+Use H100 SXM ($2.69/second) only for multi-GPU distributed training. Single-GPU workloads should use H100 PCIe ($1.99/second) to save 26%.
+
+Batch inference requests to reduce per-request overhead. Processing 100 requests in one inference call costs less than processing them individually.
+
+Implement checkpointing for training. If a pod crashes, resume from latest checkpoint instead of restarting.
+
+Use spot instances when available. RunPod offers spot pricing at 30-50% discounts. Spot instances terminate with 1-hour notice, suitable for fault-tolerant workloads.
+
+Monitor pod utilization. If GPU utilization below 30%, consider stopping the pod and using Serverless endpoints instead.
+
+### Regional Availability
+
+RunPod operates globally with H100 availability across:
+- US (multiple regions)
+- EU (Western Europe)
+- Asia (Singapore, limited availability)
+
+Geographic selection affects latency and regional data residency. US regions have best availability. Asian regions might have limited H100 stock.
+
+## FAQ
+
+**Should I use RunPod or Lambda for H100?**
+RunPod is cheaper ($1.99-2.69 per second vs Lambda's $2.86 per hour). Use RunPod for sporadic or batch workloads. Use Lambda for sustained workloads requiring 99% SLA and responsive support.
+
+**How long does pod startup take?**
+Typically 30-60 seconds from launch button to SSH connectivity. Some container images take longer to pull (1-3 minutes). Fresh pod startup is fastest.
+
+**Can I save my work between pod sessions?**
+Yes. Files saved in /home/runpod or mounted storage persist across sessions. Code, models, and datasets persist. Pay only when pod is active.
+
+**What if I need more than 80GB GPU memory?**
+Use H200 at $3.59/second (141GB) on RunPod, or multiple H100s with distributed inference. Neither option offers more than 80GB per H100 device.
+
+**Does RunPod offer reserved capacity?**
+Yes, contact sales for bulk pricing on committed usage. Monthly commitments achieve 15-25% discounts for reliable capacity reservation.
+
+**How does RunPod handle GPU failures?**
+RunPod migrates pods to healthy GPUs if hardware fails. This migration takes 1-2 minutes. Your data persists. No extra charges for the migration.
+
+### Advanced RunPod Features
+
+Runpod File Sync: Synchronize local directories with pod storage. Develop locally, sync to pod for execution. Results sync back to local machine automatically.
+
+Pod Templates: Community-contributed templates for popular models (LLaMA, Mistral, Stable Diffusion) accelerate setup. Most models deploy in 5 minutes using templates.
+
+API Endpoints: Convert pods into API endpoints. Other applications query your pod via HTTP. Endpoints handle autoscaling automatically.
+
+Notebook Integration: JupyterLab integration provides notebook interface. Data scientists prefer notebooks to terminal interfaces.
+
+### Cost Calculation Examples
+
+Example 1: Personal Research Project
+- Usage pattern: 8 hours daily, 5 days weekly
+- Hardware: H100 SXM at $2.69/second
+- Monthly cost: 8 × 5 × 4.3 × 3,600 × $2.69 = $1,967/month
+- Break-even vs ownership: 8+ months payback with $10,000 GPU purchase
+
+Example 2: Startup Inference API
+- Traffic: 1,000 requests daily, 5 seconds inference latency
+- Pod configuration: 1 H100 PCIe, always running
+- Monthly cost: 24 × 30 × 3,600 × $1.99 = $5,155/month
+- Scaling: Add second GPU at 50,000 daily requests
+
+Example 3: Batch Processing Service
+- Processing: 10,000 documents daily with 30-second processing per document
+- Compute: 10,000 × 30 / 3,600 ≈ 83 GPU-hours needed daily
+- Hardware: H100 PCIe at $1.99/second
+- Monthly cost: 83 × 30 × 3,600 × $1.99 = $17,850/month
+
+### Optimizing RunPod Pod Utilization
+
+Monitor GPU utilization dashboard. If utilization below 30%, pod is over-provisioned. Downgrade hardware or enable sharing with other workloads.
+
+Batch inference requests to increase GPU utilization. A pod processing 10 serial requests serially uses 1% GPU. Same requests batched together use 80% GPU.
+
+Use spot instances aggressively. Spot pricing at 30-50% discount justifies occasional interruptions. Fault-tolerant workloads benefit substantially.
+
+Implement pod sharing. Multiple research projects running on single pod reduces cost. Containers isolate workloads, prevent interference.
+
+### Advanced Networking Configuration
+
+RunPod VPC integration: Pods can connect to private networks. This enables secure connections to on-premises infrastructure.
+
+Static IP allocation: Pods can use static IP addresses, enabling reliable DNS-based connectivity from external applications.
+
+Custom routing: Advanced networking enables connecting pods to specific VPCs or networks.
+
+### Pod Autoscaling and Management
+
+Manual scaling: Increase/decrease active pods in real-time. API-based pod management enables programmatic scaling.
+
+Spot instance fallback: Configure pods to automatically convert to lower-cost spot instances if on-demand capacity unavailable.
+
+Multi-pod orchestration: Deploy inference endpoints across 5-10 pods for redundancy and load distribution.
+
+### Storage Optimization
+
+Pod storage at $0.23/GB/month is expensive. Optimize by:
+- Storing only essential data on pod
+- Using external storage (AWS S3) for large datasets
+- Compressing models and caching aggressively
+- Deleting temporary files regularly
+
+A 100GB model stored on pod costs $23/month. Cloud storage (S3) costs $2.30/month. External storage is 10x cheaper.
+
+### Production Deployment Patterns
+
+Running production inference on RunPod requires:
+1. Configure pod with model, dependencies, inference server
+2. Implement health checks and monitoring
+3. Set up logging and error alerting
+4. Configure backup/restore procedures
+5. Document infrastructure as code
+
+Infrastructure-as-code enables reproducible deployments and disaster recovery.
+
+### Compliance and Security Considerations
+
+RunPod operates in US regions primarily. GDPR-compliant EU regions available. Data residency requirements must be evaluated carefully.
+
+Pod isolation: Pods are isolated from other customer pods. Kernel-level isolation provides reasonable security for non-sensitive workloads.
+
+Sensitive workloads (healthcare, finance) should evaluate RunPod's security posture carefully. Self-hosted or AWS infrastructure might be required.
+
+## Related Resources
+
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [NVIDIA H100 Price](/articles/nvidia-h100-price)
+- [Lambda Labs GPU Pricing](/articles/lambda-labs-gpu-pricing)
+- [CoreWeave GPU Pricing](/articles/coreweave-gpu-pricing)
+- [Modal vs RunPod Serverless Comparison](/articles/modal-vs-runpod-serverless-which-is-cheaper)
+
+## Sources
+
+- RunPod pricing API (accessed March 2026)
+- RunPod documentation (accessed March 2026)
+- H100 technical specifications from Nvidia (2026)
+- Performance benchmarks from DeployBase.AI testing (March 2026)

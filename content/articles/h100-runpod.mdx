@@ -1,0 +1,313 @@
+---
+title: 'H100 RunPod: Pricing, Setup, and Cost Optimization'
+slug: h100-runpod
+description: >-
+  H100 RunPod instances cost $1.99/hr for PCIe and $2.69/hr for SXM. Compare
+  pricing, discover setup strategies, and optimize inference and training
+  workloads.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Providers
+---
+## Contents
+
+- [H100 RunPod](#h100-runpod)
+- [Pricing Structure](#pricing-structure)
+- [Performance Benchmarks](#performance-benchmarks)
+- [RunPod Instance Setup](#runpod-instance-setup)
+- [Running Workloads on H100](#running-workloads-on-h100)
+- [Spot Pricing Dynamics](#spot-pricing-dynamics)
+- [Cost Optimization Strategies](#cost-optimization-strategies)
+- [Comparing RunPod to Other Providers](#comparing-runpod-to-other-providers)
+- [Troubleshooting Common Issues](#troubleshooting-common-issues)
+- [FAQ](#faq)
+- [Sources](#sources)
+
+
+## H100 RunPod
+
+RunPod: $1.99/hr (PCIe) or $2.69/hr (SXM). Cheapest provider. No contracts. Spot instances save 40-60% (if available).
+
+This covers pricing, setup, performance, and cost optimization.
+
+## Pricing Structure
+
+RunPod offers H100 GPUs through two primary configurations:
+
+**PCIe H100**: $1.99/hr
+- Single GPU instances
+- PCIe 4.0 interconnect
+- Suitable for moderate parallelization tasks
+- Standard choice for most inference workloads
+
+**SXM H100**: $2.69/hr
+- Higher bandwidth NVLink connectivity
+- Better performance for multi-GPU scaling
+- Preferred for distributed training
+- Reduced kernel launch overhead
+
+Both configurations include variable pricing options through RunPod's spot market, where rates fluctuate based on supply and demand. Spot instances can reduce costs by 40-60% during off-peak periods, though availability is not guaranteed.
+
+**Monthly Pricing Analysis at 730 Hours**
+
+RunPod's on-demand pricing scaled to monthly commitments (730 hours per month) provides useful budgeting perspective:
+
+| Configuration | Hourly | Monthly (730 hrs) | Annual | Per-Token (50 tokens/sec) |
+|---|---|---|---|---|
+| H100 PCIe | $1.99 | $1,452 | $17,427 | $0.0111 |
+| H100 SXM | $2.69 | $1,964 | $23,571 | $0.0150 |
+| H100 PCIe Spot (avg 50%) | $0.99 | $722 | $8,711 | $0.0055 |
+| H100 SXM Spot (avg 45%) | $1.48 | $1,080 | $12,961 | $0.0082 |
+
+**Pricing Comparison Table Across Providers**
+
+| Configuration | RunPod | Lambda | Vast.AI | CoreWeave (per GPU) |
+|---|---|---|---|---|
+| H100 PCIe | $1.99 | $2.86 | $2.50-3.50 | N/A |
+| H100 SXM | $2.69 | $2.49 | $2.50-4.00 | $6.16 |
+| 8x Cluster | N/A | $19.92 | N/A | $49.24 |
+| Reserved (12-month) | N/A | $27.22 | N/A | $39.39 |
+
+**Reserved Capacity Option**
+
+For sustained workloads exceeding 168 hours monthly, reserved pricing (~$1,440/month PCIe, $1,950/month SXM) offers 26% savings versus on-demand rates and locks in pricing for predictable budgeting.
+
+## Performance Benchmarks
+
+**H100 Inference Throughput**
+
+RunPod H100 instances deliver consistent throughput across model sizes when properly configured:
+
+| Model | Parameters | Batch Size | H100 PCIe Throughput | H100 SXM Throughput |
+|---|---|---|---|---|
+| Mistral | 7B | 1 | 65-75 tokens/sec | 68-78 tokens/sec |
+| Llama-2 | 13B | 1 | 45-55 tokens/sec | 48-58 tokens/sec |
+| Llama-2 | 70B | 1 | 35-45 tokens/sec | 40-50 tokens/sec |
+| Mistral | 7B | 8 | 180-220 tokens/sec | 200-240 tokens/sec |
+
+SXM's higher bandwidth provides 5-15% throughput improvement on larger models due to reduced memory access bottlenecks.
+
+**Training Speed Benchmarks**
+
+Fine-tuning throughput varies with quantization and precision:
+
+| Workload | Configuration | Throughput | Memory |
+|---|---|---|---|
+| 7B Model LoRA (16-bit) | H100 SXM | 450-550 tokens/sec | 25GB |
+| 13B Model LoRA (8-bit) | H100 SXM | 380-420 tokens/sec | 38GB |
+| 70B Model Full Precision | H100 SXM | 150-200 tokens/sec | 79GB |
+| 70B Model 4-bit | H100 SXM | 280-350 tokens/sec | 40GB |
+
+## RunPod Instance Setup
+
+**Launching The First H100 Instance: Step-by-Step**
+
+1. Handle to RunPod console (https://www.runpod.io/console/gpu-cloud)
+2. Click "GPU Cloud" in the left sidebar
+3. Filter by GPU type: select "H100" from dropdown, then choose PCIe or SXM
+4. Review available providers showing real-time pricing and availability
+5. Select a base template: PyTorch 2.0 (recommended), TensorFlow 2.13, or JAX
+6. Configure vCPU allocation (8 vCPU minimum, 16-32 vCPU recommended for training)
+7. Set persistent volume size: 50GB minimum for basic stacks, 200GB+ for large datasets
+8. Select the preferred region (primary regions: US-East, US-West, EU)
+9. Optionally configure: public IP, volume sharing, volume persistence
+10. Click "Deploy" and wait 2-5 minutes for instance initialization
+
+**Network Configuration and SSH Setup**
+
+RunPod assigns dynamic public IPs upon instance launch. Access details appear in the RunPod dashboard under "Connect":
+
+```bash
+Host runpod-h100
+    HostName the.public.ip.address
+    Port 22
+    User root
+    IdentityFile ~/.ssh/runpod_key
+    ServerAliveInterval 60
+
+ssh runpod-h100
+
+ssh -L 8888:localhost:8888 runpod-h100
+```
+
+For production workloads, restrict inbound traffic to the local IP range by configuring firewall rules in RunPod dashboard. By default, all inbound ports are restricted; explicitly allow ports 22 (SSH) and 8888 (Jupyter).
+
+**Volume and Filesystem Management**
+
+RunPod's persistent volumes use network-attached storage at $0.10/GB/day. Strategies for optimal usage:
+
+1. **Attach volume during creation** to preserve datasets and model checkpoints across runs
+2. **For datasets >500GB**: Download to instance storage (/root or /workspace) during initialization rather than maintaining persistent volume, as continuous network I/O adds cost ($3/day per 100GB)
+3. **Model checkpointing**: Save to persistent volume only for critical checkpoints; use instance storage for frequent checkpoints
+4. **Cleanup strategy**: Remove temporary files and logs to minimize storage costs
+
+Example initialization script:
+```bash
+#!/bin/bash
+aws s3 cp s3://my-bucket/training_data.tar.gz /root/
+tar -xzf /root/training_data.tar.gz -C /workspace/data/
+rm /root/training_data.tar.gz  # Free space after extraction
+
+ln -s /root/.cache/huggingface /workspace/model_cache
+```
+
+## Running Workloads on H100
+
+**LLM Inference Deployment**
+
+For serving models like Llama 2 or Mistral, use vLLM or TensorRT-LLM backends:
+
+```bash
+python -m vllm.entrypoints.openai.api_server \
+  --model meta-llama/Llama-2-70b-hf \
+  --tensor-parallel-size 1 \
+  --gpu-memory-utilization 0.9
+```
+
+Single H100 supports approximately 70B-parameter models at 8-bit quantization with reasonable throughput. For larger models, see CoreWeave's [8xH100 cluster pricing](/gpus/coreweave) for multi-GPU alternatives.
+
+**Fine-tuning and Training**
+
+RunPod SXM instances work well for supervised fine-tuning with QLoRA or full parameter training on models up to 13B parameters. For larger models requiring distributed training, check the guide on [multi-GPU training strategies](/gpus/models/nvidia-h100).
+
+## Spot Pricing Dynamics
+
+RunPod's spot market offers significant savings during off-peak hours (typically 2-6 AM UTC). Set maximum hourly bids at 65-70% of on-demand rates to balance cost savings with availability risk. Monitor historical pricing trends to identify optimal bid windows.
+
+Spot instances are best suited for resumable workloads with checkpointing enabled. Training jobs should save weights every 15-30 minutes to minimize loss when instances terminate.
+
+## Cost Optimization Strategies
+
+**Batch Processing Approach**
+
+Group inference requests into batches rather than processing individually. A batch size of 8-16 on H100 improves throughput by 3-4x compared to batch size 1, reducing per-token cost significantly. Example economics:
+
+- Batch size 1: 50 tokens/second at $2.69/hr = $0.0150/token
+- Batch size 8: 180 tokens/second at $2.69/hr = $0.0041/token (72% cost reduction)
+- Batch size 16: 250 tokens/second at $2.69/hr = $0.0030/token (80% cost reduction)
+
+Implement batching through vLLM's built-in request batching:
+
+```python
+python -m vllm.entrypoints.openai.api_server \
+  --model meta-llama/Llama-2-70b-hf \
+  --tensor-parallel-size 1 \
+  --max-num-batched-tokens 20000 \
+  --gpu-memory-utilization 0.9
+```
+
+**Spot Market Timing Strategy**
+
+RunPod spot prices fluctuate 10-30% daily based on demand cycles. Optimize costs by:
+
+1. Monitor 7-day spot price history for the GPU type
+2. Identify off-peak windows (typically 2-6 AM UTC, weekends)
+3. Set maximum bid at 50-60% of typical on-demand rate
+4. Accept 1-2 hour wait during peak periods for significant savings
+
+Example: H100 SXM spot average is $1.35/hr (50% of $2.69 on-demand). Bidding at $1.48/hr during off-peak yields 45% savings with higher fill probability.
+
+**Autoscaling Strategies**
+
+RunPod's API supports programmatic instance launch/termination. Build custom autoscaling logic based on queue depth:
+
+```python
+import requests
+import time
+
+def check_queue_depth():
+    # The queue management logic
+    return pending_requests
+
+def launch_instance(gpu_type='H100'):
+    api_url = 'https://api.runpod.io/graphql'
+    mutation = '''
+    mutation {{
+        podFindAndDeployOnDemand(
+            input: {{
+                gpuType: "{}"
+                volumeInGb: 50
+                containerDiskInGb: 10
+                minVcpuCount: 8
+                minMemoryInGb: 20
+            }}
+        ) {{ id }}
+    }}
+    '''.format(gpu_type)
+    # Execute mutation with API key
+
+while True:
+    queue_depth = check_queue_depth()
+    if queue_depth > 10:
+        launch_instance()  # Launch when backlog exceeds threshold
+    time.sleep(60)  # Check every minute
+```
+
+**Instance Consolidation**
+
+Combine multiple small inference workloads on single H100 instance using vLLM's multi-model serving:
+
+```python
+from vllm import LLM
+
+llm = LLM(
+    model="meta-llama/Llama-2-70b",
+    gpu_memory_utilization=0.8,
+    enable_lora=True  # Enable LoRA adapters for multi-tenant serving
+)
+
+adapter_names = ["adapter1", "adapter2", "adapter3"]
+for name in adapter_names:
+    llm.load_lora_adapter(name)
+```
+
+This enables serving 3-4 different fine-tuned models from single instance, reducing per-model costs 70-80%.
+
+## Comparing RunPod to Other Providers
+
+RunPod's H100 SXM at $2.69/hr is slightly above Lambda Labs ($2.49/hr SXM) on-demand, but well below CoreWeave's cluster pricing ($6.16/GPU for 8xH100). RunPod excels for spot pricing and single-GPU workloads; Lambda is cheaper for on-demand single-GPU use. For sustained multi-GPU training, compare against [Lambda's reserved pricing](/articles/lambda-labs-gpu-pricing).
+
+Vast.AI's peer-to-peer marketplace offers lower H100 rates ($2.50-4.00/hr) but with higher variance and availability uncertainty. RunPod's dedicated capacity provides more predictable performance.
+
+## Troubleshooting Common Issues
+
+**Slow Network I/O During Training**
+
+Persistent volumes on RunPod experience higher latency than local NVMe. Pre-download datasets to instance storage at startup, or stream data through optimized pipelines like WebDataset.
+
+**Out-of-Memory Errors**
+
+H100 has 80GB memory. Reduce batch size, enable gradient accumulation, or use quantization (GPTQ, GGML) to fit larger models. For models exceeding 80B parameters, use [tensor parallelism across multiple GPUs](/gpus/coreweave).
+
+**High Spot Termination Rates**
+
+If experiencing frequent interruptions, increase bid price to 75-80% of on-demand rate, or switch to on-demand instances for stable workloads.
+
+## FAQ
+
+**What's the difference between H100 PCIe and SXM on RunPod?**
+
+PCIe uses standard PCI Express 4.0 connectivity with ~64 GB/s bandwidth. SXM uses NVLink with 900 GB/s bidirectional bandwidth, critical for distributed training. For single-GPU workloads, PCIe is adequate; for multi-GPU frameworks, SXM provides necessary bandwidth.
+
+**Can I use RunPod H100 for real-time API inference?**
+
+Yes, but latency depends on model size and request complexity. A 7B-parameter model achieves 10-20ms time-to-first-token (TTFT) on H100. Larger models increase TTFT proportionally. For sub-10ms latency requirements, consider quantization or model distillation.
+
+**How does RunPod spot pricing compare to reserved capacity?**
+
+Spot instances average 45-55% cheaper but lack availability guarantees. Reserved pricing saves 26% versus on-demand with guaranteed capacity. For workloads tolerating interruptions (batch processing), spot is optimal. For continuous serving, reserved capacity is safer.
+
+**What storage strategy minimizes costs on RunPod H100 instances?**
+
+RunPod's persistent volumes cost $0.10/GB/day, adding significant expense for large datasets. Optimal strategy: download datasets to instance ephemeral storage during startup, perform all training/inference from instance storage, then upload final checkpoints to S3. For a 500GB dataset, storing on persistent volume costs $50/day versus downloading once (5-10 minutes, negligible cost). Use persistent volumes only for model weights and critical checkpoints.
+
+**Can I run multiple vLLM instances on single H100 to improve utilization?**
+
+No, single H100 cannot be split across multiple inference endpoints effectively. However, vLLM's built-in request batching automatically queues requests across multiple concurrent inference calls. For serving multiple models, use LoRA adapters or model swapping to serve different fine-tuned variants from single instance without model reloading overhead. This achieves 60-70% cost reduction versus launching separate instances per model.
+
+## Sources
+
+- RunPod Official Pricing: https://www.runpod.io/console/gpu-cloud
+- NVIDIA H100 Specifications: https://www.nvidia.com/en-us/data-center/h100/
+- vLLM Documentation: https://docs.vllm.ai/
+- RunPod API Documentation: https://docs.runpod.io/

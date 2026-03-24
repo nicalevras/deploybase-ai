@@ -1,0 +1,199 @@
+---
+title: 'FLOPS Explained: How GPU Performance Is Measured'
+slug: what-is-flops-gpu
+description: >-
+  What is FLOPS GPU? Learn floating point operations per second, TFLOPS across
+  precision types, and theoretical vs actual GPU throughput for ML workloads.
+date: '2026-03-22'
+author: DeployBase
+---
+## Contents
+
+- [Understanding FLOPS and TFLOPS](#understanding-flops-and-tflops)
+- [Precision and FLOPS Variants](#precision-and-flops-variants)
+- [Theoretical vs Actual Throughput](#theoretical-vs-actual-throughput)
+- [TFLOPS Across GPU Generations](#tflops-across-gpu-generations)
+- [Measuring TFLOPS in Practice](#measuring-tflops-in-practice)
+- [TFLOPS to Model Training Speed](#tflops-to-model-training-speed)
+- [When TFLOPS Become Misleading](#when-tflops-become-misleading)
+- [Selecting GPUs Based on TFLOPS](#selecting-gpus-based-on-tflops)
+- [FLOPS vs TFLOPS vs PFLOPS](#flops-vs-tflops-vs-pflops)
+- [Practical FLOPS Measurement Tools](#practical-flops-measurement-tools)
+- [TFLOPS and Cost-Per-TFLOP Analysis](#tflops-and-cost-per-tflop-analysis)
+- [Quantum Computing and FLOPS Limitations](#quantum-computing-and-flops-limitations)
+- [TFLOPS in Model Serving Context](#tflops-in-model-serving-context)
+- [TFLOPS and Model Training Epochs](#tflops-and-model-training-epochs)
+- [Final Thoughts](#final-thoughts)
+
+
+Understanding what is FLOPS GPU fundamentals is essential when selecting hardware for machine learning workloads. FLOPS (floating point operations per second) remains the primary metric for comparing GPU computational capacity, yet the gap between theoretical peak performance and real-world throughput often confuses engineers evaluating infrastructure options.
+
+This guide breaks down FLOPS measurements, precision variants, and how they relate to actual training and inference performance. Whether developers are comparing the H100 to H200 or evaluating multi-GPU cluster configurations, understanding these metrics directly impacts the infrastructure decisions and budget allocation.
+
+## Understanding FLOPS and TFLOPS
+
+FLOPS represents the number of floating point operations a processor completes in one second. For graphics processing units, this is typically expressed in TFLOPS (trillion floating point operations per second) due to the enormous computational throughput modern accelerators deliver.
+
+A single floating point operation includes addition, subtraction, multiplication, or division of numbers represented in floating point format. GPUs execute billions of these operations per second across thousands of parallel processing cores. This parallelism separates GPU performance from traditional CPU metrics and enables the acceleration of tensor computations required for deep learning.
+
+TFLOPS measurements depend directly on clock speed and the number of processing cores available. Higher clock frequencies increase operations per second, while more cores multiply this effect. A GPU with 16,000 CUDA cores running at 2.5 GHz can theoretically deliver significantly more TFLOPS than a processor with 8,000 cores at the same frequency.
+
+## Precision and FLOPS Variants
+
+GPU performance varies substantially depending on the numerical precision used for computation. Different precisions deliver different TFLOPS ratings on identical hardware because the same physical cores can execute different instruction types.
+
+FP32 (32-bit floating point) represents the standard precision for most training workloads. This format provides sufficient numerical accuracy for gradient computation and weight updates across most model architectures. An NVIDIA H100 GPU delivers approximately 67 TFLOPS of FP32 performance using standard CUDA cores, or roughly 60 TFLOPS in the SXM5 variant for non-tensor-core operations.
+
+FP16 (16-bit floating point) and BF16 (Brain Float 16) unlock the H100's Tensor Core performance. The H100 SXM achieves 989 TFLOPS for BF16 and FP16 Tensor Core operations (1,979 TFLOPS with sparsity enabled). Mixed precision training computes loss and gradients in FP16/BF16 while maintaining weight updates in FP32 to preserve numerical stability, and benefits directly from these Tensor Core TFLOPS.
+
+BF16 preserves the same numerical range as FP32 while using half the memory. This format has become the standard for transformer training, where the wider exponent range prevents numerical underflow during backpropagation. BF16 Tensor Core performance on the H100 is identical to FP16: 989 TFLOPS (non-sparse).
+
+INT8 (8-bit integer) and INT4 quantization enable post-training compression where models execute at higher TFLOPS via Tensor Cores. An H100 SXM can execute INT8 Tensor Core operations at roughly 1,979 TFLOPS (non-sparse), approximately 2x the BF16 rate. INT4 reaches approximately 3,958 TFLOPS with sparsity. These precisions sacrifice some numerical accuracy for inference speed and memory efficiency.
+
+FP8 (8-bit floating point) emerged recently as a training-focused format combining the range preservation of BF16 with the memory efficiency of INT8. Next-generation hardware including the B200 provides native FP8 support that approaches 2x the FP16 TFLOPS rating.
+
+## Theoretical vs Actual Throughput
+
+Peak TFLOPS numbers reflect theoretical maximum performance under ideal conditions that rarely occur in production workloads. Understanding the gap between theoretical and actual throughput is critical for accurate capacity planning. For distributed training scenarios, [interconnect impact on throughput](/articles/nvlink-vs-pcie) can be as significant as GPU TFLOPS differences.
+
+Several factors reduce achieved performance below peak TFLOPS ratings. Memory bandwidth limitations prevent fully utilizing all cores when operations depend on loading large tensors from GPU memory. A single CUDA core can theoretically perform multiple operations per clock cycle through instruction pipelining and vectorization, but memory access latency often stalls execution pipelines waiting for data.
+
+The H100 SXM delivers 989 TFLOPS BF16 Tensor Core peak performance, but achieves roughly 700-850 TFLOPS on typical mixed-precision matrix multiplication kernels used in deep learning. This represents approximately 70-85% utilization of peak capacity. The difference comes from memory access patterns that cannot be fully optimized across all matrix dimensions simultaneously.
+
+Kernel launch overhead introduces fixed costs for each computational kernel dispatched to the GPU. Small tensor operations suffer proportionally higher overhead, reducing achieved TFLOPS as kernel launch costs dominate execution time. Operations on tensors with dimensions below 128 or 256 may see significant performance reduction compared to large batch sizes where launch overhead becomes negligible.
+
+Data movement between CPU and GPU dramatically impacts training throughput when the interconnect cannot keep pace with computation speed. A GPU may finish processing one batch while waiting for the next batch to transfer from CPU memory. This bottleneck becomes more pronounced in single-GPU configurations and over PCIe interconnects compared to high-bandwidth nvlink setups that connect multiple GPUs.
+
+Arithmetic intensity determines whether computation or memory becomes the bottleneck. Operations with high arithmetic intensity perform many computations per byte of memory accessed and can approach peak TFLOPS. Matrix multiplication on large matrices demonstrates high arithmetic intensity. Elementwise operations on sparse tensors typically show low arithmetic intensity, achieving only a fraction of peak TFLOPS.
+
+The batch normalization layers, attention mechanisms, and other components of modern neural network architectures often cannot be fused into single kernels. The resulting kernel orchestration overhead spreads tensor operations across multiple GPU kernels with intermediate data movement, reducing overall TFLOPS utilization compared to monolithic kernel execution.
+
+## TFLOPS Across GPU Generations
+
+Comparing TFLOPS across generations reveals the performance scaling trajectory of NVIDIA accelerators. The H100 SXM represents the current generation workload accelerator with 989 TFLOPS BF16 (Tensor Core, non-sparse) and 1,979 TFLOPS BF16 with sparsity.
+
+The H200 shares the same Tensor Core count as the H100 and therefore delivers identical BF16 Tensor Core performance: 989 TFLOPS (non-sparse), 1,979 TFLOPS with sparsity. The primary value proposition for H200 centers on increased memory (141GB HBM3e vs 80GB HBM3) and higher memory bandwidth rather than TFLOPS gains.
+
+The B200 introduces significant performance improvements with roughly 180 TFLOPS peak FP32 capacity and native FP8 support that approaches 1.4 PFLOPS. The 3x TFLOPS improvement over H100 comes from increased core count and higher clock frequencies, making B200 substantially more cost-effective for latency-sensitive inference workloads.
+
+These improvements come at corresponding cost increases. RunPod pricing shows H100 at $2.69 per hour, H200 at $3.59 per hour, and B200 at $5.98 per hour. Determining whether the additional TFLOPS justify premium pricing requires analyzing the specific workload characteristics.
+
+## Measuring TFLOPS in Practice
+
+Benchmarking actual TFLOPS requires careful experimental design. Standard benchmarks like MLPerf measure end-to-end training time including data loading, communication overhead, and model-specific operations, yielding more realistic performance expectations than peak TFLOPS.
+
+NVIDIA's own cuBLAS library provides dense linear algebra operations that approach peak TFLOPS for appropriately sized matrices. Benchmarking matrix multiplication with dimensions of 8192x8192 or larger typically yields achieved TFLOPS within 5-10% of theoretical peaks.
+
+Custom kernel profiling using NVIDIA's Nsight Systems identifies where TFLOPS utilization drops below peaks. Profiling reveals whether the model exhibits compute-bound or memory-bound characteristics, guiding optimization efforts toward either kernel implementation or memory access patterns.
+
+Monitoring during actual training via nvidia-smi provides average GPU utilization percentages, though these metrics show core activity rather than precise TFLOPS achieved. Combining utilization metrics with training time and batch size enables back-calculation of approximate achieved throughput.
+
+## TFLOPS to Model Training Speed
+
+TFLOPS alone cannot predict training time because model architecture, precision choices, batch size, and distributed training strategy significantly impact the relationship between raw computational throughput and wall-clock training duration.
+
+A model requiring 1 exaflop-seconds of computation on an H100 with 60 TFLOPS peak throughput and 70% actual utilization requires 23,810 seconds (6.6 hours) of training time assuming no I/O bottlenecks. Adding data loading, gradient communication across multi-GPU clusters, and kernel orchestration overhead typically adds 20-40% additional time.
+
+Training frameworks like PyTorch and JAX optimize computation differently, producing different actual TFLOPS achievements on identical hardware. Custom CUDA kernels frequently outperform framework-generated kernels by 10-30% through better memory access patterns and reduced launch overhead.
+
+Distributed training across multiple GPUs introduces gradient synchronization costs that become significant at scale. An 8-GPU H100 cluster experiences communication overhead during backpropagation that reduces effective TFLOPS per GPU, particularly over PCIe interconnects. For comparison, an 8-GPU cluster with NVLink achieves better synchronization throughput, preserving more of the theoretical TFLOPS scaling.
+
+## When TFLOPS Become Misleading
+
+TFLOPS metrics can mislead when comparing fundamentally different workload types. Inference workloads often show lower TFLOPS utilization than training because batch sizes are typically smaller, reducing arithmetic intensity.
+
+Sparse tensor operations where only a fraction of elements are non-zero cannot achieve peak TFLOPS despite theoretical capacity. A sparsity-optimized kernel operating on 50% sparse tensors achieves approximately 50% of dense tensor TFLOPS, yet sparse operation kernels often cannot even achieve that due to irregular memory access patterns.
+
+State-Space models and attention mechanisms with quadratic complexity show different TFLOPS behavior compared to dense linear algebra. Operations that involve reductions across tensor dimensions frequently demonstrate memory-bound characteristics where additional TFLOPS capacity provides no benefit.
+
+Inference with low-bit quantization (INT4) executes at peak TFLOPS for the quantized format but may require dequantization or mixed-precision adjustments that reduce overall throughput. The achieved TFLOPS for quantized models depends heavily on the specific quantization pattern and kernel implementation.
+
+## Selecting GPUs Based on TFLOPS
+
+For batch training of transformer models with mixed precision, BF16 Tensor Core TFLOPS correlate reasonably well with training speed, making them useful for rapid GPU selection. Since the H200 shares the same Tensor Core count as the H100 (989 TFLOPS BF16, non-sparse), compute-bound training workloads see minimal difference between H100 and H200. The H200's advantage lies in memory capacity and bandwidth for memory-bound workloads.
+
+For mixed-precision training, BF16/FP16 Tensor Core TFLOPS are the relevant metric. The H100 SXM's 989 TFLOPS BF16 (Tensor Core) is the figure that governs actual throughput for most modern transformer training, not the 67 TFLOPS standard FP32 CUDA core figure.
+
+Inference workloads benefit from quantized TFLOPS metrics corresponding to the target precision. An INT8 inference workload achieves approximately 1,979 TFLOPS (Tensor Core) on H100 SXM, while the B200 reaches substantially higher INT8 throughput, making the generation difference more pronounced for inference than training.
+
+For memory-bound operations where the model fit concerns dominate performance considerations, TFLOPS become less relevant than memory capacity and bandwidth. The H200's 141GB memory and higher memory bandwidth justify costs beyond pure TFLOPS scaling when models exceed H100 memory capacity.
+
+## FLOPS vs TFLOPS vs PFLOPS
+
+Terminology precision matters when discussing performance metrics. FLOPS (floating point operations per second) represents individual operations. TFLOPS represents trillions of operations (10^12), commonly used for GPU-scale computing. PFLOPS represents petaflops (10^15), used for supercomputer-scale systems.
+
+When comparing GPUs, developers frequently see TFLOPS mentioned. An H100 SXM rated at 989 TFLOPS BF16 (Tensor Core) performs 989 trillion BF16 floating point operations per second via its Tensor Cores. The same specification could be written as 989,000,000,000,000 FLOPS, but TFLOPS notation provides cleaner communication.
+
+Some specifications show FLOPS without the T prefix when discussing older hardware. A system described as "100 billion FLOPS" equals 0.1 TFLOPS, useful terminology for constrained environments like edge inference or mobile models.
+
+Understanding the notation hierarchy prevents misinterpreting specifications. A marketing claim of "60 FLOPS" would be absurdly slow (60 operations per second). The same claim as "60 TFLOPS" reflects realistic GPU performance.
+
+## Practical FLOPS Measurement Tools
+
+NVIDIA provides several tools for measuring actual FLOPS on the hardware.
+
+nvidia-smi displays basic GPU utilization percentages, though these show core activity rather than precise FLOPS achieved. Combining utilization metrics with training time and batch size enables back-calculation of approximate throughput.
+
+NVIDIA's Nsight Systems provides detailed kernel-by-kernel profiling, showing exactly which kernels in the training pipeline achieve what percentage of peak TFLOPS. This granular visibility identifies bottlenecks and optimization opportunities.
+
+cuBLAS benchmarking via nvidia-cuda-toolkit provides peak TFLOPS measurements for dense linear algebra operations (matrix multiplication), revealing hardware-level throughput potential. These measurements typically achieve 85-95% of theoretical peak.
+
+Custom profiling with NVIDIA Nsight Compute measures specific kernels from the application, showing actual TFLOPS for the exact operations rather than generic benchmarks.
+
+PyTorch's torch.profiler and TensorFlow's tf.profiler provide application-level profiling without custom instrumentation, useful for identifying which operations consume most execution time and where TFLOPS gaps occur.
+
+These measurement tools separate theoretical specifications from empirical reality. Many teams discover their models achieve only 30-50% of peak TFLOPS, indicating optimization opportunities or inherent workload characteristics that prevent higher utilization.
+
+## TFLOPS and Cost-Per-TFLOP Analysis
+
+Infrastructure decisions increasingly factor cost-per-TFLOP, comparing total training cost against computational capacity delivered. This metric normalizes hardware cost against performance, enabling fair comparison across generations.
+
+H100 SXM at $2.69/hr with 989 TFLOPS BF16 Tensor Core peak performance costs approximately $0.0027 per TFLOP per hour. However, accounting for only 75% actual utilization (742 TFLOPS achieved) increases effective cost to $0.0036 per TFLOP per hour.
+
+The B200 delivers substantially higher BF16 Tensor Core TFLOPS than the H100 at $5.98/hr, improving cost-per-TFLOP meaningfully for compute-bound workloads. The exact per-TFLOP cost depends on the realized utilization on a given workload.
+
+These calculations show B200 has better cost-per-TFLOP at peak utilization, but actual savings depend on whether the specific workload is compute-bound or memory-bound. Memory-bound workloads gain no benefit from higher TFLOPS, making cost-per-TFLOP comparisons misleading for those scenarios.
+
+Cost-per-TFLOP analysis should account for memory, bandwidth, and other factors beyond raw compute. A model memory-bound on both generations achieves no benefit from superior TFLOPS, making cost-per-TFLOP comparisons misleading for that workload.
+
+## Quantum Computing and FLOPS Limitations
+
+Quantum computers cannot be compared using TFLOPS because they operate on fundamentally different principles than floating point arithmetic. Quantum operations don't map to classical floating point metrics.
+
+Some vendors market quantum devices using FLOPS-like terminology (QPS for quantum processing speed, AQC for adiabatic quantum computing operations). These marketing metrics lack standardization and don't directly compare to classical TFLOPS.
+
+GPU computing will likely remain dominant for AI workloads for the foreseeable future. Quantum computers remain experimental systems in 2026 with severe limitations for machine learning applications.
+
+## TFLOPS in Model Serving Context
+
+Inference workloads often show different TFLOPS utilization than training. Single-request inference with batch size 1 may achieve only 20-30% of peak TFLOPS due to lack of parallelism and memory bandwidth limitations.
+
+Batched inference where multiple requests are processed simultaneously approaches training-like TFLOPS utilization (70-80% of peak), making batch serving infrastructure essential for achieving good cost-per-TFLOP in production inference.
+
+Quantized inference to INT8 or FP8 precision shows paradoxical TFLOPS metrics. An H100 executing FP8 operations achieves 240 TFLOPS, a metric that seems to claim better performance than FP32. This doesn't reflect faster inference in wall-clock terms but rather measures different arithmetic intensity.
+
+For serving, latency (time to generate one token) matters more than TFLOPS. An inference system achieving 200 TFLOPS with 50ms latency per token may be inferior to a system achieving 80 TFLOPS with 10ms latency per token, depending on serving requirements.
+
+## TFLOPS and Model Training Epochs
+
+Training epochs require repeated forward and backward passes through datasets. A model requiring 20,000 BF16 TFLOPS-hours of computation per epoch takes 20,000 TFLOP-hours per epoch.
+
+Running this model through five training epochs requires 100,000 TFLOP-hours total. On an H100 SXM achieving ~742 TFLOPS actual BF16 Tensor Core throughput (75% utilization), this requires 100,000/742 = 134.8 hours of wall-clock training time.
+
+Infrastructure cost: 134.8 hours × $2.69 = $362.61 total for five epochs.
+
+This calculation reveals the relationship between TFLOPS, training time, and infrastructure cost. Higher TFLOPS reduce wall-clock time, but cost depends on both per-hour rates and total TFLOP-hours required.
+
+These calculations enable accurate infrastructure planning and cost projections. Since H100 and H200 share identical BF16 Tensor Core performance (989 TFLOPS non-sparse), compute-bound workloads cost the same or more on H200 ($3.59/hr) versus H100 ($2.69/hr). B200 offers higher TFLOPS, potentially reducing wall-clock time enough to justify its premium for compute-bound jobs.
+
+## Final Thoughts
+
+FLOPS metrics provide a foundation for understanding GPU computational capacity, but accurate infrastructure decisions require combining TFLOPS data with workload characterization, framework benchmarking, and cost analysis. Peak TFLOPS tell only part of the performance story.
+
+The progression from H100 to H200 to B200 shows TFLOPS scaling alongside memory improvements and new precision formats. The specific model architecture, batch size, and precision strategy determine whether this TFLOPS increase translates to meaningful training speedup or whether memory bandwidth and capacity become limiting factors.
+
+Understanding what is FLOPS GPU and how it relates to real-world performance enables more accurate rental decisions for infrastructure providers. Compare TFLOPS alongside memory capacity, bandwidth, and [interconnect options](/articles/nvlink-vs-pcie) when evaluating rental providers like [RunPod](/articles/runpod-gpu-pricing), Lambda, and [CoreWeave](/gpus/coreweave) to find the GPU configuration delivering optimal [performance per dollar](/articles/h100-vs-h200-vs-b200) for the specific workload.
+
+Measure achieved TFLOPS on the actual models during development, avoid over-relying on peak numbers, and factor in communication overhead for distributed training. These practices lead to infrastructure selections that align with the workload requirements rather than theoretical maximums.
+
+Always separate theoretical peak TFLOPS from achievable throughput on the specific models. This gap between specification and reality determines whether GPU selection decisions prove optimal or wasteful. Better decisions come from empirical measurement than theoretical calculations.

@@ -1,0 +1,656 @@
+---
+title: 'Kubernetes for ML: GPU Orchestration Guide'
+slug: kubernetes-gpu-ml
+description: >-
+  Kubernetes for ML GPU orchestration: GPU scheduling, NVIDIA device plugin,
+  KubeFlow, Ray, multi-GPU training, and cost optimization guide.
+date: '2026-03-22'
+author: DeployBase
+category: ML Infrastructure
+keywords:
+  - kubernetes gpu ml
+  - k8s gpu
+  - ml kubernetes
+  - gpu orchestration
+  - kubernetes ml training
+---
+
+## Contents
+
+- [Kubernetes GPU ML: Overview](#kubernetes-gpu-ml-overview)
+- [GPU Resource Scheduling Fundamentals](#gpu-resource-scheduling-fundamentals)
+- [NVIDIA GPU Device Plugin](#nvidia-gpu-device-plugin)
+- [NVIDIA GPU Operator](#nvidia-gpu-operator)
+- [KubeFlow for ML Workflows](#kubeflow-for-ml-workflows)
+- [Ray for Distributed ML](#ray-for-distributed-ml)
+- [Multi-GPU Training on Kubernetes](#multi-gpu-training-on-kubernetes)
+- [Cost Optimization Strategies](#cost-optimization-strategies)
+- [Monitoring and Troubleshooting](#monitoring-and-troubleshooting)
+- [Advanced GPU Scheduling Patterns](#advanced-gpu-scheduling-patterns)
+- [Storage and Data Management](#storage-and-data-management)
+- [Security Considerations](#security-considerations)
+- [Integration with CI/CD](#integration-with-cicd)
+- [Cost Analysis and Optimization](#cost-analysis-and-optimization)
+- [Production Deployment Patterns](#production-deployment-patterns)
+- [Troubleshooting Advanced Issues](#troubleshooting-advanced-issues)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Kubernetes GPU ML: Overview
+
+Kubernetes schedules ML jobs across GPU clusters. Auto-allocates instead of manual. Examines job specs (GPU type, memory, storage), checks cluster capacity, places on nodes. All automatic.
+
+Dominates production ML as of March 2026. Handles resource constraints manual management can't. Dozens of training, inference, batch jobs on shared clusters. No conflicts.
+
+Tradeoff: requires ops knowledge. But above a few GPUs, automation pays off huge.
+
+## GPU Resource Scheduling Fundamentals
+
+Kubernetes treats GPUs as discrete resources similar to CPU and memory. When submitting a training job, developers specify GPU requirements:
+
+```yaml
+resources:
+  limits:
+    nvidia.com/gpu: 2
+  requests:
+    nvidia.com/gpu: 2
+```
+
+This declares that the workload needs 2 GPUs. The scheduler examines all cluster nodes, identifies those with at least 2 available GPUs, and places the pod on one.
+
+Kubernetes prevents oversubscription. If a pod requests 2 GPUs and only 1 is available, the pod queues until 2 GPUs become free. The pod is guaranteed dedicated access to requested GPUs.
+
+Resource requests versus limits work differently for GPUs than CPU/memory. Developers specify a single value:GPUs can't be throttled like CPU. A pod either has exclusive access to a GPU or developers don't. Requesting GPU0 through GPU3 means those exact GPUs are reserved for the workload.
+
+## NVIDIA GPU Device Plugin
+
+The NVIDIA GPU Device Plugin enables Kubernetes to discover, monitor, and allocate GPUs. Without it, Kubernetes can't see GPUs at all.
+
+The plugin runs as a daemon set on all cluster nodes. It:
+
+1. Detects available GPUs via NVIDIA driver
+2. Reports GPU count and memory to the Kubernetes API
+3. Allocates GPUs to requesting pods
+4. Prevents multiple pods from sharing the same GPU (by default)
+
+Installation is straightforward:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/main/deployments/static/nvidia-device-plugin.yaml
+```
+
+After applying this manifest, Kubernetes nodes report GPU capacity. Running `kubectl describe node <nodename>` shows available GPUs:
+
+```
+Allocated resources:
+  nvidia.com/gpu: 8/8
+```
+
+This indicates all 8 GPUs on the node are allocated. Future pods requiring GPUs queue until one becomes available.
+
+The device plugin also enables GPU health checks. Unhealthy GPUs are marked unavailable, preventing pod assignments to malfunctioning hardware.
+
+## NVIDIA GPU Operator
+
+The GPU Operator simplifies setup by automatically installing NVIDIA drivers, CUDA toolkit, and device plugin. Instead of manually configuring each node, developers deploy one operator and it handles everything.
+
+```bash
+helm repo add nvidia https://nvidia.github.io/gpu-operator
+helm install gpu-operator nvidia/gpu-operator --namespace gpu-operator-system --create-namespace
+```
+
+This single command provisions a fully functional Kubernetes GPU environment. The operator monitors driver versions and upgrades them automatically across the cluster.
+
+For production clusters, the GPU Operator eliminates manual driver management:a significant operational burden.
+
+## KubeFlow for ML Workflows
+
+KubeFlow provides Kubernetes-native tools for building and deploying ML systems. It includes:
+
+- Training job controllers (TFJob, PyTorchJob, MPIJob)
+- Hyperparameter tuning
+- Model serving infrastructure
+- Workflow orchestration
+- Notebook servers
+
+### Training Job Controllers
+
+KubeFlow's training controllers define distributed training patterns. A PyTorchJob specifies:
+
+```yaml
+apiVersion: kubeflow.org/v1
+kind: PyTorchJob
+metadata:
+  name: pytorch-training
+spec:
+  pytorchReplicaSpecs:
+    Master:
+      replicas: 1
+      template:
+        spec:
+          containers:
+          - name: pytorch
+            image: pytorch/pytorch:latest
+            command: ["python", "train.py"]
+    Worker:
+      replicas: 3
+      template:
+        spec:
+          containers:
+          - name: pytorch
+            image: pytorch/pytorch:latest
+            command: ["python", "train.py"]
+```
+
+KubeFlow automatically provisions a master and 3 workers, sets up distributed communication, and monitors training. If a worker fails, KubeFlow restarts it automatically.
+
+This eliminates manual distributed training orchestration. The job definition focuses on algorithm; KubeFlow handles infrastructure.
+
+### Distributed Training Patterns
+
+KubeFlow supports multiple distributed training approaches:
+
+**Data parallelism:** Replicate model across multiple GPUs, each processing different data batches. Gradients synchronize after each batch. Scales well up to 8-16 GPUs.
+
+**Model parallelism:** Split model across multiple GPUs. Useful for models too large for single GPU memory. Requires careful pipeline orchestration.
+
+**Pipeline parallelism:** Divide training into stages, each running on different GPUs. Enables training models orders of magnitude larger than a single GPU accommodates.
+
+Refer to the [Best MLOps Tools](/articles/best-mlops-tools) article for comparative analysis of KubeFlow against other orchestration options.
+
+## Ray for Distributed ML
+
+Ray is a distributed computing framework particularly suited to ML workloads. Unlike KubeFlow's emphasis on Kubernetes-native job definitions, Ray provides a Python API for distributed programming.
+
+```python
+import ray
+from ray.air import session
+
+ray.init()
+
+@ray.remote(num_gpus=2)
+def train_model(config):
+    # Training code here
+    return metrics
+
+futures = [train_model.remote(config) for config in configs]
+results = ray.get(futures)
+```
+
+This Python-first approach appeals to data scientists comfortable with Python but less familiar with Kubernetes YAML. Ray handles distributed scheduling, communication, and fault tolerance.
+
+Ray integrates with Kubernetes through the KubeRay operator. Specify Ray cluster configurations as Kubernetes manifests, and KubeRay provisions the cluster automatically.
+
+Ray excels at:
+
+- Hyperparameter tuning (Ray Tune)
+- Distributed inference (Ray Serve)
+- Custom training loops
+- Mixed CPU and GPU workloads
+
+For teams preferring Python over YAML, Ray provides a gentler on-ramp to distributed ML.
+
+## Multi-GPU Training on Kubernetes
+
+Coordinating training across multiple GPUs requires:
+
+### GPU Affinity Rules
+
+Ensure replicas schedule on separate nodes when developers want distributed training across nodes. With KubeFlow, this is automatic. For manual pod management:
+
+```yaml
+affinity:
+  podAntiAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+    - labelSelector:
+        matchExpressions:
+        - key: app
+          operator: In
+          values:
+          - training-job
+      topologyKey: kubernetes.io/hostname
+```
+
+This ensures pods spread across nodes rather than consolidating on single nodes.
+
+### GPU-to-GPU Communication
+
+Modern GPUs support NVIDIA NVLink for high-speed GPU-GPU communication. Kubernetes doesn't explicitly schedule NVLink topology, but developers can use node affinity to prefer nodes with NVLink:
+
+```yaml
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: gpu-topology
+          operator: In
+          values:
+          - nvlink
+```
+
+This requires pre-labeling nodes based on their GPU topology, but ensures optimal communication between GPUs in the training job.
+
+### Network Bandwidth
+
+Distributed training saturates network bandwidth during gradient synchronization. Ensure the cluster network provides sufficient bandwidth. 100Gbps interconnects become necessary for large-scale training.
+
+CoreWeave offers 8xH100 configurations ($49.24 collectively as of March 2026) with dedicated high-speed networking, enabling efficient distributed training without contention.
+
+## Cost Optimization Strategies
+
+### Spot Instances
+
+Kubernetes integrates with cloud provider spot/preemptible instances. These cost 40-70% less but can be terminated when capacity is needed elsewhere.
+
+For fault-tolerant workloads, spot instances provide enormous cost savings. KubeFlow's job controllers automatically restart interrupted training jobs.
+
+Configure spot tolerance:
+
+```yaml
+nodeSelector:
+  cloud.google.com/gke-preemptible: "true"
+```
+
+Or mix on-demand and spot nodes to ensure critical workloads complete while opportunistically using cheap capacity.
+
+### Resource Consolidation
+
+Avoid over-provisioning. Run multiple small training jobs on single nodes when interference is minimal. Use Kubernetes quality-of-service classes to prioritize critical workloads while allowing flexible scheduling of exploratory jobs.
+
+### GPU Time-Slicing
+
+Modern NVIDIA drivers support GPU time-slicing, allowing multiple pods to share a single GPU via context switching. This reduces idle resources but adds latency overhead.
+
+For batch jobs, time-slicing makes sense. For real-time inference, dedicated GPUs prevent contention-induced failures.
+
+## Monitoring and Troubleshooting
+
+### GPU Metrics
+
+The NVIDIA device plugin exposes GPU metrics through the Kubernetes metrics API. Popular monitoring stacks like Prometheus scrape these automatically.
+
+Key metrics include:
+
+- `nvidia_smi_utilization_gpu`: GPU utilization percentage
+- `nvidia_smi_memory_used_mb`: GPU memory consumption
+- `nvidia_smi_temperature_gpu`: GPU temperature
+- `nvidia_smi_power_draw_watts`: Power consumption
+
+Anomalies in these metrics indicate workload performance issues. High memory with low utilization suggests suboptimal batching. High temperature suggests cooling problems.
+
+### Pod Scheduling Issues
+
+If pods linger in pending state:
+
+```bash
+kubectl describe pod <podname>
+```
+
+Look for event messages. Common issues:
+
+- "Insufficient nvidia.com/gpu": Cluster lacks available GPUs
+- "Unschedulable": Node affinity or taint constraints prevent scheduling
+- "ImagePullBackOff": Container image is missing or inaccessible
+
+### Timeout and Failure Handling
+
+KubeFlow and Ray automatically retry failed jobs. Configure retry policies:
+
+```yaml
+backoffLimit: 3
+```
+
+This restarts jobs up to 3 times before marking them permanently failed.
+
+For long-running training, enable checkpointing. Kubernetes can replace pods without losing training progress if checkpoints persist to external storage.
+
+## Advanced GPU Scheduling Patterns
+
+Beyond basic scheduling, sophisticated patterns enable complex ML workflows.
+
+### Priority Classes
+
+Different workloads have different importance. Production inference services matter more than experimental training. Kubernetes priority classes enforce this.
+
+```yaml
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: production
+value: 1000
+globalDefault: false
+```
+
+Assign production pods to high-priority classes. During resource contention, Kubernetes preempts low-priority pods to make room.
+
+### GPU Sharing Strategies
+
+Some scenarios require sharing GPUs:
+
+**Time-slicing:** Multiple pods run sequentially on same GPU. Throughput decreases but resource utilization improves.
+
+**Spatial partitioning:** Divide GPU memory, allow multiple pods to run simultaneously. Works for smaller models or inference.
+
+**CUDA multi-process service:** NVIDIA feature allowing multiple processes on same GPU with limited interference.
+
+For production, dedicated GPU allocation is standard. Sharing is useful for development and testing environments where resource efficiency matters more than consistency.
+
+### Custom Resource Definitions (CRDs)
+
+KubeFlow and other frameworks extend Kubernetes with custom resources. Instead of writing PyTorchJob manifests manually, developers can create custom controllers handling common patterns.
+
+Example custom resource for distributed training:
+
+```yaml
+apiVersion: ml.example.com/v1
+kind: DistributedTraining
+metadata:
+  name: my-training
+spec:
+  modelType: transformer
+  datasetSize: 100GB
+  gpuType: H100
+  numWorkers: 8
+  trainingDuration: 24h
+```
+
+Custom controllers watch for these resources and create appropriate jobs, handle data distribution, manage checkpointing, and clean up.
+
+## Storage and Data Management
+
+GPU computing requires moving data efficiently. Kubernetes integrates with storage systems.
+
+### PersistentVolumes and Claims
+
+Persistent storage survives pod termination:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: training-data
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+```
+
+Pods mount this volume and access shared data. Multiple pods can access the same volume (with correct access modes).
+
+### Volume Types
+
+Different volume backends optimize for different scenarios:
+
+**Local storage:** Fast but not portable. Pod can't move between nodes.
+
+**NFS:** Network access, but slower than local. Good for shared datasets.
+
+**Cloud storage:** GCS buckets, S3, Azure blobs. Infinitely scalable but higher latency.
+
+**Databases:** Some frameworks stream data from databases rather than loading into volumes.
+
+Choose based on data size, access patterns, and performance requirements.
+
+### Data Locality
+
+Kubernetes scheduler is aware of data location. Schedule pods near where data resides to minimize network latency.
+
+For large datasets (1TB+), this becomes critical. Network bandwidth becomes the bottleneck, not GPU compute.
+
+## Security Considerations
+
+GPU clusters are valuable targets. Security is essential.
+
+### Network Policies
+
+Restrict network traffic between pods:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: restrict-gpu-pods
+spec:
+  podSelector:
+    matchLabels:
+      gpu: enabled
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          role: training-coordinator
+```
+
+### Resource Quotas and Limits
+
+Prevent resource hoarding:
+
+```yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: gpu-quota
+spec:
+  hard:
+    nvidia.com/gpu: "16"
+    memory: "256Gi"
+```
+
+Namespace can use at most 16 GPUs and 256GB memory. This prevents single team from consuming all cluster resources.
+
+### RBAC (Role-Based Access Control)
+
+Control who can create, modify, and delete jobs:
+
+```yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gpu-user
+rules:
+- apiGroups: ["kubeflow.org"]
+  resources: ["pytorchjobs"]
+  verbs: ["create", "get", "list", "delete"]
+```
+
+Users with this role can manage PyTorchJobs but can't modify cluster settings.
+
+### Image Security
+
+Container images are attack vectors. Scan them for vulnerabilities:
+
+```bash
+kubectl get pods -o json | jq '.items[].spec.containers[].image' | sort -u
+```
+
+Use image signing and verification to ensure only approved images run.
+
+## Integration with CI/CD
+
+Kubernetes integrates with CI/CD pipelines for automated training and deployment.
+
+### ArgoCD and Flux
+
+These tools manage Kubernetes deployments via Git. Commit a training job definition, CI/CD automatically creates the job in Kubernetes.
+
+```bash
+git commit -m "Train new model with latest data"
+git push
+```
+
+This approach provides audit trails, rollback capability, and reproducibility.
+
+### GitOps Workflow
+
+1. Developer commits code and job definition to Git
+2. CI/CD detects change
+3. Tests run (linting, build)
+4. If tests pass, manifest applies to Kubernetes
+5. Training job creates and runs
+6. Results publish back to Git repository
+
+This workflow ensures all training is version controlled and reproducible.
+
+## Cost Analysis and Optimization
+
+Understanding Kubernetes GPU cost is crucial for budgeting.
+
+### Per-Pod Cost Accounting
+
+Kubernetes doesn't natively track per-pod costs. Add annotation metadata:
+
+```yaml
+metadata:
+  annotations:
+    cost-center: "ml-team"
+    project: "recommendation-model"
+    owner: "data-science-squad"
+```
+
+External cost allocation tools read annotations and assign costs accordingly.
+
+### Reserved Instance Optimization
+
+Nodes with reserved GPU instances cost predictably. Kubernetes can pack pods efficiently:
+
+- Use node affinity to prefer reserved nodes for production workloads
+- Use spot nodes for experimental, fault-tolerant work
+- Mix reserved and spot to optimize cost-performance
+
+### Auto-Scaling Economics
+
+Kubernetes cluster autoscaler adds nodes when pods can't schedule. Consider economics:
+
+- On-demand nodes: expensive but immediate
+- Spot nodes: cheap but may terminate
+- Reserved nodes: cheapest but require advance commitment
+
+Strategic mix depends on workload tolerance for interruption.
+
+### Idle GPU Mitigation
+
+GPUs sitting idle cost money. Kubernetes helps here:
+
+- Pack multiple jobs per node (if they don't interfere)
+- Use time-slicing for development workloads
+- Implement chargeback so teams feel cost pressure
+- Regularly clean up completed jobs
+
+## Production Deployment Patterns
+
+Moving beyond experimentation to production training requires additional considerations.
+
+### Blue-Green Model Deployment
+
+Run two versions of training pipeline: blue (old) and green (new).
+
+Switch traffic to green once validation passes. If issues arise, switch back to blue. Enables safe model updates.
+
+### Canary Deployments
+
+Route small percentage of inference traffic to new model. Monitor metrics. Gradually increase percentage.
+
+Detects problems early before impacting all traffic.
+
+### Model Registry Integration
+
+Track model versions, training parameters, performance metrics. Tools like MLflow integrate with Kubernetes.
+
+Every training job registers its model in the registry with metadata about data, parameters, and validation metrics.
+
+## Troubleshooting Advanced Issues
+
+### GPU Initialization Failures
+
+If pods fail with GPU initialization errors, check driver version compatibility:
+
+```bash
+kubectl get nodes -o json | jq '.items[].status.allocatable'
+```
+
+Shows GPU count. If 0, device plugin didn't discover GPUs. Check plugin logs:
+
+```bash
+kubectl logs -n gpu-operator nvidia-device-plugin-* --all-containers=true
+```
+
+### Distributed Training Hangs
+
+Multi-GPU training sometimes hangs during gradient synchronization. Common causes:
+
+- Mismatched CUDA versions across nodes
+- Network connectivity issues between nodes
+- Incompatible NCCL versions
+
+Enable debug logging:
+
+```bash
+export NCCL_DEBUG=INFO
+```
+
+This produces verbose output revealing synchronization problems.
+
+### Out-of-Memory During Training
+
+Even with adequate GPU memory, training fails with OOM. Causes:
+
+- Memory fragmentation from long training runs
+- Inefficient gradient accumulation
+- Unintended model growth during training
+
+Solutions: use gradient checkpointing, reduce batch size, enable mixed precision, periodically restart training.
+
+### Slow GPU Utilization
+
+GPUs not reaching full utilization despite adequate work:
+
+- I/O bottleneck: data pipeline can't keep up with GPU processing speed
+- CPU bottleneck: preprocessing saturates CPU cores
+- PCIe bottleneck: transferring data from host to GPU
+
+Profile with `nvidia-smi` or PyTorch profiler to identify the constraint.
+
+## FAQ
+
+**Q: Can I run Kubernetes on a laptop with one GPU?**
+
+Technically yes, but impractical. Kubernetes's overhead means a laptop adds operational complexity without scaling benefits. For single GPU development, direct SSH to GPU cloud instances is simpler.
+
+**Q: How many GPUs should my cluster have?**
+
+It depends on workload. Teams with 5+ concurrent training jobs benefit from clusters. Smaller teams use cloud provisioning APIs instead.
+
+**Q: Does Kubernetes force NVIDIA hardware?**
+
+No. AMD GPUs work with appropriate drivers. However, NVIDIA hardware dominates because KubeFlow and Ray ecosystems optimize around NVIDIA tools.
+
+**Q: Can I switch between GPU types easily?**
+
+Yes. Pod specifications don't lock to specific GPU models. If nodes have mixed GPUs (RTX and A100), the scheduler finds available capacity. However, CUDA compatibility can be fragile across GPU architectures. Test thoroughly.
+
+**Q: What's the minimum cluster size for meaningful ML?**
+
+A 4-8 node cluster with 2 GPUs per node is reasonable. This handles moderate training jobs and some parallelization. Smaller clusters rarely justify Kubernetes complexity.
+
+**Q: How do I debug distributed training on Kubernetes?**
+
+Log aggregation tools (ELK stack, Loki) and distributed tracing (Jaeger) become essential. Direct node access for kubectl exec into running pods helps with immediate troubleshooting.
+
+## Related Resources
+
+Learn about our [AI Infrastructure Stack](/articles/ai-infrastructure-stack) for architectural context of where Kubernetes fits. Compare orchestration approaches in [Best MLOps Tools](/articles/best-mlops-tools) guide.
+
+Explore our [GPU Cloud Providers](/gpus) to find Kubernetes-ready infrastructure.
+
+## Sources
+
+- Kubernetes Official Documentation (2026)
+- KubeFlow Project Documentation (2026)
+- Ray Documentation (2026)
+- NVIDIA GPU Device Plugin Specification (2026)
+- NVIDIA GPU Operator Helm Charts (2026)
+- Kubernetes Best Practices Guides (2026)

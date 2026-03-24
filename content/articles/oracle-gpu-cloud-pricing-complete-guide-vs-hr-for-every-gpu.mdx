@@ -1,0 +1,169 @@
+---
+title: 'Oracle GPU Cloud Pricing: Complete Guide vs Hourly Rates for Every GPU'
+slug: oracle-gpu-cloud-pricing-complete-guide-vs-hr-for-every-gpu
+description: >-
+  Complete breakdown of Oracle Cloud GPU pricing. Analyze pay-as-you-go rates,
+  reserved instances, and cost optimization strategies for AI and HPC workloads.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Pricing
+---
+## Contents
+
+- [Overview](#overview)
+- [Oracle GPU Pricing Structure](#oracle-gpu-pricing-structure)
+- [Instance Types and Pricing](#instance-types-and-pricing)
+- [Cost Optimization and Deployment Strategies](#cost-optimization-and-deployment-strategies)
+- [Oracle's Production Positioning](#oracles-production-positioning)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## Overview
+
+Oracle sells GPUs like their database team sells licenses: long-term commitments with steep discounts. If teams can lock in, the math works. Spot pricing? They barely offer it.
+
+## Oracle GPU Pricing Structure
+
+Oracle's pricing model is straightforward: higher list price, massive discounts if teams commit long-term. On-demand is just the sticker price.
+
+### On-Demand Pricing
+
+Pay by the hour. Compute, storage, and bandwidth all separate line items. Total bill gets messy fast.
+
+GPU rates: $2.50-$5.50/hour depending on the GPU and instance size. Some instance families add per-GB memory charges on top.
+
+### Committed Use Discounts
+
+Lock in for 1 or 3 years, get 25-50% off. Works great if the workload is stable and predictable.
+
+Compare to [AWS GPU pricing](/articles/aws-vs-azure-gpu-pricing) - Oracle's discounts are competitive. The tradeoff: you're locked in, no flexibility.
+
+### Always Free Tier
+
+Oracle offers free GPU access for dev and testing. Actual limits exist (not production-scale). Decent for prototyping.
+
+## Instance Types and Pricing
+
+### GPU Compute Shapes
+
+Oracle's GPU instances include:
+
+**A100 GPUs**: 1, 2, 4, or 8 GPU configs. On-demand: $3.20/hour per GPU. The 80GB variants hit 1935GB/sec memory bandwidth. Good for transformer training at 8-16 batch sizes per GPU. Scale to hundreds of GPUs via Oracle's Compute Cluster Networking.
+
+**H100 GPUs**: Scarce. $4.50-5.20/hour. Oracle gatekeeps access — approval is required unless you're an existing Oracle customer. Committed-use customers get priority queues.
+
+**V100 GPUs**: The budget tier. $1.80-2.20/hour (30-40% cheaper than H100). Good for inference on smaller models (under 13B). Downside: 16GB VRAM limits batch size and model size severely.
+
+Lambda's H100 SXM: $2.49/hour. Oracle: $5.00/hour. Oracle is significantly pricier on H100. Oracle's A100 at $3.20/hour is more competitive but still above many specialist providers.
+
+### Networking Costs and Cluster Performance
+
+Oracle's egress bandwidth pricing: $0.0085-$0.50/GB depending on destination. Same-region: $0.01/GB. Cross-region NA: $0.02/GB. International: $0.05-0.50/GB.
+
+Networking costs balloon for multi-region setups. 50TB/month inter-region? That's $1,000-2,500/month in bandwidth alone. Budget for it.
+
+Oracle's Compute Cluster Networking is their killer feature: 400Gbps dedicated fabric, guaranteed. AWS degrades per-node bandwidth as clusters scale. Oracle keeps 400Gbps consistent.
+
+8-GPU cluster networking:
+- Oracle: 400Gbps dedicated fabric
+- AWS placement groups: ~40Gbps per node (degrades)
+- CoreWeave: 400Gbps per node
+- Lambda: 10-25Gbps per node (variable)
+
+For distributed training (8+ GPUs), Oracle's network advantage pays for itself vs cheaper providers.
+
+## Cost Optimization and Deployment Strategies
+
+### Instance Right-Sizing and Economies of Scale
+
+Bigger configs are cheaper per-GPU. Single A100: $3.20/hour. Eight A100s: $24/hour total ($3.00/GPU-hour). That's 6% cheaper per unit.
+
+Add commitment discounts. Single A100 on-demand: $28,032/year. Eight A100s with 1-year commitment: $172,800/year ($21.60/hour = $2.70/GPU-hour). That's 41% cheaper per GPU annually.
+
+### Reserved Instance Strategy and Break-Even Analysis
+
+1-year reservations cut costs ~30%. Break-even: 4-6 months of continuous usage.
+
+Example: 2,000 GPU-hours on A100.
+- On-demand: 2,000 × $3.20 = $6,400
+- 1-year reserved (30% off): Annual cost $28,032 × 0.70 = $19,622.40
+- Per-hour: $2.24/hour
+
+Run for 6 months then stop? $9,811.20 (still beats on-demand's $14,040).
+
+3-year commitments: Additional 10-15% off, but cancellation costs 50% of remaining value. Cancel a $30,000 commitment after 18 months? Developers lose $15,000. Not worth it unless you're sure.
+
+### Storage and Total Cost of Ownership
+
+Block storage: $0.0255/GB-month. High-perf SSD: $0.50+/GB-month. Pick carefully.
+
+1TB dataset on standard storage: $25.50/month. On SSD? $500/month. Checkpoints and outputs add up. 2TB working storage for training? $600-800/month in storage alone.
+
+Budget 20-30% extra for storage in production systems.
+
+## Oracle's Production Positioning
+
+### Traditional Production Appeal
+
+Oracle's pitch: Use the GPUs alongside the existing database and middleware. One bill, one vendor, simpler procurement. Appeals to large teams with complex approvals.
+
+Compare to [AWS GPU pricing](/articles/aws-vs-azure-gpu-pricing). Oracle requires upfront commitment, with no surprises month-to-month. Teams that value predictability over flexibility will find Oracle appealing.
+
+### Compute Cluster Networking Differentiation
+
+Oracle's 400Gbps fabric doesn't degrade with scale. Most providers do. That justifies the premium for distributed training.
+
+16+ GPU clusters benefit most:
+- 20-30% faster training vs commodity networking
+- Simpler distributed training setup
+- Better scaling past 8 GPUs
+
+Research teams and AI companies care about this. Training time = innovation speed.
+
+### A100 Cost Advantage for Mid-Market
+
+Oracle's A100: $3.20/hour. Beats most competitors for non-H100 work. Good for 7-13B model training.
+
+Provider comparison for A100:
+- Oracle: $3.20/hour
+- [Lambda](/articles/lambda-labs-gpu-pricing): ~$2.00-2.50/hour (A100)
+- [AWS](/articles/aws-vs-azure-gpu-pricing): $3.65-4.10/hour
+- [Nebius](/articles/nebius-vs-coreweave-gpu-cloud-pricing-performance-compared): $2.10-2.50/hour
+
+Oracle sits in the middle: cheaper than AWS, more reliable than budget providers.
+
+## FAQ
+
+**Q: Can I mix instance types in a single cluster?**
+A: Oracle Compute Cluster Networking supports heterogeneous GPU mixes but with limitations. Network performance optimizations apply only to identical instance types.
+
+**Q: What's Oracle's GPU availability across regions?**
+A: Availability varies significantly by region. US East regions maintain the most consistent GPU inventory. APAC regions experience frequent stockouts.
+
+**Q: Does Oracle offer spot pricing?**
+A: Yes. Preemptible instances run at 50-70% discounts but can be terminated with minutes notice. Suitable for fault-tolerant batch workloads only.
+
+**Q: How does network performance scale with GPU count?**
+A: Oracle's Compute Cluster Networking guarantees consistent 400Gbps fabric regardless of scale. This differentiates from competitors with degrading per-node bandwidth.
+
+**Q: What's the penalty for mid-contract termination?**
+A: Terminating committed-use instances before the contract expires incurs a 50% cancellation fee on remaining value. Always verify business continuity before committing.
+
+## Related Resources
+
+- [GPU Pricing Comparison](/gpus)
+- [AWS GPU Pricing](/articles/aws-vs-azure-gpu-pricing)
+- [NVIDIA H100 Price Guide](/articles/nvidia-h100-price)
+- [NVIDIA A100 Price Guide](/articles/nvidia-a100-price)
+- [Azure GPU Pricing](/articles/aws-vs-azure-gpu-pricing)
+
+## Sources
+
+- Oracle Cloud Infrastructure pricing documentation (as of March 2026)
+- GPU compute instance specifications
+- Industry cloud pricing benchmarks
+- DeployBase platform analysis

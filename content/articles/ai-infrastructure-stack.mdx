@@ -1,0 +1,691 @@
+---
+title: 'Best AI Infrastructure Stack 2026: Complete Guide'
+slug: ai-infrastructure-stack
+description: >-
+  AI infrastructure stack 2026: compute, orchestration, serving, monitoring,
+  data, deployment. GPU to production setup with cost optimization strategies.
+date: '2026-03-22'
+author: DeployBase
+category: Guide
+keywords:
+  - ai infrastructure stack
+  - ai infrastructure tools
+  - llm infrastructure
+  - ml infrastructure
+  - ai platform stack
+---
+## Contents
+
+- [AI Infrastructure Stack: Compute Layer](#ai-infrastructure-stack-compute-layer)
+- [Orchestration Layer](#orchestration-layer)
+- [Model Serving Layer](#model-serving-layer)
+- [Monitoring and Observability](#monitoring-and-observability)
+- [Data and Vector Databases](#data-and-vector-databases)
+- [Deployment and DevOps](#deployment-and-devops)
+- [Infrastructure as Code](#infrastructure-as-code)
+- [Emerging Trends in 2026](#emerging-trends-in-2026)
+- [Cost Management](#cost-management)
+- [Real-World Architecture](#real-world-architecture)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## AI Infrastructure Stack: Compute Layer
+
+### GPU Providers
+
+The compute layer is the foundation. Models run on GPUs from major cloud providers. See [infrastructure companies comparison](/articles/ai-infrastructure-companies) for detailed analysis.
+
+**AWS EC2 GPU Instances**
+- Options: p3dn (V100, A100), p4d (A100), p5 (H100)
+- Pricing: $13-50/hr for single GPU
+- Advantages: Integration with AWS ecosystem, RI discounts
+- Disadvantages: Premium pricing relative to alternatives
+- Best for: Teams already in AWS, needing close integration
+
+**RunPod**
+- Options: RTX 4090 ($0.34/hr), A100 ($1.19/hr), H100 ($1.99/hr), B200 ($5.98/hr) as of March 2026
+- Pricing: 60-80% cheaper than AWS
+- Advantages: Best cost, easy access, no contracts
+- Disadvantages: Spot availability variance, less feature-rich
+- Best for: Cost-conscious teams, research, fine-tuning
+
+**Lambda**
+- Options: A10, A100, H100, GH200 as of March 2026
+- Pricing: A100 PCIe at $1.48/hr
+- Advantages: Reliable, good availability, US-based
+- Disadvantages: 20-30% premium over RunPod
+- Best for: Teams valuing reliability over absolute cost
+
+**CoreWeave**
+- Options: Multi-GPU pods (8x A100, 8x H100) as of March 2026
+- Pricing: $21.60/hr for 8x A100
+- Advantages: Designed for AI workloads, good multi-GPU support
+- Disadvantages: Large minimum commitment
+- Best for: High-scale distributed training
+
+**On-Premise Clusters**
+- Options: Build with consumer/production GPUs
+- Pricing: Capital expense (amortize over 3-5 years)
+- Advantages: Long-term cost savings if high utilization
+- Disadvantages: Maintenance burden, upfront cost
+- Best for: Established companies with consistent workloads
+
+### GPU Selection Criteria
+
+Choose based on workload type and budget:
+
+**For Inference (LLM APIs):**
+- L40S (48GB VRAM, good bandwidth): $0.79/hr on RunPod
+- A100 (40GB VRAM): $1.19/hr on RunPod
+- Cost for 1M requests (2k tokens each): $15-30
+
+**For Fine-Tuning:**
+- RTX 4090 (24GB, budget): $0.34/hr
+- L40S (48GB, balanced): $0.79/hr
+- A100 (40GB, speed): $1.19/hr
+
+**For Training:**
+- H100 (80GB, speed matters): $1.99-2.86/hr
+- A100 (40GB, parallel): $1.19-1.39/hr
+
+**For Real-Time Inference:**
+- Optimize latency over cost
+- H100 or H200 for under 100ms SLA
+- A100 for under 200ms SLA
+
+## Orchestration Layer
+
+### Kubernetes
+
+Kubernetes is the default orchestration platform for production AI workloads.
+
+**Core Components:**
+- Pods: Smallest deployable unit (container)
+- Services: Expose pods as network endpoints
+- Deployments: Manage pod replicas
+- StatefulSets: For stateful workloads (databases, caches)
+
+**For AI Workloads:**
+- NVIDIA GPU operator: Manages GPU drivers, container runtime
+- KubeFlow: Machine learning workflows on Kubernetes
+- Airflow (via Kubernetes executor): DAG orchestration
+
+**Advantages:**
+- Industry standard
+- Multi-cloud portability
+- Mature ecosystem
+- Self-healing, auto-scaling
+
+**Disadvantages:**
+- Operational complexity (requires expertise)
+- Overhead for simple workloads
+- Resource consumption
+
+**Cost implications (March 2026):**
+- Control plane: $0.10/hr (managed EKS, GKE, AKS)
+- Worker nodes: Pay for underlying instances
+- GPU support: No overhead, just pay for node
+
+### Ray
+
+Ray handles distributed computing without Kubernetes complexity.
+
+**Core Concepts:**
+- Ray Tasks: Remote functions executed in parallel
+- Ray Actors: Stateful worker processes
+- Ray Tune: Hyperparameter search distributed
+- Ray Serve: Model serving framework
+
+**Example Ray Task:**
+```python
+import ray
+
+@ray.remote
+def process_batch(batch):
+    return expensive_processing(batch)
+
+futures = [process_batch.remote(batch) for batch in batches]
+results = ray.get(futures)
+```
+
+**Advantages:**
+- Simple Python API
+- No container or Kubernetes knowledge needed
+- Automatic scaling on cloud
+- Great for data science workflows
+
+**Disadvantages:**
+- Less mature than Kubernetes for production
+- Smaller ecosystem
+- Limited multi-cloud support
+
+**Cost:** Same as underlying compute, plus Ray cluster management overhead (minimal).
+
+### Apache Airflow
+
+Airflow manages DAG-based workflows.
+
+**Use Cases:**
+- Training pipelines: Data prep → training → evaluation → deployment
+- Batch inference: Scheduled processing of datasets
+- Data pipelines: Extract, transform, load operations
+
+**Advantages:**
+- DAG visualization
+- Scheduling and retries
+- Integrations with 100+ services
+- Rich ecosystem
+
+**Disadvantages:**
+- Designed for batch, not real-time
+- Operational overhead
+- Can be slow for high-frequency tasks
+
+**Cost:** Self-hosted (labor) or managed (Astronomer at ~$500+/month).
+
+## Model Serving Layer
+
+### vLLM
+
+vLLM is the fastest inference engine for LLMs.
+
+**Key Features:**
+- Paged attention (memory efficient)
+- Continuous batching (high throughput)
+- Quantization support (GPTQ, AWQ)
+- LoRA support
+- OpenAI API compatible
+
+**Performance (LLM 7B on A100, March 2026):**
+- Throughput: 8,000 tokens/sec
+- Latency P50: 45ms
+- Latency P99: 200ms
+
+**Example Deployment:**
+```bash
+python -m vllm.entrypoints.openai.api_server \
+  --model meta-llama/Llama-2-7b-hf \
+  --tensor-parallel-size 1 \
+  --gpu-memory-utilization 0.8
+```
+
+**Advantages:**
+- Fastest open-source option
+- Simple to deploy
+- API compatibility with OpenAI
+
+**Disadvantages:**
+- VRAM hungry (requires optimization for small GPUs)
+- Limited to LLM inference
+
+**Pricing on RunPod (March 2026):**
+- L40S: $0.79/hr handles ~8,000 req/day of 7B inference
+- Cost per 1M tokens: $0.10
+
+### Text Generation Inference (TGI)
+
+TGI is Hugging Face's inference server, alternative to vLLM.
+
+**Key Features:**
+- Optimized for transformers
+- Streaming support
+- Quantization (bitsandbytes, GPTQ)
+- Batching
+- Watermarking support
+
+**Performance (LLM 7B on A100):**
+- Throughput: 6,500 tokens/sec (slightly slower than vLLM)
+- Latency P50: 60ms
+- Similar features to vLLM
+
+**Advantages:**
+- Hugging Face ecosystem integration
+- Good documentation
+- Watermarking (important for some orgs)
+
+**Disadvantages:**
+- Slightly slower than vLLM
+- Less customizable
+
+## Monitoring and Observability
+
+### Weights & Biases (W&B)
+
+W&B tracks experiments, models, and production performance.
+
+**Core Features:**
+- Experiment tracking (logs, metrics, artifacts)
+- Model registry (versioning, lineage)
+- Alerts and dashboards
+- Production monitoring
+
+**Pricing (March 2026):**
+- Free: 1 project, 1TB storage
+- Starter: $12/month per project
+- Enterprise: Custom pricing
+
+**Typical Setup:**
+```python
+import wandb
+
+wandb.init(project="llm-experiments")
+wandb.log({"loss": 0.5, "accuracy": 0.92})
+wandb.log_model(model, "llm-v1")
+```
+
+**Best for:** Research, small teams, model development.
+
+### Datadog
+
+Datadog monitors infrastructure and application performance.
+
+**Core Features:**
+- Infrastructure monitoring (CPU, memory, GPU)
+- APM (application performance monitoring)
+- Log aggregation
+- Alerting
+
+**Pricing (March 2026):**
+- Infrastructure: $0.03 per hour per host
+- APM: $0.02 per traced request
+- Custom metrics: $0.05 per metric
+
+**Best for:** Large deployments, production monitoring, security.
+
+### Prometheus + Grafana
+
+Open-source alternative to Datadog.
+
+**Components:**
+- Prometheus: Time-series database, scrapes metrics
+- Grafana: Dashboards and visualization
+- Alertmanager: Alert routing
+
+**Advantages:**
+- Free and open-source
+- Community-driven
+- Works on-premise or cloud
+
+**Disadvantages:**
+- Requires operational expertise
+- Log aggregation requires Loki or similar
+- No managed offering (except Grafana Cloud)
+
+**Cost:** Self-hosted labor (~2 hrs/month per engineer for 50-person team).
+
+### Key Metrics to Monitor
+
+**GPU Metrics:**
+- GPU utilization (aim for 70-95%)
+- Memory usage (detect OOMs early)
+- Temperature (prevent throttling)
+
+**Model Metrics:**
+- Latency P50, P95, P99 (SLA compliance)
+- Throughput (requests/sec)
+- Error rate
+
+**Cost Metrics:**
+- Cost per inference
+- Cost per 1M tokens
+- Utilization cost ratio
+
+## Data and Vector Databases
+
+### Vector Databases
+
+Vector databases store embeddings for semantic search.
+
+**Pinecone**
+- Managed service, easiest to use
+- Pricing: $0.60 per pod per month + compute
+- Scales to billions of vectors
+- Best for: Teams wanting zero ops
+
+**Weaviate**
+- Open-source or managed cloud
+- Pricing: Self-hosted free, cloud from $0/month (free tier)
+- HNSW and other indexing algorithms
+- Best for: Custom deployments, full control
+
+**Milvus**
+- Open-source, cloud available
+- Pricing: Self-hosted free, cloud from $100/month
+- Supports multiple indexing strategies
+- Best for: Scale-out deployments
+
+**Chroma**
+- Lightweight, easy local testing
+- Pricing: Open-source free
+- Simple API
+- Best for: Development and small deployments
+
+**Comparison (March 2026):**
+
+| DB | Setup Time | Scale | Cost | Query Latency |
+|-----|----------|-------|------|---|
+| Pinecone | 5 min | 10B+ | $$$$ | 50ms |
+| Weaviate | 30 min | 1B | $$ | 100ms |
+| Milvus | 1 hour | 100M | $ | 80ms |
+| Chroma | 1 min | 1M | Free | 200ms |
+
+### Data Pipelines
+
+**DLT (Dataloading Tool)**
+- Lightweight Python library
+- ELT (extract, load, transform)
+- No ops requirement
+- Cost: Free, open-source
+
+**Airbyte**
+- 300+ pre-built connectors
+- Cloud or self-hosted
+- Pricing: Free up to 5 sources, $0.01 per GB above
+- Complexity: Medium
+
+**DBT (Data Build Tool)**
+- SQL-based transformation
+- Works with data warehouse
+- Community free, Cloud $1+ per run
+- Best for: Analytics, not real-time
+
+## Deployment and DevOps
+
+### Container Orchestration
+
+**Kubernetes** (covered above): Production standard for large-scale.
+
+**Docker Compose**: Development and small production.
+
+**ECS (Elastic Container Service)**: AWS-native alternative to Kubernetes.
+- Advantages: AWS integration, simpler than Kubernetes
+- Disadvantages: AWS-only
+- Cost: No overhead, just pay for instances
+
+**Modal**: Serverless compute for Python.
+- Advantages: No infrastructure management, auto-scaling
+- Disadvantages: 20-30% compute premium
+- Cost: $0.30 per GPU hour (vs $0.34 for RunPod RTX 4090)
+- Best for: Prototyping, low-volume inference
+
+### CI/CD Pipelines
+
+**GitHub Actions**: Free with code repo.
+- Best for: GitHub users, simple workflows
+- Limitations: 6-hour timeout per job
+- Cost: Free for public repos, $0.008/min for private
+
+**GitLab CI/CD**: Alternative to GitHub Actions.
+- Similar features, good container support
+- Pricing: Free tier available
+
+**Jenkins**: Self-hosted, highly customizable.
+- Open-source, infinite flexibility
+- Operational burden
+
+**Typical AI Pipeline:**
+```yaml
+name: Model Training and Deployment
+on: [push]
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run training on GPU
+        run: python train.py
+      - name: Upload model
+        run: aws s3 cp model.pkl s3://bucket/
+
+  test:
+    needs: train
+    runs-on: ubuntu-latest
+    steps:
+      - name: Load model and test
+        run: python test.py
+
+  deploy:
+    needs: test
+    if: success()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to production
+        run: ./deploy.sh
+```
+
+## Infrastructure as Code
+
+### Terraform
+
+Terraform provisions cloud resources declaratively.
+
+**Example: AWS GPU Instance**
+```hcl
+resource "aws_instance" "gpu_worker" {
+  ami           = "ami-0c55b159cbfafe1f0"
+  instance_type = "p3.2xlarge"
+
+  tags = {
+    Name = "AI-Training-Node"
+  }
+}
+```
+
+**Advantages:**
+- Code version control for infrastructure
+- Reproducible deployments
+- Multi-cloud support
+
+**Cost:** Free tool, labor for maintenance.
+
+### Pulumi
+
+Python-based infrastructure code (alternative to Terraform).
+
+**Example:**
+```python
+import pulumi
+import pulumi_aws as aws
+
+instance = aws.ec2.Instance("gpu-node",
+    ami="ami-0c55b159cbfafe1f0",
+    instance_type="p3.2xlarge")
+
+pulumi.export("instance_id", instance.id)
+```
+
+**Advantages:**
+- Write infra in Python
+- Better for complex logic
+
+**Disadvantages:**
+- Newer than Terraform
+- Smaller community
+
+## Emerging Trends in 2026
+
+### Consolidation of Inference Engines
+
+vLLM and TGI dominate. Both becoming feature-parity competitors. Choosing between them matters less than choosing well-maintained alternatives.
+
+New entrants (SGLang, LMDeploy) solve specific problems but lack vLLM's ecosystem. For production, stick with vLLM unless specific features (structured generation, multi-modal) justify alternatives.
+
+### AI Infrastructure as Commodity
+
+GPU providers commoditizing. RunPod, Lambda, CoreWeave, OVHCloud are nearly interchangeable on price. Differentiation shifts to:
+- Reliability and uptime
+- Regional availability
+- Integration with tooling
+- Customer support
+
+Teams can now negotiate volume deals with multiple providers simultaneously. Lock-in is decreasing.
+
+### Specialized Hardware
+
+Alternatives to NVIDIA proliferating. AMD MI300X, Cerebras, Graphcore offer different trade-offs. By 2026, expect:
+- AMD MI300X to capture 10-15% of GPU inference market
+- Startups (Cerebras, Graphcore) to capture 5% for specialized workloads
+- NVIDIA maintaining 75-80% due to software ecosystem
+
+For new projects, standardize on NVIDIA to avoid software headaches. Revisit in 2027.
+
+### Multi-Cloud Strategy
+
+Forward-looking teams use multi-cloud:
+- AWS for integration with existing infrastructure
+- GCP for TPU access (training)
+- RunPod/Lambda for cost-optimized inference
+
+This reduces vendor lock-in but increases operational complexity. Most teams aren't ready for multi-cloud.
+
+## Cost Management
+
+### Cost Optimization Strategies
+
+**Strategy 1: Right-size compute**
+- Monitor actual GPU utilization
+- Use smaller GPUs for non-critical workloads
+- Shift batch jobs to cheaper providers (RunPod vs Lambda)
+
+**Strategy 2: Use spot instances**
+- 50-70% discount on cloud GPUs
+- Tolerate interruptions for training
+- Not suitable for production serving
+
+**Strategy 3: Reserve capacity**
+- AWS reserved instances: 30-40% discount
+- RunPod reserved: similar discounts
+- Break-even: 6-12 months of usage
+
+**Strategy 4: Optimize models**
+- Quantization: 4x smaller models, similar accuracy
+- Distillation: Compress models to 1/10 size
+- Sparsification: Remove low-importance weights
+
+**Cost Example:**
+A startup trains 10 7B models weekly:
+- On-demand H100: 10 × 10 hours × $2.69/hr = $269
+- Reserved H100: 10 × 10 hours × $1.61/hr = $161
+- Using LoRA on L40S: 10 × 8 hours × $0.79/hr = $63
+
+Reserved+LoRA saves $206/week ($10,700/year).
+
+### Billing Automation
+
+**Tools:**
+- Kubecost: Kubernetes cost visibility
+- Infracost: IaC cost estimation
+- Cloud Cost APIs: AWS, GCP, Azure billing integrations
+
+**Setup:**
+```bash
+kubectl create namespace kubecost
+helm install kubecost kubecost/cost-analyzer \
+  -n kubecost --create-namespace
+```
+
+## Real-World Architecture
+
+### Small Startup (20 people)
+
+**Stack:**
+- Compute: RunPod (spot instances for training, on-demand for inference)
+- Orchestration: Docker Compose for simplicity, Ray for complex workflows
+- Serving: vLLM on L40S GPUs ($0.79/hr each)
+- Monitoring: Weights & Biases free tier + custom Prometheus
+- Data: Chroma for embeddings, PostgreSQL for metadata
+- Deployment: GitHub Actions + manual Kubernetes manifests
+- Cost: $2,000-3,000/month
+
+**Trade-offs:**
+- Manual ops work, but acceptable at this scale
+- Lower latency guarantees
+- Easy to pivot technology choices
+
+### Mid-Size Company (100 people)
+
+**Stack:**
+- Compute: Mix of AWS reserved instances + RunPod spot
+- Orchestration: Kubernetes (EKS)
+- Serving: vLLM + custom model serving
+- Monitoring: Datadog
+- Data: Pinecone for vectors, Snowflake for data warehouse
+- Deployment: GitLab CI/CD + automated Kubernetes rollouts
+- Cost: $50,000-100,000/month
+
+**Trade-offs:**
+- Dedicated DevOps/MLOps engineer required
+- Latency SLAs achievable
+- Complex, but scalable
+
+### Production (1000+ people)
+
+**Stack:**
+- Compute: Private data center + multi-cloud (AWS, GCP, Azure)
+- Orchestration: Kubernetes across regions
+- Serving: Custom inference engine + vLLM
+- Monitoring: Datadog + internal observability
+- Data: Multiple vector DBs, proprietary data platform
+- Deployment: CI/CD with approval workflows, canary deployments
+- Cost: $1M+/month
+
+**Trade-offs:**
+- Complex, specialized teams
+- Multi-region resilience
+- Custom optimizations justified
+
+## FAQ
+
+**Q: Should I use Kubernetes or keep it simple?**
+
+Start with Docker Compose. Move to Kubernetes when you have 5+ microservices or need auto-scaling across multiple machines.
+
+**Q: Is vLLM or TGI better?**
+
+vLLM is slightly faster (8k vs 6.5k tokens/sec). Both work well. Choose based on ecosystem preference (Hugging Face vs standalone).
+
+**Q: What monitoring do I need from day one?**
+
+GPU utilization and error rates. Expand to latency percentiles, cost per inference, and model-specific metrics as you scale.
+
+**Q: Should I build or buy vector DB?**
+
+Use existing (Pinecone, Weaviate) for first 6 months. Build if search latency or cost becomes bottleneck.
+
+**Q: What's the minimum viable stack?**
+
+- Compute: RunPod GPU
+- Code: GitHub
+- Serving: vLLM or TGI
+- Monitoring: Print logs to stdout
+- Total cost: $100/month
+
+Scale as constraints appear.
+
+**Q: How often should I optimize costs?**
+
+Monthly. Set cost budgets per service. If 10% over budget, investigate. Track cost per inference to catch regressions.
+
+## Related Resources
+
+- [AI Infrastructure Companies](/articles/ai-infrastructure-companies)
+- [AI Infrastructure Stocks](/articles/ai-infrastructure-stocks)
+- [Best MLOps Tools](/articles/best-mlops-tools)
+- [Tools Comparison](/tools)
+
+## Sources
+
+- vLLM Documentation
+- HuggingFace TGI Documentation
+- Kubernetes Best Practices
+- Ray Documentation
+- Weights & Biases Pricing (March 2026)
+- Datadog Pricing (March 2026)
+- Cloud GPU Provider Pricing (March 2026)
+- NVIDIA GPU Operator Documentation
+- Open Source LLM Inference Benchmarks

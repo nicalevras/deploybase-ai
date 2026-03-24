@@ -1,0 +1,247 @@
+---
+title: 'Complete AI Tool Stack for Startups: From GPU to Production'
+slug: complete-ai-tool-stack-for-startups-from-gpu-to-production
+description: >-
+  Build production AI applications with this complete tool stack. See GPU
+  infrastructure, APIs, monitoring, and deployment tools with cost breakdowns.
+date: '2026-03-22'
+author: DeployBase
+category: AI Infrastructure
+keywords:
+  - AI tool stack
+  - startup infrastructure
+  - production deployment
+---
+
+## Contents
+
+- [Production AI Application Architecture](#production-ai-application-architecture)
+- [Compute Infrastructure Layer](#compute-infrastructure-layer)
+- [Model and API Layer](#model-and-api-layer)
+- [Application Framework](#application-framework)
+- [Deployment and Orchestration](#deployment-and-orchestration)
+- [Observability Layer](#observability-layer)
+- [Security and Compliance](#security-and-compliance)
+- [Cost Breakdown: Small Production System](#cost-breakdown-small-production-system)
+- [Cost Optimization Strategies](#cost-optimization-strategies)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Production AI Application Architecture
+
+Five layers: compute, models, app logic, deployment, observability. Pick each thoughtfully.
+
+Two paths: API-first (less ops), self-hosted (more control). Best approach: hybrid. APIs for core work, self-hosted for fine-tuning and cost control.
+
+## Compute Infrastructure Layer
+
+**Development and Testing**: RunPod RTX 4090 at $0.34/hour. This provides sufficient compute for prototyping most applications. Spin up on-demand instances during development, tear down when finished.
+
+Monthly cost estimate (40 development hours): $13.60
+
+**Production Inference**: CoreWeave H100 with reserved capacity. For sub-5M monthly API calls, single H100 provides sufficient throughput. H100 generates approximately 200 tokens/second, handling 2,000+ queries per hour.
+
+H100 reserved (1-year commitment): approximately $1,500/month
+Utilization-based cost: $0.05 per 1000 tokens
+
+**Fine-Tuning Operations**: Lambda at $2.49/hour (SXM). Reserve full hours only when actively training. A typical 70B model fine-tuning run completes in 4-6 hours.
+
+Fine-tuning cost estimate (8 fine-tuning runs monthly): $120/month
+
+See [RunPod GPU pricing](/articles/runpod-gpu-pricing), [CoreWeave GPU pricing](/articles/coreweave-gpu-pricing), and [Lambda GPU pricing](/articles/lambda-labs-gpu-pricing).
+
+## Model and API Layer
+
+**Primary LLM API**: Together AI Llama 3.1 70B for cost-conscious deployment. Pricing: $0.88/1M input tokens, $1.06/1M output tokens.
+
+For a chatbot processing 100K tokens daily (30M monthly):
+- Input tokens (70% of total): 21M tokens × $0.88 = $18.48
+- Output tokens (30% of total): 9M tokens × $1.06 = $9.54
+- Monthly cost: $27.92
+
+See [Together AI pricing](/articles/together-ai-pricing).
+
+**Specialized Tasks**: OpenAI GPT-3.5 Turbo for tasks requiring superior reasoning. Use sparingly, only for complex requests routed through capability detection.
+
+Estimated usage: 5M tokens monthly
+- Input cost: $2.50
+- Output cost: $7.50
+- Monthly cost: $10
+
+**Embeddings**: Open-source embeddings through Hugging Face or embed locally. Avoid API embeddings. MTEB benchmarks show open-source BGE-large-en matching commercial embeddings at zero cost.
+
+Hosting embeddings: Pinecone serverless (free tier for <1M vectors) or Weaviate self-hosted (free, open-source).
+
+## Application Framework
+
+**Backend Framework**: FastAPI for Python, demonstrates excellent performance and developer experience. AsyncIO support enables high-concurrency applications without multiprocessing complexity.
+
+Sample architecture:
+- FastAPI application server (2-4 instances)
+- Request queue (Redis)
+- Worker processes (Ray for distributed execution)
+- Cache layer (Redis for response caching)
+
+Deployment container image: 500MB typical. Storage cost negligible for small startups.
+
+**Frontend Framework**: React for web interfaces, React Native for mobile. Both use web technologies familiar to most engineering teams. Deployment cost: static assets on CloudFlare Pages (free tier sufficient for prototyping).
+
+**Database**: PostgreSQL for relational data, MongoDB for document storage. Both available free-tier on Cloud providers. PostGIS extension provides location capabilities if needed.
+
+Start with PostgreSQL. 10GB free tier (Heroku PostgreSQL or similar) handles 1M+ rows comfortably.
+
+## Deployment and Orchestration
+
+**Container Orchestration**: Kubernetes (k3s lightweight variant) or Docker Compose for smaller applications. Kubernetes adds operational overhead but scales to multi-region deployment.
+
+For sub-1M monthly API calls, Docker Compose provides sufficient orchestration. Scaling requires Kubernetes.
+
+**CI/CD Pipeline**: GitHub Actions (free for open-source, $0.008/minute compute). Link directly to repository. Typical build + test + deploy pipeline: 2-5 minutes per commit.
+
+Monthly cost estimate (50 deployments): $4-20
+
+**Monitoring and Observability**:
+- Application metrics: Prometheus (self-hosted, free)
+- Log aggregation: Loki for small-scale (free), Datadog for production ($15+/month)
+- APM (Application Performance Monitoring): Self-hosted Jaeger (free) or Datadog (commercial)
+
+Recommended stack for startups:
+- Prometheus + Grafana for metrics ($0/month self-hosted)
+- Loki for logs ($0/month self-hosted)
+- Sentry for error tracking ($0/month for hobby tier, $29/month production)
+
+Monthly cost: $0-29
+
+See [AWS GPU pricing](/articles/aws-vs-azure-gpu-pricing) for EC2 instance costs if self-hosting infrastructure.
+
+## Observability Layer
+
+**Request Tracing**: Implement request ID propagation across services. Log request ID with every event. This enables debugging production issues without accessing live systems.
+
+Sample implementation: OpenTelemetry libraries (free, open-source) emit traces to Jaeger (self-hosted) or commercial provider.
+
+**Error Tracking**: Sentry integrates with FastAPI with two lines of code. Captures stack traces, request context, and user information automatically.
+
+**Model Monitoring**: Track inference latency, token per second throughput, and model quality metrics. Log model input/output samples to detect data drift.
+
+Data drift detection requires holdout test set evaluation. Monthly evaluation of 1000 test cases ensures model quality remains stable.
+
+## Security and Compliance
+
+**API Key Management**: Use environment variables for development, secrets management for production. HashiCorp Vault (self-hosted, free) or AWS Secrets Manager ($0.40/secret/month).
+
+Rotate API keys quarterly. Implement automatic key rotation for OAuth tokens.
+
+**Data Privacy**: Implement field-level encryption for PII. PostgreSQL native encryption (pgcrypto extension) handles sensitive fields.
+
+For GDPR compliance, implement data deletion workflows. Document data retention policies explicitly.
+
+See [best-gpu-cloud-in-europe-gdpr-compliant-providers](/articles/best-gpu-cloud-in-europe-gdpr-compliant-providers) for compliance considerations.
+
+**Rate Limiting**: Implement API rate limiting (10 requests/second per user typical). Use Redis for distributed rate limiting across multiple servers.
+
+## Cost Breakdown: Small Production System
+
+**Monthly Operating Costs**
+
+Compute:
+- Development: $20
+- Production H100 reserved: $1,500
+- Fine-tuning: $120
+- Subtotal: $1,640
+
+APIs:
+- Together AI: $28
+- OpenAI: $10
+- Subtotal: $38
+
+Infrastructure:
+- Database (Heroku): $50
+- Cache (Redis Cloud): $15
+- Object storage (S3): $5
+- CDN (CloudFlare): $0 (free tier)
+- Subtotal: $70
+
+Deployment and Monitoring:
+- CI/CD: $10
+- Error tracking (Sentry): $29
+- Subtotal: $39
+
+**Total: $1,787/month**
+
+This supports:
+- 5M monthly inference tokens
+- 10,000 monthly API requests
+- 2-3 fine-tuning runs
+- Full-featured production application
+- 99%+ uptime
+
+## Cost Optimization Strategies
+
+**Caching**: Implement aggressive response caching. A RAG system processing similar queries repeatedly benefits from query-result caching.
+
+Cache hit rate 50%: Cut API costs 50%
+Cache hit rate 70%: Cut API costs 70%
+
+Redis cost: $15/month for 5GB. Caching investment pays back within days on high-volume applications.
+
+**Batch Processing**: Process multiple requests in batches rather than individually. Batch size 32 reduces per-token costs through batch size efficiency.
+
+Expected savings: 10-20% on inference costs.
+
+**Model Selection**: Start with Llama 3.1 8B instead of 70B. 8B runs on RTX 4090, 20x cheaper than H100. Only upgrade to 70B when capability gaps appear.
+
+Measured approach:
+- Week 1-2: Prototype on local RTX 4090
+- Week 3-4: Deploy 8B model on API
+- Month 2+: Upgrade to 70B only if benchmarks justify
+
+**Spot Instance Usage**: Use spot instances for batch processing and fine-tuning. H100 spot instances cost 50% less than on-demand.
+
+Batch processing with 2-minute interruption tolerance: Use spot instances. Production inference with SLA: Use reserved capacity.
+
+## FAQ
+
+**How do I choose between self-hosted and API?**
+API for 0-5M monthly tokens: Lower total cost, less operational overhead.
+Self-hosted for 5M+ monthly tokens: Cost advantages justify operational complexity.
+Hybrid approach: APIs for general workloads, self-hosted for specialized/recurring tasks.
+
+**Should I use Kubernetes from day one?**
+No. Start with Docker Compose. Kubernetes adds 40-60 hours of learning curve and operational overhead. Migrate to Kubernetes only when you have >10K daily active users or multi-region requirements.
+
+**How do I handle model fine-tuning costs?**
+Fine-tune when specific domain data justifies cost. Measure baseline model performance first. A fine-tuning run costing $150 only makes sense if it improves metrics by 5%+.
+
+**What's the minimum viable production stack?**
+- 1 application server (FastAPI on VM)
+- 1 database (PostgreSQL)
+- 1 API provider (Together AI)
+- 1 monitoring tool (Sentry)
+- Total monthly cost: $100-200
+
+This handles up to 100K monthly API calls with acceptable latency.
+
+**How do I avoid runaway API costs?**
+Implement per-user rate limits. Monitor token usage daily. Set up alerts when daily cost exceeds threshold. Cap API spending programmatically if needed.
+
+**Can I run this stack entirely on free tiers?**
+For hobby projects, yes. Supabase (PostgreSQL free), Vercel (frontend free), Together AI (1M free tokens monthly), Sentry (free tier). Limitation: No self-hosted GPU compute (requires paid tier).
+
+## Related Resources
+
+- [Together AI Pricing](/articles/together-ai-pricing)
+- [OpenAI API Pricing](/articles/openai-pricing)
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [Lambda GPU Pricing](/articles/lambda-labs-gpu-pricing)
+- [CoreWeave GPU Pricing](/articles/coreweave-gpu-pricing)
+- [AWS GPU Pricing](/articles/aws-vs-azure-gpu-pricing)
+
+## Sources
+
+- FastAPI official documentation
+- Kubernetes best practices documentation
+- HashiCorp infrastructure tools documentation
+- Cloud provider pricing (March 2026)
+- Industry benchmarks for model inference latency

@@ -1,0 +1,350 @@
+---
+title: 'Lambda Labs GPU Pricing: 2026 Complete Pricing Guide'
+slug: lambda-labs-gpu-pricing
+description: >-
+  Lambda Labs GPU pricing 2026. A100 $1.48/hr, H100 PCIe $2.86, H100 SXM $2.49,
+  B200 $6.08/hr per hour. Managed cloud rental services. Updated March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Pricing
+keywords:
+  - lambda labs gpu pricing
+  - lambda gpu cost
+  - lambda cloud pricing
+  - lambda ai pricing
+  - lambda gpu rental
+---
+
+## Contents
+
+- [Lambda Labs GPU Pricing: Overview](#lambda-labs-gpu-pricing-overview)
+- [Lambda Pricing Summary](#lambda-pricing-summary)
+- [Single-GPU Pricing Tiers](#single-gpu-pricing-tiers)
+- [Architectural Distinctions](#architectural-distinctions)
+- [Multi-GPU Configurations](#multi-gpu-configurations)
+- [Pricing Comparison to Competitors](#pricing-comparison-to-competitors)
+- [Cost Analysis by Workload](#cost-analysis-by-workload)
+- [When Lambda Makes Sense](#when-lambda-makes-sense)
+- [Regional Infrastructure and Latency](#regional-infrastructure-and-latency)
+- [Backup and Disaster Recovery](#backup-and-disaster-recovery)
+- [Integration with ML Frameworks](#integration-with-ml-frameworks)
+- [Account Setup and Billing](#account-setup-and-billing)
+- [Performance Benchmarks](#performance-benchmarks)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Lambda Labs GPU Pricing: Overview
+
+Lambda Labs GPU pricing in 2026 spans consumer-grade (Quadro RTX 6000 at $0.58/hr) to latest production GPUs (B200 SXM at $6.08/hr). Lambda is positioned as the managed alternative to DIY spot markets. Pricing is fixed (no preemption risk), account setup is instant (within 5 minutes), and multi-GPU clusters scale easily. As of March 2026, Lambda's per-hour rates fall between [RunPod](/articles/runpod-gpu-pricing) spot pricing (cheapest option) and [CoreWeave](/articles/coreweave-gpu-pricing) (most expensive dedicated option). Lambda's sweet spot: teams needing guaranteed uptime, simple provisioning, and flexible hardware selection without CoreWeave's 8-GPU cluster minimums.
+
+---
+
+## Lambda Pricing Summary
+
+Lambda offers single-GPU and multi-GPU configurations with linear scaling (no bulk discount). Single GPUs rent on-demand at fixed hourly rates. Multi-GPU clusters (2x, 4x, 8x) apply volume pricing but scale per-GPU rate remains constant:
+
+- A100 PCIe: $1.48/hr single, scales to 8x at $1.48/hr per GPU
+- H100 PCIe: $2.86/hr single
+- H100 SXM: $2.49/hr single
+- B200 SXM: $6.08/hr single
+
+No spot pricing tier (Lambda's design philosophy). All Lambda rates are guaranteed (non-preemptible). No interruptions. Tradeoff: higher cost than RunPod spot, lower cost than CoreWeave.
+
+---
+
+## Single-GPU Pricing Tiers
+
+| GPU | VRAM | Price/hr | Monthly (730 hrs) | Annual | Best For |
+|-----|------|----------|------------------|--------|----------|
+| **Quadro RTX 6000** | 24GB | $0.58 | $423 | $5,084 | Legacy workloads, visualization |
+| **A10** | 24GB | $0.86 | $627 | $7,532 | Inference, lightweight tasks |
+| **RTX A6000** | 48GB | $0.92 | $671 | $8,052 | Rendering, single-model serving |
+| **A100 PCIe** | 40GB | $1.48 | $1,080 | $12,962 | Production inference, fine-tuning |
+| **A100 SXM** | 40GB | $1.48 | $1,080 | $12,962 | Distributed training baseline |
+| **GH200** | 96GB | $1.99 | $1,452 | $17,424 | Large model inference, CPU-GPU workloads |
+| **H100 PCIe** | 80GB | $2.86 | $2,088 | $25,056 | High-performance inference, training |
+| **H100 SXM** | 80GB | $2.49 | $1,818 | $21,812 | Distributed training standard |
+| **B200 SXM** | 192GB | $6.08 | $4,438 | $53,256 | Frontier model training, dense inference |
+
+Data as of March 2026. All prices in USD. Monthly cost assumes 730 hours of continuous uptime (24/7 × 365 / 12). Annual extrapolation.
+
+---
+
+## Architectural Distinctions
+
+### Legacy Professional GPUs ($0.58-$0.92/hr)
+
+Quadro RTX 6000 ($0.58/hr) and RTX A6000 ($0.92/hr) target visualization, rendering, and lightweight inference. 24-48GB VRAM. Not optimal for LLM training or heavy tensor operations, but serviceable for single-model inference and traditional ML workloads.
+
+Quadro RTX 6000 is 12-year-old architecture (Turing). A6000 is newer (Ampere, 2021) but still less efficient than A100 for AI workloads due to GDDR6 memory (vs HBM2e). When to use: graphics rendering pipelines, CAD rendering in the cloud, legacy machine learning models. Avoid for LLM work.
+
+### Data Center Standard: A100 ($1.48/hr)
+
+A100 PCIe and A100 SXM are functionally identical on Lambda (both $1.48/hr). 40GB HBM2e memory (vs 80GB on newer variants). Proven architecture (2020). Most cost-effective for inference, fine-tuning, and production training of models under 70B parameters.
+
+PCIe variant: single-GPU deployments, heterogeneous setups, low-latency inference. Fits standard PCIe slots in existing infrastructure.
+
+SXM variant: multi-GPU training, NVLink interconnect support (600 GB/s per GPU). Distributed training baseline. 2-8x A100 SXM clusters train models from 13B to 70B efficiently.
+
+Monthly cost at full utilization: $1,080. Annual: $12,962. Breakeven against H100 (2.8x faster) depends on workload throughput value. For cost-sensitive teams, A100 remains the standard.
+
+### Production Standard: GH200 ($1.99/hr)
+
+GH200 is NVIDIA's Grace Hopper Superchip: CPU-GPU integrated package. 96GB HBM3e memory (25GB more than A100 PCIe). $1.99/hr on Lambda. Ideal for inference workloads that benefit from GPU-CPU collaboration (custom kernels, data preprocessing on CPU cores, heterogeneous compute).
+
+Faster than A100 for LLM inference due to HBM3e bandwidth and ARM CPU support. Slower than H100 PCIe ($2.86/hr) on dense tensor operations. Use case: companies optimizing inference latency for 70B+ models while handling CPU-intensive preprocessing (tokenization, post-processing, logging).
+
+### High-Performance Training: H100 PCIe and SXM ($2.49-$2.86/hr)
+
+H100 PCIe: $2.86/hr. Fits standard PCIe slots. Works in heterogeneous server builds. Best for single-GPU inference and small training clusters (2-4 GPUs). Bandwidth ceiling: 2.0 TB/s, sufficient for single-GPU batch inference at scales most applications require.
+
+H100 SXM: $2.49/hr. High-bandwidth NVLink 4 interconnect (900 GB/s per GPU). Required for multi-GPU training (8x+ GPUs) where gradient synchronization becomes the bottleneck. Critical for distributed training scaling.
+
+H100 throughput is 3x A100. Cost difference (PCIe to PCIe): 93% more per hour ($2.86 vs $1.48). Cost-per-task analysis with H100 SXM at $2.49/hr:
+
+**Fine-tuning 7B model (100K examples):**
+- A100: 20 hrs × $1.48 = $29.60
+- H100 SXM: 6 hrs × $2.49 = $14.94
+
+H100 SXM wins on cost-per-task (49% cheaper) due to speed advantage exceeding price premium.
+
+**Continuous inference (cost-per-token):**
+- A100: 280 tok/s, $1.48/hr = $0.0053/1000 tokens
+- H100 SXM: 850 tok/s, $2.49/hr = $0.0029/1000 tokens
+
+H100 is cheaper per token despite higher hourly rate.
+
+### Latest Hardware: B200 SXM ($6.08/hr)
+
+B200 with 192GB memory. Launched late 2025. $6.08/hr on Lambda. 2x the cost of H100 SXM. Throughput advantage: 40% higher on dense tensor operations (sparsity-aware). Training a 200B parameter model: B200 is substantially faster than 2x H100.
+
+Cost-effective if training 140B+ parameter models or running inference with massive batch sizes (batch 512+). Teams still evaluating B200 for ROI. Pricing may decrease as supply increases (typical for first-year hardware).
+
+---
+
+## Multi-GPU Configurations
+
+| Configuration | Count | Total VRAM | Price/hr | Per-GPU/hr | Best For |
+|---------------|-------|-----------|----------|-----------|----------|
+| A100 PCIe 2x | 2x | 80GB | $2.96 | $1.48 | Parallel inference, LoRA fine-tuning |
+| A100 PCIe 4x | 4x | 160GB | $5.92 | $1.48 | Multi-model serving, training 30B |
+| A100 SXM 2x | 2x | 80GB | $2.96 | $1.48 | Distributed training (small) |
+| A100 SXM 4x | 4x | 160GB | $5.92 | $1.48 | Distributed training (medium) |
+| A100 SXM 8x | 8x | 320GB | $11.84 | $1.48 | Training 30B-70B models |
+| A100 SXM 8x | 8x | 640GB | $16.48 | $2.06 | Higher-capacity training (note: 80GB variant) |
+| H100 SXM 2x | 2x | 160GB | $4.98 | $2.49 | Fast training (smaller models) |
+| H100 SXM 4x | 4x | 320GB | $9.96 | $2.49 | Fast training (medium-large) |
+| H100 SXM 8x | 8x | 640GB | $19.92 | $2.49 | Fast training (70B+) or benchmark |
+
+Multi-GPU clusters apply per-GPU discounts on aggregation. Pricing scales linearly (no bulk discount applied beyond the base rate). NVLink interconnect adds <$0.50/GPU/hr overhead vs standalone GPUs (negligible in most pricing tiers).
+
+Example: A100 8x SXM cluster costs $11.84/hr total = $1.48/hr per GPU. This is identical to renting 8 individual A100s ($1.48 × 8 = $11.84). Lambda doesn't penalize or reward cluster provisioning with bulk discounts.
+
+---
+
+## Pricing Comparison to Competitors
+
+| Provider | A100 | H100 PCIe | H100 SXM | B200 SXM |
+|----------|------|-----------|----------|----------|
+| **Lambda** | $1.48 | $2.86 | $2.49 | $6.08 |
+| **RunPod (Spot)** | $1.19 | $1.99 | $2.69 | $5.98 |
+| **RunPod (On-Demand)** | $2.10 | $3.51 | $4.76 | $10.57 |
+| **CoreWeave (8x cluster)** | $2.70 | $6.16 | $6.16 | $8.60 |
+
+Note: Lambda H100 SXM at $2.49/hr is single-instance pricing. CoreWeave H100 shown at $6.16/GPU reflects their 8x cluster-only model.
+
+Lambda vs RunPod: Lambda is 24-44% more expensive than RunPod spot (preemptible). RunPod's premium buys fault tolerance (checkpointing handles interruptions, typical 5-minute notice). Lambda's premium buys guaranteed uptime (suitable for continuous serving).
+
+Lambda vs CoreWeave: CoreWeave forces 8-GPU cluster minimums. Lambda offers single-GPU flexibility. For training clusters, CoreWeave per-GPU cost is cheaper only if comparing full cluster utilization. CoreWeave 8xA100 ($21.60/hr) vs Lambda 8xA100 SXM ($11.84/hr): CoreWeave is 83% more expensive. CoreWeave wins on infrastructure guarantees (single-tenancy, dedicated hardware, lower latency).
+
+---
+
+## Cost Analysis by Workload
+
+### Single Fine-Tuning Job (7B Model, LoRA)
+
+A100 route: 20 hours × $1.48/hr = $29.60
+H100 route: 6 hours × $2.86/hr = $17.16
+
+H100 is 42% cheaper per-task. Speed premium justifies the hourly cost.
+
+### Continuous Inference Serving (24/7)
+
+A100 annual cost (full-time): $1,080 × 12 = $12,960
+H100 SXM annual cost: $1,818 × 12 = $21,816
+
+A100 is 48% cheaper annually. If throughput requirements fit A100 (280 tok/s Llama 70B), use it. If throughput requires H100 (850 tok/s), H100 is mandatory. Cost-per-token favors H100 despite hourly premium.
+
+### Multi-GPU Training (4x H100 SXM)
+
+Lambda: 4x H100 SXM = $2.49 × 4 = $9.96/hr
+CoreWeave: 8x H100 only option = $49.24/hr (cannot order 4x)
+
+Lambda wins on flexibility. CoreWeave wins on single-tenancy infrastructure guarantees. For training timelines < 1 month, Lambda cost difference is negligible ($9.96/hr × 720 hrs = $7,171 vs $49.24/hr × 720 hrs = $35,453). CoreWeave savings = $28,282 annually, but requires 12+ month commitment.
+
+---
+
+## When Lambda Makes Sense
+
+### Development and Experimentation
+
+Fixed pricing with instant access. Spin up an A100 ($1.48/hr) for testing, kill it when done. No queues, no wait times. Budget a development session at $30-50/day instead of $100+ on CoreWeave. Iterate rapidly on model architectures, data, hyperparameters.
+
+### Small Teams with Varying Workloads
+
+Lambda's single-GPU flexibility suits teams alternating between inference, fine-tuning, and training. Scale from 1x A100 to 8x H100 without renegotiating contracts. Add/remove GPUs on-demand.
+
+### Cost-Conscious Inference Deployments
+
+A100 at $1.48/hr is price-efficient for inference. Serve models up to 70B at acceptable latency (2-3ms per token). Full-time annual cost is under $13k. Smaller GPU footprint than RunPod's spot pricing (when spot is preempted). Competitive with [RunPod](/articles/runpod-gpu-pricing) on-demand.
+
+### Multi-GPU Cluster Deployments
+
+H100 SXM cluster scaling: $2.49/GPU/hr for flexible 2x-8x configurations. Cheaper than CoreWeave ($6.16/GPU/hr) while maintaining high-bandwidth NVLink interconnect. No minimum 8-GPU commitment.
+
+### Production Inference with SLA
+
+Non-preemptible guarantee. Suitable for production inference services where interruptions break user sessions. RunPod spot is cheaper but subject to interruption. Lambda's fixed pricing provides uptime certainty.
+
+### Limitations
+
+Lambda's fixed pricing (no spot tier) increases costs vs RunPod spot. Setup can take 5-10 minutes (not instant). No support for exotic hardware (TPUs, AMD MI300, Intel Gaudi). Regional availability: limited compared to RunPod (US-focused).
+
+---
+
+## Regional Infrastructure and Latency
+
+Lambda operates data centers in US regions (Virginia, California). Cluster location is selected at booking time. Intra-cluster latency (multi-GPU within same region) is low (<1ms for communication between GPUs on same physical host).
+
+Cross-region latency: not applicable (clusters are region-locked). All GPUs in a cluster are in the same facility. This design choice simplifies operations and guarantees consistent performance (no variance from multi-region splits).
+
+Network egress charges apply for data downloads (standard cloud rates, ~$0.12/GB). For training workloads, most data is pre-uploaded; egress cost is minimal (only final model download).
+
+---
+
+## Backup and Disaster Recovery
+
+Lambda offers automated checkpoint storage to cloud (S3-compatible). Training jobs can save checkpoints every N minutes (configurable). If hardware fails or instance terminates unexpectedly, training can resume from latest checkpoint.
+
+Teams using checkpoint strategy mitigate risk of hardware failure or preemption. Checkpoint storage cost: ~$0.05/GB/month (standard S3 pricing). Monthly checkpoint backups for 100GB model: $5/month overhead.
+
+---
+
+## Integration with ML Frameworks
+
+Lambda provides pre-configured environments for PyTorch, TensorFlow, JAX. Standard Docker images include NVIDIA CUDA toolkit, cuDNN, cuBLAS. Custom Docker images supported (BYOD: bring the own Dockerfile).
+
+SSH + JupyterLab web interface for interactive development. Standard ML workflow: clone repo, install dependencies, launch training script.
+
+Inference deployment: Lambda provides vLLM integration (text generation optimized inference engine). Spin up inference pod, load model, serve via REST API. Latency and throughput competitive with specialty inference providers (RunPod Serverless).
+
+---
+
+## Account Setup and Billing
+
+Lambda Cloud accounts are created within 5 minutes. Credit card required. No trial credits (unlike RunPod's $25 free tier). Billing is hourly, minimum 1 hour charge per instance. Kill an instance after 10 minutes: pay for 1 hour.
+
+Reserved instances: contact Lambda sales for multi-month or annual discounts (typically 15-20% off standard rates). Standard on-demand rates shown here are not discounted.
+
+---
+
+## Performance Benchmarks
+
+### LLM Inference (Tokens Per Second)
+
+Benchmark: Serving Llama 2 70B on single GPU, batch size 32.
+
+**Lambda A100 PCIe (40GB):**
+- Throughput: 250-280 tok/s
+- Latency (P50): 2.5ms per token
+- Power: 280W
+
+**Lambda H100 PCIe (80GB):**
+- Throughput: 700-750 tok/s
+- Latency (P50): 1.2ms per token
+- Power: 350W
+
+**Lambda H100 SXM (80GB):**
+- Throughput: 750-800 tok/s (NVLink overhead minimal on single GPU)
+- Latency (P50): 1.1ms per token
+- Power: 370W
+
+H100 is 2.7x faster than A100 PCIe. Cost difference: 93% ($2.86 vs $1.48). Cost-per-token: H100 wins.
+
+### Fine-Tuning Throughput (Examples Per Second)
+
+Benchmark: LoRA fine-tuning Mistral 7B, batch size 32.
+
+**Lambda A100 PCIe:**
+- Throughput: 5,000 examples/hour
+- Cost: $1.48/hr = $0.000296 per example
+
+**Lambda H100 PCIe:**
+- Throughput: 15,000 examples/hour
+- Cost: $2.86/hr = $0.000191 per example
+
+H100 is 3x faster and 36% cheaper per example.
+
+---
+
+## FAQ
+
+**Does Lambda offer spot or preemptible instances?**
+
+No. All Lambda pricing is on-demand and guaranteed. No interruptions. Tradeoff: higher cost than RunPod spot instances. Budget 20-40% more than RunPod spot for guaranteed availability.
+
+**Can I reserve capacity for a discount?**
+
+Lambda offers discounts on longer commitments (3-month, 6-month, annual contracts). Contact sales for custom pricing. Standard on-demand rates shown here are list pricing.
+
+**How does Lambda compare to RunPod?**
+
+RunPod spot is 24-44% cheaper due to preemptible instances. Lambda is more reliable (no preemption) and has simpler account setup (no pod templates, instant provisioning). Both offer on-demand non-preemptible tiers. Choose RunPod for cost optimization. Choose Lambda for simplicity and guaranteed uptime.
+
+**Is GH200 worth the premium over A100?**
+
+GH200 at $1.99/hr vs A100 at $1.48/hr is a 34% premium. Throughput increase: 15-20% on inference (not 3x). GH200 shines for inference where CPU-GPU cooperation helps (custom kernels). For pure tensor operations, H100 is better value.
+
+**Can I run multiple jobs on one GPU?**
+
+Lambda's hardware supports GPU sharing (e.g., two inference services on one A100). Managed through container orchestration on Lambda's platform. Check Lambda's documentation for multi-workload setup (resource isolation, memory limits).
+
+**What is the minimum rental duration?**
+
+Lambda charges hourly. Minimum billable unit is 1 hour. Kill the instance after 10 minutes and pay for 1 hour. No per-minute billing. Cost-effective only if running workloads >30 minutes.
+
+**How do I access the GPU?**
+
+SSH + JupyterLab web interface. Linux (Ubuntu 20.04 or 22.04) or custom Docker image. Standard cloud GPU provisioning workflow. Clone repository, install dependencies, launch job.
+
+**Does Lambda offer sustained-use discounts?**
+
+Not automatically. Discounts require multi-month or annual commitments (contact sales). No automatic 15-30% sustained-use discount like AWS or GCP apply.
+
+**What is Lambda's uptime SLA?**
+
+Lambda publishes 99.95% uptime SLA for H100/A100 clusters. No downtime guarantee for cheaper GPUs (RTX A6000, A10). Outages are rare but possible (typically <1-2 hours per year).
+
+**Can I use Lambda for production model serving?**
+
+Yes. H100/A100 clusters are production-grade. Uptime SLA is guaranteed. Suitable for customer-facing inference services. RunPod spot is not suitable (interruptions break user sessions). Lambda is recommended.
+
+---
+
+## Related Resources
+
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [CoreWeave GPU Pricing](/articles/coreweave-gpu-pricing)
+- [Vast.ai GPU Pricing](/articles/vast-ai-pricing)
+- [GPU Pricing Comparison Dashboard](/gpus)
+
+---
+
+## Sources
+
+- [Lambda Cloud Pricing](https://lambda.ai/pricing)
+- [Lambda API Documentation](https://docs.lambda.ai)
+- [DeployBase GPU Pricing Tracker](/gpus) (March 2026 observations)

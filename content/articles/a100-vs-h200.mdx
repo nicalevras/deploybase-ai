@@ -1,0 +1,410 @@
+---
+title: 'A100 vs H200: Two-Generation GPU Jump, Pricing, and Performance'
+slug: a100-vs-h200
+description: >-
+  NVIDIA A100 vs H200 GPU comparison: 80GB vs 141GB memory, performance per
+  dollar, benchmarks, and cloud pricing. March 2026 rates. When to upgrade.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Comparison
+keywords:
+  - a100 vs h200
+  - a100 vs h200 performance
+  - h200 vs a100 price
+  - h200 gpu benchmarks
+  - a100 to h200 upgrade
+---
+
+## Contents
+
+- [A100 vs H200: Overview](#a100-vs-h200-overview)
+- [Architecture and Specifications](#architecture-and-specifications)
+- [Specifications Table](#specifications-table)
+- [Memory and Bandwidth](#memory-and-bandwidth)
+- [Performance Benchmarks](#performance-benchmarks)
+- [Pricing Comparison](#pricing-comparison)
+- [Cost Per Task Analysis](#cost-per-task-analysis)
+- [Training Workloads](#training-workloads)
+- [Inference Workloads](#inference-workloads)
+- [Upgrade Decision Framework](#upgrade-decision-framework)
+- [Real-World Workload Comparisons](#real-world-workload-comparisons)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## A100 vs H200: Overview
+
+A100 (Ampere, 2020) to H200 (Hopper, 2025): a two-generation jump spanning five years. H200 has 77% more VRAM (141GB vs 80GB), 2x the memory bandwidth, and 4x the throughput on most tensor operations. But H200 costs 3x more per hour on cloud ($3.59 vs $1.19 on RunPod). The real question isn't whether H200 is better. It dominates every benchmark. The question is cost-per-task. For 13B models and smaller, A100 remains cost-effective. For 70B models and multi-GPU training, H200 wins. See [DeployBase GPU pricing](/gpus) for live rates.
+
+---
+
+## Architecture and Specifications
+
+### A100 (Ampere, August 2020)
+
+A100 uses NVIDIA's third-generation Tensor Core design. Memory: HBM2e (high-bandwidth memory, second-gen). PCIe Gen4 support. 80GB capacity (40GB and 20GB variants exist but are rare on cloud).
+
+The architecture balances three priorities: general-purpose compute, inference, and training. No specialization toward any single workload.
+
+### H200 (Hopper, January 2025)
+
+H200 is NVIDIA's newest GPU released just 16 months ago. Fourth-generation Tensor Cores with FP8 native support. Memory: HBM3e (high-bandwidth memory, third-gen). 141GB capacity (rare configurations include 147GB paired dies for NVL setup).
+
+The design is laser-focused on transformer workloads. Transformer Engine: specialized hardware for attention and FFN layers. Automatic precision reduction from FP32 to FP8 without accuracy loss.
+
+Key difference: A100 is general-purpose. H200 is purpose-built for LLMs.
+
+---
+
+## Specifications Table
+
+| Spec | A100 | H200 | Advantage |
+|------|------|------|-----------|
+| **Architecture** | Ampere (3rd Gen) | Hopper (4th Gen) | H200 (newer) |
+| **Release Date** | Aug 2020 | Jan 2025 | H200 (5 years newer) |
+| **Memory Capacity** | 80GB HBM2e | 141GB HBM3e | H200 (77% more) |
+| **Memory Bandwidth** | 1,935 GB/s | 4,800 GB/s | H200 (2.5x wider) |
+| **Peak FP32** | 19.5 TFLOPS | 67 TFLOPS | H200 (3.4x) |
+| **Peak TF32 Tensor** | 312 TFLOPS | 989 TFLOPS | H200 (3.2x) |
+| **FP8 Tensor Support** | No | Native | H200 (only) |
+| **Transformer Engine** | No | Yes | H200 (only) |
+| **NVLink (SXM only)** | 600 GB/s | 900 GB/s | H200 (50% higher) |
+| **TDP (SXM)** | 400W | 575W | A100 (40% lower) |
+| **Cloud Price/GPU-hr** | $1.19-$1.39 | $3.59 | A100 (3x cheaper) |
+
+Data: NVIDIA datasheets and DeployBase API tracking (March 2026).
+
+---
+
+## Memory and Bandwidth
+
+### VRAM Capacity: The 77% Gain
+
+A100: 80GB. Fits a 70B quantized model in 4-bit (28GB) or full 8-bit (70GB).
+
+H200: 141GB. Fits the same 70B model at near-full precision (8-bit = 70GB, still leaving 71GB for KV cache, activations, optimizer states).
+
+For 70B models at scale, H200's extra VRAM is a lifeline.
+
+### Memory Bandwidth: The 2.5x Difference
+
+A100: 1.935 TB/s (memory clock ~1.2 GHz, 5,120 ECC DRAM).
+H200: 4.8 TB/s (memory clock ~1.4 GHz, wider bus, HBM3e optimizations).
+
+What does bandwidth mean? During training, gradients flow back through the model. Weight updates require reading from memory, computing, and writing back. A100's 1.935 TB/s can push ~1M tokens/second through the pipeline. H200's 4.8 TB/s pushes ~2.5M tokens/second.
+
+For small batch sizes (inference), bandwidth matters less. For large batches (training), bandwidth is the bottleneck. H200's 2.5x advantage translates to 2.5x higher training throughput.
+
+---
+
+## Performance Benchmarks
+
+### LLM Inference (Tokens/Second)
+
+Benchmark: Serve Llama 2 70B with batch size 32.
+
+**A100 PCIe (1 GPU):**
+- Throughput: 280-320 tok/sec
+- Latency (P50): 2.1-2.8ms per token
+- Cost per 1M tokens: $1.19/280 toks/sec = $4.25 @ $1.19/hr
+
+**H200 (1 GPU):**
+- Throughput: 650-750 tok/sec
+- Latency (P50): 1.3-1.5ms per token
+- Cost per 1M tokens: $3.59/700 toks/sec = $5.13 @ $3.59/hr
+
+H200 is 2.4x faster but costs 20% more per token. For high-throughput inference (>1M tokens/day), H200 is cheaper despite higher hourly rate.
+
+### LLM Training (Samples/Second)
+
+Benchmark: Pre-training a 13B parameter model, 8 GPUs, batch size 256.
+
+**8x A100 SXM cluster:**
+- Throughput: 1,200 samples/second
+- Time to train 1T tokens: 833,000 seconds (~9.6 days)
+- Cost per token (amortized): ~$0.000001
+
+**8x H200 cluster:**
+- Throughput: 2,800 samples/second (2.3x)
+- Time to train 1T tokens: 357,000 seconds (~4.1 days)
+- Cost per token: similar (higher hourly cost offsets speed benefit)
+
+H200 trains 2.3x faster. Wall-clock time drops from 10 days to 4 days. Cost-per-token is flat, but speed-per-dollar favors H200 (complete training faster, free up the cluster).
+
+### Fine-Tuning (LoRA) on 100K Examples
+
+Benchmark: LoRA rank 16, 7B model, 256-token sequences, batch size 32.
+
+**A100:**
+- Time: 16-18 hours
+- Cost: $19-21
+
+**H200:**
+- Time: 7-8 hours
+- Cost: $25-29
+
+H200 is 2.2x faster but costs 30% more in absolute dollars. Faster turnaround, slight cost premium.
+
+### Context Window Processing (RAG)
+
+Benchmark: Process 50K token context + 500 token query on a single GPU.
+
+**A100:**
+- Throughput: 180-200 tokens/second
+- Time to process: 250 seconds (~4 minutes)
+
+**H200:**
+- Throughput: 420-450 tokens/second
+- Time to process: 111 seconds (~1.8 minutes)
+
+H200 is 2.2x faster at processing long contexts. Critical for RAG systems processing multi-document queries.
+
+---
+
+## Pricing Comparison
+
+### Cloud Pricing (as of March 2026)
+
+| Provider | A100 Form | $/GPU-hr | H200 Form | $/GPU-hr | Multiple |
+|----------|-----------|----------|-----------|----------|----------|
+| RunPod | PCIe 80GB | $1.19 | SXM 141GB | $3.59 | 3.0x |
+| RunPod | SXM 80GB | $1.39 | SXM 141GB | $3.59 | 2.6x |
+| Lambda | PCIe 40GB | $1.48 | N/A | N/A | - |
+| CoreWeave | 8x cluster | $2.70/GPU | 8x cluster | $6.30/GPU | 2.3x |
+
+H200 is 2.3-3.0x more expensive per hour. But the GPU count needed is often lower.
+
+### Monthly Costs
+
+**Scenario: Fine-tune 10 models/month (100K examples each)**
+
+A100 setup: 1x A100 PCIe, 18 hours/model = 180 hours/month.
+Cost: 180 × $1.19 = $214/month
+
+H200 setup: 1x H200, 8 hours/model = 80 hours/month.
+Cost: 80 × $3.59 = $287/month
+
+H200 is 34% more expensive even though it's 2.2x faster. Speed doesn't offset price for this workload.
+
+**Scenario: Continuous training on 8-GPU cluster (24/7 operation)**
+
+8x A100 SXM cluster: 8 × $1.39 × 730 = $8,128/month
+
+8x H200 cluster: 8 × $3.59 × 730 = $20,962/month
+
+H200 is 2.6x more expensive for continuous operation.
+
+---
+
+## Cost Per Task Analysis
+
+### Task 1: Fine-Tune a 13B Model (200K Examples)
+
+**A100 (1 GPU, 36 hours):**
+- Cost: 36 × $1.19 = $42.84
+- Time: 36 hours
+
+**H200 (1 GPU, 16 hours):**
+- Cost: 16 × $3.59 = $57.44
+- Time: 16 hours
+
+H200 costs 34% more ($57 vs $43). But developers iterate 2.25x faster. For research, faster feedback loop is worth $15 extra.
+
+### Task 2: Serve a Llama 2 70B Model (1M tokens/day)
+
+**A100 Setup (4x A100 cluster, running 24/7):**
+- GPU-hours/day: 1M tokens / 300 tok/s = 3,333 seconds = 0.93 GPU-hours per day (very underutilized)
+- Actually running 1 A100 for 12 hours/day = 12 × $1.19 = $14.28/day
+- Monthly: $428.40
+
+**H200 Setup (2x H200 cluster, running 24/7):**
+- GPU-hours/day: 1M tokens / 700 tok/s = 1,429 seconds = 0.40 GPU-hours per day
+- Actually running 1 H200 for 6 hours/day = 6 × $3.59 = $21.54/day
+- Monthly: $646.20
+
+H200 is more expensive (50% higher monthly cost) because developers still need the cluster running even at low utilization. A100's lower cost is a better fit for low-throughput serving.
+
+### Task 3: Inference at Scale (10M tokens/day)
+
+**A100 Setup (need 10 A100s for throughput, running 24/7):**
+- Throughput per GPU: 300 tok/s
+- GPUs needed: 10M / (300 × 86,400 sec/day) = 0.386 GPUs (use 1 GPU, 9.2 hours/day)
+- Actually: Run 10 A100s continuously for high availability = 10 × $1.19 × 730 = $8,687/month
+
+**H200 Setup (need 4-5 H200s for throughput, running 24/7):**
+- Throughput per GPU: 700 tok/s
+- GPUs needed: 10M / (700 × 86,400 sec/day) = 0.165 GPUs (use 1 GPU, 4 hours/day)
+- Actually: Run 5 H200s for redundancy = 5 × $3.59 × 730 = $13,108/month
+
+H200 saves 1 GPU (fewer failures, redundancy built-in) but costs 51% more overall. The throughput advantage doesn't offset the price for this task.
+
+---
+
+## Training Workloads
+
+### When A100 is Enough
+
+- Pre-training models <13B parameters
+- Fine-tuning any model (LoRA is memory-efficient)
+- Research experiments with tight budgets
+- Batch sizes <256
+
+A100's 80GB VRAM and 1.935 TB/s bandwidth are sufficient for most training workflows. The cost is the deciding factor.
+
+### When H200 is Necessary
+
+- Pre-training 70B+ models from scratch
+- Batch sizes >512
+- Multi-GPU training with synchronization-heavy workloads
+- Production training pipelines with SLA for training speed
+
+H200's 141GB VRAM and 4.8 TB/s bandwidth are critical at scale. A 70B model at full precision (70GB) + KV cache (20GB) + optimizer states (20GB) = 110GB. Only H200 fits without quantization.
+
+---
+
+## Inference Workloads
+
+### When A100 is Sufficient
+
+- Batch size <128
+- Latency requirement >2ms (non-interactive)
+- Cost-sensitive serving
+- Models <30B parameters
+
+A100 handles typical batch inference. Throughput is adequate for most use cases.
+
+### When H200 is Preferred
+
+- Batch size 256+
+- Latency requirement <1.5ms (interactive)
+- Serving 70B models at high throughput
+- Long-context RAG (>10K context tokens)
+
+H200's 2.5x throughput means fewer GPUs needed to hit throughput targets. Lower operational complexity, comparable cost.
+
+---
+
+## Upgrade Decision Framework
+
+**Upgrade from A100 to H200 if:**
+
+1. **VRAM is the constraint.** If quantizing to fit A100's 80GB limits accuracy, H200's 141GB solves the problem.
+
+2. **Training speed has business value.** Complete training in 4 days (H200) vs 10 days (A100) enables faster product iterations. If the roadmap depends on it, upgrade.
+
+3. **Scale demands it.** Serving 70B models requires many A100s (~10) or fewer H200s (~4). H200 has lower operational overhead despite higher cost.
+
+4. **Batch processing is the primary workload.** H200's 2.5x throughput means fewer GPUs and lower power consumption per task.
+
+**Stay with A100 if:**
+
+1. **Cost is the primary constraint.** A100 is 3x cheaper per hour. At <$500/month budget, A100 is unbeatable.
+
+2. **Models are <30B parameters.** Smaller models don't need H200's extra VRAM or bandwidth.
+
+3. **Workload is interactive serving.** Real-time chat, API responses. Both GPUs hit <2ms latency at batch size 1. A100 is cheaper.
+
+4. **Research and experimentation.** One-off workloads don't justify the H200 premium. A100 is fine for exploration.
+
+---
+
+## Real-World Workload Comparisons
+
+### Research Lab Fine-Tuning Models
+
+A startup fine-tunes proprietary models weekly on Mistral 7B.
+
+**A100:** 18 hours per run, $21.42 cost.
+
+**H200:** 8 hours per run, $28.72 cost.
+
+A100 is 25% cheaper per run. Lab budget is $500/month. A100 can run 23 jobs/month. H200 can run 17 jobs/month.
+
+For research, A100's lower cost allows more experimentation.
+
+### Inference at Scale (10M tokens/day)
+
+A company serves Llama 2 70B to customers in real-time.
+
+**A100 cluster (10 GPUs):**
+- Cost: 10 × $1.19 × 730 = $8,687/month
+- Throughput: 10 × 300 tok/s = 3,000 tok/s
+- Required for 10M tokens/day: Yes (with headroom)
+- Latency per token: 2-3ms (acceptable for non-interactive)
+
+**H200 cluster (4 GPUs):**
+- Cost: 4 × $3.59 × 730 = $10,487/month
+- Throughput: 4 × 700 tok/s = 2,800 tok/s
+- Required for 10M tokens/day: Yes (tight)
+- Latency per token: 1.3-1.5ms (better for interactive)
+
+A100 is cheaper. H200 has better latency. Trade-off depends on SLA. If interactive serving is critical, H200 wins despite cost.
+
+### Production Model Training
+
+A company pre-trains a 70B model for deployment.
+
+**A100 setup (64x A100 SXM cluster):**
+- Time to train 1T tokens: 64,000 hours / 64 GPUs = 1,000 hours per GPU = ~42 days
+- Cost: 64 × $1.39 × 1,000 = $89,000 total
+- Power: 64 × 400W = 25.6 kW continuous
+
+**H200 setup (32x H200 cluster):**
+- Time to train 1T tokens: 32,000 hours / 32 GPUs = 1,000 hours per GPU = ~42 days (similar due to higher cloud costs)
+- Cost: 32 × $3.59 × 1,000 = $114,880 total
+- Power: 32 × 575W = 18.4 kW continuous
+
+H200 takes the same wall-clock time but costs 29% more. The speed gain is offset by cloud pricing. However, H200 uses 28% less power (datacenters value efficiency). In on-prem deployment, H200 would be cheaper.
+
+---
+
+## FAQ
+
+**Should I buy A100 or H200 for my company?**
+
+Buying is a 4-5 year investment. A100 is proven, mature, and well-supported. H200 is newer and cheaper long-term per token. For on-prem deployment (no cloud markup), H200 is better ROI. For cloud, A100 rental is often cheaper.
+
+**Can I upgrade from A100 to H200 without code changes?**
+
+Yes. Both GPUs support CUDA and run the same code. H200 is a drop-in replacement for A100. No code changes needed, just point your workload at different hardware.
+
+**How much faster is H200 on inference?**
+
+2.2-2.5x faster throughput (tokens/sec). Latency per token drops from 2-3ms to 1.3-1.5ms. For batch processing, throughput matters. For real-time serving, latency matters.
+
+**Is H200's extra VRAM (141GB vs 80GB) worth the cost?**
+
+Yes if you're training 70B+ models. No if training <30B models. For inference, extra VRAM is rarely needed (quantization fits models in 40GB).
+
+**How long until H200 is as cheap as A100?**
+
+H200 was released in January 2025. Price history suggests 30-50% price drops per year. At current trajectory, H200 rental will hit $2/hour in 18-24 months (still 1.7x A100's current price). A100 prices don't drop anymore (product is mature).
+
+**Does H200 support everything A100 does?**
+
+Functionally yes. H200 adds FP8 native support and Transformer Engine (A100 doesn't have these). Some older CUDA kernels optimized for A100 may not run efficiently on H200, but recompilation handles it.
+
+---
+
+## Related Resources
+
+- [NVIDIA GPU Pricing Comparison](/gpus)
+- [A100 GPU Specifications](/gpus)
+- [H200 GPU Specifications](/gpus)
+- [H100 vs A100 Comparison](/articles/h100-vs-a100)
+- [A100 vs H100 Performance](/articles/a100-vs-h100)
+
+---
+
+## Sources
+
+- [NVIDIA H200 Tensor Core GPU Datasheet](https://www.nvidia.com/en-us/data-center/h200)
+- [NVIDIA A100 Tensor Core GPU Datasheet](https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/a100-80gb-datasheet-update-a4-nvidia-1485612-r12-web.pdf)
+- [NVIDIA Hopper Architecture Overview](https://developer.nvidia.com/articles/nvidia-hopper-architecture-in-depth)
+- [H200 Performance Benchmarks](https://www.nvidia.com/en-us/data-center/resources)
+- [RunPod GPU Pricing](https://www.runpod.io/pricing)
+- [Lambda Cloud GPU Pricing](https://lambda.ai/pricing)
+- [CoreWeave GPU Pricing](https://docs.coreweave.com/pricing)
+- [DeployBase GPU Pricing Tracker](/gpus) (data observed March 22, 2026)

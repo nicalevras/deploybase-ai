@@ -1,0 +1,191 @@
+---
+title: What Is Tensor Parallelism? Multi-GPU Training Explained
+slug: what-is-tensor-parallelism-multi-gpu-training-explained
+description: >-
+  Tensor parallelism explained: distribute large model training across GPUs.
+  Learn how tensor parallelism enables multi-GPU training as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: AI Infrastructure
+keywords:
+  - what is tensor parallelism
+---
+## Contents
+
+- [What Is Tensor Parallelism: Tensor Parallelism Basics](#what-is-tensor-parallelism-tensor-parallelism-basics)
+- [How Tensor Parallelism Works](#how-tensor-parallelism-works)
+- [Parallelization Dimensions](#parallelization-dimensions)
+- [Data Flow in Tensor Parallel Systems](#data-flow-in-tensor-parallel-systems)
+- [Communication Overhead Impact](#communication-overhead-impact)
+- [Scaling Characteristics](#scaling-characteristics)
+- [Comparing Parallelization Strategies](#comparing-parallelization-strategies)
+- [Gradient Synchronization](#gradient-synchronization)
+- [GPU Memory Management](#gpu-memory-management)
+- [Latency vs. Throughput Trade-offs](#latency-vs-throughput-trade-offs)
+- [Synchronization Requirements](#synchronization-requirements)
+- [Practical Implementation Examples](#practical-implementation-examples)
+- [Communication Bottleneck Mitigation](#communication-bottleneck-mitigation)
+- [When to Apply Tensor Parallelism](#when-to-apply-tensor-parallelism)
+- [Alternative Scaling Approaches](#alternative-scaling-approaches)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## What Is Tensor Parallelism: Tensor Parallelism Basics
+
+Tensor parallelism divides model matrices across GPU devices. Matrix operations split along specific dimensions. Distributed devices compute partial results independently.
+
+The technique enables training models larger than single GPU memory. Models exceeding 80GB memory fit across multiple GPUs. This removes memory constraints on model scale.
+
+Tensor parallelism differs from data parallelism. Data parallelism replicates full models on multiple GPUs. Tensor parallelism splits individual matrices across devices.
+
+## How Tensor Parallelism Works
+
+Large weight matrices split across GPUs. A 14400x1000 matrix on 2 GPUs becomes 7200x1000 per device. Each GPU computes partial results.
+
+Matrix multiplication distributes naturally. Partial matrix products compute independently. Reducing results to final answers requires communication.
+
+Activation tensors also distribute. Layer outputs split across devices. Communication synchronizes results between layers.
+
+## Parallelization Dimensions
+
+Row parallelism splits matrices horizontally. Each GPU handles rows independently. Column combining requires communication.
+
+Column parallelism splits matrices vertically. Each GPU handles columns independently. Row combining requires communication.
+
+Choosing dimensions affects communication patterns. Some dimensions minimize bandwidth requirements. Unbalanced splits degrade performance.
+
+## Data Flow in Tensor Parallel Systems
+
+Forward passes compute distributed activations. Multiple GPUs process different parts. Reduction operations combine partial results.
+
+Backward passes compute distributed gradients. Gradient synchronization requires communication. All-reduce operations aggregate partial gradients.
+
+Weight updates occur independently per GPU. Each device updates its portion of matrices. Asynchronous updates risk divergence.
+
+## Communication Overhead Impact
+
+All-reduce operations exchange tensors between devices. Bandwidth limits throughput. Higher bandwidth reduces overhead.
+
+[H100 SXM GPUs at $2.69/hour](/articles/runpod-gpu-pricing) provide 900 GB/s NVLink bidirectional bandwidth between GPUs. PCIe variants at $1.99/hour are limited to PCIe bandwidth (~64 GB/s bidirectional). The NVLink bandwidth premium justifies the higher cost for distributed training where inter-GPU communication dominates throughput.
+
+Communication volume scales with model size. Larger models communicate more tensors. Bandwidth becomes bottleneck at scale.
+
+Communication latency matters at scale. Remote GPUs across data centers show latency penalties. Collocated GPUs minimize latency effects.
+
+## Scaling Characteristics
+
+Scaling efficiency decreases with more GPUs. 8 GPUs see 80-90% efficiency. 64 GPUs might see 50-70% efficiency. Diminishing returns emerge.
+
+Increasing batch size improves scaling. Larger batches amortize communication costs. Batch size constraints limit this approach.
+
+Bandwidth provisioning determines scaling potential. Adequate bandwidth maintains efficiency. Insufficient bandwidth creates bottlenecks.
+
+## Comparing Parallelization Strategies
+
+Data parallelism replicates full models. Simpler to implement. Scales better for most applications.
+
+Tensor parallelism divides models. Enables training larger models. Communication overhead increases complexity.
+
+Pipeline parallelism staggers computation. Different model stages run on different GPUs. Bubble overhead reduces throughput.
+
+[Training Llama 70B requires distributed approaches](/articles/llama-3.1-70b-pricing-compare-costs-across-all-api). Multiple GPU clusters distribute training. Hybrid strategies combine parallelization methods.
+
+## Gradient Synchronization
+
+Parameter servers aggregate gradients. Central node collects updates from all GPUs. Bottleneck emerges with many GPUs.
+
+Ring all-reduce avoids bottlenecks. GPUs communicate in ring topology. Bandwidth utilization improves dramatically.
+
+Hierarchical reduction combines approaches. Gradients reduce locally, then globally. Communication patterns optimize for network topology.
+
+## GPU Memory Management
+
+Each GPU holds partial model weights. Memory savings scale with GPU count. 8 GPUs reduce per-GPU memory 8x.
+
+Activation memory still requires full storage. Some activation distribution strategies apply. Mixed approaches balance memory pressure.
+
+Optimizer state multiplies memory requirements. Adam optimizer needs 2x model memory. Distributed optimizers split state across devices.
+
+## Latency vs. Throughput Trade-offs
+
+Smaller batches reduce latency. Individual request latency decreases. Throughput decreases proportionally.
+
+Larger batches increase throughput. Total requests per hour improve. Latency increases due to batching.
+
+Choosing batch size depends on use case. Interactive applications prioritize latency. Batch processing prioritizes throughput.
+
+## Synchronization Requirements
+
+Barrier synchronization forces all GPUs to wait. Straggler problem emerges. One slow GPU delays entire batch.
+
+Asynchronous updates reduce waiting. Training continues without full synchronization. Staleness affects convergence.
+
+Gradient accumulation balances approaches. Periodic synchronization every N steps. Intermediate overhead reduction with reasonable staleness.
+
+## Practical Implementation Examples
+
+Llama 70B training uses 64-256 GPUs. [H100 GPUs cost $2.69 per hour](/articles/nvidia-h100-price). 64 H100s cost $172 per hour for training.
+
+Fine-tuning uses smaller GPU clusters. 8-16 GPUs suffice for many tasks. Infrastructure costs become reasonable.
+
+Inference deployment varies by workload. High-throughput batching benefits from multiple GPUs. Interactive inference uses fewer devices.
+
+## Communication Bottleneck Mitigation
+
+Overlapping computation with communication hides latency. Forward passes compute while gradients communicate. Effective communication cost decreases.
+
+Gradient compression reduces tensor sizes. Quantization lowers bandwidth requirements. Communication time decreases substantially.
+
+Network topology optimization places GPUs strategically. Shorter cables reduce latency. Dedicated interconnects improve bandwidth.
+
+## When to Apply Tensor Parallelism
+
+Models exceeding single GPU memory require parallelism. Llama 70B+ models need distribution. A100 80GB fits single model only.
+
+Training extremely large models justifies complexity. Models over 100B parameters benefit. Smaller models might not justify overhead.
+
+Latency-sensitive inference benefits from multiple GPUs. Reducing response time requires parallel processing. Throughput requirements may mandate distribution.
+
+## Alternative Scaling Approaches
+
+Quantization reduces model memory. Int8 models fit larger contexts. [FP16 vs FP32 differences](/articles/fp16-vs-fp32-vs-int8-gpu-precision-formats-for-ai) affect memory usage.
+
+Model distillation creates smaller versions. Smaller models train on single GPUs. Distillation investment may exceed parallelism costs.
+
+Mixture-of-experts adds conditional computation. Only relevant experts activate per token. Effective scaling without proportional communication.
+
+## FAQ
+
+**What is tensor parallelism?**
+Splitting large model matrices across multiple GPUs. Each GPU computes portion of result. Communication combines partial results.
+
+**How does tensor parallelism differ from data parallelism?**
+Data parallelism: each GPU has full model, processes different data. Tensor parallelism: each GPU has portion of model.
+
+**When should I use tensor parallelism?**
+Models too large for single GPU memory. Llama 70B+ models typically require it. Smaller models don't justify complexity.
+
+**What's the communication overhead?**
+Varies from 10-40% depending on implementation. All-reduce operations add latency. Bandwidth determines overhead magnitude.
+
+**Can I combine tensor parallelism with data parallelism?**
+Yes. Hybrid parallelism uses both strategies. Large clusters often apply both simultaneously.
+
+## Related Resources
+
+[Llama 3.1 70B Pricing](/articles/llama-3.1-70b-pricing-compare-costs-across-all-api) - Training cost analysis.
+[H100 GPU Pricing](/articles/nvidia-h100-price) - Multi-GPU infrastructure costs.
+[Model Distillation](/articles/what-is-model-distillation-smaller-models-lower-costs) - Alternative to parallelism.
+[GPU Pricing Guide](/gpus) - Infrastructure cost comparison.
+[FP16 vs FP32](/articles/fp16-vs-fp32-vs-int8-gpu-precision-formats-for-ai) - Precision trade-offs.
+
+## Sources
+
+Distributed training research papers
+NVIDIA tensor parallelism documentation
+PyTorch distributed training guides
+Industry training implementations (March 2026)

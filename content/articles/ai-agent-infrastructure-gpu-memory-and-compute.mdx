@@ -1,0 +1,521 @@
+---
+title: 'AI Agent Infrastructure: GPU Memory and Compute Requirements 2026'
+slug: ai-agent-infrastructure-gpu-memory-and-compute
+description: >-
+  AI agent infrastructure planning. GPU memory, compute requirements,
+  multi-agent systems. Design patterns for agent deployment at scale.
+date: 2026-03-22T00:00:00.000Z
+author: DeployBase
+keywords:
+  - ai agent infrastructure
+---
+
+## Contents
+
+- [AI Agent Infrastructure Fundamentals](#ai-agent-infrastructure-fundamentals)
+- [Memory Requirements by Agent Type](#memory-requirements-by-agent-type)
+- [Compute Budgets and Models](#compute-budgets-and-models)
+- [Multi-Agent Orchestration Patterns](#multi-agent-orchestration-patterns)
+- [Inference Infrastructure Design](#inference-infrastructure-design)
+- [State Management and Persistence](#state-management-and-persistence)
+- [Cost Optimization for Agents](#cost-optimization-for-agents)
+- [Production Deployment Patterns](#production-deployment-patterns)
+- [Scaling Agent Systems](#scaling-agent-systems)
+- [Real-World Agent System Examples](#real-world-agent-system-examples)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## AI Agent Infrastructure Fundamentals
+
+AI agents represent a fundamental shift from request-response systems to autonomous execution patterns. Unlike simple API calls returning text, agents reason, plan, and execute across multiple steps.
+
+This complexity demanded different infrastructure. An agent maintaining state across 100 decisions required persistent memory. An agent executing tools (database queries, API calls) needed low-latency access to external systems.
+
+As of March 2026, agent infrastructure remained partially bespoke. No single platform owned the category. Teams deployed agents on adapted LLM infrastructure, adding orchestration, memory, and tool layers.
+
+### Core Infrastructure Components
+
+Agent systems required:
+1. LLM engine (inference, reasoning)
+2. State management (memory, context)
+3. Tool execution layer (API calls, database access)
+4. Orchestration controller (decision making)
+5. Observation storage (logs, metrics, debugging)
+
+Each component had different scaling characteristics and cost drivers.
+
+## Memory Requirements by Agent Type
+
+**Simple Agents (Classification, Routing)**
+
+Agent tasks: Analyze input, classify into category, route to next step.
+
+State requirements: Current context only. No multi-turn memory.
+Memory per agent instance: 2-4 GB (including model)
+Example: Email classifier using Llama 4 Scout
+
+Deployment: Single GPU instance supports 10-20 concurrent agents
+Cost: ~$0.10 per decision ($0.95 H100/hour, 10 agents)
+
+**Moderate Agents (Information Retrieval, Multi-Turn)**
+
+Agent tasks: Answer questions using RAG, maintain conversation context, retrieve relevant documents.
+
+State requirements: Conversation history (10-20 turns), retrieved documents, intermediate reasoning.
+Memory per agent instance: 8-16 GB
+Example: Customer support agent using Claude 3.5
+
+Deployment: Single GPU instance supports 5-10 concurrent agents
+Cost: ~$0.20 per decision
+
+**Complex Agents (Planning, Tool Use, Reasoning)**
+
+Agent tasks: Multi-step planning, tool invocation, reasoning across domain knowledge.
+
+State requirements: Complete session history, tool outputs, reasoning traces, long-context reasoning.
+Memory per agent instance: 16-40 GB
+Example: Research agent using Maverick model, executing 10+ tools per session
+
+Deployment: Single GPU instance supports 2-4 concurrent agents
+Cost: ~$0.50 per decision
+
+**Specialized Agents (Code Generation, Complex Analysis)**
+
+Agent tasks: Generate code, execute and debug, conduct deep analysis, maintain extensive context.
+
+State requirements: Code files, execution traces, test results, documentation, reasoning across 50K+ tokens.
+Memory per agent instance: 40-80 GB
+Example: Software engineer agent
+
+Deployment: Dedicated GPU per agent or shared with 1-2 other agents
+Cost: ~$1.00 per decision (may involve multiple inference passes)
+
+### Memory Calculation Formula
+
+Total GPU memory required = (model size * concurrent agents) + (state per agent * concurrent agents) + (tool output buffer) + (batch processing overhead)
+
+Example: 4 concurrent moderate agents using Scout (109B total / 17B active MoE, ~16GB VRAM quantized)
+- Model: 16 GB (shared)
+- State: 4 agents * 10 GB = 40 GB (distinct)
+- Tool buffer: 5 GB
+- Overhead: 3 GB
+- **Total: 64 GB** (requires 2x A40 or 1x H100)
+
+## Compute Budgets and Models
+
+Agents consumed more compute than simple inference. Each decision involved multiple inference passes:
+
+1. Thinking pass (understand request)
+2. Planning pass (decide tools)
+3. Tool execution (external work)
+4. Observation pass (process results)
+5. Reasoning pass (synthesize answer)
+
+A single agent query might require 5,000-50,000 tokens generated across all passes.
+
+### Token Cost Estimation
+
+Agent query for "research competitors for Acme Corp":
+
+Thinking pass: 500 tokens
+Tool planning: 1,000 tokens
+Tool execution: 100 tokens (API calls)
+Observation processing: 2,000 tokens
+Reasoning and synthesis: 2,500 tokens
+**Total: 6,100 tokens generated**
+
+Using Claude 3.5 at [Anthropic API pricing](/articles/anthropic-pricing): (6,100 * $0.015) = $0.0915 per query
+
+Using Llama 4 Scout at [Together AI](/articles/together-ai-pricing): (6,100 * $0.001) = $0.0061 per query
+
+15x cost difference between premium and budget models.
+
+### Inference Pass Patterns
+
+Type A: Single-pass agents (simple routing)
+- 1 inference pass per decision
+- 500-1,000 tokens
+- Cost: $0.001-0.010 depending on model
+- Example: Classification agents
+
+Type B: Multi-pass agents (retrieval, reasoning)
+- 3-5 inference passes per decision
+- 5,000-15,000 tokens total
+- Cost: $0.01-0.15 per decision
+- Example: Q&A agents, research assistants
+
+Type C: Interactive agents (planning, execution, refinement)
+- 5-10 inference passes per decision
+- 15,000-50,000 tokens total
+- Cost: $0.15-0.50 per decision
+- Example: Software engineering agents, complex analysis
+
+## Multi-Agent Orchestration Patterns
+
+Single agents handled narrow tasks. Complex problems required multi-agent systems.
+
+### Pattern 1: Hierarchical Agents
+
+Top-level manager agent decomposes problem into subtasks. Specialist agents execute subtasks. Manager synthesizes results.
+
+Example: Research organization task
+- Manager: "Research Acme Corp, provide report"
+- Analyst 1: "Find competitive market"
+- Analyst 2: "Find financial data"
+- Analyst 3: "Find product positioning"
+- Manager: "Synthesize into executive summary"
+
+Memory requirement: Manager needs 40GB. Specialists need 16GB each. Total: 88GB with 5 agents (requires 2x H100).
+
+### Pattern 2: Peer Agents with Debate
+
+Multiple agents independently analyze problem. Debate mechanism selects best answer.
+
+Example: Legal analysis with consensus
+- Agent 1: "Analyze contract for risks"
+- Agent 2: "Analyze contract independently"
+- Debate agent: "Synthesize analysis and consensus"
+
+Memory requirement: Low (parallel execution). 3 agents * 16GB = 48GB (single H100 adequate).
+
+### Pattern 3: Streaming Agents
+
+Agents process streaming input (logs, events, data feeds) and emit decisions continuously.
+
+Example: Security monitoring
+- Monitor agent watches event stream
+- Alert agent processes security events
+- Investigation agent handles alerts
+
+Memory requirement: Moderate (fixed per agent, streaming buffer). 40-60GB for continuous operation.
+
+### Pattern 4: Swarm Agents
+
+Many simple agents solve problem through collective behavior.
+
+Example: Crowdsourced classification
+- 100 simple agents each classify subset
+- Aggregator finds consensus
+
+Memory requirement: Parallel horizontal scaling. Many small agents on distributed GPU.
+
+## Inference Infrastructure Design
+
+Deploying agents required different infrastructure than standard LLM inference endpoints.
+
+### Single-Agent Model
+
+One agent per container/pod. Each agent instance had dedicated model inference.
+
+Advantages: Isolation, independent scaling, simple debugging.
+Disadvantages: Inefficient resource utilization, high per-agent cost.
+
+Deployment: Kubernetes pod per agent. Each pod: 1-8 GPU allocation.
+
+Cost example: 100 agents requiring 16GB each = 100 * $0.20/hour = $20/hour = $14,400/month
+
+### Shared Model Server
+
+Single model inference server handles requests from multiple agents.
+
+Advantages: Efficient resource utilization, lower cost, centralized optimization.
+Disadvantages: Complex state management, latency variability.
+
+Deployment: vLLM or similar serving layer, agents submit requests as RPC calls.
+
+Cost example: 100 agents, 50GB shared model = 1 * $0.95/hour = $0.95/hour = $700/month
+
+95% cost reduction vs single-agent model through sharing.
+
+### Hybrid Architecture
+
+Simple agents use shared model server. Complex agents get dedicated model instances.
+
+Deployment:
+- Simple routing agents → shared server
+- Complex reasoning agents → dedicated instances
+- Moderate agents → queued on shared server
+
+Cost effectiveness: 60% cost reduction vs single-agent while maintaining latency SLA.
+
+## State Management and Persistence
+
+Agents maintained state across multiple steps. This state needed persistent storage.
+
+### In-Memory State
+
+Conversation history, intermediate results, tool outputs stored in memory.
+
+Suitable for: Single sessions, short-lived agents, development.
+Limitations: Scales poorly, data loss on restart, difficult to debug.
+
+### Redis State Store
+
+Fast key-value store for session state, agent context, intermediate results.
+
+Deployment: Redis cluster, per-session keys, TTL-based cleanup.
+Cost: ~$50/month for reasonable volume.
+
+Scaling: 1000 concurrent agents, 100KB per session = 100MB memory (Redis cluster: single node adequate).
+
+### Persistent Database
+
+Durable storage for long-term agent behavior, audit trails, decision history.
+
+Deployment: PostgreSQL with JSON columns for unstructured data.
+Cost: ~$200/month managed database.
+
+Scaling: Agent sessions logged for analysis, legal compliance, debugging.
+
+### Vector Database
+
+For RAG agents, store embedded documents/queries for fast retrieval.
+
+Deployment: Pinecone, Weaviate, or Qdrant.
+Cost: ~$500/month depending on volume.
+
+Critical for agents: Research agents, document analysis agents, question-answering agents.
+
+## Cost Optimization for Agents
+
+Agent systems had different optimization levers than simple inference.
+
+### Optimization 1: Model Selection
+
+Complex agents required capable models. Simple agents accepted smaller models.
+
+Strategy: Use Llama 4 Scout for simple agents ($0.0008/$0.001 per token).
+Use Claude 3.5 for complex agents ($0.003/$0.015 per token).
+
+Cost impact: 80% of agents on Scout, 20% on Claude = 40% lower blended cost vs all Claude.
+
+### Optimization 2: Inference Pass Reduction
+
+Each extra pass added 1,000-5,000 tokens. Fewer passes meant lower cost.
+
+Strategy: Combine multiple reasoning steps into single pass. Trade latency for cost.
+
+Cost impact: Reduce from 5 to 3 passes = 40% fewer tokens = 40% cost savings.
+
+### Optimization 3: Caching
+
+Cache intermediate results (tool outputs, retrieved documents) across related queries.
+
+Implementation: Redis cache for 24-hour retention.
+Cost impact: 30-50% reduction in inference calls for related queries.
+
+### Optimization 4: Batch Processing
+
+When latency tolerates delays, batch agent requests together.
+
+Implementation: Collect requests for 30 seconds, process batch.
+Cost impact: 20-30% reduction through better GPU utilization.
+
+### Optimization 5: GPU Sharing
+
+Pack multiple agents on single GPU when memory permits.
+
+Implementation: Shared inference server, request queuing.
+Cost impact: 80-90% cost reduction for simple agents through sharing.
+
+## Production Deployment Patterns
+
+Deploying agents in production required architectural patterns proven at scale.
+
+### Pattern: API Gateway + Agent Pool
+
+Diagram conceptually:
+```
+Client → API Gateway → Request Queue → Agent Pool → Tools/APIs
+         (validation)     (buffering)    (Llama on H100)
+```
+
+Gateway validates requests, queues for processing. Agent pool processes with inference.
+
+Implementation:
+- API Gateway: Kong, Envoy, or custom
+- Queue: Redis Queue, RabbitMQ
+- Agent execution: Kubernetes pods with GPU
+- Tools: Isolated containers or API calls
+
+Scaling: Horizontal scaling of agent pods based on queue depth.
+
+### Pattern: Resilience and Fallback
+
+Single agent failure should not cascade. Implement fallback strategies.
+
+Strategies:
+1. Retry on transient failure (3 retries with exponential backoff)
+2. Fallback to simpler model on timeout (Scout if Maverick slow)
+3. Fallback to cache on inference failure (return recent result)
+4. Human escalation on consistent failure
+
+Cost: 5-10% overhead for resilience mechanisms.
+
+### Pattern: Observability
+
+Complex systems require comprehensive logging, monitoring, tracing.
+
+Metrics tracked:
+- Agent latency (p50, p99)
+- Tool success rate
+- Cost per query
+- Error rates
+- Token consumption
+
+Tools: DataDog, New Relic, Prometheus + Grafana.
+
+Cost: ~$2,000/month for comprehensive observability.
+
+## Scaling Agent Systems
+
+Agent systems scaled differently than stateless APIs.
+
+### Scale Factor 1: Throughput
+
+More concurrent users required more agents or agents serving faster.
+
+Scaling approach:
+- Increase concurrent agents (horizontal scaling)
+- Use faster models (trade capability for speed)
+- Increase batch size (trade latency for throughput)
+
+Cost scaling: Linear (2x users = 2x cost)
+
+### Scale Factor 2: Complexity
+
+Harder problems required more sophisticated agents (more capable models, longer context).
+
+Scaling approach:
+- Use Maverick instead of Scout (10x cost)
+- Longer context windows (5-10x cost)
+- More inference passes (proportional cost increase)
+
+Cost scaling: Superlinear (harder problems = exponentially more cost)
+
+### Scale Factor 3: Concurrency Per Agent
+
+Same agent handling multiple concurrent interactions.
+
+Scaling approach:
+- Shared model servers support queuing
+- Message passing between agent instances
+- Context separation per conversation
+
+Cost scaling: Sublinear (efficient sharing reduces per-user cost)
+
+## Real-World Agent System Examples
+
+**Example 1: Customer Support Agent Fleet**
+
+1,000 concurrent customer agents, handling 10,000 daily queries.
+
+Architecture:
+- Simple routing agent (Scout): 500 agents, shared on 10xH100
+- Moderate support agent (Scout): 400 agents, shared on 8xH100
+- Complex escalation agent (Claude): 100 agents, dedicated GPU access
+
+Total GPU: 18xH100 = 18 * $0.95/hour = $17.10/hour
+
+Daily cost: $17.10 * 24 = $410/day = $150,000/year
+
+Per-query cost: $150,000 / 10,000 = $15/query
+
+Breakdown: 70% simple agent queries ($3 cost), 25% moderate ($8 cost), 5% complex ($50 cost).
+
+**Example 2: Research Agent Operating Continuously**
+
+1 research agent continuously analyzing documents and answering questions.
+
+Model: Llama 4 Maverick (complex reasoning)
+Estimated queries: 50/day, 10,000 tokens per query
+
+Daily cost: 50 * 10,000 tokens * $0.008 = $4,000/day = $1,460,000/year
+
+High cost justified by capability: Agent produces research reports equivalent to 3 human researchers.
+
+**Example 3: Distributed Swarm Agents**
+
+10,000 simple classification agents running on commodity GPUs.
+
+Model: Phi-3 (ultra-efficient)
+GPU requirement: 10,000 agents / 50 per GPU = 200 GPUs
+
+Using [RunPod](/articles/runpod-gpu-pricing) spot instances:
+- H100: Too expensive
+- A100: $1.60/hour * 200 = $320/hour
+- L40: $1.20/hour * 200 = $240/hour
+
+Daily cost: $240 * 24 = $5,760/day = $2.1M/year
+
+Processed queries: 10,000 agents * 100 queries/day = 1M daily classifications
+Cost per classification: $5,760 / 1,000,000 = $0.005
+
+Extreme scale makes low-cost agents viable.
+
+**Example 4: Hybrid On-Premise and Cloud**
+
+Organization deployed on-premise H100 cluster plus cloud burst capacity.
+
+On-premise: 8xH100, amortized cost $30,000/month
+Cloud burst: [CoreWeave](/articles/coreweave-gpu-pricing) for peak load, average $5,000/month
+
+Average cost: $35,000/month
+
+Peak capacity: 20xH100 equivalent
+Breakeven: 11 months continuous usage
+
+Strategy worked for sustained high-volume deployments where on-premise infrastructure paid for itself.
+
+As of March 2026, teams deployed millions of agent queries daily. Infrastructure patterns had matured from experimental to production-grade.
+
+## FAQ
+
+**How much GPU memory do agents need?**
+
+Simple agents: 2-4GB. Moderate: 8-16GB. Complex: 16-40GB. Specialized: 40-80GB+.
+
+Use sharing where possible. Shared inference server reduces memory 80-90% vs dedicated per-agent.
+
+**What model should agents use?**
+
+Match model capability to agent complexity. Scout for simple agents. Claude/Maverick for complex reasoning. Test actual workload.
+
+**Can agents run on CPU?**
+
+Theoretically yes, practically no. CPU inference is 50-100x slower. Cost prohibitive for production agents.
+
+**How do I handle agent failures?**
+
+Implement retry, fallback, and escalation. Cache recent results for fallback. Monitor agent health metrics continuously.
+
+**What's the typical cost per agent query?**
+
+Simple agents: $0.001-0.01. Moderate: $0.01-0.10. Complex: $0.10-1.00. Depends on model and query complexity.
+
+**Should I use API or self-host?**
+
+API: Easy integration, higher per-token cost. Self-hosted: Lower cost at scale (1B+ tokens/month), requires infrastructure expertise.
+
+## Related Resources
+
+- [GPU Pricing Comparison](/gpus)
+- [LLM API Pricing](/llms)
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [Lambda GPU Pricing](/articles/lambda-labs-gpu-pricing)
+- [CoreWeave GPU Pricing](/articles/coreweave-gpu-pricing)
+- [Together AI Pricing](/articles/together-ai-pricing)
+- [Fireworks AI Pricing](/articles/fireworks-ai-pricing)
+- [AI Model Comparison 2025-2026](/articles/ai-model-comparison-2025-2026-what-changed-and-what-won)
+- [Llama 4 Scout vs Maverick](/articles/llama-4-scout-vs-maverick-which-model-should-you-deploy)
+- [NVIDIA H100 Price](/articles/nvidia-h100-price)
+- [NVIDIA A100 Price](/articles/nvidia-a100-price)
+- [NVIDIA H200 Price](/articles/nvidia-h200-price)
+
+## Sources
+
+- DeployBase Agent Infrastructure Analysis (2026)
+- Community Agent Deployment Patterns (2026)
+- GPU Provider Infrastructure Data (March 2026)
+- Agent Framework Documentation (Anthropic, Together AI, OpenAI)

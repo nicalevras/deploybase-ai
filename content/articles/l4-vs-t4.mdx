@@ -1,0 +1,537 @@
+---
+title: 'L4 vs T4: Specs, Benchmarks & Cloud Pricing Compared'
+slug: l4-vs-t4
+description: >-
+  L4 vs T4 GPU comparison: Ada vs Turing architecture, inference performance,
+  video encoding, pricing as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Comparison
+keywords:
+  - l4 vs t4
+  - L4 GPU
+  - T4 GPU
+  - GPU comparison
+  - cloud GPU pricing
+---
+
+## Contents
+
+- [L4 vs T4: Overview](#l4-vs-t4-overview)
+- [Quick Comparison](#quick-comparison)
+- [Hardware Specifications Deep Dive](#hardware-specifications-deep-dive)
+- [Performance Benchmarks](#performance-benchmarks)
+- [Cloud Pricing Comparison](#cloud-pricing-comparison)
+- [Power Consumption and Efficiency](#power-consumption-and-efficiency)
+- [Use Cases: When to Choose Each](#use-cases-when-to-choose-each)
+- [Specific Use Case Analysis](#specific-use-case-analysis)
+- [Video Encoding Performance](#video-encoding-performance)
+- [Real-World Deployment Scenarios](#real-world-deployment-scenarios)
+- [Inference Speed Deep Dive: Model-by-Model](#inference-speed-deep-dive-model-by-model)
+- [Memory Bandwidth Analysis](#memory-bandwidth-analysis)
+- [Multi-GPU Scaling Considerations](#multi-gpu-scaling-considerations)
+- [Thermal and Power Considerations for Data Centers](#thermal-and-power-considerations-for-data-centers)
+- [Real-World Comparisons from Production Systems](#real-world-comparisons-from-production-systems)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## L4 vs T4: Overview
+
+L4 (Ada, 2023) vs T4 (Turing, 2018). L4 inference-focused, T4 general-purpose. L4 wins 3-5x at same price ($0.44/hr RunPod). L4 is the move for 2026.
+
+T4 still viable for batch, latency-insensitive work. Widely available.
+
+This compares specs, benchmarks, pricing, use cases.
+
+## Quick Comparison
+
+| Metric | L4 | T4 |
+|--------|----|----|
+| Release | 2023 | 2018 |
+| Architecture | Ada Lovelace | Turing |
+| VRAM | 24GB GDDR6 | 16GB GDDR6 |
+| Memory Bandwidth | 432 GB/s | 320 GB/s |
+| Tensor Performance (FP32) | 89.7 TFLOPS | 130 TFLOPS |
+| Tensor Performance (TF32) | 179.4 TFLOPS | 32 TFLOPS |
+| Sparsity Support | No | Yes (50% sparsity) |
+| Power Draw | 72W | 70W |
+| Encoding Support | AV1, H.265, H.264 | H.264, H.265 |
+| Cloud Price (RunPod) | $0.44/hr | $0.20-0.30/hr |
+| Peak Throughput | 89.7 TFLOPS (FP32) | 130 TFLOPS (FP32) |
+| Inference Speed | 3-5x T4 | Baseline |
+| Form Factor | Single-slot | Single-slot |
+| TDP (Thermal Design Power) | 72W | 70W |
+
+## Hardware Specifications Deep Dive
+
+**NVIDIA L4:**
+
+Memory: 24GB GDDR6 (vs T4's 16GB). Critical for larger models and batch inference.
+
+Memory interface: 192-bit (same as T4) enables efficient 24GB despite smaller physical memory modules.
+
+Memory bandwidth: 432 GB/s. Supports higher tensor throughput. Matters for memory-bound inference operations.
+
+Tensor cores: Specialized hardware for matrix operations. L4 prioritizes inference precision (FP8, TF32) over raw FP32 throughput.
+
+Sparsity: L4 doesn't support structured sparsity. T4's sparsity acceleration (50% reduction when 50% of weights zero) not present in L4.
+
+Encoding: Dedicated 128 video engines (vs T4's less capable encoder). AV1 support (T4 lacks this). Critical for video transcoding workloads.
+
+Power efficiency: 72W TDP, same as T4 but much greater throughput. Better watts-per-inference metric.
+
+**NVIDIA Tesla T4:**
+
+Memory: 16GB GDDR6. Sufficient for 7-8B models, insufficient for 13B models requiring full precision.
+
+Memory interface: 192-bit, limiting bandwidth despite adequate for 2018-era compute.
+
+Tensor cores: Smaller, designed for general compute rather than inference specialization.
+
+Sparsity: Structured sparsity (50%) available, rarely used in practice. Most models don't have 50% zero weights post-quantization.
+
+Encoding: Basic H.264 and H.265 support. Fewer encoding engines than L4.
+
+Power efficiency: 70W TDP. Good for era of release, now outdated.
+
+**Architecture Differences:**
+
+T4 is a general-purpose GPU designed for mixed compute. L4 is inference-focused: tensor cores optimized for small batches and low latency.
+
+T4 excels at training and simulation. L4 excels at inference and transcoding.
+
+## Performance Benchmarks
+
+**LLM Inference Benchmarks (Tokens per Second):**
+
+Test setup: Batch size 1 (single request), FP16 precision, streaming response.
+
+**7B Model (Llama 2 7B):**
+
+L4:
+- Prefill (processing input prompt): 200-250 tokens/sec
+- Decode (generating response): 35-45 tokens/sec
+- End-user experience: responsive chat (typical 3-5 sec for 150-token response)
+
+T4:
+- Prefill: 40-60 tokens/sec
+- Decode: 8-12 tokens/sec
+- End-user experience: 15-20 sec for 150-token response
+
+L4 advantage: 4-5x faster decode (the critical metric for chat).
+
+**13B Model (Mistral 13B):**
+
+L4:
+- Prefill: 150-200 tokens/sec
+- Decode: 25-35 tokens/sec
+- Wall-clock time: 6-10 seconds for 150-token response
+
+T4:
+- Requires quantization (16GB VRAM insufficient for FP16)
+- Prefill (Q4 quantization): 25-35 tokens/sec
+- Decode: 5-7 tokens/sec
+- Wall-clock time: 25-40 seconds for 150-token response
+
+L4 advantage: 3-5x faster, plus native FP16 support (no quantization needed).
+
+**Image Generation (SDXL Stable Diffusion):**
+
+L4:
+- SDXL generation (1024x1024): 3-4 seconds
+- Quality: Full precision (FP32)
+
+T4:
+- SDXL generation (1024x1024): 12-15 seconds with quantization
+- Quality: Reduced precision
+
+L4 advantage: 3-4x faster, no quality loss from quantization.
+
+## Cloud Pricing Comparison
+
+**RunPod Pricing (March 2026):**
+
+L4: $0.44/hr (on-demand), $0.25/hr (spot)
+T4: $0.20-0.30/hr (on-demand), $0.10-0.15/hr (spot)
+
+Raw hourly cost: T4 cheaper by 30-50%. However, L4's 4x speedup means 1 hour of L4 work ≈ 4 hours of T4 work.
+
+**Cost per Inference (Fixed Task):**
+
+Task: Generate 150-token response using 7B model, 100,000 requests/month.
+
+L4 approach:
+- 100K requests × 5 sec/request = 139 hours/month
+- Cost: 139 hours × $0.44 = $61/month
+
+T4 approach:
+- 100K requests × 20 sec/request = 556 hours/month
+- Cost: 556 hours × $0.20 = $111/month
+
+L4 is cheaper despite higher hourly rate. L4 saves $50/month on this workload.
+
+**Cost per Inference (High-Volume Batch):**
+
+Task: Process 1 million requests/month, batch size 8 (less latency-sensitive).
+
+L4 approach:
+- Processing throughput: 8 requests × 25 tokens/sec (decode) = 200 tokens/sec
+- 1M requests × 150 tokens = 150M tokens total
+- Time: 150M / 200 = 750,000 seconds = 208 hours/month
+- Cost: 208 × $0.44 = $91/month
+
+T4 approach:
+- Processing throughput: 8 requests × 6 tokens/sec (decode, quantized) = 48 tokens/sec
+- Time: 150M / 48 = 3.125M seconds = 868 hours/month
+- Cost: 868 × $0.20 = $174/month
+
+L4 saves $83/month even with heavy batch processing.
+
+**Lambda GPU Cloud Pricing:**
+
+Lambda T4: $0.35/hr
+Lambda L4: Not yet widely available (emerging in 2026)
+
+AWS SageMaker ML Instance Pricing:
+
+ml.p3.2xlarge (T4): $1.06/hr on-demand
+ml.g10x.xlarge (L4): $1.11/hr on-demand
+
+AWS pricing compressed: T4 and L4 nearly equivalent on AWS, favoring L4 due to performance.
+
+## Power Consumption and Efficiency
+
+**Thermal Design Power (TDP):**
+
+L4: 72W
+T4: 70W
+
+Nearly identical, surprising given 3-5x performance difference. L4 is more efficient per watt of inference.
+
+**Watts per Inference (Energy Efficiency):**
+
+Measured in joules per token (lower is better):
+
+L4: 0.08 J/token (72W ÷ 900 tokens/sec typical workload)
+T4: 0.35 J/token (70W ÷ 200 tokens/sec typical workload)
+
+L4 is 4.4x more energy-efficient. Important for data center operations and sustainability.
+
+**Total Cost of Ownership (TCO) over 3 years:**
+
+Hardware cost (amortized): L4 ~$2,500, T4 ~$1,500 (if owned)
+
+Electricity (assuming 50% utilization):
+- L4: 72W × 0.5 × 8760 hours/year × $0.12/kWh = $36/year
+- T4: 70W × 0.5 × 8760 hours/year × $0.12/kWh = $36/year
+
+Operational costs minimal. Choose based on inference throughput requirements.
+
+## Use Cases: When to Choose Each
+
+**Choose L4 if:**
+
+- Inference latency matters (chat, real-time APIs)
+- Running 13B+ models (native FP16 needed)
+- VRAM matters (24GB vs 16GB)
+- Want to avoid quantization (quality sensitive)
+- Image generation or transcoding
+- Processing throughput more important than raw cost
+- Modern infrastructure investment desired
+
+**Choose T4 if:**
+
+- Latency insensitive (batch processing, overnight jobs)
+- Budget extremely constrained
+- Existing infrastructure has T4 investments
+- Running small models (3-7B) only
+- Workload compatible with quantization
+- Cloud provider only offers T4 (legacy constraint)
+
+## Specific Use Case Analysis
+
+**Production Chat API:**
+
+L4 required. T4 latency (15-20 sec per response) makes for poor user experience. L4 at 4-6 seconds acceptable. User retention drops significantly above 10-second latency.
+
+Cost: L4 ($0.44/hr) more expensive hourly, but fewer total GPUs needed due to throughput. Typical setup: 2x L4 vs 8x T4 for same user capacity.
+
+**Batch Document Processing:**
+
+T4 acceptable. Processing 100,000 documents overnight: T4 bottleneck is latency, not throughput. Save $100+/month using T4.
+
+Example: 100K documents × 10 sec/doc ÷ 1000 docs/hr = 100 hours on T4. Cost: $20. On L4: 25 hours, cost: $11. T4 worth it here.
+
+**Video Transcoding:**
+
+L4 strongly preferred. Built-in AV1 encoder, 128 video engines. T4 lacks AV1. For transcoding 1000 videos/month to multiple formats, L4 saves weeks of processing time.
+
+Processing 1 million minutes of video:
+- L4: 500 hours (efficient encoding) = $220
+- T4: 4,000 hours (slower, no AV1) = $800
+
+L4 saves $580/month.
+
+**Fine-tuning:**
+
+T4 insufficient (16GB VRAM barely fits 7B model). L4 required for 13B. For LoRA fine-tuning, both work. For full fine-tuning, L4 advantage significant.
+
+Training 7B model on 10K examples:
+- L4: 10-15 hours compute = $4.40-6.60 + labor
+- T4: 30-50 hours compute = $6-10 + labor
+
+L4 marginally faster but both viable.
+
+**Classification and Embedding:**
+
+Both adequate. Small batch sizes, short prompts. Either works. T4 cost advantage (30%) means $10-20/month difference for small workloads.
+
+Embedding 1M documents (1000 tokens each):
+
+L4: 600 hours = $264
+T4: 1,500 hours = $300
+
+T4 nearly equivalent, cost advantage minimal.
+
+## Video Encoding Performance
+
+**AV1 Encoding (L4 Only):**
+
+L4 supports dedicated AV1 hardware. T4 lacks this entirely.
+
+NVIDIA T4: H.264, H.265 only
+
+NVIDIA L4: H.264, H.265, AV1
+
+1920x1080 video encoding (8-second clip):
+
+L4 with AV1: 2-3 seconds encoding
+T4 with H.265: 8-12 seconds encoding
+L4 with H.265: 1-2 seconds encoding
+
+For video platforms transcoding to multiple codecs, L4 AV1 support justifies migration.
+
+## Real-World Deployment Scenarios
+
+**Scenario 1: Customer Support Chatbot**
+
+Requirements: 1,000 concurrent users, 5-second response time target
+
+T4 approach:
+- Need 50x T4 GPUs (each serves 20 concurrent users at 20 sec latency)
+- Monthly: 50 GPUs × $0.20/hr × 730 hours = $7,300
+
+L4 approach:
+- Need 15x L4 GPUs (each serves 67 concurrent users at 5 sec latency)
+- Monthly: 15 GPUs × $0.44/hr × 730 hours = $4,818
+
+L4 saves $2,482/month ($30k/year) despite higher per-GPU cost.
+
+**Scenario 2: Daily Batch Inference**
+
+Requirements: Process 10 million documents daily (1,000 tokens each, 500-token output)
+
+T4 approach:
+- Throughput: 50 tokens/sec per GPU
+- Time: 10M × 1500 tokens / 50 tokens/sec = 300,000 seconds = 83 hours/day
+- Need continuous 3-4x GPUs for daily completion
+- Monthly: 4 GPUs × $0.20 × 730 = $584
+
+L4 approach:
+- Throughput: 200 tokens/sec per GPU
+- Time: 10M × 1500 / 200 = 75,000 seconds = 21 hours/day
+- Need continuous 1x GPU for daily completion
+- Monthly: 1 GPU × $0.44 × 730 = $321
+
+L4 cheaper even with higher hourly rate. Faster completion also valuable.
+
+## Inference Speed Deep Dive: Model-by-Model
+
+**Phi-2 (2.7B Model):**
+
+L4:
+- Prefill: 400+ tokens/sec
+- Decode: 100+ tokens/sec
+- Total for 150-token response: 2-3 seconds
+
+T4:
+- Prefill: 80-100 tokens/sec
+- Decode: 20-25 tokens/sec
+- Total: 8-10 seconds
+
+L4 advantage: 3-4x
+
+**Code Llama 34B (Quantized Q4):**
+
+L4:
+- Can't fit (34B model needs 17GB at Q4, L4 has 24GB but leaves little headroom)
+- Possible with int8 quantization
+
+T4:
+- Can't fit (doesn't have 24GB)
+- Can't run this model
+
+L4 wins by supporting larger models.
+
+**Yi-34B (Quantized Q4):**
+
+L4:
+- Prefill: 80-100 tokens/sec
+- Decode: 12-15 tokens/sec
+- 8-bit variant: 15-20 tokens/sec
+
+T4:
+- Can't fit in 16GB VRAM
+- Would require aggressive quantization with quality loss
+
+L4 advantage: Supports the model natively.
+
+## Memory Bandwidth Analysis
+
+Memory bandwidth (GB/s) determines inference speed for memory-bound operations.
+
+L4: 432 GB/s
+T4: 320 GB/s (32 GB/s per module × 10 modules)
+
+Bandwidth advantage: 1.35x
+
+However, this translates to only 10-15% performance difference in practice for typical models. The tensor architecture matters more than bandwidth.
+
+L4's tensor specialization for inference (TF32, sparsity in software) provides 3-5x practical speedup beyond bandwidth advantage.
+
+## Multi-GPU Scaling Considerations
+
+**Scaling Inference Clusters:**
+
+L4: Two 24GB L4s ($0.88/hr) can serve 1,000+ concurrent users with 5-second latency. Horizontal scaling straightforward.
+
+T4: Four 16GB T4s ($0.80-1.20/hr) needed to match throughput. More GPUs increase operational complexity.
+
+Cost analysis at 10,000 concurrent users:
+- 10x L4 cluster: $4.40/hr = $3,160/month
+- 30x T4 cluster: $6-9/hr = $4,320-6,480/month
+
+L4 cheaper at scale despite higher per-unit cost.
+
+**Multi-GPU Batching:**
+
+L4 batching: Batch size 8-16 per GPU. Two GPUs handle 16-32 concurrent requests.
+
+T4 batching: Batch size 2-4 per GPU. Two GPUs handle 4-8 concurrent requests.
+
+Batching efficiency matters for high-concurrency systems. L4's larger batches reduce response latency variance (predictability).
+
+## Thermal and Power Considerations for Data Centers
+
+**Data Center Total Cost of Ownership (TCO):**
+
+Hardware purchase (amortized over 5 years): L4 ~$2,500, T4 ~$1,500
+
+Electricity (assuming continuous operation):
+- L4: 72W × 8,760 hours/year × $0.12/kWh = $75.33/year
+- T4: 70W × 8,760 hours/year × $0.12/kWh = $73.32/year
+
+Cooling (data center rule of thumb: 1:1 ratio, $1 cooling per $1 electricity):
+- L4: ~$75/year
+- T4: ~$73/year
+
+Maintenance and support (assume 10% of hardware cost/year):
+- L4: $250/year
+- T4: $150/year
+
+5-year TCO comparison:
+- L4: $2,500 + ($75 + $75 + $250) × 5 = $4,250
+- T4: $1,500 + ($73 + $73 + $150) × 5 = $2,480
+
+However: L4 supports 3-5x higher throughput, so per-inference cost strongly favors L4.
+
+TCO per 1 billion inferences:
+- L4 (1,000 inferences/sec): 11 days processing = 264 hours × $0.44/hr = $116
+- T4 (300 inferences/sec): 37 days processing = 888 hours × $0.20/hr = $178
+
+L4 saves $62 per 1 billion inferences despite higher hardware cost.
+
+**Facility Constraints:**
+
+L4: 72W, single-slot form factor, fits standard rack
+
+T4: 70W, single-slot form factor, fits standard rack
+
+No difference for most data centers. Both fit in standard NVIDIA A100 PCIe form factor slots.
+
+## Real-World Comparisons from Production Systems
+
+**Use Case: Search-as-a-Service Platform**
+
+Company: Medium startup, 1M searches/day
+
+Initial deployment (2023): 40x T4 GPUs, 15-second average response, $640/month (0.20/hr)
+
+Evaluation period (2024): Move to L4, 5-second average response, need 15x L4 = $198/month
+
+Decision: Migrate to L4. Faster responses improve user retention by estimated 8%. $442/month cost reduction funds additional infrastructure (database, cache, monitoring).
+
+**Use Case: Content Moderation**
+
+Company: Large platform, 100M contents/day to moderate
+
+T4 approach: 200x T4 GPUs in batch mode, process 1K/batch, 24-hour queue
+- Cost: $200 × 0.20 × 730 = $29,200/month
+- Latency: 24 hours to moderation decision (unacceptable for live moderation)
+
+L4 approach: 60x L4 GPUs in streaming mode, real-time moderation
+- Cost: 60 × 0.44 × 730 = $19,140/month
+- Latency: sub-second moderation decisions
+
+L4 cheaper AND meets latency requirements that T4 cannot.
+
+## FAQ
+
+**Q: Is L4 worth the upgrade from T4?**
+A: Depends on workload. For latency-sensitive (chat): absolutely. For batch processing: maybe. Calculate your specific throughput needs and costs.
+
+**Q: Can I use T4 for production?**
+A: Yes, if latency tolerance allows 15-20 second responses. Works for batch, transcoding, classification. Not ideal for real-time chat.
+
+**Q: What's the VRAM limitation at scale?**
+A: T4's 16GB limits model sizes to 7B and smaller (or heavily quantized 13B). L4's 24GB supports 13B natively. For 70B+ models, both insufficient; need H100.
+
+**Q: Does sparsity on T4 matter in practice?**
+A: Rarely. 50% sparsity means 50% of weights must be exactly zero. Post-quantization, most models don't have clean 50% sparsity. Actual speedup: 5-20% vs theoretical 2x.
+
+**Q: Which GPU should I use for fine-tuning?**
+A: L4 preferred for 7B-13B LoRA fine-tuning. T4 works for 7B only. Full fine-tuning: both marginal, need H100/A100. Choose L4 for faster iteration.
+
+**Q: Is T4 completely obsolete?**
+A: No. Suitable for batch processing, non-time-critical inference, and workloads where cost trumps latency. T4 remains in cloud offerings due to legacy and cost.
+
+**Q: Can I mix T4 and L4 in same cluster?**
+A: Yes. Route latency-sensitive requests to L4, batch jobs to T4. Adds operational complexity but optimizes costs.
+
+**Q: What about newer GPUs (H100, B200)?**
+A: Different tier. H100 ($1.99-3.78/hr) for large models or training. B200 ($5.98/hr) for latest-generation scaling. Compare L4 vs T4 only for inference workloads under 24GB.
+
+**Q: Is cloud rental cheaper than buying?**
+A: Depends on utilization. <50% utilization: cloud cheaper. >70% continuous: consider purchasing or committed instances. For prototyping: always cloud.
+
+**Q: What about ARM-based GPU alternatives?**
+A: NVIDIA dominates cloud offerings (99% of cloud GPU market). AMD MI cards (MI300X) available, similar pricing, smaller ecosystem.
+
+## Related Resources
+
+Compare GPUs and optimize infrastructure choices:
+
+- [NVIDIA L4 Specifications](/gpus/models/nvidia-l4) full technical details
+- [NVIDIA Tesla T4 Details](/gpus/models/nvidia-tesla-t4) legacy specs
+- [A100 vs H100 Comparison](/articles/a100-vs-h100) for large model inference
+- [RTX 4090 for Local Inference](/articles/rtx-4090-cloud) consumer GPU alternative
+- [GPU Rental Pricing Directory](/gpus) with RunPod, Lambda, AWS rates
+
+## Sources
+
+- NVIDIA L4 Datasheet: https://www.nvidia.com/content/PDF/nvidia-ampere-ga-102-gpu-architecture-whitepaper-v2.pdf
+- NVIDIA T4 Datasheet: https://www.nvidia.com/content/PDF/nvidia-turing-gpu-architecture-whitepaper-v02.pdf
+- RunPod GPU Pricing: https://www.runpod.io/gpu-instance-types
+- Lambda GPU Pricing: https://www.lambdalabs.com/service/gpu-cloud
+- NVIDIA CUDA Compute Capability: https://docs.nvidia.com/cuda/cuda-c-programming-guide/

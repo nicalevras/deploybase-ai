@@ -1,0 +1,404 @@
+---
+title: 'Spot vs On-Demand GPU Pricing: How to Save 50-80%'
+slug: spot-vs-on-demand-gpu-pricing-how-to-save-50-80
+description: >-
+  Compare spot vs on-demand GPU pricing. Calculate savings, manage preemption
+  risk, and optimize budget with strategies for 50-80% cost reduction.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Pricing
+---
+
+## Contents
+
+- [Overview](#overview)
+- [Spot vs On-Demand Pricing](#spot-vs-on-demand-pricing)
+- [Savings Calculations](#savings-calculations)
+- [Preemption Risk Management](#preemption-risk-management)
+- [Workload Suitability](#workload-suitability)
+- [Hybrid Strategies](#hybrid-strategies)
+- [Provider Comparison](#provider-comparison)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Overview
+
+Spot GPU instances cost 50-80% less than on-demand but face preemption risk. For batch workloads, spot pricing delivers massive cost savings. For real-time services, on-demand provides reliability. This guide quantifies the trade-off, calculates when to use each, and outlines hybrid strategies as of March 2026.
+
+## Spot vs On-Demand Pricing
+
+### Pricing Comparison Across Providers
+
+**RunPod**
+
+| GPU | On-Demand | Spot | Savings | Preemption |
+|-----|-----------|------|---------|-----------|
+| RTX 4090 | $0.34/hr | $0.14/hr | 59% | Low |
+| L40 | $0.69/hr | $0.21/hr | 70% | Low |
+| A100 PCIe | $1.19/hr | $0.42/hr | 65% | Low |
+| H100 SXM | $2.69/hr | $1.29/hr | 52% | Low |
+
+[RunPod pricing](/articles/runpod-gpu-pricing) offers consistent 70% discounts on spot.
+
+**Lambda Labs**
+
+Lambda Labs does not offer a formal spot or preemptible instance program. All instances are on-demand with guaranteed availability and no preemption risk. This is a key differentiator from RunPod and AWS.
+
+| GPU | On-Demand | Spot | Notes |
+|-----|-----------|------|-------|
+| A10 | $0.86/hr | N/A | No spot program |
+| A100 | $1.48/hr | N/A | No spot program |
+| H100 PCIe | $2.86/hr | N/A | No spot program |
+| H100 SXM | $2.49/hr | N/A | No spot program |
+
+[Lambda Labs pricing](/articles/lambda-labs-gpu-pricing) offers fixed on-demand rates with no preemption risk — the trade-off for reliability over cost.
+
+**AWS EC2**
+
+| GPU | On-Demand | Spot | Savings |
+|-----|-----------|------|---------|
+| p3.2xlarge (V100) | $3.06/hr | $1.09/hr | 64% |
+| p3.8xlarge (4xV100) | $12.24/hr | $4.38/hr | 64% |
+| p3dn.24xlarge (8xV100) | $35.97/hr | $14.39/hr | 60% |
+
+AWS spot pricing fluctuates; average savings 60-70%.
+
+**Google Cloud**
+
+| GPU | On-Demand | Preemptible | Savings |
+|-----|-----------|-------------|---------|
+| A100 (8x bundle) | $19.20/hr | $5.76/hr | 70% |
+| H100 (8x bundle) | Not available | Contact sales | - |
+
+Google Cloud caps preemptible savings at 70%.
+
+**Azure**
+
+Spot VM pricing on Azure averages 50-90% discount, varies widely by GPU type and availability.
+
+## Savings Calculations
+
+### Single-GPU Workload (100-hour training)
+
+**Scenario**: Train Mistral 7B on A100
+
+**On-Demand**
+- Rate: $1.19/hour
+- Duration: 100 hours
+- Cost: $119
+
+**Spot (65% discount)**
+- Rate: $0.42/hour
+- Duration: 100 hours (assuming no preemption)
+- Cost: $42
+- Savings: $77 (65%)
+
+### Continuous Service (1 month, 24/7)
+
+**Scenario**: Stable Diffusion inference service on L40
+
+**On-Demand**
+- Rate: $0.69/hour
+- Duration: 730 hours (24/7 x 30 days)
+- Cost: $503
+
+**Spot + On-Demand Hybrid**
+- 90% spot L40: $0.21/hr x 657 hours = $138
+- 10% on-demand L40: $0.69/hr x 73 hours = $50
+- Total: $188
+- Savings: $315 (63%)
+
+### Large-Scale Training (1T tokens, 8xH100)
+
+**Scenario**: Llama 2 70B training on RunPod
+
+**On-Demand Only**
+- Rate: 8 x $2.69/hr = $21.52/hour
+- Duration: 416 hours (17 days)
+- Cost: $8,953
+
+**Spot Only (assuming no preemption)**
+- Rate: 8 x $1.29/hr = $10.32/hour
+- Duration: 416 hours
+- Cost: $4,293
+- Savings: $4,660 (52%)
+
+**Spot with Preemption (1 failure at 200 hours)**
+- First attempt: 200 hours spot @ $10.32/hr = $2,064
+- Resume attempt: 216 hours spot @ $10.32/hr = $2,229
+- Total: $4,293
+- Savings: Still 52% (checkpoint recovery eliminates retry cost)
+
+## Preemption Risk Management
+
+### Preemption Rates by Provider
+
+**RunPod**
+- Spot preemption rate: 2-5% per day (varies by GPU type)
+- Average uptime: 20-50 days before preemption
+- Interruption notice: 30-120 seconds
+
+**Lambda Labs**
+- Spot preemption rate: <1% per day
+- Average uptime: 100+ days
+- Interruption notice: 1-2 minutes
+
+**AWS EC2**
+- Spot preemption rate: 5-10% per day (GPU-specific)
+- Average uptime: 10-20 days
+- Interruption notice: 2 minutes
+
+**Google Cloud**
+- Preemptible preemption rate: 10-25% per day
+- Average uptime: 4-10 days
+- Interruption notice: 30 seconds
+
+### Strategy 1: Checkpoint and Recovery
+
+Save model state every N hours. On preemption, resume from checkpoint.
+
+**Implementation**:
+```python
+checkpoint_interval = 5 * 3600  # seconds
+
+while training:
+    # Training loop
+    for step in range(steps_per_epoch):
+        loss = train_step()
+
+        if time.time() - last_checkpoint > checkpoint_interval:
+            torch.save({
+                'model': model.state_dict(),
+                'optimizer': optimizer.state_dict(),
+                'step': step
+            }, 'checkpoint.pt')
+            last_checkpoint = time.time()
+
+    # On preemption, detect and exit gracefully
+    # Resume script automatically restarts:
+    if os.path.exists('checkpoint.pt'):
+        checkpoint = torch.load('checkpoint.pt')
+        model.load_state_dict(checkpoint['model'])
+        optimizer.load_state_dict(checkpoint['optimizer'])
+        start_step = checkpoint['step']
+```
+
+**Overhead**: 5-10% training time for checkpoint I/O
+
+**Fault tolerance**: Resume from latest checkpoint within 5 hours of work loss
+
+### Strategy 2: Multi-GPU Redundancy
+
+Distribute batch across spot and on-demand GPUs. If spot preempts, on-demand maintains service.
+
+**Configuration**:
+- 6x Spot H100: Cost $7.74/hour (6 × $1.29)
+- 2x On-Demand H100: Cost $5.38/hour (2 × $2.69)
+- Total: 8 GPU-equivalent cluster at $13.12/hour
+- On-demand only cost: $21.52/hour
+- Savings: 39% with fault tolerance
+
+**Trade-off**: Reduced parallelism efficiency (communication overhead increases with heterogeneous cluster)
+
+### Strategy 3: Time-Window Exploitation
+
+Use spot during low-demand periods (nights, weekends). Switch to on-demand during peak hours.
+
+**Pricing variation** (AWS example):
+- Peak hours (9am-6pm weekday): 70% discount (baseline)
+- Off-peak hours (6pm-9am): 80% discount
+- Weekends: 85% discount
+
+**Schedule optimization**:
+- Batch training jobs: 100% spot during weekends
+- Fine-tuning experiments: 70% spot off-peak
+- Real-time services: 100% on-demand during business hours
+
+### Strategy 4: Queue-Based Workload Management
+
+Submit batch jobs to queue. Dynamically scale based on spot availability and pricing.
+
+**System design**:
+1. Job queue with priority (urgent vs background)
+2. Monitor spot price and availability
+3. Auto-scale: High price → scale down, Low price → scale up
+4. Switch to on-demand if spot unavailable for urgent jobs
+
+**Tools**: Kubernetes with cluster autoscaler, Slurm with dynamic allocation
+
+## Workload Suitability
+
+### Suitable for Spot (High Savings Benefit)
+
+**Batch Training**
+- Checkpointing possible
+- No real-time SLA
+- Cost sensitivity high
+- Cost reduction: 70%
+- Example: Mistral 7B training on 50B-token dataset
+
+**Experimentation and Research**
+- Quick failure acceptable
+- Need rapid iteration
+- Limited production dependency
+- Cost reduction: 70%
+- Example: Hyperparameter tuning across 100 configurations
+
+**Data Processing**
+- Fault-tolerant (MapReduce pattern)
+- Resubmit on failure trivial
+- Cost reduction: 70%
+- Example: Generating embeddings for 1M documents
+
+**Inference Batch Jobs**
+- Offline inference acceptable
+- Resubmit on preemption
+- Cost reduction: 70%
+- Example: Running daily inference across image dataset
+
+### Unsuitable for Spot (Low Savings Benefit)
+
+**Real-Time API Services**
+- SLA requirements (99.9% uptime)
+- Preemption unacceptable
+- Spot savings wasted on reliability overhead
+- Recommendation: 100% on-demand
+- Example: Production Mistral inference API
+
+**Interactive Applications**
+- User-facing, low-latency requirement
+- Preemption causes poor experience
+- Recommendation: 100% on-demand
+- Example: ChatBot application
+
+**Long-Running Training (Multi-Month)**
+- Preemption recovery overhead accumulates
+- Statistical risk of frequent interruptions
+- Recommendation: Mix spot + on-demand (hybrid)
+- Example: Llama 405B training (15T tokens)
+
+**Latency-Sensitive Fine-Tuning**
+- Cannot tolerate stoppage
+- Recommendation: On-demand for critical jobs
+- Example: Fine-tuning for production model deployment
+
+## Hybrid Strategies
+
+### Strategy A: 80/20 Spot/On-Demand Mix
+
+Allocate 80% capacity to spot, 20% to on-demand.
+
+**Application**: Production services with graceful degradation
+
+**Design**:
+- Load balancer routes 80% traffic to spot cluster
+- Failover 20% traffic to on-demand cluster
+- When spot instance preempts, traffic shifts to on-demand
+- Spot instance restarts automatically
+- Performance degrades but service stays live
+
+**Cost**: 80% x Spot rate + 20% x On-demand rate = 30% total savings
+
+**Example** (Stable Diffusion service on L40):
+- On-demand cost: 24/7 = $503/month
+- Hybrid cost: (0.8 × $0.21) + (0.2 × $0.69) = $0.31/hr = $226/month
+- Savings: 55%
+
+### Strategy B: Reserved Capacity + Spot Bursting
+
+Purchase reserved instances for baseline, burst with spot.
+
+**Application**: Growing startups with seasonal demand spikes
+
+**Design**:
+- 2x H100 reserved on-demand: baseline capacity
+- +4x H100 spot: burst during peak training
+- Dynamic scaling based on job queue depth
+
+**Cost structure**:
+- Reserved: 2 x $2.69/hr = $5.38/hour (24/7)
+- Burst spot: 4 x $1.29/hr = $5.16/hour (during load)
+- Average monthly (50% burst utilization): $5.38 + ($5.16 x 0.5) = $7.96/hour
+- On-demand equivalent: 6 x $2.69 = $16.14/hour
+- Savings: 51%
+
+### Strategy C: Timeframe-Based Allocation
+
+Different strategies for different time horizons.
+
+**Short-term (1-7 days)**
+- 100% spot with checkpointing
+- Savings: 70%
+- Use case: Rapid experimentation
+
+**Medium-term (1-4 weeks)**
+- 70% spot + 30% on-demand hybrid
+- Savings: 55%
+- Use case: Model training with risk tolerance
+
+**Long-term (1-6 months)**
+- Reserved instances + spot bursting
+- Savings: 40-50%
+- Use case: Production deployments
+
+## Provider Comparison
+
+### RunPod vs Lambda Labs vs AWS
+
+| Metric | RunPod | Lambda Labs | AWS |
+|--------|--------|-------------|-----|
+| Spot discount | 52-65% | N/A (no spot) | 50-64% |
+| Preemption rate | 2-5%/day | 0% (no preemption) | 5-10%/day |
+| Min notice | 30-300 sec | N/A | 2 min |
+| Max runtime (avg) | 20-50 days | Unlimited (on-demand) | 10-20 days |
+| Checkpoint recovery | Good | N/A | Good |
+| Cost predictability | High | Very High (fixed rates) | Medium |
+
+**Recommendation**
+- Short-term experimentation: RunPod (52-65% discount, accept higher preemption)
+- Production with guaranteed uptime: [Lambda Labs](/articles/lambda-labs-gpu-pricing) (no spot, but no preemption risk either)
+- Production with SLAs and scale: AWS (structured spot with enterprise tooling)
+
+## FAQ
+
+**Is spot GPU training risky?**
+Low risk with checkpointing. Expected work loss on RunPod spot: ~5% per job. Lambda Labs has no spot/preemption risk (on-demand only). Save checkpoint every hour and 95%+ of work survives any preemption.
+
+**Can I mix spot and on-demand in single training job?**
+Yes, but with reduced efficiency. Slower spot GPU becomes bottleneck. Works best with data-parallel distributed training where uneven GPU performance is acceptable.
+
+**What's the break-even point for switching from spot to on-demand?**
+If preemption occurs within first 20% of training, on-demand becomes cost-effective. For 100-hour training, preemption at hour 20 = 20 hours wasted (36 spot hours saved vs 100 on-demand).
+
+**Does spot pricing guarantee the advertised discount?**
+No. Prices fluctuate based on demand. Advertised 70% is typical/average. During high demand, discount may drop to 50-60%. Set alerts for price increases.
+
+**Can I use spot for inference APIs?**
+Not ideal for latency-critical services. Use spot + on-demand hybrid (80/20) for graceful degradation. Alternative: Use cheapest on-demand option instead of spot.
+
+**How much does checkpoint I/O slow training?**
+5-10% slowdown for 1-hour checkpoint intervals on H100. Larger models (405B) may see 15-20% overhead due to checkpoint file size (800GB+).
+
+**Which GPU has most stable spot pricing?**
+H100 and A100 have most volatile spot pricing (supply-constrained). RTX 4090 and A10 have more stable spot availability (commoditized, abundant supply).
+
+**Should I use spot for fine-tuning?**
+Yes, if fine-tuning on public datasets. If fine-tuning proprietary data with strict deadlines, use on-demand to guarantee completion.
+
+## Related Resources
+
+- [Complete GPU Pricing Guide](/gpus)
+- [AI Cost Calculator](/articles/ai-cost-calculator)
+- [Spot GPU Pricing Analysis](/articles/spot-gpu-pricing)
+- [GPU Cloud Cost Comparison](/articles/gpu-cloud-cost-comparison)
+- [RunPod Pricing Deep Dive](/articles/runpod-gpu-pricing)
+- [Lambda Labs Pricing](/articles/lambda-labs-gpu-pricing)
+
+## Sources
+
+- [AWS EC2 Spot Instances Documentation](https://aws.amazon.com/ec2/spot/)
+- [Google Cloud Preemptible VMs](https://cloud.google.com/preemptible-vms)
+- [Azure Spot VMs](https://azure.microsoft.com/en-us/services/virtual-machines/spot/)
+- [RunPod Pricing and Policies](https://www.runpod.io/)
+- [Lambda Labs Spot Availability](https://www.lambdalabs.com/)

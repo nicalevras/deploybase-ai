@@ -1,0 +1,522 @@
+---
+title: Self-Host LLM - Cheapest GPU Cloud Options Compared
+slug: self-host-llm-cheapest-gpu-cloud-options-compared
+description: >-
+  Cheapest GPU cloud providers for self-hosting LLMs. Compare RunPod, VastAI,
+  CoreWeave pricing as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - self host llm cheapest
+category: LLM Hosting
+---
+
+## Contents
+
+- [Breaking Down Pricing by Model Size](#breaking-down-pricing-by-model-size)
+- [Total Cost of Ownership](#total-cost-of-ownership)
+- [Reliability vs Price Trade-Off](#reliability-vs-price-trade-off)
+- [Specific Deployment Scenarios](#specific-deployment-scenarios)
+- [Commitment vs Flexibility](#commitment-vs-flexibility)
+- [Regional Pricing Variations](#regional-pricing-variations)
+- [Total Cost Modeling Tool](#total-cost-modeling-tool)
+- [Decision Framework](#decision-framework)
+- [Volume Discounts and Commitment Benefits](#volume-discounts-and-commitment-benefits)
+- [Organizational Adoption Patterns](#organizational-adoption-patterns)
+- [Regional and Geolocation Considerations](#regional-and-geolocation-considerations)
+- [Cost vs Quality Tradeoff Matrix](#cost-vs-quality-tradeoff-matrix)
+- [Future-Proofing the Choice](#future-proofing-the-choice)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## Breaking Down Pricing by Model Size
+
+### 7B Parameter Models
+
+Hardware requirement: 14GB VRAM (FP16), 7GB (INT8)
+Suitable GPU: RTX 4090 (24GB)
+
+Pricing comparison (monthly, 730 hours):
+
+RunPod RTX 4090: $0.34/hour × 730 = $248.20
+VastAI RTX 4090: $0.20-$0.30/hour × 730 = $146-$219
+**Winner: VastAI at 25-40% cheaper**
+
+Catch: Availability. VastAI cheapest options may not exist. RunPod guaranteed availability.
+
+### 13B Parameter Models
+
+Hardware requirement: 26GB VRAM (FP16), 13GB (INT8)
+Suitable GPU: A100 40GB
+
+Pricing comparison (monthly):
+
+RunPod A100: $1.39/hour × 730 = $1,014.70
+Lambda A100: $1.48/hour × 730 = $1,080.40
+VastAI A100: $0.85-$1.20/hour × 730 = $621-$876
+**Winner: VastAI at 35-40% cheaper**
+
+### 70B Parameter Models
+
+Hardware requirement: 140GB VRAM (FP16), 70GB (INT8)
+Suitable GPU: A100 80GB or H100
+
+Pricing comparison (monthly):
+
+RunPod A100 80GB: $2.50/hour (estimated) × 730 = $1,825
+RunPod H100: $2.69/hour × 730 = $1,963.70
+Lambda H100 SXM: $2.49/hour × 730 = $1,817.70
+CoreWeave 8x H100: $49.24/hour ÷ 8 = $6.16 per GPU (bulk pricing)
+VastAI H100: $2.00-$3.50/hour × 730 = $1,460-$2,555
+**Winner: VastAI H100 at $1,460-$2,555/month vs Lambda SXM at $1,818/month**
+
+## Total Cost of Ownership
+
+Beyond pure GPU costs, factor in:
+
+### Infrastructure Setup
+RunPod: 1-2 hours manual setup = minimal cost
+Lambda: 1-2 hours = minimal cost
+CoreWeave: 2-4 hours with account management = minimal cost
+VastAI: 4-8 hours (host hunting, setup differences) = moderate cost
+
+### Operational Overhead
+RunPod: Reliable, ~2 hours/month management
+Lambda: Reliable, ~2 hours/month management
+CoreWeave: Stable multi-GPU, ~5 hours/month management
+VastAI: Volatile, ~10-20 hours/month management (host disconnections, debugging)
+
+Operational cost at $100/hour fully-loaded labor:
+- RunPod: $200/month
+- Lambda: $200/month
+- CoreWeave: $500/month
+- VastAI: $1,000-$2,000/month
+
+Total 70B model hosting (monthly):
+
+RunPod H100: $1,964 GPU + $200 ops = $2,164
+Lambda H100 SXM: $1,818 GPU + $200 ops = $2,018
+CoreWeave: $4,917 (8x) + $500 ops = $5,417
+VastAI H100: $1,460-$2,555 GPU + $1,500 ops = $2,960-$4,055
+
+**Winner: Lambda Labs or RunPod by total cost of ownership** (Lambda SXM $2,018 vs RunPod $2,164; ~7% cheaper)
+
+Pure GPU cost favors VastAI. Operational overhead (reliability, support) favors Lambda and RunPod.
+
+## Reliability vs Price Trade-Off
+
+### RunPod (Balanced)
+
+Availability: 99% uptime
+Price: Mid-range ($1.39-$2.69 A100-H100)
+Support: Email/chat within 4 hours
+
+Best for: Production inference demanding reliability
+
+Downside: Not cheapest option. Premium for stability.
+
+### Lambda (Premium Stability)
+
+Availability: 99.5% uptime
+Price: Higher ($1.48-$2.86 A100-H100 PCIe; $2.49 H100 SXM)
+Support: Priority support available
+
+Best for: Mission-critical deployments
+
+Downside: 5-20% more expensive than RunPod. Premium overkill for many projects.
+
+### CoreWeave (Bulk Efficiency)
+
+Availability: 99.9% uptime with SLA
+Price: Per-GPU high, bulk good ($6.16/GPU for 8x)
+Support: Dedicated account management
+
+Best for: 8+ GPU multi-GPU training clusters
+
+Downside: Single-GPU pricing inefficient. Requires committing to multiple GPUs.
+
+### VastAI (Cheapest Gamble)
+
+Availability: 90-95% empirical (host-dependent)
+Price: Lowest ($0.80-$3.50 hourly, market-dependent)
+Support: Community forum, no SLA
+
+Best for: Development, experimentation, cost-sensitive projects with flexibility
+
+Downside: Host disconnections risk. Variable availability. No guarantees.
+
+## Specific Deployment Scenarios
+
+### Scenario: LLaMA 2 Chat (13B) - Customer Support Chatbot
+
+Production requirement: 99% uptime, predictable costs
+Expected load: 1,000 requests/day, 50 input + 50 output tokens
+
+Optimal hardware: A100 40GB (handles batch inference well)
+Expected throughput: 200-300 tokens/second, sufficient for load
+
+Best option: RunPod A100 at $1.39/hour
+
+Monthly cost:
+- GPU: $1.39 × 730 = $1,014.70
+- Monitoring/backup systems: $200
+- Total: $1,214.70
+
+Alternative consideration: Could use smaller (7B) model on RTX 4090
+- RunPod RTX 4090: $0.34 × 730 = $248.20
+- Total: $448.20 (63% cheaper)
+- Tradeoff: Slightly lower quality, but acceptable for support queries
+
+### Scenario: Model Experimentation (Rapid Iteration)
+
+Testing multiple models, different prompts, fine-tuning
+Hardware requirement flexible (7B-70B models)
+No uptime requirement, schedule flexible
+
+Best option: VastAI with diverse host selection
+
+Estimated strategy:
+- Mix RTX 4090 ($0.20/hr), A100 ($0.90/hr), H100 ($2.50/hr)
+- Average cost across experiments: $1.00/hour
+- Monthly: $730 × $1.00 = $730
+
+Operational burden acceptable for cost savings (vs $1,964 RunPod)
+
+### Scenario: 24/7 Production Inference at Scale
+
+Multiple 70B models, 100K daily requests
+Needs redundancy, automatic failover, 24/7 monitoring
+
+Best option: CoreWeave 8x H100 cluster with load balancing
+
+Setup:
+- 8x H100: $49.24/hour = $35,935/month
+- Load balancer: included
+- Redundancy: 4 instances, 2 backup
+- Total: 2 clusters × $35,935 = $71,870/month
+
+Justification: Reliability worth premium. Operational simplicity reduces headcount.
+
+Alternative (cost optimization):
+- Run on 2x RunPod H100 clusters (8 GPUs total)
+- Cost: 8 × $2.69 × 730 = $15,710/month
+- Operational overhead: ~40 hours/month extra
+- Risk: No multi-region failover
+
+Decision: CoreWeave for mission-critical. RunPod for acceptable risk tolerance.
+
+### Scenario: Research on Limited Budget
+
+Prototyping new techniques, publishing results
+Budget constraint: $2K/month maximum
+Hardware: Flexible (7B-13B models)
+
+Best option: VastAI with low-end filtering
+
+Strategy:
+- Use RTX 4090 for 7B models ($0.20-$0.25/hour)
+- Use A100 for 13B when needed ($0.85-$1.00/hour)
+- Average across month: $0.50/hour
+- Monthly: $365/month (well under budget)
+
+Accept risks: Host disconnections, variable performance
+Mitigate: Save checkpoints frequently, use multiple hosts in rotation
+
+## Commitment vs Flexibility
+
+### Annual Commitments (Reserve Pricing)
+
+RunPod 1-year commitment: Estimated 15-25% discount on standard rates
+CoreWeave commitments: 20% discount available
+
+Example: H100 at $2.69/hour standard
+With 1-year commitment: ~$2.28/hour (15% discount)
+Monthly savings: ($2.69 - $2.28) × 730 = $299/month
+Annual savings: $3,588
+
+Suitable for: Stable, predictable workloads
+Not suitable for: Projects with uncertain demand
+
+### Pay-as-You-Go (Maximum Flexibility)
+
+All providers offer hourly billing. Rent exactly when needed.
+
+Suitable for: Variable workloads, experimentation, short-term projects
+Cost: Premium for flexibility (10-15% higher than committed)
+
+## Regional Pricing Variations
+
+Pricing varies by region:
+
+US West: Cheapest (most competition)
+US East: 5-10% premium
+Europe: 20-30% premium
+Asia-Pacific: 25-40% premium
+
+Example: A100 pricing
+- US West: $1.20-$1.39/hour
+- Europe: $1.50-$1.70/hour
+- Asia: $1.60-$1.90/hour
+
+Recommendations:
+- Serve US customers: Use US-West GPUs
+- Serve EU customers: Consider EU region (latency benefit may offset cost)
+- Serve APAC: Run in US, accept latency, or negotiate better rates
+
+## Total Cost Modeling Tool
+
+Calculate optimal hardware for specific workload:
+
+Inputs needed:
+1. Model size (7B, 13B, 70B, etc)
+2. Expected requests per month
+3. Average tokens per request (input + output)
+4. Latency requirement (interactive vs batch)
+5. Uptime requirement (%)
+
+Formula:
+```
+GPU_hours_needed = (requests/month) × (tokens/request) / (tokens_per_second_per_gpu)
+Monthly_cost = GPU_hours_needed × hourly_rate + operational_overhead
+```
+
+Example: 10B tokens/month, 100 tokens/second throughput
+
+GPU hours: 10B / 100 = 100M tokens / (3600 seconds × 100 tokens/sec) = 28 GPU-hours
+Cost: 28 × $1.39 = $39
+
+For continuous operation: 730 hours/month × usage_percentage = required GPU hours
+
+## Decision Framework
+
+Choose GPU provider using this decision tree:
+
+1. **Is reliability critical?**
+   - Yes: RunPod, Lambda, CoreWeave
+   - No: Consider VastAI
+
+2. **Is workload multi-GPU?**
+   - Yes (8+): CoreWeave
+   - No: RunPod, Lambda, VastAI
+
+3. **Is budget primary constraint?**
+   - Yes: VastAI
+   - No: RunPod (balance) or CoreWeave (scale)
+
+4. **Is cost per token critical?**
+   - Yes: Compare total cost of ownership (operational burden)
+   - No: Prioritize reliability
+
+5. **How experienced is team with infrastructure?**
+   - Experienced: VastAI acceptable (manage complexity)
+   - Inexperienced: RunPod (simplest management)
+
+## Volume Discounts and Commitment Benefits
+
+### Tiered Pricing Models
+
+Most providers offer volume-based discounts:
+
+RunPod tiers:
+- 0-100 GPU-hours/month: Standard pricing
+- 100-500 GPU-hours/month: 5-10% discount
+- 500-2000 GPU-hours/month: 10-15% discount
+- 2000+ GPU-hours/month: Contact sales
+
+VastAI marketplace:
+- No formal volume discounts
+- Long-term renter relationships sometimes negotiate better rates
+- Supply affects pricing more than commitment
+
+CoreWeave:
+- Standard per-GPU rates
+- 1-year commitment: 15-20% discount
+- Multi-year: 20-30% discount
+- Volume negotiation: Separate deals for 50+ GPUs
+
+### Calculating Break-Even
+
+Determine when volume discounts justify switching:
+
+Example: Evaluate RunPod vs VastAI
+
+RunPod A100: $1.39/hour standard, $1.25/hour at 500+ hours = $0.14/hour savings
+Monthly impact: 500 hours × $0.14 = $70 savings
+
+Small impact initially. Compounds at larger scale.
+
+At 2000 GPU-hours/month (multitenant company):
+RunPod discount: 2000 × ($1.39 - $1.18) = $420 monthly savings
+
+Discounts become material at 1500+ monthly GPU-hours.
+
+## Organizational Adoption Patterns
+
+### Startup Phase (months 0-6)
+
+Characteristics:
+- Variable workload
+- Budget conscious
+- Team learning infrastructure
+- 50-200 monthly GPU-hours
+
+Best choice: VastAI or RunPod
+- Cost matters more than stability
+- Flexibility needed for experimentation
+- Operational overhead acceptable
+
+Expected spend: $100-$500/month
+
+### Growth Phase (months 6-18)
+
+Characteristics:
+- Increasing workload (500-2000 monthly GPU-hours)
+- Revenue starting
+- Team specializing
+- Production inference starting
+
+Best choice: RunPod or CoreWeave
+- Stability becomes important
+- Volume discounts kicking in
+- Operational efficiency improving
+
+Expected spend: $1,000-$10,000/month
+
+### Scale Phase (18+ months)
+
+Characteristics:
+- Large stable workload (2000+ monthly GPU-hours)
+- Revenue established
+- Dedicated infrastructure team
+- Mission-critical applications
+
+Best choice: CoreWeave or on-premise
+- Reliability paramount
+- Cost optimization mature
+- Operational excellence expected
+
+Expected spend: $10,000-$100,000+/month
+
+## Regional and Geolocation Considerations
+
+### Latency Implications
+
+User location to GPU data center latency:
+- Same region: 5-20ms
+- Different region (US): 50-100ms
+- Different continent: 100-300ms
+
+Interactive inference sensitive to latency. Batch inference tolerates distance.
+
+Application: Customer chatbot in San Francisco
+- GPU in US-West: 10ms latency + inference = 100-200ms total (good)
+- GPU in EU: 150ms latency + inference = 250-350ms total (acceptable)
+- GPU in Asia: 200ms latency + inference = 300-400ms total (sluggish)
+
+### Data Residency Requirements
+
+Some regulations require data residency:
+- GDPR: Data must stay in EU
+- CCPA: California data must stay in state
+- HIPAA: Health data must stay in approved facilities
+
+Provider options by region:
+- US: All providers
+- EU: CoreWeave, limited VastAI, RunPod has EU servers
+- Asia: CoreWeave, limited others
+
+Compliance requirements may force provider selection regardless of price.
+
+## Cost vs Quality Tradeoff Matrix
+
+| Tradeoff | VastAI | RunPod | CoreWeave | Lambda | Google Cloud |
+|----------|--------|--------|-----------|---------|--------------|
+| Cost | ★★★★★ | ★★★★ | ★★★ | ★★ | ★★★ |
+| Reliability | ★★ | ★★★★ | ★★★★★ | ★★★★★ | ★★★★★ |
+| Ease-of-use | ★★★ | ★★★★ | ★★★★ | ★★★★★ | ★★★★★ |
+| Support | ★★ | ★★★ | ★★★★ | ★★★★★ | ★★★★★ |
+| Scalability | ★★★ | ★★★★ | ★★★★★ | ★★★★ | ★★★★★ |
+
+Choose based on priority:
+- Cost-first: VastAI
+- Balanced: RunPod
+- Reliability-first: CoreWeave
+- Enterprise: Lambda or Google
+
+## Future-Proofing the Choice
+
+### Containerization Benefits
+
+Containerizing workloads (Docker) enables easy switching:
+
+Benefits:
+- Run same container on RunPod, VastAI, CoreWeave
+- Minimal code changes to switch providers
+- Test workload on multiple providers simultaneously
+- Fallback between providers if issues arise
+
+Implementation:
+```dockerfile
+FROM nvidia/cuda:12.0-runtime-ubuntu22.04
+RUN pip install vllm peft transformers
+COPY ./model /workspace/model
+CMD ["python", "-m", "vllm.entrypoints.openai.api_server"]
+```
+
+Same container runs everywhere.
+
+### Abstraction Layers
+
+Use infrastructure-agnostic orchestration:
+- Kubernetes for multi-provider deployment
+- Ray for distributed computing
+- Custom orchestration for specific requirements
+
+Reduces switching costs. Enables multi-provider strategies.
+
+### Avoiding Vendor Lock-In
+
+Critical decisions preventing lock-in:
+- Use open-source models (not proprietary)
+- Store data in standard formats (not vendor-specific)
+- Container-based deployment
+- Infrastructure-as-code (Terraform, etc.)
+
+Lock-in risk mitigated by portability.
+
+## FAQ
+
+**Can we use multiple providers simultaneously?**
+Yes. RunPod for critical, VastAI for experimental. Add orchestration complexity but optimize cost-reliability tradeoff.
+
+**What's the minimum viable GPU for 7B models?**
+RTX 4090 (24GB VRAM) sufficient. RTX 3090 (24GB) marginal but works with INT8. Avoid GPUs under 20GB.
+
+**How do we handle VastAI host disconnections?**
+Save checkpoints every hour. Distribute inference across 2-3 providers. Accept 5-10% job interruption rate.
+
+**Does regional location matter for performance?**
+Latency matters most for interactive applications. Batch inference tolerates long-distance GPUs. Optimize region based on inference style.
+
+**When should we commit to 1-year plans?**
+When workload stable for 12 months and growth <10% monthly. Savings (15-25%) justify commitment.
+
+**What about reserved capacity with credit cards?**
+Some providers offer pre-purchase discounts. $1,000 prepaid credit = 15% discount. Risk: Provider closure (unlikely but possible). Suitable only for established providers.
+
+## Related Resources
+
+[RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+[Lambda GPU Pricing](/articles/lambda-labs-gpu-pricing)
+[CoreWeave GPU Pricing](/articles/coreweave-gpu-pricing)
+[VastAI GPU Pricing](/articles/vast-ai-pricing)
+[Self-Hosted LLM Complete Setup Guide](/articles/self-hosted-llm-complete-setup-guide-and-cost-analysis)
+[Compare GPU Cloud Providers](/articles/compare-gpu-cloud-providers-side-by-side-pricing-table)
+
+## Sources
+
+RunPod, Lambda, CoreWeave, VastAI official pricing as of March 2026. Regional pricing variations from community reporting. Operational overhead estimates from consulting experience managing deployments. Reliability data from uptime monitoring services and user reports. GPU throughput benchmarks from MLCommons and vLLM documentation. Total cost of ownership analysis based on typical deployment patterns.

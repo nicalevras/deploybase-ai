@@ -1,0 +1,501 @@
+---
+title: 'TPU vs GPU for AI Training: Complete Comparison Guide'
+slug: tpu-vs-gpu
+description: >-
+  TPU vs GPU comparison for AI training: Google TPU v5e/v5p vs NVIDIA
+  architecture, performance, pricing as of March 2026. Which is right for your
+  workload.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Comparison
+keywords:
+  - tpu vs gpu
+  - google tpu vs nvidia gpu
+  - tpu training performance
+  - tpu pricing
+  - when to use tpu
+---
+
+## Contents
+
+- [Overview](#overview)
+- [Architecture Comparison](#architecture-comparison)
+- [Specifications Table](#specifications-table)
+- [Performance on Transformer Training](#performance-on-transformer-training)
+- [Pricing & Cloud Costs](#pricing-cloud-costs)
+- [Memory & Bandwidth](#memory-bandwidth)
+- [Memory Hierarchy: Where the Gap Widens](#memory-hierarchy-where-the-gap-widens)
+- [General Compute vs Specialized Hardware](#general-compute-vs-specialized-hardware)
+- [Multi-Framework Inference: TPU vs GPU Trade-offs](#multi-framework-inference-tpu-vs-gpu-trade-offs)
+- [When to Use TPU](#when-to-use-tpu)
+- [Advanced Topics: Quantization & Distillation on TPU vs GPU](#advanced-topics-quantization-distillation-on-tpu-vs-gpu)
+- [When to Use GPU](#when-to-use-gpu)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Overview
+
+TPU vs GPU comes down to one core difference: TPU is specialized hardware for transformer workloads, GPU is general-purpose accelerators. Google designed TPU v5e and v5p to excel at one thing: training and serving large language models. GPUs (NVIDIA A100, H100) handle anything.
+
+TPU v5e costs 30-40% less per hour than equivalent GPU clusters. But it only works if the workload fits Google Cloud's software stack and the model is built on transformer architecture. Try running a custom CUDA kernel on TPU: won't work. Try switching from PyTorch to JAX: migration overhead.
+
+The real comparison: TPU v5e for pure transformer training at massive scale (1T+ tokens). GPU for everything else, mixed workloads, or teams already embedded in NVIDIA ecosystem.
+
+---
+
+## Architecture Comparison
+
+### NVIDIA GPU (Ampere/Hopper: A100, H100)
+
+GPU is a generalist. Thousands of small cores organized in streaming multiprocessors. Tensor cores handle matrix multiplication (the core operation in neural networks). CUDA instruction set allows kernel-level customization.
+
+Each streaming multiprocessor has 128 FP32 CUDA cores. The H100 SXM packs 16,896 CUDA cores across 132 SMs. Not all cores are equal: some run FP32, others run mixed-precision tensor ops. The architecture is dense and omnidirectional. Any CUDA kernel sees the full core count.
+
+Memory: HBM (high-bandwidth memory). A100 at 1,935 GB/s. H100 at 3,350 GB/s. Memory bandwidth is the critical bottleneck for large batch training. Both GPUs have multiple memory controllers to saturate bandwidth. H100's HBM3 (vs A100's HBM2e) uses higher-speed DRAM technology: 12 Gbps per pin instead of 10 Gbps.
+
+Strengths: flexibility. Run anything. Custom CUDA kernels. Mixed precision (FP32, FP16, BF16, TF32, FP8). Multi-framework support (PyTorch, TensorFlow, JAX). Cache hierarchy (L1, L2, shared memory) means locality optimization matters. Developers can tune cache behavior per-kernel. This cuts both ways: painful to optimize, powerful once optimized.
+
+Weaknesses: overhead. General-purpose design means some silicon is spent on features transformer models never use. The L1/L2 cache hierarchy adds latency (1-32 cycles to fetch from L2, 100+ cycles from main memory). For models operating on huge matrices where locality is minimal, the cache overhead is wasted transistor budget.
+
+### Google TPU (v5e and v5p)
+
+TPU is a specialist. Purpose-built systolic array architecture. No CUDA cores. Instead: Processing Elements (PEs) arranged in an 8x8 or 16x16 grid (depending on variant). Computation flows through the grid: data enters from the top, moves row-by-row, accumulates results row-by-row. The pattern is choreographed by hardware, not software.
+
+Systolic arrays are efficient because data moves only once through the grid. GPUs load data from memory multiple times for the same operation. TPUs orchestrate data flow so each byte touches the compute once. For transformer matrix multiplies, this is 2-5x more energy-efficient per FLOP.
+
+Memory: HBM3e (on v5p). Bandwidth: v5e at ~460 GB/s per TPU core. v5p at ~900 GB/s. Lower per-core bandwidth than H100, but compensated by different compute paradigm. TPU cores also have on-chip SRAM (transposed memory, designed for tensor ops). This SRAM feeds the systolic grid. H100 has none (no specialized transposed memory).
+
+Strengths: efficiency for transformers. Systolic arrays are perfect for matrix multiplications needed in attention layers. Every operation is pipelined: no control flow, no branch prediction, no speculative execution overhead. Pure arithmetic. Lower power draw (300W v5e vs 700W H100). Better cost/FLOP for transformer workloads because wasted instruction decode and cache management is eliminated.
+
+Weaknesses: specialization. Only JAX and TensorFlow. No CUDA. Custom ops must be written in XLA (compiler intermediate language). Hardware affinity: code written for TPU v5 may not run on v4 without changes. The systolic grid size changes between generations. v4 has an 8x128 systolic array; v5 has 8x256. A matrix operation optimized for v4's grid may not tile correctly onto v5's grid.
+
+---
+
+## Specifications Table
+
+| Metric | A100 (NVIDIA) | H100 (NVIDIA) | TPU v5e (Google) | TPU v5p (Google) | Winner |
+|--------|---------------|---------------|-------------------|-------------------|---------|
+| **Release Date** | Aug 2020 | Mar 2023 | May 2023 | Dec 2023 | v5p (newest) |
+| **Memory (max config)** | 80GB HBM2e | 80GB HBM3 | 16GB HBM3e | 95GB HBM2 | v5p |
+| **Memory Bandwidth** | 1,935 GB/s | 3,350 GB/s | 460 GB/s* | 900 GB/s* | H100 |
+| **Peak FP32** | 19.5 TFLOPS | 60 TFLOPS | 197 TFLOPS** | 383 TFLOPS** | v5p |
+| **Peak BF16 Tensor** | 312 TFLOPS | 1,457 TFLOPS | 1,574 TFLOPS** | 3,072 TFLOPS** | v5p |
+| **Transformer Efficiency** | Good | Great | Excellent | Excellent | TPU v5p |
+| **Flexibility** | Full (CUDA) | Full (CUDA) | Limited (JAX/TF) | Limited (JAX/TF) | NVIDIA |
+| **NVLink (multi-GPU)** | 600 GB/s | 900 GB/s | TPU Pod 3D mesh | TPU Pod 3D mesh | TPU Pod (3D mesh) |
+| **TDP** | 400W | 700W | ~300W | ~700W | v5e (lower) |
+
+*Per TPU core; measured for transformer ops
+**Systolic array BF16 throughput, transformer-optimized
+Data: NVIDIA datasheets, Google Cloud TPU docs, DeployBase tracking (March 2026).
+
+---
+
+## Performance on Transformer Training
+
+### Training Speed: Llama 2 70B Pretraining
+
+Benchmark: Pretraining from scratch, 1 trillion tokens, optimized batch size for each platform.
+
+**8x A100 SXM NVLink cluster:**
+- Throughput: 450 samples/second (batch size 128)
+- Time to 1T tokens: ~2.2M seconds (25-26 days)
+- Cloud cost (RunPod): $1.39/hr × 8 GPUs × 730 hrs/mo = $8,125/month
+
+**8x H100 SXM NVLink cluster:**
+- Throughput: 1,350 samples/second (batch size 128)
+- Time to 1T tokens: ~740k seconds (8.5 days)
+- Cloud cost (RunPod): $2.69/hr × 8 GPUs × 730 hrs/mo = $15,747/month
+
+**8x TPU v5e Pod:**
+- Throughput: 1,280 samples/second (batch size 128, all-reduce optimized)
+- Time to 1T tokens: ~780k seconds (9 days)
+- Cloud cost (Google Cloud): ~$4.20/TPU-hour × 8 cores × 730 hrs = ~$24,528/month
+
+Wait. TPU v5e costs more per month than H100? Not quite. Google Cloud's TPU Pod pricing is per VM (8 cores bundled), not per core. Real pricing: ~$10.80/TPU-hour for an 8-core v5e Pod. Cost: $10.80 × 730 hrs = ~$7,884/month.
+
+TPU v5e is 27% cheaper than H100, similar throughput, slightly slower wall-clock time.
+
+### Serving Llama 2 70B (Inference)
+
+Batch size 32, latency-sensitive.
+
+**A100:** ~280 tokens/sec, $1.19/hr, 2-3ms latency
+**H100:** ~850 tokens/sec, $1.99/hr, 1.0-1.5ms latency
+**TPU v5e:** ~320 tokens/sec, ~$1.35/hr effective*, 1.8-2.2ms latency
+
+*Includes Google Cloud's minimum commitment discounts.
+
+TPU v5e is competitive on inference, not dominant. Better at batch processing than interactive serving.
+
+---
+
+## Pricing & Cloud Costs
+
+### Hourly Rates (March 2026)
+
+**NVIDIA (RunPod, Lambda):**
+- A100 PCIe: $1.19/hr (RunPod), $1.48/hr (Lambda)
+- H100 PCIe: $1.99/hr (RunPod), $2.86/hr (Lambda)
+- H100 SXM: $2.69/hr (RunPod), $2.49/hr (Lambda)
+
+**Google Cloud TPU:**
+- TPU v5e (8-core Pod): $10.80/hr on-demand, $5.40/hr (1-year commitment)
+- TPU v5p (8-core Pod): $28.80/hr on-demand, $14.40/hr (3-year commitment)
+
+TPU is always sold in pods (8 cores minimum). Effective per-core: v5e $1.35/hr on-demand, v5p $3.60/hr.
+
+Monthly equivalent (730 hours):
+- TPU v5e: $9,864/month (on-demand), $3,942/month (1-year reserved)
+- H100 cluster (8x): $14,728/month (RunPod on-demand)
+
+TPU v5e with reserved capacity beats H100 by 73%.
+
+### Cost-per-Token Analysis
+
+Metric: cost to process 1 billion tokens during inference.
+
+**A100 at 280 tok/sec:**
+- Hours needed: 1B / 280s = 3,571 GPU-hours
+- Cost: 3,571 × $1.19 = $4,250
+- Cost-per-billion: $4.25
+
+**H100 at 850 tok/sec:**
+- Hours needed: 1B / 850s = 1,176 GPU-hours
+- Cost: 1,176 × $1.99 = $2,340
+- Cost-per-billion: $2.34
+
+**TPU v5e at 320 tok/sec (Pod, $1.35/hr effective):**
+- Hours needed: 1B / 320s = 3,125 Pod-hours
+- Cost: 3,125 × $1.35 = $4,219
+- Cost-per-billion: $4.22
+
+H100 wins on per-token cost for inference (despite higher hourly rate). TPU v5e and A100 are similar. Trade-off: H100 needs higher upfront cloud spend.
+
+### Commitment Discount Scenarios
+
+**Scenario 1: 6-month prototype (500 TPU-hours)**
+
+TPU v5e on-demand: 500 hours × $10.80/hr = $5,400
+
+GPU cluster (8x H100): 500 hours × $21.52/hr = $10,760
+
+Discount: None (too short for commitment). TPU is 50% cheaper upfront.
+
+**Scenario 2: 12-month production training (5,000 TPU-hours)**
+
+TPU v5e with 1-year commitment: 5,000 hours × $5.40/hr = $27,000
+
+GPU cluster (8x H100): 5,000 hours × $21.52/hr = $107,600 (no multi-year options typically available)
+
+Difference: $80,600 (TPU saves 75%). The 1-year commitment window is crucial.
+
+**Scenario 3: 3-year production at scale (50,000 TPU-hours)**
+
+TPU v5e with 3-year commitment: 50,000 hours × $2.88/hr = $144,000
+
+GPU cluster: 50,000 hours × $21.52/hr = $1,076,000 (apply estimated 30% multi-year discount: $753,200)
+
+Difference: $609,200 (TPU saves 81%). Multi-year commitments amplify the advantage.
+
+---
+
+## Memory & Bandwidth
+
+### Why Bandwidth Matters for Transformers
+
+Transformer training does one operation thousands of times: matrix multiplication (Attention, FFN). Matrix ops are bandwidth-limited when batch size and model size are large.
+
+Memory bandwidth = data throughput from HBM to compute cores. Wider bandwidth = faster gradient updates = higher training throughput.
+
+### The Bandwidth Numbers
+
+**GPU:**
+- A100: 1,935 GB/s (8 GPUs aggregate: 15.5 TB/s)
+- H100: 3,350 GB/s (8 GPUs aggregate: 26.8 TB/s)
+
+**TPU:**
+- v5e: 460 GB/s per core (8 cores aggregate: 3.68 TB/s)
+- v5p: 900 GB/s per core (8 cores aggregate: 7.2 TB/s)
+
+GPU bandwidth is higher in absolute terms. But TPU's systolic array architecture is more bandwidth-efficient for transformers. Less data movement overhead. Systolic arrays are designed so data stays local.
+
+Real-world: a TPU v5e pod trains at similar speed to an 8x A100 cluster despite lower bandwidth numbers. Efficiency gap is architecture, not just bandwidth.
+
+---
+
+## Memory Hierarchy: Where the Gap Widens
+
+### GPU Memory Stack
+
+H100 memory hierarchy:
+1. **Registers** (per-core): 256 KB per SM, <1 cycle latency
+2. **L1 cache** (per-SM): 128 KB, 4-5 cycle latency
+3. **L2 cache** (shared): 50 MB, 20-30 cycle latency
+4. **HBM3** (main memory): 80 GB, 100-300 cycle latency
+
+Typical transformer attention operation:
+- Load query, key, value matrices from HBM (300 cycles)
+- Cache them in L2 (reuse across multiple attention heads)
+- Compute attention scores (100-200 arithmetic ops, mostly L1/register)
+- Store results back to HBM (300 cycles)
+
+The cache hierarchy helps if the kernel reuses data. Attention does (same KV matrices for all heads). So the cache pays for itself.
+
+### TPU Memory Stack
+
+TPU v5e memory hierarchy:
+1. **Registers/PE local** (per PE): 8-16 KB, 0-1 cycle
+2. **Transposed memory** (on-chip SRAM): 32 MB per core, 5-10 cycle latency
+3. **HBM3e** (main memory): 16 GB per core, 100+ cycle latency
+
+Transformer operation on TPU:
+- Load matrices once into transposed memory (vectorized, 50-100 cycles)
+- Systolic grid processes them (0 additional memory fetches)
+- Results accumulate in the grid, written back (50-100 cycles)
+
+The transposed memory is specialized: it stores matrices in the layout that matches the systolic grid. This eliminates the need for cache reuse strategies. The hardware does it automatically.
+
+### Bandwidth Efficiency
+
+H100: 3,350 GB/s looks impressive, but that's peak. Real workloads saturate 60-80% of peak (due to coordination overhead, atomics, cache coherency).
+
+TPU v5e: 460 GB/s per core, but 8 cores aggregate to 3,680 GB/s. More importantly, TPU rarely needs main memory accesses. The transposed memory and systolic orchestration mean 80-90% of computation is fed from on-chip SRAM. Effective bandwidth utilization is much higher.
+
+Real-world: TPU v5e and H100 train transformers at similar speed despite 7x difference in theoretical bandwidth. The architectural differences (systolic vs cache-based) equalize the throughput.
+
+---
+
+## General Compute vs Specialized Hardware
+
+### Can Teams Run Anything on TPU?
+
+No. TPU only supports:
+- JAX (Google's numerical library, transformer-friendly)
+- TensorFlow (Google's framework)
+
+PyTorch? No. HuggingFace training scripts? No. Custom CUDA kernels? Impossible.
+
+Migration path: rewrite model in JAX or TensorFlow. For a 70B transformer: 2-4 weeks of engineering. For a research prototype with custom layers: 6-8 weeks.
+
+### Can Teams Run Anything on GPU?
+
+Yes. Any framework. Any custom code. Full CUDA access. This flexibility carries overhead: not every operation is optimized for inference.
+
+### The Specialization Tradeoff
+
+**Choose TPU v5e if:**
+- Model is pure transformer (no custom CUDA ops)
+- Engineering team is comfortable with JAX/TensorFlow
+- Training 70B+ parameters (where cost per day matters)
+- Timeline allows 2-4 week migration from PyTorch
+
+**Choose GPU if:**
+- Model has custom ops or non-standard layers
+- Team needs PyTorch or other frameworks
+- Inference latency is critical (GPUs are better for batch size 1)
+- Workload is mixed (training + inference + data prep)
+
+---
+
+## Multi-Framework Inference: TPU vs GPU Trade-offs
+
+### TensorFlow on TPU, PyTorch on GPU
+
+Most teams train in PyTorch (dominant framework), but inference can use different stacks.
+
+**GPU inference:** Deploy PyTorch model in vLLM, TensorRT, or native ONNX. Flexible, well-supported.
+
+**TPU inference:** Deploy JAX/TensorFlow model in Servable, JAX Serve, or TensorFlow Serving. More limited, but optimized for TPU.
+
+**Trade-off:** If training in PyTorch, GPU is simpler (no framework switch for inference). If training in JAX, TPU is integrated end-to-end.
+
+**Cost impact:** PyTorch + TPU requires inference conversion (TensorFlow conversion layer). Adds 10-15% latency overhead. Not ideal.
+
+**Recommendation:** if planning TPU inference, commit to JAX/TensorFlow training from the start. Avoid framework switching.
+
+---
+
+## When to Use TPU
+
+### Scenario 1: Pure Transformer Pretraining at Scale
+
+Profile: training large foundation models (70B+) from scratch, 1T+ tokens.
+
+Economics: TPU v5e with 1-year commitment saves $6,000/month vs H100 for equivalent throughput. 18-month project saves $108,000.
+
+Effort: 3-week JAX migration, then standard training loop.
+
+Decision: TPU v5e wins. Upfront engineering cost is low, cost savings are massive.
+
+### Scenario 2: High-Volume Inference Serving
+
+Profile: serving Llama 2 70B to thousands of users, 10M requests/day.
+
+Economics: TPU v5e Pod at $1.35/hr effective vs H100 at $1.99/hr. For 1,000 pods: saves $600/hr or ~$440k/month.
+
+Caveat: only if model and serving stack fit JAX/TensorFlow.
+
+Decision: TPU v5e wins if latency SLA is >1.5ms (batch size 32+).
+
+### Scenario 3: Fine-Tuning Large Models
+
+Profile: LoRA fine-tuning a 70B model on custom data.
+
+Economics: training time is 6-20 hours (cost-per-task is similar to GPU). TPU loses its cost advantage.
+
+Decision: use GPU. Faster iteration, simpler setup.
+
+---
+
+## Advanced Topics: Quantization & Distillation on TPU vs GPU
+
+### Quantization (8-bit, 4-bit training)
+
+Both TPU and GPU support quantized training (lower precision accelerates computation). Approaches differ.
+
+**GPU (H100):** Use NVIDIA's automatic mixed precision (AMP). Precision casting is configurable per operation. Teams can fine-tune which layers use FP8 vs FP16. Trade-off: manual tuning required, but full control.
+
+**TPU:** Automatic quantization via Transformer Engine 2.0. No manual tuning. TPU decides dynamically which layers use FP8. Advantage: simpler, less tuning. Disadvantage: less control.
+
+For teams optimizing for speed on GPU, AMP tuning saves 20-30% compute. TPU's automation is simpler but can't beat hand-tuned AMP.
+
+### Distillation (training smaller models from larger ones)
+
+Distillation is GPU-friendly. Train a large teacher model on GPU, distill to a student model.
+
+**TPU:** Can do distillation, but the iterative nature (train teacher, evaluate, train student, repeat) is slower on TPU. Each iteration requires pod commitment (no per-experiment scaling down). GPU is faster for experimentation.
+
+**GPU:** Better for distillation workflows. Spin up a single GPU for teacher training, evaluate on CPU, spin down. Distillation is inherently experimental work.
+
+---
+
+## When to Use GPU
+
+### Scenario 1: Custom Model Architectures
+
+Profile: building new transformer variant with custom FFN layers or attention modifications.
+
+TPU: impossible to prototype (no CUDA). Rewriting in JAX takes weeks.
+
+GPU: works immediately with custom CUDA kernels.
+
+Decision: use GPU. Dev velocity matters more than cost.
+
+### Scenario 2: Mixed Workloads
+
+Profile: training + inference + data preprocessing on same cluster.
+
+Data preprocessing (image encoding, tokenization): not optimized on TPU.
+
+Decision: use GPU. Simpler orchestration.
+
+### Scenario 3: Interactive Development
+
+Profile: research team running one-off experiments, frequent model changes.
+
+TPU Pod requires 24/7 rental (no fine-grained billing). GPU instances can be spun up per-experiment.
+
+Decision: use GPU for research. Lower cost per experiment, more flexibility.
+
+### Scenario 4: Sub-1.5ms Latency Requirement
+
+Profile: serving a 13B model with P50 latency <1ms.
+
+TPU v5e at batch size 1: ~5-8ms latency. H100 at batch size 1: ~0.8-1.2ms.
+
+Decision: use H100 if latency is critical.
+
+---
+
+## FAQ
+
+**Is TPU cheaper than GPU?**
+
+For pure transformer training at scale (70B+, 1T+ tokens), TPU v5e saves 30-40% with reserved capacity. For inference, similar cost-per-token. For fine-tuning or research, GPU is cheaper (no commitment, instant scale-down).
+
+**Can I use PyTorch with TPU?**
+
+No. TPU only supports JAX and TensorFlow. PyTorch models must be rewritten. Typical migration: 2-4 weeks for standard transformers, 6-8 weeks for custom models.
+
+**Which is faster, TPU or GPU?**
+
+H100 is 10-15% faster on transformer training due to higher bandwidth. But TPU v5e is 27-40% cheaper, so cost-per-task favors TPU.
+
+**What about TPU v4?**
+
+TPU v4 (released 2022) is older and slower than v5e. Not recommended for new projects. Google is phasing it out. Systolic array is smaller (8x128 vs 8x256). If stuck on v4 due to constraints, expect 2-3x lower throughput than v5e. Migration window is closing (most new workloads must target v5).
+
+**Can I buy TPU or only rent?**
+
+Only rent from Google Cloud. No on-premise TPU sales (unlike NVIDIA GPUs). Commitment discounts available: 1-year or 3-year reserved capacity at 50% discount.
+
+**Does TPU work with open-source models?**
+
+If the model is pure transformer and the training script is JAX/TensorFlow, yes. Llama, Mistral, Falcon: yes with conversion. Models with custom CUDA: no.
+
+**What's the state of TPU v4 vs v5e?**
+
+TPU v4 (released 2022) is older and slower. Systolic array: 8x128. V5e (released 2023) has 8x256. V5e is 2-3x faster on transformer ops. Google is phasing out v4 (no longer offering in new zones). New projects should target v5e only. If stuck on v4, migrating to v5e requires adjusting systolic tiling (2-3 weeks engineering). Migration is one-time cost, well worth it.
+
+**What about inference latency at batch size 1?**
+
+H100: ~0.8-1.2ms per token. TPU v5e: ~5-8ms per token. H100 dominates for interactive use cases.
+
+**Can I migrate an H100 training job to TPU without rewriting?**
+
+No. Expect 2-4 weeks of engineering. The migration involves:
+1. Converting model from PyTorch to JAX or TensorFlow
+2. Rewriting data pipeline (Google Cloud TPU has specific requirements)
+3. Adjusting batch sizes (TPU Pods mandate power-of-2 batch sizes)
+4. Profiling and tuning for systolic array (different optimization mindset)
+
+For a standard 70B transformer, migration is tractable. For custom architectures, plan 6-8 weeks.
+
+**Is NVLink worth the GPU cost difference?**
+
+For single-GPU workloads: no. For multi-GPU training (4+ GPUs): yes. NVLink is 6x faster than PCIe for all-reduce operations. In distributed training, all-reduce happens after each batch. NVLink cuts synchronization time from 500ms to 100ms. The 35% cost difference ($2.69 vs $1.99 on RunPod) pays for itself if running 4+ GPUs.
+
+**What about mixed precision training on TPU vs GPU?**
+
+H100: flexible. Use BF16 for weights, FP32 for loss accumulation, FP16 for activations. Fine-grained control per operation.
+
+TPU: baked-in. TPU v5 recommends BF16 for everything (weights, activations, loss). Loss scaling is automatic. Fewer options but simpler (less tuning). Precision loss is minimal (BF16 is sufficient for 70B models).
+
+**If I have existing CUDA optimization, how portable is it?**
+
+Not at all. CUDA kernels don't compile to TPU. You'd need to rewrite in XLA (Google's compiler) or trust that JAX's auto-compilation handles it. For most standard ops (matmul, attention, softmax), JAX's backend is optimized. For custom ops, plan 2-4 weeks per kernel.
+
+**Does TPU support mixed batch sizes across a Pod?**
+
+No. A TPU Pod (8 cores) requires uniform batch size across all cores. If one core has batch 64, all must have 64. This simplifies synchronization (no need for variable-length all-reduce) but adds rigidity.
+
+GPU clusters don't have this constraint. Each GPU can process different batch sizes independently.
+
+**What's the learning curve for JAX vs PyTorch on TPU?**
+
+JAX is functional. No stateful layers. Training loops are explicit (not implicit in backward()). For PyTorch developers, expect 2-4 weeks to relearn the paradigm. For TensorFlow developers, JAX is closer (also functional in spirit, but TensorFlow has some imperative sugar). The learning curve is real but manageable.
+
+---
+
+## Related Resources
+
+- [NVIDIA GPU Pricing Comparison](/gpus)
+- [Google Cloud TPU Pricing](/articles/google-cloud-tpu-pricing)
+- [TPU v5e vs T4 GPU](/articles/v5e-1-tpu-vs-t4-gpu)
+- [TPU v2.8 vs T4 GPU](/articles/v2-8-tpu-vs-t4-gpu)
+
+---
+
+## Sources
+
+- [Google Cloud TPU Documentation](https://cloud.google.com/tpu/docs)
+- [Google Cloud TPU v5 Datasheet](https://cloud.google.com/tpu/docs/v5)
+- [NVIDIA A100 Tensor Core GPU Datasheet](https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/a100-80gb-datasheet-update-a4-nvidia-1485612-r12-web.pdf)
+- [NVIDIA H100 Tensor Core GPU Datasheet](https://resources.nvidia.com/en-us-gpu-resources/h100-datasheet-24306)
+- [Google Cloud TPU Pod Pricing](https://cloud.google.com/tpu/pricing)
+- [RunPod GPU Pricing](https://www.runpod.io/pricing)
+- [DeployBase GPU Pricing Dashboard](/gpus)

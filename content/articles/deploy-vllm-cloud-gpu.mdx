@@ -1,0 +1,469 @@
+---
+title: 'How to Deploy vLLM on Cloud GPUs: Step-by-Step Guide'
+slug: deploy-vllm-cloud-gpu
+description: >-
+  Deploy vLLM on cloud GPUs for high-throughput LLM serving. Complete guide with
+  GPU selection, configuration, quantization, and cost optimization strategies.
+date: 2026-03-22T00:00:00.000Z
+author: DeployBase
+keywords:
+  - deploy vllm cloud
+---
+## Contents
+
+- [How to Deploy vLLM on Cloud GPUs: Step-by-Step Guide](#how-to-deploy-vllm-on-cloud-gpus-step-by-step-guide)
+- [Understanding vLLM: Why It Matters](#understanding-vllm-why-it-matters)
+- [Choosing The Cloud GPU Provider](#choosing-the-cloud-gpu-provider)
+- [Selecting GPU Hardware by Model Size](#selecting-gpu-hardware-by-model-size)
+- [Step 1: Provision a Cloud GPU Instance](#step-1-provision-a-cloud-gpu-instance)
+- [Step 2: Install vLLM](#step-2-install-vllm)
+- [Step 3: Download and Configure the Model](#step-3-download-and-configure-the-model)
+- [Step 4: Configure vLLM for The Workload](#step-4-configure-vllm-for-the-workload)
+- [Step 5: Expose vLLM Over the Network](#step-5-expose-vllm-over-the-network)
+- [Step 6: Load Testing and Optimization](#step-6-load-testing-and-optimization)
+- [Step 7: Production Hardening](#step-7-production-hardening)
+- [Step 8: Cost Optimization](#step-8-cost-optimization)
+- [Troubleshooting Common Issues](#troubleshooting-common-issues)
+- [Alternative Deployment Options](#alternative-deployment-options)
+- [Real-World Performance Expectations](#real-world-performance-expectations)
+- [Advanced Optimization Techniques](#advanced-optimization-techniques)
+- [Handling Multiple Model Versions](#handling-multiple-model-versions)
+- [Monitoring and Alerting](#monitoring-and-alerting)
+- [Model Update Strategy](#model-update-strategy)
+- [Troubleshooting Performance Issues](#troubleshooting-performance-issues)
+- [Integration with Application Frameworks](#integration-with-application-frameworks)
+- [Cost Analysis with Real Numbers](#cost-analysis-with-real-numbers)
+- [Production Checklist](#production-checklist)
+- [Next Steps](#next-steps)
+
+
+## How to Deploy vLLM on Cloud GPUs: Step-by-Step Guide
+
+Deploy Vllm Cloud is the focus of this guide. vLLM transforms language model inference from a bottleneck into an efficient, scalable operation. Deploying vLLM on cloud GPUs requires understanding GPU selection, tensor parallelism configuration, and quantization trade-offs. This guide walks through production deployment step-by-step, from architecture decisions through monitoring running instances.
+
+## Understanding vLLM: Why It Matters
+
+vLLM is a high-performance LLM serving engine. Traditional inference implementations process one request at a time, leaving GPU compute underutilized while waiting for the next batch. vLLM implements continuous batching (also called dynamic batching), where requests enter a queue and the GPU processes multiple requests' tokens simultaneously until completion.
+
+This architectural difference is profound. A traditional inference server running Llama 2 70B might achieve 50-100 token throughput per second. The same hardware with vLLM achieves 1,000-2,000 tokens per second by keeping GPUs saturated with work. For applications handling dozens of concurrent users, this translates to 10-20x higher throughput on identical hardware.
+
+vLLM also implements paged attention, which reduces memory overhead during inference. Standard attention implementations hold attention keys and values in GPU memory for the entire sequence. Paged attention stores these in pages (similar to virtual memory), dramatically reducing memory waste. Models that previously required two GPUs now run on one.
+
+These optimizations make vLLM essential for production inference. The performance gains justify the modest setup complexity.
+
+## Choosing The Cloud GPU Provider
+
+Two providers dominate cost-effective GPU access: RunPod and Lambda Labs. Review the [detailed GPU pricing comparison](/articles/runpod-gpu-pricing) for current rates and provider features.
+
+RunPod offers H100 SXM GPUs at $2.69 per hour and A100 80GB at $1.19 per hour. These are on-demand prices; reserved instances cost substantially less. RunPod provides SSH access, and vLLM starts with a single CLI command. Typical deployment involves renting a GPU instance, setting up vLLM, and pointing clients to the instance's IP address.
+
+Lambda Labs offers H100 SXM at $2.49 per hour. Lambda has excellent infrastructure quality and reliability, making it suitable for production workloads requiring high SLA guarantees. For comprehensive analysis of providers, explore the [GPU infrastructure guide](/gpus).
+
+For development and testing, RunPod provides the best cost structure. For production workloads with demanding uptime requirements, Lambda justifies the premium.
+
+## Selecting GPU Hardware by Model Size
+
+GPU memory determines model compatibility. vLLM's paged attention reduces memory overhead, but each model has minimum requirements.
+
+**Llama 2 7B:** Fits on a single NVIDIA L40S (48GB memory) or any larger GPU. Memory is sufficient for 256-token max batch size. Throughput on an L40S runs roughly 300 tokens per second depending on batch characteristics.
+
+**Llama 2 13B:** Requires 24GB+ memory. An L40S with full precision works comfortably. Max batch size reaches 256 tokens. Throughput approaches 250 tokens per second.
+
+**Llama 2 70B:** Requires 80GB GPU memory for full precision. A100 80GB or H100 fits comfortably. This is the sweet spot for cloud GPUs: the model is large enough to matter but small enough for single-GPU deployment. Throughput reaches 500-800 tokens per second on an A100, depending on batch characteristics.
+
+**Llama 3 70B:** Similar to Llama 2 70B in memory footprint and performance characteristics. Tensor parallelism across two A100 GPUs improves throughput to 1,200-1,500 tokens per second.
+
+**Llama 3 405B:** Requires tensor parallelism across 4-8 GPUs. On Lambda with 8 H100s, throughput reaches 2,500+ tokens per second. Cost becomes significant: $2.49 * 8 = $19.92 per hour.
+
+Choose the smallest model satisfying the capability requirements. Llama 2 7B handles many tasks that seemingly require larger models. The performance difference often justifies using a smaller model and handling 2-3x higher throughput instead of waiting for larger model responses.
+
+## Step 1: Provision a Cloud GPU Instance
+
+Create a RunPod account and handle to the GPU instances console. Select "Rent GPU" and choose the hardware. For initial deployment, select an A100 80GB instance in any region. Avoid selecting GPUs for which developers have no deployment experience; A100 and H100 are widely supported.
+
+Select the template. RunPod offers a "vLLM" template that pre-installs the runtime. Using this template skips several setup steps. Select the bidding price (or accept the fixed on-demand rate if developers prefer stability), and launch the instance.
+
+Within 30 seconds to 2 minutes, the instance boots. RunPod provides an SSH connection string in the console. Copy it and SSH into the instance:
+
+```bash
+ssh root@the-instance-ip
+```
+
+The setup now provides root access to a machine with a GPU, CUDA pre-installed, and Python configured.
+
+## Step 2: Install vLLM
+
+If using RunPod's vLLM template, vLLM is already installed. If using a base template, install it via pip:
+
+```bash
+pip install vllm
+```
+
+Verify installation:
+
+```bash
+python -c "import vllm; print(vllm.__version__)"
+```
+
+This confirms vLLM is importable and shows the installed version.
+
+## Step 3: Download and Configure the Model
+
+vLLM downloads models from Hugging Face. Models are cached in `/root/.cache/huggingface/hub/` by default. First deployment requires downloading the model weights, which can take 10-30 minutes depending on model size and instance bandwidth.
+
+For Llama 2 70B, download proceeds at roughly 50-100 MB per second on RunPod instances. The 140GB model file takes 20-30 minutes to download.
+
+Start vLLM with the chosen model:
+
+```bash
+vllm serve meta-llama/Llama-2-70b-hf --api-key sk-test
+```
+
+Replace `meta-llama/Llama-2-70b-hf` with the desired model. vLLM downloads the model on first run, then starts the API server on port 8000.
+
+The output should show output indicating the model loaded successfully:
+
+```
+INFO 03-22 14:30:00 model_executor.py:95] GPU 0 memory usage: 140234 MB
+```
+
+This confirms the model loaded and GPU memory allocation succeeded.
+
+## Step 4: Configure vLLM for The Workload
+
+vLLM accepts multiple parameters controlling behavior:
+
+**Tensor Parallelism:** For models exceeding single-GPU memory, split the model across GPUs. This requires communicating activations between GPUs, incurring overhead. Use tensor parallelism only when necessary:
+
+```bash
+vllm serve meta-llama/Llama-2-70b-hf --tensor-parallel-size 2
+```
+
+This configuration runs the model across two GPUs. For Llama 2 70B on two A100s, expect roughly 30-40% throughput improvement compared to a single GPU with more aggressive quantization.
+
+**Max Model Length:** Controls maximum sequence length. Longer sequences consume more GPU memory:
+
+```bash
+vllm serve meta-llama/Llama-2-70b-hf --max-model-len 2048
+```
+
+Default values are model-specific (often 4096 or higher). Reducing this value frees memory for larger batch sizes. For most applications, 2048 tokens is sufficient.
+
+**Quantization:** vLLM supports GPTQ, AWQ, and AutoAWQ quantization, dramatically reducing memory overhead:
+
+```bash
+vllm serve TheBloke/Llama-2-70B-GPTQ --quantization gptq
+```
+
+Using a quantized version (pre-quantized weights available on Hugging Face) reduces memory by 50-75% with minimal quality loss. A quantized Llama 2 70B fits on a single 40GB L40S GPU.
+
+**GPU Memory Fraction:** Control what percentage of GPU memory vLLM uses:
+
+```bash
+vllm serve meta-llama/Llama-2-70b-hf --gpu-memory-utilization 0.9
+```
+
+Default is 0.9 (90%). Increasing this allows larger batches but risks out-of-memory errors. Keep this at 0.8-0.9 for stability.
+
+## Step 5: Expose vLLM Over the Network
+
+vLLM runs on localhost:8000 by default. SSH tunneling works for development, but production requires direct network access.
+
+RunPod allows exposing ports directly. In the RunPod instance settings, configure port 8000 to be public. The system provides a URL like `https://your-instance-id-8000.runpod.io`.
+
+This URL provides REST API access. Developers can now send requests:
+
+```bash
+curl https://your-instance-id-8000.runpod.io/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "meta-llama/Llama-2-70b-hf",
+    "prompt": "The future of AI is",
+    "max_tokens": 100
+  }'
+```
+
+This request sends a prompt to the vLLM instance and receives a completion.
+
+## Step 6: Load Testing and Optimization
+
+Before sending production traffic, test the deployment under realistic load.
+
+Use Apache JMeter or Python's concurrent.futures to send simultaneous requests:
+
+```python
+import requests
+import time
+import concurrent.futures
+
+def send_request(prompt_id):
+    url = "https://your-instance-id-8000.runpod.io/v1/completions"
+    payload = {
+        "model": "meta-llama/Llama-2-70b-hf",
+        "prompt": f"Prompt {prompt_id}: The future of",
+        "max_tokens": 50
+    }
+    start = time.time()
+    response = requests.post(url, json=payload)
+    elapsed = time.time() - start
+    return elapsed
+
+with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
+    futures = [executor.submit(send_request, i) for i in range(100)]
+    results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+print(f"Average latency: {sum(results) / len(results):.2f}s")
+print(f"Throughput: {len(results) / sum(results):.2f} requests/sec")
+```
+
+This test sends 100 requests with 10 concurrent connections, measuring average latency and throughput.
+
+For Llama 2 70B on an A100, expect:
+- 50 concurrent requests: 3-5 second latency, 10-20 tokens per second aggregate throughput
+- 10 concurrent requests: 1-2 second latency, 50-80 tokens per second throughput
+- 1 sequential request: 0.5-1 second latency, 100+ tokens per second theoretical peak
+
+Use these metrics to determine if the hardware meets the workload requirements.
+
+## Step 7: Production Hardening
+
+For production deployment, add authentication, logging, and monitoring.
+
+**Authentication:** The `--api-key` flag creates a basic API key requirement:
+
+```bash
+vllm serve meta-llama/Llama-2-70b-hf --api-key sk-production-key
+```
+
+Clients must include this key in requests:
+
+```bash
+curl https://your-instance-id-8000.runpod.io/v1/completions \
+  -H "Authorization: Bearer sk-production-key"
+```
+
+**Logging:** Configure structured logging for debugging:
+
+```bash
+vllm serve meta-llama/Llama-2-70b-hf \
+  --log-level DEBUG \
+  --log-directory /root/vllm-logs
+```
+
+**Monitoring:** vLLM exposes Prometheus metrics. Scrape `/metrics` endpoint to monitor GPU utilization, request latency, and token throughput:
+
+```bash
+curl https://your-instance-id-8000.runpod.io/metrics
+```
+
+Set up Prometheus and Grafana to visualize these metrics. Key metrics to monitor:
+- `vllm_request_success_total`: Completed requests
+- `vllm_request_latency`: Request latency distribution
+- `vllm_generated_tokens_total`: Token throughput
+- GPU memory usage from NVIDIA utilities
+
+## Step 8: Cost Optimization
+
+Leaving instances running 24/7 is expensive. An A100 at $1.19 per hour costs $855 monthly. Implement auto-scaling to match the workload.
+
+**Spot Instances:** RunPod offers spot pricing roughly 50% cheaper than on-demand. Spot instances can be reclaimed, so use them for fault-tolerant workloads only.
+
+**Reserved Capacity:** RunPod offers reserved GPU capacity at substantial discounts. Committing to 100 GPU hours per month costs roughly 30-40% less than on-demand pricing.
+
+**Load-Based Scaling:** Use container orchestration (Kubernetes) to automatically scale instances based on queue depth. When requests pile up, launch additional instances. When queues drain, terminate instances.
+
+A typical production setup maintains 1-2 standing instances for baseline traffic, with autoscaling up to 5-10 instances for traffic spikes.
+
+## Troubleshooting Common Issues
+
+**Out of Memory Errors:** Reduce `--max-model-len` or use quantization. If that fails, increase tensor parallelism to distribute the model across additional GPUs. For models exceeding single-GPU memory, consult the [LLM inference engine comparison](/articles/best-llm-inference-engine) for engine-specific guidance.
+
+**Slow Throughput:** Verify batch size is adequate. vLLM requires multiple concurrent requests to efficiently utilize GPUs. Throughput of 100 tokens per second on an A100 indicates single-request serving. Aim for 10+ concurrent requests to hit peak throughput.
+
+**Model Won't Load:** Verify the model exists on Hugging Face and the instance has internet access to download it. Some models require authentication; pass the Hugging Face token with `--hf-token`.
+
+**High Latency:** Latency increases with sequence length. For applications sensitive to latency, reduce `--max-model-len` or implement request batching with timeout limits. Review the [performance optimization guide](/articles/best-gpu-for-llm-inference) for additional tuning strategies.
+
+## Alternative Deployment Options
+
+**Managed Services:** Replicate, Banana, and Together AI host vLLM instances and handle scaling. Developers pay per token (roughly $0.015-0.03 per 1K tokens depending on model). This eliminates operational overhead but increases per-token costs compared to self-hosted deployment.
+
+**Kubernetes:** For production deployments, run vLLM in Kubernetes with auto-scaling policies. This requires additional infrastructure complexity but enables sophisticated workload management.
+
+**Quantized Models:** Using quantized models (available on Hugging Face) reduces memory requirements by 50-75%, allowing smaller GPUs or more model replicas on existing infrastructure.
+
+## Real-World Performance Expectations
+
+For Llama 2 70B on RunPod A100:
+- Setup time: 5-10 minutes (including model download)
+- Single request latency: 0.8-1.5 seconds (50 token completion)
+- Concurrent request throughput: 600-800 tokens per second at 10+ concurrent requests
+- Cost: $1.19/hour = $0.000149 per token (at 800 tokens/sec throughput)
+
+This compares favorably to API-based inference. Claude 3 Sonnet costs $0.003 per 1K output tokens ($0.000003 per token). At $0.000149 per token, self-hosted vLLM costs roughly 50x more on a per-token basis, but the break-even point depends on the usage patterns. High-volume batch processing (100M+ monthly tokens) makes self-hosted economical. Low-volume interactive applications favor API-based services.
+
+## Advanced Optimization Techniques
+
+**Token Caching:** vLLM caches tokens from previous requests, reducing recomputation for similar inputs. This is automatic for identical requests, significantly improving throughput for applications with repeated patterns (e.g., customer support systems with templated queries).
+
+**Prefix Sharing:** vLLM implements prefix sharing for longer sequences. When multiple requests share common input (e.g., system prompt), the shared prefix is computed once and reused. This reduces compute 20-40% for applications with standardized system prompts.
+
+**Token Merge:** Some deployments use token merging techniques where less important tokens are merged together, reducing sequence length without substantial quality loss. This technique is experimental but shows promise for reducing memory overhead by 15-25%.
+
+**Dynamic Batching Optimization:** Configure vLLM's batch scheduler for the specific workload. Conservative settings (max batch tokens = 4096) reduce latency variance. Aggressive settings (max batch tokens = 16384) maximize throughput. Experiment with these parameters during load testing.
+
+## Handling Multiple Model Versions
+
+Production deployments often require multiple models: a fast model for latency-sensitive applications and a larger model for complex tasks.
+
+Run multiple vLLM instances on separate GPUs:
+
+```bash
+vllm serve meta-llama/Llama-2-7b \
+  --port 8000 &
+
+vllm serve meta-llama/Llama-2-70b-hf \
+  --port 8001 &
+```
+
+Implement a router that sends simple requests to the fast model and complex requests to the larger model:
+
+```python
+def route_request(prompt, complexity_score):
+    if complexity_score < 0.5:
+        return requests.post("http://localhost:8000/v1/completions", ...)
+    else:
+        return requests.post("http://localhost:8001/v1/completions", ...)
+```
+
+This hybrid approach optimizes for both latency and capability.
+
+## Monitoring and Alerting
+
+Set up alerts for common failure scenarios:
+
+- GPU memory usage exceeding 95%
+- Request latency exceeding 10 seconds (P95)
+- Request queue depth exceeding 100
+- Model loading failures or crashes
+- VRAM fragmentation issues
+
+Use Prometheus to scrape vLLM metrics and Alertmanager to trigger notifications:
+
+```yaml
+groups:
+  - name: vllm_alerts
+    rules:
+      - alert: HighVRAMUsage
+        expr: vllm_gpu_vram_usage_percent > 95
+        for: 5m
+        annotations:
+          summary: "vLLM VRAM usage critically high"
+
+      - alert: HighLatency
+        expr: histogram_quantile(0.95, vllm_request_latency) > 10
+        for: 10m
+        annotations:
+          summary: "P95 latency exceeds 10 seconds"
+```
+
+Configure email or Slack notifications when these alerts trigger. Early detection prevents cascading failures.
+
+## Model Update Strategy
+
+Updating model weights without downtime requires careful planning.
+
+Use blue-green deployment: run two vLLM instances with different models. Route traffic to the blue instance, update the green instance with new model weights, then switch traffic:
+
+```bash
+vllm serve meta-llama/Llama-2-70b-hf --port 8000 &
+
+vllm serve meta-llama/Llama-3-70b-hf --port 8001 &
+
+```
+
+This approach enables zero-downtime model updates. Test new models in parallel before switching production traffic.
+
+## Troubleshooting Performance Issues
+
+**Symptom: Throughput plateaus despite GPU having spare capacity**
+Likely cause: Batch size too small. Increase concurrent requests or max batch tokens. If increase doesn't help, check network I/O (bottleneck between clients and server).
+
+**Symptom: Latency spikes intermittently**
+Likely cause: Model swapping to CPU or excessive GPU memory fragmentation. Reduce max model length or restart vLLM regularly to clear memory fragmentation.
+
+**Symptom: Out-of-memory errors on requests that previously worked**
+Likely cause: Attention score matrix growing. Attention complexity is O(seq_len^2). Very long sequences (8K+ tokens) cause rapid memory growth. Reduce max model length.
+
+**Symptom: Inconsistent token generation quality or format**
+Likely cause: Temperature settings too high (more randomness) or quantization too aggressive. Verify temperature parameter and quantization method match expectations.
+
+## Integration with Application Frameworks
+
+LangChain integration is straightforward. Configure a local LLM instance:
+
+```python
+from langchain.llms import HuggingFaceLLM
+from langchain.callbacks.streaming import StreamingStdOutCallbackHandler
+
+llm = HuggingFaceLLM(
+    model_name="meta-llama/Llama-2-70b-hf",
+    model_kwargs={"temperature": 0.7, "max_length": 512},
+)
+
+chain = llm | {"response": lambda x: x}
+result = chain.invoke({"prompt": "Explain machine learning"})
+```
+
+For FastAPI applications, expose vLLM through a wrapper:
+
+```python
+from fastapi import FastAPI
+import httpx
+
+app = FastAPI()
+vllm_client = httpx.AsyncClient(base_url="http://localhost:8000")
+
+@app.post("/inference")
+async def inference(prompt: str):
+    response = await vllm_client.post(
+        "/v1/completions",
+        json={"prompt": prompt, "max_tokens": 100}
+    )
+    return response.json()
+```
+
+This exposes the vLLM instance with minimal wrapper code.
+
+## Cost Analysis with Real Numbers
+
+For Llama 2 70B on RunPod A100 ($1.19/hour):
+
+Monthly costs by usage pattern:
+- Continuous 24/7: $855/month = $0.00017 per token (at 500 tokens/sec throughput)
+- 8-hour daily operation: $285/month = $0.00057 per token (at typical batch load)
+- 4-hour daily operation: $143/month = $0.00114 per token
+- Development/testing (16 hours/month): $19/month = $0.0038 per token
+
+For comparison, Claude 3 Sonnet API costs $0.003 per output token. At typical 1:5 input-to-output ratio with $3/1M input tokens: $0.000015 + $0.00003 = $0.000045 per token.
+
+Break-even analysis: vLLM becomes economical above 150-200M tokens monthly depending on usage pattern and model selection.
+
+## Production Checklist
+
+- [ ] GPU instance provisioned and tested
+- [ ] vLLM installed and model downloaded
+- [ ] API key configured and authentication enabled
+- [ ] Port exposed and HTTPS configured
+- [ ] Load tested at 2x peak expected concurrent requests
+- [ ] Monitoring configured (Prometheus/Grafana)
+- [ ] Alerting configured for failure scenarios
+- [ ] Log rotation configured
+- [ ] Auto-restart configured (systemd/supervisor)
+- [ ] Backup plan for spot instance interruption
+- [ ] Cost per token calculated and compared with alternatives
+- [ ] Documentation created for operations team
+
+## Next Steps
+
+Deploy vLLM using this guide, load test with realistic traffic patterns, and compare costs with API-based alternatives using the actual token volume. For production deployments requiring custom models or fine-tuned variants, explore the [LLM infrastructure guide](/gpus) and [best inference engines comparison](/articles/best-llm-inference-engine). For cost analysis specific to the model choice, review the [GPU pricing guide](/articles/runpod-gpu-pricing).

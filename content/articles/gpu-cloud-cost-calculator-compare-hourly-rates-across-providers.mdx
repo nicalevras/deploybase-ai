@@ -1,0 +1,273 @@
+---
+title: 'GPU Cloud Cost Calculator: Compare Hourly Rates Across Providers'
+slug: gpu-cloud-cost-calculator-compare-hourly-rates-across-providers
+description: >-
+  GPU cloud cost calculator to compare hourly rates across AWS, Azure, Google
+  Cloud, RunPod, and other providers. Calculate monthly costs.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - gpu cloud cost calculator
+---
+## Contents
+
+- [GPU Cloud Cost Calculator](#gpu-cloud-cost-calculator)
+- [Pricing Methodology](#pricing-methodology)
+- [Provider Rate Comparison](#provider-rate-comparison)
+- [Calculation Examples](#calculation-examples)
+- [Hidden Costs & Adjustments](#hidden-costs-adjustments)
+- [Optimization Tips](#optimization-tips)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+## GPU Cloud Cost Calculator
+
+**GPU cloud cost calculator**: Hourly rates are only part of the cost.
+
+Add storage, egress, networking, service tiers. Things add up fast.
+
+Scenarios differ: cheap experimentation, moderate projects, serious production, batch processing.
+
+Each needs different math.
+
+## Pricing Methodology
+
+Hourly GPU rates form the foundation. For an H100 running 24/7 for one month:
+
+Hours: 24 hours/day x 30 days = 720 hours
+AWS H100 rate: $2.50/hour
+Monthly compute cost: 720 x $2.50 = $1,800
+
+Storage adds a monthly component:
+
+Storage size: 100GB
+AWS EBS rate: $0.12/GB/month
+Monthly storage: 100 x $0.12 = $12
+
+Data transfer multiplies with usage:
+
+Outbound traffic: 500GB monthly
+AWS internet egress rate: $0.09/GB
+Monthly egress: 500 x $0.09 = $45
+
+Total monthly cost: $1,800 + $12 + $45 = $1,857
+
+This structure reveals storage and egress matter most for sustained operations. High-volume data transfer jobs shift cost composition dramatically.
+
+Discount calculation for commitments:
+
+On-demand H100: $2.50/hour
+1-year reserved: 30% discount = $1.75/hour
+3-year reserved: 40% discount = $1.50/hour
+
+For a 12-month deployment:
+- On-demand: $1,800 x 12 = $21,600
+- 1-year reserved: $1,260 x 12 = $15,120 (30% savings)
+- 3-year reserved: $1,080 x 12 = $12,960 (40% savings)
+
+Reserved instances require upfront commitment and reduce flexibility.
+
+## Provider Rate Comparison
+
+Current market rates as of March 2026:
+
+**H100 Pricing by Provider:**
+
+| Provider | Rate | Region | Variant |
+|----------|------|--------|---------|
+| AWS | $2.50/hr | US-East | PCIe |
+| AWS | $3.00/hr | US-East | SXM |
+| Google Cloud | $2.80/hr | US-Central | - |
+| Azure | $2.70/hr | US-East | - |
+| Lambda | $2.86/hr | US | PCIe |
+| Lambda | $2.49/hr | US | SXM |
+| RunPod | $1.99/hr | Global | PCIe |
+| RunPod | $2.69/hr | Global | SXM |
+| CoreWeave | $49.24 (8x) | Global | 8-pack |
+| Vast.AI | $1.50-2.50/hr | Market | Variable |
+
+RunPod offers the lowest H100 rates. Large cluster deployments (8+ GPUs) benefit from CoreWeave's bundle pricing.
+
+**L40S Pricing:**
+
+| Provider | Rate | Setup |
+|----------|------|-------|
+| RunPod | $0.79/hr | Instant |
+| Lambda | $0.92/hr | 2-5 min |
+| Paperspace | $1.20-1.80/hr | 5 min |
+| AWS | $1.50+/hr | 10 min |
+| Google Cloud | $1.30/hr | 8 min |
+| Vast.AI | $0.60-1.00/hr | Variable |
+
+**T4 Pricing (Budget-Conscious):**
+
+| Provider | Rate | Notes |
+|----------|------|-------|
+| RunPod | $0.05/hr | Special pricing |
+| AWS | $0.35/hr | Spot discount |
+| Google Cloud | $0.35/hr | Preemptible |
+| Azure | $0.25-0.35/hr | Variable |
+
+Specialized providers (RunPod, CoreWeave, Vast.AI) typically undercut hyperscalers on GPU-only compute. Hyperscalers excel on bundled services and compliance features.
+
+## Calculation Examples
+
+**Example 1: Short-term fine-tuning (1 week)**
+
+Workload: Fine-tune Llama 2 7B on proprietary dataset
+
+Specifications:
+- GPU: 1x A100 (80GB)
+- Duration: 7 days continuous
+- Storage: 200GB (training data + output)
+- Egress: 10GB (checkpoint downloads)
+
+Provider options:
+
+RunPod A100:
+- Compute: 168 hours x $1.19/hr = $199.92
+- Storage: 200GB x $0.01/GB/month = $1.67 (prorated)
+- Egress: Free
+- Total: ~$201.60
+
+AWS A100:
+- Compute: 168 hours x $1.85/hr = $310.80
+- EBS Storage: 200GB x $0.12/month = $1.20 (prorated)
+- Egress: 10GB x $0.09 = $0.90
+- Total: ~$312.90
+
+RunPod saves ~$111 (35%) on this workload.
+
+**Example 2: Production inference (30 days)**
+
+Workload: Serve Llama 2 13B to 100 concurrent users
+
+Specifications:
+- GPU: 2x H100 SXM
+- Duration: 30 days, 24/7
+- Storage: 500GB (models + cache)
+- Egress: 2TB (user responses)
+
+RunPod H100 SXM:
+- Compute: 1,440 hours x $2.69/hr = $3,873.60
+- Storage: 500GB x $0.01 = $5
+- Egress: Free
+- Total: $3,878.60 (2x GPUs)
+
+AWS H100 SXM:
+- Compute: 1,440 hours x $3.00/hr = $4,320 (2x)
+- EBS: 500GB x $0.12 = $60 (2x)
+- Egress: 2,000GB x $0.09 = $180
+- Total: $4,560
+
+RunPod saves ~$681 (15%) for this scenario. Egress differences narrow savings at scale.
+
+**Example 3: Batch processing (bulk workload)**
+
+Process 10TB dataset on 8x L40S cluster for 5 days
+
+Specifications:
+- GPU: 8x L40S
+- Duration: 5 days (120 hours)
+- Storage: 10TB input + 15TB output
+- Egress: 15TB final results
+
+CoreWeave 8xL40S:
+- Compute: 120 hours x $18 = $2,160
+- Storage: 25TB x $0.05/month = ~$42 (prorated)
+- Egress: 15TB x $0.12 = $1,800
+- Total: ~$4,002
+
+RunPod 8x L40S (separate):
+- Compute: 120 hours x 8 x $0.79 = $761.
+- Storage: 25TB x $0.01 = ~$8.33
+- Egress: Free
+- Total: ~$770
+
+Significant use at scale. Infrastructure optimization (shared cluster storage) compounds savings.
+
+## Hidden Costs & Adjustments
+
+Beyond obvious GPU rates, costs hide in fine print:
+
+**Setup and initialization:**
+Some platforms charge $10-50 to set up capacity. Included in first invoice.
+
+**Minimum commitment blocks:**
+Certain services (production AWS) require $5,000 minimum monthly spend.
+
+**Currency fluctuations:**
+International billing incurs exchange rates. $100 invoice becomes $108 in unfavorable rates.
+
+**Tax and VAT:**
+Regional taxes add 5-25% to final invoice depending on jurisdiction.
+
+**Networking:**
+Bandwidth between regions multiplies costs. Direct Connect (AWS) costs $0.30-0.50/hour on top of compute.
+
+**Snapshot storage:**
+Retaining VM snapshots costs $0.05/GB/month indefinitely.
+
+**Support costs:**
+Premium support tiers add $1000-3000+ monthly on hyperscale deployments.
+
+## Optimization Tips
+
+**1. Right-size GPU selection:**
+Confirm GPU capacity matches workload requirements. Oversizing by one tier often adds 50%+ cost without proportional benefit.
+
+**2. Batch processing windows:**
+Group large data transfers into single sessions. Overnight batch operations reduce bandwidth spikes.
+
+**3. Regional deployment:**
+Position workloads in low-cost regions when latency permits. Singapore costs 40% less than US-East on some providers.
+
+**4. Reserve strategically:**
+Commit to 1-year reservations for predictable base loads. Keep 20% capacity on-demand for variable workloads.
+
+**5. Monitor egress religiously:**
+Track data movement weekly. 1GB unnecessary transfer seems trivial but scales to $1000/month quickly.
+
+**6. Use spot instances for fault-tolerant work:**
+Batch processing tolerates interruptions. Spot instances cost 50-70% less.
+
+**7. Implement caching:**
+Cache inference outputs. Avoid reprocessing identical inputs.
+
+**8. Choose provider carefully per phase:**
+Development on RunPod, production on AWS/GCP if required for compliance.
+
+## FAQ
+
+**How accurate are cost estimates before deployment?**
+Within 10-20% for straightforward compute. Egress and storage vary more substantially based on actual usage patterns.
+
+**Can I lock in prices for a year?**
+Yes, through reserved instances. AWS and Google Cloud offer 1-3 year commitments. Providers may adjust reserved rates quarterly.
+
+**What happens if I exceed my budget?**
+Hyperscalers charge overage at standard rates. RunPod may pause instances. Check provider policies to avoid surprises.
+
+**Are there any free tier offers?**
+AWS, Google Cloud, and Azure offer limited free credits. Most GPU operations exceed free tier limits within days.
+
+**Should I use spot instances for production?**
+No. Spot instances (AWS) or preemptible instances (Google) interrupt without warning. Fault-tolerant architectures can tolerate interruptions.
+
+## Related Resources
+
+- [GPU Pricing Guide](/gpus)
+- [AWS GPU Pricing](/articles/aws-vs-azure-gpu-pricing)
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [Google Cloud GPU Pricing](/articles/google-cloud-gpu-pricing)
+- [LLM API Pricing](/llms)
+
+## Sources
+
+- AWS EC2 Instance Pricing Page
+- Google Cloud Compute Pricing Documentation
+- Microsoft Azure Virtual Machines Pricing
+- RunPod Official Pricing
+- Lambda Labs Pricing Page

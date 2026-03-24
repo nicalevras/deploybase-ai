@@ -1,0 +1,257 @@
+---
+title: How to Run an LLM Locally on Windows
+slug: how-to-run-an-llm-locally-on-windows
+description: >-
+  Complete guide to running large language models on Windows. Setup,
+  optimization, and best tools for local LLM inference.
+date: '2026-03-22'
+author: DeployBase
+---
+
+## Contents
+
+- [Running Language Models on Windows Locally](#running-language-models-on-windows-locally)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Running Language Models on Windows Locally
+
+Run LLMs on Windows for privacy, cost control, and fast inference. Quantization lets 7B models fit on 8GB consumer GPUs. Setup, tuning, deployment-it's all here.
+
+### System Requirements
+
+For 7B models:
+
+- RTX 3060 Ti (8GB) runs 4-bit quantized fine. RTX 4090 (24GB) handles 70B. CPU-only runs 50-100x slower.
+- 8GB RAM minimum for OS and processes
+- 30-50GB SSD for models and dependencies
+- Windows 10+ with latest GPU drivers
+
+### Choosing Model Size and Quantization
+
+**7B models** fit 8GB GPUs with 4-bit quantization. Sweet spot for consumer hardware.
+
+**13B** needs 16GB. **70B+** needs 40GB or multiple GPUs.
+
+**Quantization** cuts model size hard:
+- 32-bit: original size
+- 16-bit: half the memory, minimal quality loss
+- 8-bit: 75% smaller, almost no degradation
+- 4-bit: 90% smaller, consumer GPU friendly
+
+### Installing CUDA and Dependencies
+
+Download CUDA Toolkit 12.1 from NVIDIA. It provides GPU libraries for Python frameworks.
+
+Steps:
+1. Run installer
+2. Custom install, keep everything
+3. Accept default path
+4. Auto-set environment variables
+
+Verify with:
+
+```powershell
+nvidia-smi
+```
+
+Should show GPU model, driver version, VRAM.
+
+### Setting Up Python Environment
+
+Install Python 3.10 or 3.11 (skip 3.12, library issues). Add to PATH.
+
+Virtual env:
+
+```powershell
+python -m venv llm-env
+.\llm-env\Scripts\Activate.ps1
+```
+
+Then:
+
+```powershell
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install transformers accelerate bitsandbytes
+```
+
+The cu121 flag matches CUDA 12.1. Adjust if yours differs.
+
+### Running Models with Ollama
+
+Ollama is simple. Download from ollama.AI. Install.
+
+Pull a model:
+
+```powershell
+ollama pull mistral
+```
+
+Run:
+
+```powershell
+ollama run mistral
+```
+
+Type prompts. Get responses. Ollama auto-handles quantization, memory, optimization. Great for quick test.
+
+### Text Generation WebUI Setup
+
+Browser-based interface. More control than Ollama.
+
+Clone:
+
+```powershell
+git clone https://github.com/oobabooga/text-generation-webui
+cd text-generation-webui
+pip install -r requirements.txt
+```
+
+Download model:
+
+```powershell
+python download-model.py TheBloke/Mistral-7B-Instruct-v0.1-GGUF
+```
+
+Start:
+
+```powershell
+python server.py
+```
+
+Go to localhost:7860. Tune temperature, top-p, output length. Full control.
+
+### Using LM Studio
+
+Polished GUI. Download from lmstudio.AI.
+
+Workflow:
+1. Search for models
+2. Download Mistral-7B-Instruct
+3. Click chat tab
+4. Go
+
+Auto-detects GPU. Optimal settings. Easy for non-tech. Multiple models, fast switching.
+
+### Performance Optimization
+
+**Max tokens.** 2000 tokens takes 4-5x longer than 500. Limit to what teams need.
+
+**Batch requests.** 4 prompts at once faster than one-by-one.
+
+**CUDA graphs.** Enable in WebUI for less overhead.
+
+**Context window.** Mistral's 32k works. Trim to 2k-4k for speed.
+
+**vLLM.** For multi-request serving. Batches and caches. Throughput soars.
+
+### Comparing Inference Frameworks
+
+**Ollama:** Simple. No config. Casual use.
+
+**Text Generation WebUI:** More tuning. Advanced features. Steeper learning curve.
+
+**LM Studio:** Simple GUI with customization.
+
+**vLLM:** Production throughput. CLI-heavy. Technical.
+
+Start with Ollama. Experiment with WebUI. Ship with vLLM.
+
+### GPU versus CPU Inference
+
+GPU: 50-100x faster. RTX 4090 hits 100-150 tokens/sec. CPU: 1-3 tokens/sec.
+
+GPU has VRAM limits. 8GB runs 7B in 4-bit. CPU flexible but slow.
+
+Use GPU for interactive or batch. CPU for single occasional queries.
+
+Hybrid: split layers across CPU and GPU. Works when VRAM tight.
+
+### Memory Management
+
+Monitor VRAM in Task Manager. Watch for leaks during long sessions.
+
+Kill Chrome, Slack, everything. They eat 2-4GB each.
+
+Restart periodically if VRAM creeps above 90%. Frameworks leak sometimes.
+
+Set swap file: 20-30GB on fast SSD. Windows uses disk to extend RAM.
+
+### Troubleshooting Common Issues
+
+**"CUDA out of memory":** Use 4-bit instead of 8-bit. Smaller model. Trim context window.
+
+**"cudart64_121.dll not found":** CUDA not installed right. Reinstall. Verify nvidia-smi.
+
+**Slow despite GPU:** GPU might not be active. Check nvidia-smi for 80%+ utilization.
+
+**Gibberish output:** Quantization too aggressive. Try different quantization scheme.
+
+**Connection timeouts:** Firewall blocking localhost. Add Python exception in Windows Defender Firewall.
+
+### Integration with Applications
+
+Export outputs to files. Most frameworks expose API endpoints.
+
+Use OpenAI-compatible wrappers. Code for [OpenAI API](/articles/openai-pricing) switches to local with config changes only.
+
+Python script integration:
+
+```python
+import requests
+
+response = requests.post(
+    "http://localhost:8000/v1/completions",
+    json={
+        "prompt": "Explain quantum computing",
+        "max_tokens": 500
+    }
+)
+```
+
+## FAQ
+
+**Can I run a 13B model on RTX 3060 Ti with 8GB?**
+
+With 4-bit yes, but tight. 3-bit more stable. Expect occasional OOM on long context.
+
+**GGUF vs SafeTensors?**
+
+GGUF optimized for inference. Faster load, less memory. SafeTensors general-purpose.
+
+**Do local models match API quality?**
+
+Small models good for simple tasks. Large [70B models](/articles/nvidia-h100-price) on high-end match APIs. Gap shrinks with better quantization.
+
+**Can multiple apps query the same model?**
+
+Yes. One server, multiple clients. More efficient than multiple instances.
+
+**Update frequency?**
+
+Weekly for new quantizations. Download improvements when released.
+
+**More private than APIs?**
+
+Completely. Data stays local. No logging, tracking, third-party access. Best for sensitive data.
+
+**AMD GPU support?**
+
+Yes, limited. HIP support. ROCm for acceleration. Performance varies by model.
+
+## Related Resources
+
+- [Open-source LLM inference: Cheapest hosting](/articles/open-source-llm-inference-cheapest-hosting-options)
+- [Best GPU cloud for AI startups](/articles/best-gpu-cloud-for-ai-startup-provider-and-pricing)
+- [GPU pricing trends: Are GPUs getting cheaper?](/articles/gpu-cloud-pricing-trends-are-gpus-getting-cheaper)
+- [How to run LLMs on Mac](/articles/how-to-run-a-local-llm-on-mac)
+
+## Sources
+
+- CUDA Toolkit documentation: https://docs.nvidia.com/cuda/
+- Hugging Face Transformers: https://huggingface.co/docs/transformers
+- Ollama: https://ollama.AI
+- Text Generation WebUI: https://github.com/oobabooga/text-generation-webui
+- LM Studio: https://lmstudio.AI
+- vLLM: https://docs.vllm.AI

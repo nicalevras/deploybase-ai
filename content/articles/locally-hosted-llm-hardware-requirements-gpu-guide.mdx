@@ -1,0 +1,245 @@
+---
+title: 'Locally Hosted LLM: Hardware Requirements & GPU Guide'
+slug: locally-hosted-llm-hardware-requirements-gpu-guide
+description: >-
+  Local LLM deployment guide. Hardware specs for Llama 2, Mistral, and other
+  models. CPU vs GPU trade-offs, VRAM requirements, and inference speed.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - locally hosted llm
+---
+
+## Contents
+
+- [Locally Hosted LLM: Overview](#locally-hosted-llm-overview)
+- [Hardware Requirements by Model](#hardware-requirements-by-model)
+- [CPU-Only Inference](#cpu-only-inference)
+- [GPU Acceleration Options](#gpu-acceleration-options)
+- [Memory and Storage](#memory-and-storage)
+- [Performance Benchmarks](#performance-benchmarks)
+- [Software and Frameworks](#software-and-frameworks)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Locally Hosted LLM: Overview
+
+Locally hosted LLM deployments eliminate cloud dependencies, reduce latency, and protect data privacy. Trade-offs include hardware costs, limited scaling, and operational complexity.
+
+A locally hosted LLM requires understanding hardware requirements, software frameworks, and performance expectations. Models range from 7B parameters (consumer hardware) to 70B+ parameters (production servers).
+
+As of March 2026, local LLM deployment options span consumer laptops with quantized models to dedicated workstations with high-end GPUs.
+
+## Hardware Requirements by Model
+
+**Llama 2 7B:**
+- Minimum: 8GB RAM, any CPU
+- Recommended: 16GB RAM, modern CPU (Ryzen 7, i7+)
+- GPU: Optional, 8GB VRAM (RTX 4060, A6000)
+- Inference speed (CPU): 5-10 tokens/second
+- Inference speed (8GB GPU): 20-40 tokens/second
+
+**Llama 2 13B:**
+- Minimum: 16GB RAM
+- Recommended: 32GB RAM
+- GPU: Recommended, 16GB VRAM (RTX 4090, A10)
+- Inference speed (CPU): 2-5 tokens/second
+- Inference speed (16GB GPU): 30-60 tokens/second
+
+**Llama 2 70B:**
+- Minimum: 40GB RAM (CPU extreme quantization)
+- Recommended: 128GB RAM + GPU
+- GPU: Essential, 48GB+ VRAM (A100, H100, or dual A40s)
+- Inference speed (CPU): Not practical
+- Inference speed (48GB GPU): 50-100 tokens/second
+
+**Mistral 7B:**
+- Similar to Llama 2 7B
+- Slightly faster inference (10-15% improvement)
+- Lower VRAM requirements (equivalent performance with 4GB GPU)
+
+**GPT-2 Small (124M):**
+- CPU-only viable: 2GB RAM
+- Single-threaded CPU: 50+ tokens/second
+
+**Custom fine-tuned models:**
+Model size determines hardware. A 13B fine-tune requires 13B-equivalent hardware; size doesn't change with fine-tuning.
+
+## CPU-Only Inference
+
+CPU inference trades speed for accessibility. Any machine from 2015+ runs Llama 2 7B at acceptable speeds.
+
+**Performance characteristics:**
+- Single-threaded: 1-5 tokens/second (7B model)
+- Multi-threaded (8+ cores): 5-20 tokens/second
+- Optimized framework (llama.cpp with native compilation): 20-50 tokens/second
+
+**Advantages:**
+- No GPU required
+- No dedicated hardware cost
+- Full control, privacy guarantees
+- Silent operation (no fan noise)
+- Parallel inference on multiple CPU threads
+
+**Disadvantages:**
+- Slow compared to GPU
+- Higher latency (0.5-1 second per token vs 20ms GPU)
+- CPU bottleneck (can't serve multiple concurrent users)
+- Significant power consumption during inference
+
+**CPU hardware recommendations:**
+
+For 7B models on modern CPU (Ryzen 7 7700, i9-13900K), expect 20-40 tokens/second with optimized frameworks. This suffices for single-user interactive inference; multi-user deployment becomes impractical.
+
+Older CPUs (5+ years) drop to 5-10 tokens/second. Trade-offs become unacceptable; GPU rental ($0.22-$0.34/hour) becomes more practical than waiting for responses.
+
+## GPU Acceleration Options
+
+GPUs dramatically reduce latency and enable concurrent user support.
+
+**Consumer GPUs (gaming/prosumer):**
+- RTX 4090 (24GB): $1,500-$1,800
+- RTX 3090 (24GB): $800-$1,200
+- RTX 4080 (16GB): $1,000-$1,200
+
+**Professional GPUs:**
+- RTX A6000 (48GB): $4,000-$5,000
+- A100 (40GB): $10,000-$15,000
+- H100 (80GB): $30,000-$40,000
+
+**Mobile/Laptop GPUs:**
+- NVIDIA RTX 4060 (8GB): Built into laptops, $800-$1,200 laptops
+- Apple M3/M4 chips: 10-core GPU, included with MacBook Pro
+
+**Rented GPUs:**
+- RunPod RTX 4090: $0.34/hour, no upfront cost
+- Lambda Cloud L40S: $0.79/hour
+- [Vast.ai pricing](/articles/vast-ai-pricing): $0.25-$0.60/hour (peer-to-peer)
+
+For hobby and semi-professional use, rented GPUs from [RunPod](/articles/runpod-gpu-pricing) are more practical than hardware purchases. Break-even point occurs around 3,000-5,000 annual inference hours.
+
+## Memory and Storage
+
+**VRAM requirements (full precision):**
+- 7B model: 14GB minimum (16GB safe)
+- 13B model: 26GB minimum (32GB safe)
+- 70B model: 140GB minimum (requires multiple GPUs or extreme quantization)
+
+**Quantization reduces VRAM:**
+- 4-bit quantization: 1/4 VRAM (7B model in 4GB)
+- 8-bit quantization: 1/2 VRAM (7B model in 7GB)
+- Trade-off: 5-10% quality loss
+
+**System RAM (outside GPU VRAM):**
+- Minimum 8GB for 7B model
+- Minimum 16GB for 13B model
+- 32GB+ recommended for comfortable multi-tasking
+
+**Storage requirements:**
+- 7B model: 15GB (full precision), 4GB (4-bit quantized)
+- 13B model: 26GB (full precision), 7GB (4-bit quantized)
+- 70B model: 140GB (full precision), 35GB (4-bit quantized)
+
+SSDs strongly preferred over HDDs. Loading a 26GB model from HDD takes minutes; from NVMe SSD takes 10-15 seconds.
+
+## Performance Benchmarks
+
+Real-world inference latency and throughput for Llama 2 models:
+
+**Llama 2 7B on RTX 4090:**
+- Latency (first token): 50ms
+- Throughput: 50-60 tokens/second
+- Batch size 4: 150-180 tokens/second aggregate
+
+**Llama 2 13B on L40S:**
+- Latency (first token): 80ms
+- Throughput: 40-50 tokens/second
+- Batch size 4: 100-130 tokens/second aggregate
+
+**Llama 2 70B on A100:**
+- Latency (first token): 150ms
+- Throughput: 60-80 tokens/second
+- Batch size 8: 300-400 tokens/second aggregate
+
+**Llama 2 7B on CPU (Ryzen 7 7700):**
+- Latency (first token): 200-500ms
+- Throughput: 10-15 tokens/second
+- Single-user only (no batching)
+
+**Mistral 7B on RTX 4090:**
+- Latency (first token): 35ms
+- Throughput: 60-70 tokens/second
+- 15% speedup vs Llama 2 7B
+
+Inference batching amplifies GPU advantage. Multi-user scenarios (10+ concurrent users) favor GPU deployments; CPU can't parallelize effectively.
+
+## Software and Frameworks
+
+**llama.cpp** (C++ inference framework):
+- CPU and GPU acceleration
+- Minimal dependencies
+- Best CPU performance (5-50 tokens/sec depending on CPU)
+- No Python required
+
+**Ollama** (model management + inference):
+- Automatic model downloading
+- Web UI included
+- Supports llama.cpp backend
+- Easiest for beginners
+
+**vLLM** (GPU inference optimization):
+- State-of-the-art GPU inference
+- Paged attention reduces VRAM overhead
+- Supports multiple model architectures
+- Requires Python, CUDA
+
+**LM Studio** (GUI wrapper for llama.cpp):
+- No command-line required
+- Model browser and management
+- Local API server
+- User-friendly for non-technical users
+
+**Text Generation WebUI** (web-based interface):
+- Advanced parameter control
+- Fine-tuning tools
+- Active community
+
+Choose based on technical skill and hardware. Beginners use Ollama or LM Studio. Advanced users choose vLLM or llama.cpp for maximum control.
+
+## FAQ
+
+**Is local LLM faster than cloud APIs?**
+
+Latency per token is similar or slightly higher (GPU varies by model size). Local inference eliminates network latency (50-200ms), beneficial for very long responses. Throughput on identical hardware is identical. Local deployment wins on privacy, cost at high volumes, and independence.
+
+**Can I run Llama 2 70B on my laptop?**
+
+Not without extreme quantization. Llama 2 70B requires 70GB VRAM (full precision) or 18GB (4-bit quantized). Most laptops have 16GB total RAM. Running 70B on laptop requires specialized tools (llama.cpp quantization, gradient checkpointing) and is impractical.
+
+**Should I buy a GPU for local LLM or rent?**
+
+Buy if planning 5,000+ annual inference hours. Rent for experimentation. RTX 4090 ($1,500) breaks even against RunPod rental ($0.34/hour) at approximately 4,400 hours. Home electricity costs ($0.15/hour) add significant expense.
+
+**What's the best GPU under $1,000 for local LLM?**
+
+RTX 3090 Ti or RTX 4080 (12GB). RTX 3090 Ti (~$900 used) provides 24GB VRAM, matching RTX 4090 performance at lower cost. RTX 4080 (12GB) is newer but less VRAM. For budget, [RunPod pricing](/articles/runpod-gpu-pricing) is cheaper than hardware purchase.
+
+**How much electricity does local LLM inference cost?**
+
+RTX 4090 draws 320W under full load. 8 hours daily operation costs approximately $6 monthly (assuming $0.15/kWh). Laptop inference costs $1-2 monthly. CPU inference negligible.
+
+## Related Resources
+
+- [/gpus](/gpus)
+- [/articles/self-hosted-llm](/articles/run-ai-locally)
+- [/articles/self-host-llm](/articles/run-ai-locally)
+- [/articles/secure-compliant-llm-hosting-cloud](/articles/best-gpu-cloud-for-government-defense)
+
+## Sources
+
+- Llama 2 official documentation: https://github.com/facebookresearch/llama
+- llama.cpp project: https://github.com/ggerganov/llama.cpp
+- vLLM documentation: https://docs.vllm.AI
+- Ollama project: https://ollama.AI
+- NVIDIA GPU specifications: https://www.nvidia.com/en-us/geforce/graphics-cards/

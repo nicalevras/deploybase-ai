@@ -1,0 +1,175 @@
+---
+title: Best Open Source LLM for Code Generation
+slug: best-open-source-llm-for-code-generation
+description: >-
+  DeepSeek-Coder 33B beats GPT-3.5. Llama 3.1 70B matches GPT-4. Phi 4 fastest
+  on CPU. Benchmarks and pricing.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - best open source llm for coding
+---
+
+## Contents
+
+- [Best Open Source LLM for Coding: Code generation: what benchmark matters](#best-open-source-llm-for-coding-code-generation-what-benchmark-matters)
+- [Best models by size class](#best-models-by-size-class)
+- [Speed and cost: inference comparison](#speed-and-cost-inference-comparison)
+- [Local vs API: when to use each](#local-vs-api-when-to-use-each)
+- [Fine-tuning for the codebase](#fine-tuning-for-the-codebase)
+- [Real-world performance: beyond HumanEval](#real-world-performance-beyond-humaneval)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Best Open Source LLM for Coding: Code generation: what benchmark matters
+
+Best Open Source LLM for Coding is the focus of this guide. HumanEval benchmark: LLM writes Python functions from docstrings. 164 problems. Graded on functional correctness.
+
+As of March 2026:
+
+- GPT-4.1: 92% pass rate
+- Llama 3.1 70B: 88% pass rate
+- DeepSeek-Coder 33B: 85% pass rate
+- GPT-4o: 86% pass rate
+- CodeLlama 34B: 77% pass rate
+- Phi 4: 80% pass rate
+
+Llama 3.1 70B is best open-source option overall. Fast, accurate, widely available.
+
+HumanEval is synthetic. Real code generation requires context, multiple files, imports. Real-world performance varies.
+
+## Best models by size class
+
+**Tiny (under 10B parameters):**
+
+Phi 4 (12B): 80% HumanEval. Runs on CPU. Quantized to 4-bit fits 8GB memory. Best for local development.
+
+**Small (10-15B):**
+
+StarCoder 2 15B: 72% HumanEval. Fast inference. Good for edge deployment.
+
+**Medium (30-40B):**
+
+DeepSeek-Coder 33B: 85% HumanEval. Multi-language support. Fast inference on single GPU. Price/performance leader.
+
+**Large (70B+):**
+
+Llama 3.1 70B: 88% HumanEval. Best accuracy. Standard choice. Available [via API](/llms).
+
+## Speed and cost: inference comparison
+
+Running locally on single [RTX 4090](/articles/rtx-4090-cloud-price):
+
+| Model | Size | Time/token | Cost (if rented) |
+|-------|------|------------|------------------|
+| Phi 4 | 12B | 5ms | $0.34/hr ([RunPod](/articles/runpod-gpu-pricing)) |
+| StarCoder 2 15B | 15B | 8ms | $0.34/hr |
+| DeepSeek-Coder 33B | 33B | 18ms | $0.34/hr |
+| Llama 3.1 70B | 70B | 45ms | $0.79/hr ([RunPod L40S](/articles/runpod-gpu-pricing)) |
+
+Phi 4 fastest, lowest latency. Good for IDE autocomplete.
+
+Llama 70B slower but best quality. Good for code review, architecture decisions.
+
+DeepSeek 33B sweet spot: 33ms per token, 33B parameters. Cost-effective.
+
+## Local vs API: when to use each
+
+**Use local (RunPod/Lambda):**
+
+- Generating code for proprietary systems (security)
+- High volume (100+ generations daily)
+- Fine-tuning on private codebase
+- Code review automation
+- Batch code generation
+
+**Use API:**
+
+- Development tooling (IDE integration)
+- Single queries
+- No private data
+- Low volume
+
+[API pricing](/llms) comparison for code generation:
+
+Assume 2,000 input tokens (code context), 300 output tokens (generated code).
+
+- [DeepSeek](/articles/deepseek-api-pricing): $0.20 input, $0.60 output = $0.04 per generation
+- [Anthropic Claude Sonnet 4.6](/articles/anthropic-pricing): $3 input, $15 output = $0.07 per generation
+- [OpenAI GPT-4o](/articles/openai-pricing): $2.50 input, $10 output = $0.055 per generation
+
+DeepSeek cheapest for code generation. Llama 3.1 on [Anyscale](/articles/anyscale-pricing-breakdown-cost-per-token-model-comparison) similar: $0.04 per generation.
+
+Local generation on [RunPod RTX 4090](/articles/runpod-gpu-pricing) at $0.34/hr: ~30 seconds per generation = $0.003 cost (if running continuously). Efficient at scale.
+
+## Fine-tuning for the codebase
+
+Fine-tune Llama 3.1 7B or 13B on the codebase.
+
+Prepare training data:
+
+- Recent commits (functions + tests)
+- PR diffs (before/after)
+- Documentation + code examples
+- Capture the style, patterns, naming conventions
+
+Cost:
+- 10K code examples: $200-500 on [RunPod](/articles/runpod-gpu-pricing) 7B training
+- One-time setup
+- Inference on fine-tuned model: same speed as base
+
+Result: model generates code in the style. Understands the architecture. Generates names matching conventions. Cuts code review time.
+
+## Real-world performance: beyond HumanEval
+
+HumanEval tests isolated functions. Real code needs:
+
+- Multi-file context
+- Dependency understanding
+- Error handling
+- Comments and documentation
+
+Llama 3.1 70B handles multi-file better than smaller models. More context. Better reasoning.
+
+DeepSeek-Coder trained on more code diversity. Good at uncommon languages (Go, Rust, Kotlin).
+
+Phi 4 struggles with complex scenarios. Excellent for simple patterns.
+
+For production code generation, pick Llama 3.1 70B or DeepSeek-Coder 33B.
+
+## FAQ
+
+**Q: Should I use GitHub Copilot or open-source models?**
+Copilot uses GPT-4, better quality, lower latency. Open-source models cheaper, private. For commercial products, start with Copilot. For internal tools, open-source saves cost.
+
+**Q: Can Phi 4 run on MacBook?**
+Yes. 4-bit quantized version fits M1 8GB memory. Inference at 2-3 tokens/second. Acceptable for autocomplete. Not for batch generation.
+
+**Q: Does fine-tuning actually improve code generation?**
+Yes, measurably. Domain-specific code generation improves 20-40%. Standard benchmarks like HumanEval improve less. The improvement is in your codebase accuracy, not generic code.
+
+**Q: Which model is best for Rust code?**
+DeepSeek-Coder trained on more Rust. Llama 3.1 70B also good. Both 80%+ accuracy on Rust HumanEval-equivalent. Phi 4 struggles with Rust (lower accuracy).
+
+**Q: Can I generate tests alongside code?**
+Yes. Include test examples in fine-tuning data. Prompt model to generate both implementation and tests. Works well at 33B+ scale. Smaller models less reliable.
+
+**Q: How does quantization affect code generation quality?**
+Minimal impact. 8-bit quantization: no measurable quality loss. 4-bit quantization: very small accuracy drop (<2%). 2-bit: notable drop (5-10%). Use 4-bit for local inference.
+
+## Related Resources
+
+- [Llama 3.1 models on Anyscale](/articles/anyscale-pricing-breakdown-cost-per-token-model-comparison)
+- [DeepSeek API pricing](/articles/deepseek-api-pricing)
+- [RunPod GPU pricing](/articles/runpod-gpu-pricing)
+- [OpenAI API pricing](/articles/openai-pricing)
+- [HumanEval Benchmark](https://github.com/openai/human-eval)
+
+## Sources
+
+- HumanEval Benchmark: https://github.com/openai/human-eval
+- Llama 3.1 on Hugging Face: https://huggingface.co/meta-llama/Llama-3.1-70b
+- DeepSeek-Coder: https://github.com/deepseek-ai/DeepSeek-Coder
+- Phi 4: https://huggingface.co/microsoft/phi-4
+- StarCoder 2: https://huggingface.co/bigcode/starcoder2-15b

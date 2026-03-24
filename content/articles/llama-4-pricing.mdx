@@ -1,0 +1,533 @@
+---
+title: 'Llama 4 Pricing 2026: Free Download, Hosting Costs Breakdown'
+slug: llama-4-pricing
+description: >-
+  Llama 4 pricing guide: free to download, hosting costs on Together AI, Groq,
+  RunPod, Lambda, and self-hosted options as of March 2026. Updated March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: Pricing Guide
+keywords:
+  - llama 4 pricing
+  - llama 4 cost
+  - llama 4 api pricing
+  - llama 4 hosting
+  - llama 4 inference cost
+---
+
+## Contents
+
+- [Llama 4 Pricing: Overview](#llama-4-pricing-overview)
+- [Download Cost (Free)](#download-cost-free)
+- [API Hosting Costs](#api-hosting-costs)
+- [Comparison with API-Based Alternatives](#comparison-with-api-based-alternatives)
+- [Self-Hosted Costs](#self-hosted-costs)
+- [Cost Comparison Table](#cost-comparison-table)
+- [Quantization Impact on Hosting Costs](#quantization-impact-on-hosting-costs)
+- [Multi-GPU Requirements for Large Models](#multi-gpu-requirements-for-large-models)
+- [Groq Pricing Tiers (Detailed)](#groq-pricing-tiers-detailed)
+- [Together AI Pricing Tiers (Detailed)](#together-ai-pricing-tiers-detailed)
+- [TCO Analysis: API vs Self-Hosting (Detailed)](#tco-analysis-api-vs-self-hosting-detailed)
+- [Cost Optimization Strategies](#cost-optimization-strategies)
+- [Monthly Projections by Workload](#monthly-projections-by-workload)
+- [Break-Even Analysis: API vs Self-Hosting](#break-even-analysis-api-vs-self-hosting)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Llama 4 Pricing: Overview
+
+Llama 4 Pricing is the focus of this guide. Free to download. Pay for hosting and inference. APIs charge per token. Cloud GPU rental charges by hour. Break-even: 50-100M tokens/month. Below that, API. Above that, self-host.
+
+---
+
+## Download Cost (Free)
+
+Llama 4 weights are released under Meta's community license. Download is free. Compare with other [open-source LLM options](/llms). Available in two production variants:
+
+- Llama 4 Scout (17B active / 109B total parameters, MoE, 10M token context)
+- Llama 4 Maverick (17B active / 400B total parameters, MoE, 1M token context)
+
+Download size: Scout ~218GB full precision (FP16), Maverick ~800GB full precision. Quantized versions are 75% smaller.
+
+Cost: $0. No licensing fees, no per-download charges.
+
+---
+
+## API Hosting Costs
+
+### Together AI (Llama 4 Scout / Maverick)
+
+As of March 2026:
+- Llama 4 Scout: $0.11 input / $0.34 output per million tokens
+- Llama 4 Maverick: $0.19 input / $0.85 output per million tokens
+
+Example (Scout): 1,000 input tokens + 500 output tokens = $0.00000011 × 1000 + $0.00000034 × 500 = $0.00011 + $0.00017 = $0.00028 per request.
+
+10,000 daily Scout requests: $0.00028 × 10K × 30 = $84 monthly. Maverick: ~$0.000615 per request = $185 monthly.
+
+Together offers fast throughput: Scout averages 100-150 tokens/second.
+
+### Groq (Llama 4 Scout)
+
+Groq specializes in low-latency inference. Llama 4 Scout on Groq costs approximately $0.11 input / $0.34 output per million tokens (competitive with Together AI).
+
+Speed advantage: <100ms latency per request due to proprietary LPU hardware.
+
+10,000 daily requests (80 input + 400 output tokens per request): (10K × 80 × $0.11/1M) + (10K × 400 × $0.34/1M) = $0.088 + $1.36 = $1.45 daily = $43 monthly.
+
+Use Groq when latency is critical (sub-200ms SLA). Together and Groq are similarly priced for Scout.
+
+### Lambda Cloud (Llama 4 with vLLM)
+
+Lambda doesn't offer serverless Llama 4 inference. Cost is GPU rental (pay for instance, run the own vLLM server).
+
+Lambda H100 PCIe: $2.86/hr. Running 24/7 = $2,088 monthly. Throughput: 50+ tokens/second, meaning 4.3M tokens/day = 130M tokens/month.
+
+Cost per token: $2,088 / 130M = $0.000016 per token (vastly cheaper than Together/Groq at scale).
+
+---
+
+## Comparison with API-Based Alternatives
+
+### Llama 4 vs OpenAI GPT-4.1
+
+GPT-4.1: $2/$8 input/output. Llama 4 Scout on Together: $0.11/$0.34. Llama wins on per-token cost by ~95% (18x cheaper input, 24x cheaper output).
+
+Tradeoff: GPT-4.1 is more capable (reasoning, complex analysis). Llama 4 is open-source, self-hostable, no data privacy concerns (if self-hosted).
+
+For teams with strict data privacy (healthcare, finance), Llama 4 self-hosted mandatory even if costs more.
+
+### Llama 4 vs Claude 3.5 Sonnet
+
+Claude: $3/$15 input/output. Llama 4 Scout: $0.11/$0.34 (Together API). Llama wins on cost by 27x input, 44x output.
+
+Claude is more capable at long-context reasoning. Llama 4 is good for coding, instruction-following, general tasks.
+
+Cost-benefit: use Llama 4 for volume (millions of tokens), Claude for edge cases (complex reasoning, 200K+ context).
+
+### Self-Hosted Llama 4 vs Cloud-Based
+
+Cloud APIs (Together, Groq): no infrastructure management, pay-per-token, easy scaling.
+
+Self-hosted: requires DevOps (server setup, GPU rental management, monitoring), but 10x cheaper at scale (>500M tokens/month).
+
+Middle ground: hybrid. Use Together for spike loads, self-host baseline.
+
+---
+
+## Self-Hosted Costs
+
+### RunPod (On-Demand H100)
+
+H100 PCIe: $1.99/hr, 80GB VRAM. Llama 4 Scout (109B total, INT4 quantized) fits in ~55GB VRAM on a single H100. Use vLLM or SGLang for batching: 100-150 tokens/second. See [LLM serving framework comparison](/articles/llm-serving-framework) for optimization details.
+
+Monthly cost (24/7): $1.99 × 730 = $1,453.
+
+Throughput: 120 tokens/sec × 86,400 sec/day = 10.3M tokens/day = 310M tokens/month.
+
+Cost per token: $1,453 / 310M = $0.0000047 per token.
+
+Spot pricing: 60-70% cheaper ($0.60-0.80/hr). Cost per token drops to $0.0000013-0.0000016.
+
+### Lambda Cloud (Reserved H100)
+
+H100 SXM: $2.49/hr. More expensive than RunPod but better reliability. Throughput: 150-180 tokens/second on vLLM.
+
+Monthly cost: $2.49 × 730 = $1,818.
+
+Throughput: 160 tokens/sec × 86,400 = 13.8M tokens/day = 415M tokens/month.
+
+Cost per token: $1,818 / 415M = $0.0000044 per token.
+
+### Vast.AI (Cheapest GPU Market)
+
+Vast.AI aggregates spare GPU capacity from miners and data centers. H100 prices: $1.20-1.80/hr for RTX 4090 equivalent or A6000.
+
+Llama 4 Scout (INT4 quantized) on A6000 (48GB): $1.50/hr × 730 = $1,095 monthly.
+
+Throughput: 30-40 tokens/sec on A6000 (slower than H100 due to lower bandwidth). ~2.6M tokens/day = 78M tokens/month.
+
+Cost per token: $1,095 / 78M = $0.000014 per token.
+
+Trade-off: cheaper hourly rate but slower hardware, less reliable (spot instances, provider may disconnect).
+
+### AWS EC2 (g4dn.12xlarge, 4x A10)
+
+4x NVIDIA A10 GPUs (24GB each), 96GB total. Suitable for smaller models like Llama 3.2 8B or Mistral 7B quantized. Not sufficient for Llama 4 Scout.
+
+On-demand: $5.61/hr × 730 = $4,093 monthly.
+
+Throughput: 20-30 tokens/sec per A10, ~120 tokens/sec aggregate. ~10.3M tokens/day = 310M tokens/month.
+
+Cost per token: $4,093 / 310M = $0.000013 per token.
+
+Reserved instances: $2.80/hr × 730 = $2,044 monthly (50% discount for 1-year commitment).
+
+---
+
+## Cost Comparison Table
+
+| Provider | Model | $/1M Input | $/1M Output | Setup Cost | $/GB VRAM/Mo | Best For |
+|----------|-------|-----------|-----------|-----------|-------------|----------|
+| Together AI | Llama 4 Scout | $0.11 | $0.34 | $0 | N/A | API, low volume |
+| Together AI | Llama 4 Maverick | $0.19 | $0.85 | $0 | N/A | API, higher capability |
+| Groq | Llama 4 Scout | $0.11 | $0.34 | $0 | N/A | Low-latency API |
+| RunPod | H100 self-host | N/A | N/A | $1.99/hr | $0.025 | Medium-high volume |
+| Lambda | H100 self-host | N/A | N/A | $2.49/hr | $0.022 | Reliability priority |
+| AWS | A10 cluster | N/A | N/A | $5.61/hr | $0.086 | AWS ecosystem |
+| Vast.AI | A6000 self-host | N/A | N/A | $1.50/hr | $0.031 | Budget/spot |
+
+N/A = self-hosted compute, cost is hourly rental not per-token API.
+
+---
+
+## Quantization Impact on Hosting Costs
+
+### Model Size Reduction via Quantization
+
+Llama 4 Scout (109B total) full precision: ~218GB (FP16). Quantization reduces model size significantly.
+
+| Quantization | Bits/Weight | Scout Size | VRAM Required | Speed Impact | Quality Loss |
+|--------------|------------|-----------|--------------|------------|------------|
+| FP16 (half) | 16 | ~218GB | 218GB+ | baseline | 0% |
+| INT8 | 8 | ~109GB | 120GB | +10-15% | 0.2% |
+| INT4 | 4 | ~55GB | 65GB | +20-35% | 1-2% |
+
+Practical implication: Llama 4 Scout (INT4 quantized) fits on a single H100 80GB. Maverick (400B total) requires multi-GPU even when quantized. Allows using cheaper cloud GPUs for Scout deployment.
+
+### Cost Savings from Quantization
+
+**Full precision (FP32) on Lambda H100:**
+- GPU cost: $2.86/hr
+- Throughput: 80 tokens/sec (limited by memory bandwidth)
+- Cost per token: $2.86 / 3600 sec / 80 tok = $0.0000099/token
+
+**4-bit quantized on Vast.AI A6000:**
+- GPU cost: $1.50/hr
+- Throughput: 30 tokens/sec (slower hardware, memory-efficient)
+- Cost per token: $1.50 / 3600 sec / 30 tok = $0.0000139/token
+
+Quantized is slower but cheaper per token when running on cheaper GPUs. Break-even: if throughput doesn't matter, quantized wins 20-30% on cost.
+
+### Quality Trade-offs
+
+4-bit quantization shows <1% accuracy loss on MMLU benchmarks. Practical tasks (classification, generation): imperceptible to users.
+
+8-bit quantization: virtually no loss. Recommended if VRAM available.
+
+---
+
+## Multi-GPU Requirements for Large Models
+
+### Single-GPU Serving
+
+Llama 4 Scout (quantized) single GPU (H100 80GB):
+- Serving framework: vLLM
+- Batch size: 32 concurrent requests
+- Throughput: 100-150 tokens/sec
+- Latency P50: 50-100ms per token
+- Cost: ~$2/hr per GPU
+
+### Multi-GPU Serving (Tensor Parallelism)
+
+Llama 4 405B (multi-modal, ultra-large):
+- Too large for single GPU (>800GB required)
+- Solution: split model across 8x GPUs (tensor parallelism)
+- Each token computation: all GPUs compute in parallel
+- Communication overhead: negligible if GPUs on same server (NVLink)
+
+Cost structure:
+
+| Setup | Throughput | Cost/hr | Cost per 1M tokens |
+|-------|-----------|---------|------------------|
+| 1x H100 (Llama 70B) | 120 tok/sec | $2.00 | $0.000046 |
+| 8x H100 (Llama 405B) | 150 tok/sec | $16.00 | $0.0000296 |
+| 4x H100 (Llama 405B, 4-bit) | 80 tok/sec | $8.00 | $0.0000278 |
+
+8 GPUs cost 8x, throughput increases 1.25x (communication overhead). Per-token cost decreases due to higher throughput density.
+
+### When to Use Multi-GPU
+
+Llama 4 405B requires multi-GPU. No workaround (model doesn't fit on single GPU).
+
+Llama 4 Scout (quantized) can run on a single H100. Single GPU is cheaper if throughput requirements allow. Maverick always requires multi-GPU. Multi-GPU Scout only needed if serving >1,000 requests/day with strict latency requirements.
+
+---
+
+## Groq Pricing Tiers (Detailed)
+
+### Standard Tier (Pay-as-Developers-Go)
+
+Llama 4 Scout: ~$0.11 input, $0.34 output per million tokens. Groq specializes in low-latency inference via proprietary LPU (Language Processing Unit) hardware.
+
+Latency: <100ms P99. Suitable for real-time chat, interactive APIs.
+
+Throughput: lower than Together AI (batching less efficient on LPU), but latency wins.
+
+### Groq Pro Tier (Volume Discounts)
+
+Minimum commitment: 500M tokens/month.
+
+Volume discount: 20-30% off standard rates (~$0.08/$0.24 estimated for Llama 4 Scout).
+
+Break-even: 500M tokens = $445 monthly minimum vs Together AI at similar price.
+
+Groq Pro makes sense for applications with >500M monthly tokens and strict latency requirements (<100ms).
+
+---
+
+## Together AI Pricing Tiers (Detailed)
+
+### Standard Tier (Per-Token)
+
+Llama 4 Scout: $0.11 input, $0.34 output per million tokens. Llama 4 Maverick: $0.19 input, $0.85 output per million tokens.
+
+No minimum commitment. Pay only for tokens used. Scale up/down instantly.
+
+Ideal for prototyping, variable workloads, growth-stage startups.
+
+### Reserved Capacity (Undocumented but Available)
+
+Together AI offers reserved capacity contracts for high-volume users (1B+ tokens/month).
+
+Pricing: negotiated, typically 30-50% discount off standard rates ($0.40-0.56 input, $1.20-1.68 output estimated).
+
+Minimum commitment: 3-12 month contracts.
+
+Contact sales for quote. Not advertised on pricing page (production sales model).
+
+Useful for mature products with predictable volume.
+
+---
+
+## TCO Analysis: API vs Self-Hosting (Detailed)
+
+### 3-Year Total Cost of Ownership
+
+Scenario: process 1B tokens/month, sustained (consistent volume).
+
+#### Approach 1: Together AI (Always)
+
+Monthly cost (Scout): 600M input × $0.11 + 400M output × $0.34 = $66 + $136 = $202
+Annual: $2,424
+3-year: $7,272
+
+No upfront cost, no ops burden.
+
+#### Approach 2: Self-Hosted (H100 + vLLM)
+
+Upfront hardware: 1x Lambda H100 + networking = $2,000 (setup cost)
+
+Monthly cloud cost (24/7 H100): $2.86 × 730 = $2,088
+Annual: $25,056
+3-year: $75,168
+
+Add ops overhead: monitoring, backup, updates, GPU replacement = ~$500/month
+Adjusted 3-year: $75,168 + $18,000 = $93,168
+
+Self-hosting costs 80% more over 3 years when factoring in ops.
+
+#### Approach 3: Hybrid (Together for baseline, self-hosted for burst)
+
+Together baseline (800M tokens/month): $1,200/month
+Self-hosted (200M burst, 5 days/month on demand): ~$300/month
+Monthly: $1,500
+Annual: $18,000
+3-year: $54,000
+
+Marginal improvement over Together API only.
+
+#### Approach 4: Self-Hosted with Reserved Capacity (1B tokens/month)
+
+Upfront: $2,000
+Reserved contract (1B tokens/month at ~$0.07/$0.22 negotiated for Scout): $1,000/month
+Annual: $12,000
+3-year: $36,000
+
+Ops overhead: $500/month = $18,000 over 3 years
+Adjusted total: $36,000 + $18,000 + $2,000 upfront = $56,000
+
+Slightly more expensive than Together alone when accounting for ops.
+
+**Verdict:** For most teams, Together AI API is the best value over 3 years. Self-hosting breaks even only when ops costs are minimal (well-staffed DevOps team) and workload is hyper-stable (>2B tokens/month).
+
+---
+
+## Cost Optimization Strategies
+
+### 1. API for Prototype Phase
+
+Start with Together AI. Cheap per-request cost with zero setup. Prototype the system, measure token usage.
+
+Monthly budget: <$1,000? Stay on API. >$1,000? Evaluate self-hosting.
+
+### 2. Switch to Self-Hosting at Scale
+
+Once monthly token volume exceeds 100M, self-hosted H100 is cheaper than Together/Groq.
+
+100M tokens on Together (Scout): (50M input × $0.11 + 50M output × $0.34) / 1M = $5.50 + $17 = $22.50 monthly.
+
+100M tokens self-hosted: 100M tokens / 120 tokens/sec throughput = 833,000 seconds = 231 hours = 10 days of 24/7 compute at $1.99/hr = $459 monthly.
+
+At 100M tokens, API ($22.50) beats self-hosting ($459 for 24/7 H100). Self-hosting only becomes economical at 6B+ tokens/month due to Scout's low API pricing.
+
+### 3. Use Spot Instances for Batch Processing
+
+Batch jobs can tolerate interruptions. RunPod spot H100: $0.60-0.80/hr (70% off on-demand). Monthly cost drops from $1,453 to $438-584. Cost per token: $0.0000013.
+
+### 4. Implement Request Caching
+
+If the same prompts are repeated (classification, categorization), cache outputs. Saves redundant API calls or compute.
+
+Example: customer support chatbot with 100 FAQ responses. Cache the 100 outputs. Each FAQ response costs once, reused 1000 times = 99% savings on that subset.
+
+### 5. Batch Requests into Fewer, Larger Calls
+
+Larger batches utilize GPU better. 10 separate 100-token requests = 1,000 tokens processed inefficiently. One 1,000-token batch request = same tokens, higher throughput per token.
+
+### 6. Quantize to 4-bit or 8-bit
+
+Llama 4 Scout (109B total) full precision (FP16): ~218GB VRAM needed. INT4 quantized: ~55GB, fits on a single H100 (80GB). Quality loss: <1% on most tasks. Maverick (400B total) requires multi-GPU even quantized.
+
+Quantized on Vast.AI A6000 ($1.50/hr) beats non-quantized H100 on cost-per-token.
+
+---
+
+## Monthly Projections by Workload
+
+### Scenario 1: Startup MVP (Low Volume)
+
+- 1,000 daily requests
+- 100 input tokens, 200 output tokens per request
+- 300,000 total input tokens/month, 600,000 output tokens/month
+- 900,000 total tokens/month
+
+Using Together AI (Scout):
+- Input cost: 300K × $0.11 / 1M = $0.033
+- Output cost: 600K × $0.34 / 1M = $0.204
+- Monthly: ($0.033 + $0.204) × 30 = $7.11
+
+Decision: Use Together API. Self-hosting overhead not justified.
+
+### Scenario 2: Scale-up (Medium Volume)
+
+- 10,000 daily requests
+- 500 input tokens, 300 output tokens per request
+- 150M input tokens/month, 90M output tokens/month
+- 240M total tokens/month
+
+Using Together AI (Scout):
+- Input cost: 150M × $0.11 / 1M = $16.50
+- Output cost: 90M × $0.34 / 1M = $30.60
+- Monthly: $47.10
+
+Using RunPod H100 (self-hosted):
+- 240M tokens at 120 tokens/sec = 2,000,000 seconds = 556 hours = 23 days compute
+- Cost: 556 hours × $1.99 = $1,106 (if using 24/7 instance)
+- Or: rent 8-16 hours daily: 240 hours/month × $1.99 = $478
+
+Recommendation: RunPod self-hosting saves $336 - $478 = negative (API cheaper). Or rent 8 hours/day RunPod = ~$100/month if scheduling jobs.
+
+### Scenario 3: High-Volume Production
+
+- 100,000 daily requests
+- 800 input tokens, 400 output tokens per request
+- 2.4B input tokens/month, 1.2B output tokens/month
+- 3.6B total tokens/month
+
+Using Together AI (Scout):
+- Input cost: 2.4B × $0.11 / 1M = $264
+- Output cost: 1.2B × $0.34 / 1M = $408
+- Monthly: $672
+
+Using RunPod H100 (24/7):
+- 3.6B tokens at 120 tokens/sec = 30M seconds = 8,333 hours = 347 days
+- But 30 days of 24/7 compute = 720 hours = 720 × $1.99 = $1,433
+- Throughput: 120 tokens/sec × 86,400 sec/day × 30 days = 311M tokens/month
+- Cost per token: $1,433 / 311M = $0.0046/token
+
+Hmm, that doesn't work for 3.6B tokens. Need to add GPUs.
+
+With 8x H100 cluster (RunPod 8-GPU mode):
+- Cost: 8 GPUs × $1.99 × 730 / 1 = $11,624/month (if 24/7)
+- But scaling is pay-per-GPU, not per-cluster. Better: rent 8-16 H100s on demand as needed.
+
+Estimated: 3.6B tokens / 960 tokens/sec (8 GPUs) = 3.75M seconds = 1,042 hours = $2,074 monthly.
+
+Savings: $4,800 - $2,074 = $2,726/month vs Together API.
+
+---
+
+## Break-Even Analysis: API vs Self-Hosting
+
+**Break-even token volume:**
+
+Together API Scout: $0.11 input + $0.34 output per million tokens. Blended average: ~$0.225 per million tokens.
+
+RunPod H100 on-demand: $1.99/hr = ~120 tokens/sec sustained = $0.0000046 per token.
+
+Together per-token cost: ($0.11 × 0.5 + $0.34 × 0.5) / 1M = $0.000000225 per token.
+
+Break-even calculation: RunPod H100 at $1.99/hr vs Together at $0.000000225/token.
+
+**More precise:**
+
+- 100M tokens/month: Together Scout = $22.50, RunPod 24/7 = $1,453. API wins by far.
+- 1B tokens/month: Together Scout = $225, RunPod 24/7 = $1,453. API still wins.
+- 5B tokens/month: Together Scout = $1,125, RunPod 24/7 = $1,453. Getting close.
+- 7B tokens/month: Together Scout = $1,575, RunPod 24/7 = $1,453. Self-hosting wins.
+
+Inflection point: ~6-7B tokens/month (much higher than older model pricing due to Scout's low API cost).
+
+---
+
+## FAQ
+
+**Is Llama 4 free?**
+
+The model weights are free to download. Hosting (compute) costs money. Llama 4 Scout (INT4 quantized, 109B total) requires ~55-65GB VRAM, fitting on a single H100. Minimum cost is GPU rental: ~$0.60-1/hr on spot, $1.99-2.86/hr on demand.
+
+**How does Llama 4 compare to GPT-4.1 in cost?**
+
+GPT-4.1 API: $2/$8 per million tokens. Llama 4 on Together: $0.80/$2.40. Llama 4 is cheaper on API. Self-hosted Llama 4 is cheapest at scale (100M+ tokens/month). GPT-4.1 is generally more capable (reasoning, long context).
+
+**Should I use Together or Groq?**
+
+Together AI and Groq are similarly priced for Scout (~$0.11/$0.34). Groq is faster (<100ms latency due to LPU hardware). Choose Together for throughput-optimized batch workloads. Choose Groq for latency-critical applications (real-time chat, sub-200ms SLA).
+
+**What's the cheapest way to run Llama 4 at scale?**
+
+For Scout: RunPod spot H100 with vLLM batching at $0.60-0.80/hr. With Scout's very low API pricing (~$0.11/$0.34), self-hosting only beats the API at very high volumes (~6-7B tokens/month). For most teams, Together AI is the cheapest option.
+
+**Can I run Llama 4 on consumer hardware?**
+
+Llama 4 Scout (109B total) INT4 quantized requires ~55-65GB VRAM — too large for a single consumer GPU (RTX 4090 = 24GB). A single H100 (80GB) handles Scout quantized. Maverick (400B total) requires multi-GPU even quantized. Consumer option: rent an H100 from RunPod ($1.99/hr) or Vast.AI ($1.50/hr) on spot, which is equivalent to owning a GPU at ~1/50th the cost.
+
+**How much throughput does Llama 4 Scout have?**
+
+On H100 with vLLM (Scout quantized): 100-150 tokens/second (batching enabled). On A100 (if model fits): 30-50 tokens/sec. Throughput depends on batch size, memory bandwidth, and inference framework (vLLM > TGI > Ollama). Maverick throughput is lower due to the larger weight set despite similar active parameter count.
+
+---
+
+## Related Resources
+
+- [LLM Comparison](/llms)
+- [How to Deploy Llama 4](/articles/deploy-llama-4)
+- [Llama 4 vs GPT-4.1 Comparison](/articles/llama-4-vs-gpt-4.1)
+- [Llama 4 vs DeepSeek R1](/articles/llama-4-vs-deepseek-r1)
+
+---
+
+## Sources
+
+- [Meta Llama 4 Model Card](https://huggingface.co/meta-llama/Llama-4-Scout-17B-16E)
+- [Together AI Pricing](https://www.together.ai/pricing)
+- [Groq Pricing](https://groq.com/pricing)
+- [RunPod Pricing](https://www.runpod.io/pricing)
+- [Lambda Labs Pricing](https://lambda.ai/pricing)
+- [Vast.ai GPU Marketplace](https://www.vast.ai/)
+- [vLLM Throughput Benchmarks](https://docs.vllm.ai/en/latest/getting_started/quickstart.html)
+- [DeployBase GPU Pricing Dashboard](/gpus) (as of March 2026)

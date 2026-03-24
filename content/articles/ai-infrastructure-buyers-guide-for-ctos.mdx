@@ -1,0 +1,307 @@
+---
+title: AI Infrastructure Buyer's Guide for CTOs
+slug: ai-infrastructure-buyers-guide-for-ctos
+description: >-
+  Strategic guide for CTOs purchasing AI infrastructure. Decision framework,
+  vendor evaluation, cost management, and implementation.
+date: '2026-03-22'
+author: DeployBase
+---
+
+## Contents
+
+- [Building the Business Case](#building-the-business-case)
+- [Vendor Evaluation Framework](#vendor-evaluation-framework)
+- [GPU Selection Criteria](#gpu-selection-criteria)
+- [Cost Modeling](#cost-modeling)
+- [Capacity Planning](#capacity-planning)
+- [Risk Assessment](#risk-assessment)
+- [Contract Negotiation](#contract-negotiation)
+- [Reference Architectures](#reference-architectures)
+- [Implementation Roadmap](#implementation-roadmap)
+- [Cost Management and FinOps](#cost-management-and-finops)
+- [Monitoring and Governance](#monitoring-and-governance)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+Infrastructure decisions stick around for years. Justify them with real numbers. This covers vendor evaluation, cost models, and implementation.
+
+### Building the Business Case
+
+Start with revenue opportunity or cost savings. Vague AI benefits don't justify infrastructure spending.
+
+Example business cases:
+
+**Cost Reduction: Customer Service**
+- Current: 500 support agents, $50/hour (fully loaded), 10M requests/year
+- Cost: 500 × $50 × 2080 hours = $52M/year
+- With AI: 80% automation possible, $5M infrastructure needed
+- Savings: $41.6M/year - $5M infrastructure = $36.6M/year ROI
+- Payback period: <2 months
+
+**Revenue Growth: Personalization**
+- Current: $10M annual revenue, 1M customers
+- Churn from lack of personalization: 5%
+- With AI personalization: Reduce churn to 2%, +3% upsell
+- Revenue impact: $10M × 0.08 = $800k additional revenue
+- Infrastructure cost: $2M/year
+- Net: -$1.2M (Loss). Don't build this case.
+
+Valid business case requires 3-5x ROI or 6-12 month payback.
+
+### Vendor Evaluation Framework
+
+Create scorecard for major vendors. Weight categories by organizational priorities.
+
+| Criteria | Weight | AWS | Lambda | RunPod | CoreWeave |
+|----------|--------|-----|--------|--------|-----------|
+| GPU Availability | 25% | 8 | 7 | 6 | 8 |
+| Pricing | 20% | 5 | 7 | 9 | 8 |
+| Support Quality | 20% | 8 | 9 | 6 | 7 |
+| Ecosystem Integration | 15% | 10 | 5 | 4 | 5 |
+| Scalability | 15% | 10 | 7 | 6 | 7 |
+| Security/Compliance | 5% | 10 | 7 | 5 | 6 |
+
+Weighted score: AWS 8.1, Lambda 7.1, RunPod 6.2, CoreWeave 7.2
+
+AWS wins on comprehensive features. Lambda and CoreWeave better on single dimensions. Scorecard reveals trade-offs.
+
+### GPU Selection Criteria
+
+Matching hardware to workload essential. Wrong choice wastes budget.
+
+**For Inference:**
+- Throughput requirement: tokens/second
+- Latency requirement: milliseconds
+- Memory requirement: model size in GB
+
+RTX 4090: 50-80 tokens/sec, $0.34/hour. Cost per million tokens: $8.50.
+A100: 150-200 tokens/sec, $1.39/hour. Cost per million tokens: $8.20.
+H100: 250-350 tokens/sec, $2.69/hour. Cost per million tokens: $9.60.
+
+Cost-per-token similar across hardware for inference. Choose based on latency needs.
+
+**For Training:**
+- Model size: parameters and batch size
+- Data size: GB to process
+- Time constraints: absolute deadline
+
+7B model: RTX 4090 sufficient, 10-20 hours training
+13B model: 2x A100 recommended, 4-8 hours training
+70B model: 8x A100 or 4x H100 minimum, 2-4 hours training
+
+Training math: Need sufficient VRAM for model + gradients + optimizer state. Rough rule: VRAM needed = model_size × 4 for full precision, × 2 for 8-bit, × 1 for 4-bit.
+
+### Cost Modeling
+
+Build detailed cost forecast for 3 years. Include hardware, networking, storage, personnel.
+
+Year 1 budgets:
+
+Small deployment (10 GPUs, inference focused):
+- Compute: 10 GPUs × $2k/month = $240k/year
+- Networking/storage: $50k/year
+- Personnel (2 ML engineers): $400k/year
+- Total: $690k/year
+
+Medium deployment (100 GPUs, training + inference):
+- Compute: 100 GPUs × $2k/month = $2.4M/year
+- Networking/storage: $200k/year
+- Personnel (6 ML engineers, 2 DevOps): $1.2M/year
+- Total: $3.8M/year
+
+Large deployment (1000 GPUs, multiple projects):
+- Compute: 1000 GPUs × $1.5k/month = $18M/year
+- Networking/storage: $1M/year
+- Personnel (20+ ML/ops specialists): $3M/year
+- Total: $22M/year
+
+Compute dominates at small scale. Personnel becomes dominant at large scale.
+
+### Capacity Planning
+
+Forecast demand growth to avoid undersizing or overprovisioning.
+
+Conservative approach: Plan for current + 50% growth
+Aggressive approach: Plan for 3x growth
+Middle ground: Plan for current + 100% growth
+
+Example:
+- Current: 10M tokens/day inference = 2 RTX 4090s
+- Conservative: 15M tokens/day = 3 RTX 4090s
+- Aggressive: 30M tokens/day = 6 RTX 4090s
+
+Conservative costs now, limits flexibility. Aggressive wastes money. Middle ground hedges uncertainty.
+
+### Risk Assessment
+
+**Vendor Concentration Risk:**
+Risk: Single vendor supply disruption
+Mitigation: Multi-cloud strategy. 70% primary, 30% backup
+Cost: 10-20% premium for redundancy
+
+**Technology Obsolescence:**
+Risk: New GPUs make current hardware obsolete
+Mitigation: Hardware leasing vs. buying. Refresh cycle 18-24 months.
+Cost: 30-50% more than buying, but transfers risk to vendor
+
+**Demand Uncertainty:**
+Risk: Demand for AI services doesn't materialize
+Mitigation: Spot instances reduce commitment. Autoscaling matches capacity to demand.
+Cost: 10% margin for flexibility
+
+**Talent Risk:**
+Risk: Can't hire ML engineers to operate infrastructure
+Mitigation: Use managed services (reduce ops burden) or outsource training
+Cost: 30-50% premium for managed solutions, worth it if talent unavailable
+
+### Contract Negotiation
+
+Standard contract terms:
+
+**Payment Options:**
+- Pay-as-developers-go: No discount, maximum flexibility
+- Monthly commitment: 10-15% discount
+- Annual commitment: 20-30% discount
+- Multi-year: 30-50% discount
+
+**Reserve Capacity:**
+- Large spenders negotiate exclusive capacity
+- Guaranteed availability (no oversubscription)
+- Priority support
+- Custom rate (often 40-60% below published price for major commits)
+
+**SLA Terms:**
+- Uptime SLA: 99.9% standard, 99.99% premium
+- Support response time: 1 hour for critical (standard for production)
+- GPU availability guarantee: Usually not offered; be skeptical if offered
+
+### Reference Architectures
+
+**Tier 1: Startup/Small Team**
+- Hardware: 2-4 RTX 4090s
+- Provider: RunPod
+- Cost: $1-2k/month
+- Ops: One person part-time
+
+**Tier 2: Growth Company**
+- Hardware: 8-16 A100s
+- Provider: Lambda or CoreWeave
+- Cost: $20-40k/month
+- Ops: One full-time DevOps engineer
+
+**Tier 3: Large Enterprise**
+- Hardware: 100+ GPUs (mixed H100/A100)
+- Provider: AWS or custom hybrid
+- Cost: $1M+/year
+- Ops: 2-3 DevOps engineers, 4-6 ML platform engineers
+
+**Tier 4: Hyperscale**
+- Hardware: 1000+ GPUs in-house
+- Custom supply chain and chip design
+- Cost: $50M+/year
+- Ops: 50+ infrastructure specialists
+
+### Implementation Roadmap
+
+**Phase 1: Pilot (Months 1-3)**
+- Select small workload (5-10% production traffic)
+- Deploy on chosen vendor platform
+- Measure cost, latency, throughput
+- Train team on operations
+- Cost: $20-50k
+
+**Phase 2: Expansion (Months 4-6)**
+- Move 30-50% production traffic
+- Optimize workloads based on Phase 1 learnings
+- Build monitoring and cost controls
+- Cost: $200-500k
+
+**Phase 3: Production (Months 7-12)**
+- Move 100% critical workloads
+- Multi-vendor redundancy if required
+- SLA-bound infrastructure with alerting
+- Establish FinOps processes
+- Cost: $500k-2M
+
+**Phase 4: Optimization (Year 2+)**
+- Continuous cost reduction through:
+  - Better quantization
+  - More efficient models
+  - Improved scheduling
+  - Vendor negotiation use
+- Typically achieve 20-30% annual cost reduction
+
+### Cost Management and FinOps
+
+Essential processes to control runaway spending:
+
+**Daily Budgets:**
+Set per-project and per-team daily spend limits. Alert at 80%, halt at 100%.
+
+**Unit Cost Tracking:**
+Monitor cost per prediction, cost per training iteration, cost per user. Trends reveal efficiency gains or degradation.
+
+**Reservation Optimization:**
+Auto-scale compute with demand. Eliminate idle resources. Schedule batch jobs during low-price windows.
+
+**Vendor Consolidation:**
+One vendor simpler but higher cost. Multiple vendors lower cost but operational complexity. Sweet spot: 2-3 primary vendors.
+
+**Chargeback Models:**
+Internal chargebacks motivate teams to optimize. Show teams their infrastructure costs. Creates accountability.
+
+### Monitoring and Governance
+
+Key metrics to track:
+
+- GPU utilization (target 70-90%)
+- Cost per token/prediction/user
+- Model quality metrics
+- Infrastructure reliability (uptime %)
+- Team velocity (features deployed per sprint)
+
+Governance structure:
+
+Monthly steering committee reviews infrastructure spend and utilization. Quarterly vendor reviews. Annual technology strategy planning.
+
+## FAQ
+
+**Should CTOs buy GPUs or use cloud services?**
+Buy if: >1000 GPU-hours/month sustained, in-house ops capability. Use cloud if: Variable demand, prefer outsourced ops, limited CapEx budget. Hybrid (80% cloud, 20% on-prem) increasingly common.
+
+**What's the right team size for AI infrastructure?**
+1-2 MLOps engineers per 100 GPUs. Include cloud platform engineering, security, cost management. Small teams can use managed services to reduce headcount.
+
+**How do I negotiate better GPU pricing?**
+Once >$10k/month spend, contact vendor account executives directly. Standard discounts 20-50% for commitments. Multi-vendor strategy improves use.
+
+**Which vendor offers best total cost of ownership?**
+AWS for comprehensive ecosystem. RunPod for pure GPU cost. Lambda for support quality. CoreWeave for networking. No single best; depends on priorities.
+
+**How should I approach multi-cloud strategy?**
+70% primary vendor (lowest cost, best integration). 30% secondary vendor (redundancy, competitive pressure). Avoids lock-in without operational chaos.
+
+**What procurement process should we follow?**
+RFP process slows adoption. Better: Select top 3 vendors, run POC (pilot). Choose winner based on results, not RFP scores.
+
+**How do we forecast AI infrastructure costs?**
+Start with unit economics: cost per prediction, cost per user. Forecast based on business metrics. Update monthly based on actual usage patterns.
+
+**When should we invest in in-house infrastructure?**
+Not until >500 GPU-hours/month sustained for 2+ years. Capital costs, ops overhead make cloud economic until major scale.
+
+## Related Resources
+
+- [Best GPU Cloud for LLM Training: Provider and Pricing](/articles/best-gpu-cloud-for-llm-training-provider-and-pricing)
+- [Best GPU Cloud for AI Startup: Provider and Pricing](/articles/best-gpu-cloud-for-ai-startup-provider-and-pricing)
+- [GPU Cloud Pricing Trends: Are GPUs Getting Cheaper?](/articles/gpu-cloud-pricing-trends-are-gpus-getting-cheaper)
+
+## Sources
+
+AWS Total Cost of Ownership calculators
+GPU cloud provider documentation
+Industry survey: AI infrastructure purchasing patterns
+CTO roundtable discussions on infrastructure strategy
+FinOps best practices for cloud computing

@@ -1,0 +1,91 @@
+---
+title: 'Serverless vs Reserved GPU Instances: Cost Breakdown'
+slug: serverless-vs-reserved-gpu-instances-cost-breakdown
+description: >-
+  Complete cost breakdown comparing serverless GPU functions with reserved
+  instances. Learn when to use each model for optimal cost and performance as of
+  March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Pricing
+---
+
+## Contents
+
+- [Serverless vs Reserved GPU Defined](#serverless-vs-reserved-gpu-defined)
+- [Cost Structure Analysis](#cost-structure-analysis)
+- [Performance Characteristics](#performance-characteristics)
+- [Workload Matching](#workload-matching)
+- [Migration Strategies](#migration-strategies)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## Serverless vs Reserved GPU Defined
+
+Reserved: developers buy capacity by the hour. Pay whether developers use it or not. Serverless: developers rent execution time. Pay only when code runs.
+
+Reserved = consistent workloads. Serverless = intermittent processing.
+
+## Cost Structure Analysis
+
+### Reserved Instance Costs
+
+H100 PCIe (Lambda Labs): $2.86/hr = $2,087/mo = $25,000/yr. Eight H100s? $16,700/mo. 1-3 year commits get 20-40% discounts.
+
+### Serverless GPU Costs
+
+Serverless GPU platforms (RunPod Serverless, Modal, Replicate): typically $0.01-0.025 per request for a 2-5 second inference job. 1,000 requests at $0.025 each = $25/mo. At low request volumes, this is dramatically cheaper than a reserved H100 ($2,087/mo). Note: AWS Lambda does not natively support GPU instances; use AWS SageMaker Serverless or container-based alternatives for GPU serverless workloads.
+
+### Break-Even Analysis
+
+Reserved instances win above roughly 200 GPU-hours monthly at high utilization. Below that threshold, serverless pricing is cheaper because you only pay for actual execution time.
+
+## Performance Characteristics
+
+Reserved: consistent latency, guaranteed performance, large models ok, batch jobs work great. Serverless: auto-scale, zero idle cost, global distribution, quick deploy. But: 30-60s cold start, model size limits, 15-60 min timeout, shared hardware jitter.
+
+## Workload Matching
+
+### Reserved Instances
+
+Inference APIs (consistent traffic), training jobs (hours-long runs), chat/code generation (low latency needed), daily batch jobs (predictable schedule).
+
+### Serverless GPU
+
+Event-triggered tasks (uploads, messages, webhooks), periodic processing (weekly reports, monthly analytics, quarterly retraining).
+
+Viral content, flash sales, unpredictable traffic? Serverless scales. Prototyping? Serverless is cheap.
+
+## Migration Strategies
+
+Hybrid: route baseline to reserved, spikes to serverless. Or: reserved during peak hours, serverless off-peak. Or: inference on reserved, background jobs on serverless. Check [AWS pricing](/articles/aws-vs-azure-gpu-pricing) and [SageMaker options](/articles/sagemaker-serverless-inference-gpu).
+
+## FAQ
+
+**Can serverless functions use multiple GPUs?** No. Reserved instances only.
+
+**What if serverless exceeds timeout?** Terminates, charges incur. AWS Lambda: 15-min max. Longer jobs need reserved.
+
+**Do reserved instances need upfront payment?** AWS and Lambda Labs: hourly billing, no upfront. Azure: commitment required.
+
+**How fast do serverless functions scale from zero?** 30-120 seconds to 1000 concurrent. Reserved instances scale instantly.
+
+**Can reserved instances autoscale?** Yes. AWS and Azure both support it.
+
+## Related Resources
+
+- [SageMaker serverless inference with GPUs](/articles/sagemaker-serverless-inference-gpu)
+- [AWS Lambda GPU serverless configuration](/articles/compare-aws-lambda-gpu-serverless)
+- [Serverless GPU fundamentals](/articles/serverless-gpu)
+- [GPU pricing guide](/gpus)
+- [Serverless vs dedicated GPU](/articles/serverless-vs-dedicated-gpu)
+
+## Sources
+
+- AWS Lambda Pricing Documentation: https://aws.amazon.com/lambda/pricing/
+- Lambda Labs Pricing Page: https://lambdalabs.com/service/gpu-cloud
+- AWS SageMaker Documentation: https://docs.aws.amazon.com/sagemaker/

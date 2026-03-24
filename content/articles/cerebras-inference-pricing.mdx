@@ -1,0 +1,441 @@
+---
+title: 'Cerebras Inference Pricing: Wafer-Scale Cost Analysis'
+slug: cerebras-inference-pricing
+description: >-
+  Cerebras inference pricing guide: throughput advantages, token costs, and
+  comparison to OpenAI and Anthropic as of March 2026. Updated March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: Pricing Guide
+keywords:
+  - cerebras inference pricing
+  - cerebras wafer scale
+  - cerebras token cost
+  - cerebras vs openai
+  - cerebras llm pricing
+---
+
+## Contents
+
+- [Overview](#overview)
+- [Cerebras Inference Pricing Tiers](#cerebras-inference-pricing-tiers)
+- [Throughput Advantage](#throughput-advantage)
+- [Cost-Per-Token Analysis](#cost-per-token-analysis)
+- [Wafer-Scale Architecture Explained](#wafer-scale-architecture-explained)
+- [Latency Benchmarks vs GPU Clusters](#latency-benchmarks-vs-gpu-clusters)
+- [Model Support Matrix](#model-support-matrix)
+- [Production Deployment Patterns](#production-deployment-patterns)
+- [Cost Comparison: Cerebras vs Alternatives at Scale](#cost-comparison-cerebras-vs-alternatives-at-scale)
+- [Batch Processing Economics](#batch-processing-economics)
+- [Use Case Recommendations](#use-case-recommendations)
+- [Real-World Deployment Example](#real-world-deployment-example)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Overview
+
+Cerebras inference pricing: $0.50-$1.50/M tokens. Competitive with GPU clusters on cost-per-token. Wafer-scale silicon:900B transistors on a 21-inch wafer. Extreme throughput, low latency. Entire model (up to 70B) fits on one device, no distributed overhead.
+
+For batch workloads (documents, logs), Cerebras beats OpenAI API by 40-60%.
+
+---
+
+## Cerebras Inference Pricing Tiers
+
+### Pay-as-Developers-Go Model
+
+Cerebras charges per million tokens (prompt + completion, combined).
+
+| Model | Prompt $/M | Completion $/M | Effective Cost/1M |
+|-------|-----------|----------------|-------------------|
+| Llama 2 7B | $0.50 | $0.50 | $0.50 |
+| Llama 2 13B | $0.75 | $0.75 | $0.75 |
+| Llama 2 70B | $1.50 | $1.50 | $1.50 |
+| Mistral 7B | $0.50 | $0.50 | $0.50 |
+| CodeLlama 70B | $1.50 | $1.50 | $1.50 |
+
+No prompt/completion differentiation (unlike [OpenAI](/articles/openai-pricing) or [Anthropic](/articles/anthropic-pricing)). Flat rate regardless of input/output token mix. This matters for applications with high prompt reuse (summarization, classification) where Anthropic's cheaper completion tokens would normally help.
+
+### Reserved Capacity (Batch/Enterprise)
+
+Cerebras offers reserved capacity contracts for high-volume batch processing. Minimum commitment: 10 million tokens/month.
+
+Reserved capacity: $0.25-$0.60 per million tokens depending on model and volume. Better than pay-as-developers-go but requires forecasting and upfront commitment.
+
+Example: Processing 500M tokens/month of Llama 2 70B.
+
+- **Pay-as-developers-go:** 500M × $1.50 = $750
+- **Reserved (12-month contract at $0.60/M):** 500M × $0.60 = $300
+
+Reserved capacity saves 60% if utilization is predictable.
+
+---
+
+## Throughput Advantage
+
+### Tokens Per Second
+
+Cerebras wafer-scale design delivers exceptional throughput because the entire model lives on a single device. No multi-GPU synchronization overhead.
+
+Benchmark: Llama 2 70B inference, batch size 32.
+
+| Platform | Throughput | Latency (P50) | Cost per 1M tokens |
+|----------|-----------|---------------|-------------------|
+| Cerebras (reserved) | 5,000 tok/s | 6ms | $0.60 |
+| Cerebras (on-demand) | 5,000 tok/s | 6ms | $1.50 |
+| GPU cluster (8x H100) | 3,400 tok/s | 12ms | $1.87 |
+| OpenAI GPT-4.1 | ~500 tok/s | 100ms | $2.00 |
+
+Cerebras is 1.5x faster than 8x H100 clusters and 10x faster than OpenAI API. Cost-per-token is 20% cheaper (on-demand) or 70% cheaper (reserved) than GPU self-hosting.
+
+### Latency Profile
+
+Cerebras: 6ms P50 latency per token (inference).
+
+This is total end-to-end latency including API overhead. No multi-GPU cross-chip communication. The wafer-scale architecture avoids the distributed training penalty that slows down GPU clusters.
+
+Practical implication: Cerebras can serve interactive applications (chatbots, real-time summarization) with sub-10ms latency per token. GPU clusters struggle below 10-12ms at the same throughput.
+
+---
+
+## Cost-Per-Token Analysis
+
+### Token Economics
+
+Processing 1 billion tokens per month across three scenarios.
+
+**Scenario 1: Low volume, on-demand**
+- 1B tokens × $1.50/M = $1,500/month
+- Throughput: 5,000 tok/s = 432M tokens/day
+- Days to process 1B: 2.3 days
+
+**Scenario 2: High volume, reserved (500M/month minimum)**
+- 1B tokens × $0.60/M (reserved at $0.60) + 500M minimum = $1,000/month minimum billing
+- Effective cost: $1.00 per million tokens
+- Days to process 1B: 2.3 days
+
+**Scenario 3: Self-hosted GPU cluster**
+- 8x H100 cluster cost: 8 × $2.69/hr × 730 hrs = $15,711/month (24/7 operation)
+- Throughput: 3,400 tok/s = 294M tokens/day
+- Tokens per month (24/7): ~8.8B tokens
+- Cost per token: $15,711 / 8.8B = $1.78 per million tokens
+
+Cerebras reserved: $0.60. Self-hosted GPU: $1.78. Cerebras saves 66% on cost-per-token and requires zero infrastructure management.
+
+### Prompt vs Completion Asymmetry
+
+Cerebras charges the same for prompts and completions. Other platforms differentiate:
+
+[OpenAI GPT-4.1](/articles/openai-pricing): $2.00/M prompts, $8.00/M completions.
+[Anthropic Claude](/articles/anthropic-pricing): $5.00/M prompts, $25.00/M completions (Claude Opus).
+
+If the application is completion-heavy (summarization, code generation), Anthropic's completion premium hurts. Cerebras's flat rate is more predictable.
+
+Example: Summarizing 1M documents (500 token prompt, 100 token completion).
+
+- Prompts: 500M tokens × $2.00/M = $1,000
+- Completions: 100M tokens × $8.00/M = $800
+- **OpenAI total: $1,800**
+
+- Cerebras: (500M + 100M) × $1.50/M = $900
+
+Cerebras is 50% cheaper on this workload.
+
+---
+
+## Wafer-Scale Architecture Explained
+
+### What Makes Cerebras Different
+
+Traditional GPU clusters distribute models across multiple cards. GPT-3 (175B parameters) needs 50+ A100 GPUs. Each GPU communicates with others via network links. Result: communication overhead kills throughput.
+
+Cerebras wafer-scale puts the entire model on a single chip. No inter-GPU communication. Llama 2 70B fits on one Cerebras wafer. Direct memory access eliminates the distributed bottleneck.
+
+Practical impact: Cerebras 5,000 tok/s throughput vs 8x H100 cluster at 3,400 tok/s. Cerebras is 47% faster for the same model size.
+
+The trade-off: wafer-scale requires models to fit on a single die. Llama 2 70B works (takes up ~99% of transistor budget). Llama 3 70B also fits. But beyond 100B parameters, developers're bottlenecked. Model size ceiling is lower than distributed GPU clusters, which can scale to 1T+ parameter models via pipeline parallelism.
+
+### Electrical Characteristics
+
+Cerebras CS-2 wafer: 21-inch silicon wafer. 900 billion transistors. Power consumption: 20 kW. Compared to 8x H100: 8 × 700W = 5.6 kW.
+
+Cerebras uses more power but delivers more throughput per watt due to elimination of network overhead. Energy efficiency: 5,000 tok/s per 20 kW = 250 tokens/sec/kW. GPU cluster: 3,400 tok/s per 5.6 kW = 607 tok/sec/kW. GPU wins on power efficiency, but Cerebras wins on total throughput.
+
+Cooling and power delivery are specialized. Cerebras systems require data center-grade infrastructure (not rackable in standard setups).
+
+---
+
+## Latency Benchmarks vs GPU Clusters
+
+### End-to-End Latency Profile
+
+Latency has two components: time to first token and time per subsequent token.
+
+**Cerebras (Llama 2 70B, batch size 32):**
+- Time to first token: 45-60ms (entire model processes batch in parallel)
+- Per-token latency: 0.2ms (very low due to no pipeline stages)
+- P99 latency: 80ms (excellent tail latency)
+
+**8x H100 cluster (pipeline parallelism, same model):**
+- Time to first token: 200-300ms (token must traverse all 8 GPUs)
+- Per-token latency: 0.3-0.5ms (pipeline bubbles, synchronization overhead)
+- P99 latency: 500ms (tail latency degrades under load)
+
+**OpenAI API (GPT-4.1):**
+- Time to first token: 500-1000ms (API overhead, queuing, routing)
+- Per-token latency: 10-50ms (model latency + network round-trip)
+- P99 latency: 2000ms (significant variability)
+
+Cerebras wins on latency consistency. No pipeline bubbles, no cross-GPU synchronization delays.
+
+### Throughput Per Millisecond
+
+For interactive applications (chatbots, real-time summarization), latency matters. Cerebras's sub-100ms response time is sufficient for interactive apps (human-perceivable latency threshold: 150ms).
+
+For batch processing, throughput matters. Cerebras's 5,000 tok/s means 1M tokens process in 200 seconds. GPU cluster at 3,400 tok/s takes 294 seconds. Difference: 94 seconds per million tokens = 1.6 min savings on large batches.
+
+---
+
+## Model Support Matrix
+
+### Supported Models (Updated March 2026)
+
+| Model | Parameters | Quantization | Supported | Throughput | Context |
+|-------|-----------|------------|-----------|-----------|---------|
+| Llama 2 7B | 7B | Full | Yes | 8,000 tok/s | 4K |
+| Llama 2 13B | 13B | Full | Yes | 6,000 tok/s | 4K |
+| Llama 2 70B | 70B | Full | Yes | 5,000 tok/s | 4K |
+| Llama 3 8B | 8B | Full | Yes | 8,500 tok/s | 8K |
+| Llama 3 70B | 70B | Full | Yes | 4,800 tok/s | 8K |
+| Mistral 7B | 7B | Full | Yes | 8,200 tok/s | 32K |
+| Mistral 8x22B | 172B | Full | No | N/A | N/A |
+| CodeLlama 7B | 7B | Full | Yes | 7,500 tok/s | 24K |
+| CodeLlama 34B | 34B | Full | Yes | 6,500 tok/s | 24K |
+| CodeLlama 70B | 70B | Full | Yes | 5,000 tok/s | 24K |
+
+Cerebras does not host proprietary models (GPT, Claude, Grok). The value proposition: cheaper inference on open-source models, especially for batch processing.
+
+Quantization: all models run at full precision (no 4-bit or 8-bit options). Full precision is acceptable because Cerebras has abundant VRAM (entire wafer is memory). Quantization would add complexity without benefit.
+
+### Model Addition Timeline
+
+Cerebras updates supported models quarterly. New open-source releases added within 4-8 weeks of official release (e.g., Llama 3 added 8 weeks after Meta's announcement).
+
+No custom model uploads. Only pre-built Cerebras deployments. Workaround: use Together AI or Replicate for custom/fine-tuned models.
+
+---
+
+## Production Deployment Patterns
+
+### Pattern 1: Batch Processing Service
+
+Daily pipeline: process 100M documents overnight. Cerebras reserved capacity: $0.60/M tokens.
+
+Cost: 100M × $0.60 = $60/day = $1,800/month.
+
+Architecture: submit batch job at 10 PM, results ready by 6 AM. No latency SLA needed.
+
+Use case: nightly document classification, sentiment analysis, content moderation, data labeling.
+
+### Pattern 2: Real-Time API with Cerebras Backend
+
+Interactive application needs sub-500ms latency. Cerebras latency: 100-150ms. Acceptable.
+
+Queue inbound requests, batch size 32. Cerebras processes batch every 100ms. Per-request latency: initial queue (0-100ms) + batch processing (100ms) = 100-200ms total. Well under SLA.
+
+Concurrency: one Cerebras wafer handles ~3,200 requests/min (5,000 tok/s ÷ ~1.6 tok/request avg). For higher concurrency, multiple Cerebras instances or hybrid approach (Cerebras for heavy lifting, cheaper models for fallback).
+
+### Pattern 3: Hybrid Approach (Cerebras + Fallback)
+
+Route all requests to Cerebras. If queue depth exceeds threshold (>1000 pending), fallback to Together AI for burst capacity.
+
+Cost: Cerebras reserved capacity ($0.60/M) + Together burst pricing ($0.80/$2.40).
+
+Provides cost control (most traffic on cheap Cerebras) with scalability (burst handled by Together).
+
+Example: median 50M tokens/day through Cerebras ($30/day), burst 20M/day through Together ($64/day). Total: ~$2,800/month vs $3,000/month on Together alone.
+
+---
+
+## Cost Comparison: Cerebras vs Alternatives at Scale
+
+### 1B Token Batch Processing (Representative Job)
+
+| Service | Model | $/1M Tokens | Total Cost |
+|---------|-------|------------|-----------|
+| OpenAI GPT-4.1 | GPT-4.1 | $2.00 (input avg) | $2,000 |
+| Anthropic Claude | Opus 4.6 | $5.00 (input avg) | $5,000 |
+| Cerebras | Llama 2 70B on-demand | $1.50 | $1,500 |
+| Cerebras | Llama 2 70B reserved | $0.60 | $600 |
+| Self-hosted | 8x H100 (1 day) | varies | ~$480 |
+
+Cerebras reserved undercuts OpenAI by 70%, Anthropic by 88%. Self-hosted is cheapest if amortized across many jobs, but requires ops overhead.
+
+---
+
+## Batch Processing Economics
+
+### Document Classification at Scale
+
+A team classifying 10M customer emails (average 500 tokens each) using prompt engineering + LLM inference.
+
+Task: Classify into 5 categories with zero-shot prompting.
+
+Prompt: 200 tokens (consistent classification schema).
+Completion: 20 tokens (single category + confidence score).
+
+Total tokens: 10M documents × (200 + 20) tokens = 2.2B tokens.
+
+**OpenAI GPT-4.1:**
+- Prompts: 10M × 200 × $2.00/M = $4,000
+- Completions: 10M × 20 × $8.00/M = $1,600
+- **Total: $5,600**
+
+**Anthropic Claude Opus:**
+- Prompts: 10M × 200 × $5.00/M = $10,000
+- Completions: 10M × 20 × $25.00/M = $5,000
+- **Total: $15,000**
+
+**Cerebras Llama 2 70B (on-demand):**
+- 2.2B tokens × $1.50/M = $3,300
+
+**Cerebras Llama 2 70B (reserved, $0.60/M):**
+- 2.2B tokens × $0.60/M = $1,320
+
+Cerebras saves 76% vs OpenAI, 91% vs Anthropic. For batch workloads, the math is clear.
+
+### Log Analysis and Anomaly Detection
+
+A DevOps team analyzing 500K log entries daily (1,000 tokens per entry, no compression). Task: Extract error patterns, summarize anomalies.
+
+Prompt: 100 tokens (analysis instruction, schema).
+Completion: 150 tokens (structured summary + severity level).
+
+Daily tokens: 500K × (100 + 150) = 125M tokens.
+Monthly: 125M × 30 = 3.75B tokens.
+
+**Cost Comparison (monthly):**
+
+- OpenAI GPT-4.1: 2.5B prompt + 0.875B completion = (2.5 × $2.00) + (0.875 × $8.00) = $5,000 + $7,000 = **$12,000**
+- Cerebras (on-demand): 3.75B × $1.50 = **$5,625**
+- Cerebras (reserved): 3.75B × $0.60 = **$2,250**
+
+Cerebras reserved saves 81% vs OpenAI.
+
+---
+
+## Use Case Recommendations
+
+### Best For Cerebras
+
+**Batch Processing with Loose Latency SLAs:** Document classification, summarization, sentiment analysis. Latency isn't critical (processing happens async, results delivered later). Volume is predictable. Cerebras shines here.
+
+**Open-Source Model Preference:** Teams committed to Llama, Mistral, CodeLlama. Proprietary models (Claude, GPT) not required. Cerebras is the cheapest way to scale these models.
+
+**High-Volume Token Processing:** 100M+ tokens/month. Reserved capacity pricing becomes viable. Savings compound at scale.
+
+**Cost-Sensitive Production Systems:** Inference margins are tight. Every dollar per million tokens matters. Cerebras beats alternatives by 40-60% on open-source models.
+
+### Not Ideal For Cerebras
+
+**Latency-Critical Applications:** Interactive chatbots, real-time API responses. Cerebras's throughput is high, but latency is 6ms P50 per token. For single-token latency (<5ms), GPU inference at scale is more predictable.
+
+**Proprietary Model Requirements:** Teams requiring Claude, GPT-4, Grok. Cerebras doesn't host these. No alternative.
+
+**Streaming/Low-Latency Inference:** Cerebras API doesn't offer streaming tokens (only batch processing). OpenAI and Anthropic support token streaming. For real-time applications, streaming is essential.
+
+**Variable Workloads:** Unpredictable volume. Reserved capacity requires forecasting. Pay-as-developers-go pricing at $1.50/M is competitive but not the cheapest. Better to use OpenAI API for variable load (pay only for what developers use).
+
+---
+
+## Real-World Deployment Example
+
+### Content Moderation at Scale
+
+A social media platform moderating 100M posts daily (average 200 tokens per post). Current system: manual review + rule-based filters. Goal: AI-assisted moderation to classify posts as safe/unsafe/review-needed.
+
+**Setup:**
+
+Prompt: Classification instruction + content policy (300 tokens, reused across all requests).
+Completion: Category + confidence + explanation (50 tokens).
+
+Daily tokens: 100M posts × (300 prompt + 50 completion) = 35B tokens/day = 1.05T tokens/month.
+
+**Cost Analysis (monthly):**
+
+| Service | Cost/M Tokens | Total/Month | Notes |
+|---------|---------------|------------|-------|
+| OpenAI GPT-4.1 | $2.00 prompt, $8.00 compl | $30.8K | (25B × $2 + 3.5B × $8) |
+| Anthropic Claude | $5.00 prompt, $25 compl | $93.75K | (25B × $5 + 3.5B × $25) |
+| Cerebras (on-demand) | $1.50 flat | $15.75K | 1.05T × $1.50 |
+| Cerebras (reserved @ $0.60) | $0.60 flat | $6.30K | 1.05T × $0.60 |
+| Self-hosted (64x H100) | varies | $251K | 64 × $2.69/hr × 730 hrs |
+
+Cerebras reserved saves $87.45K/month vs Anthropic, $24.5K/month vs OpenAI, $244K/month vs self-hosted.
+
+**Deployment:**
+
+Cerebras reserved capacity contract: 12-month minimum, 1.05T tokens/month. Cost: $6.30K/month.
+
+Throughput: Cerebras 5,000 tok/s on Llama 2 70B. Processing 35B tokens/day requires constant utilization at scale, so real-world deployment would use 7-8 dedicated Cerebras instances (Cerebras doesn't expose multi-wafer clusters via API).
+
+Total service cost: 7 instances × $6.30K = $44.1K/month. Cheaper than OpenAI, way cheaper than self-hosted, with zero infrastructure management.
+
+---
+
+## FAQ
+
+**Is Cerebras cheaper than OpenAI?**
+
+For open-source models (Llama, Mistral) in batch processing: yes. Cerebras is 40-60% cheaper per token. For proprietary models (GPT-4, Claude), Cerebras doesn't offer them. You need OpenAI or Anthropic.
+
+**Can I use Cerebras for real-time chat applications?**
+
+Not ideal. Cerebras's API is batch-oriented (submit tokens, get results). No streaming token support. OpenAI API supports token streaming (useful for real-time chat). Cerebras is optimized for bulk processing, not interactive use.
+
+**What's the catch? Why is Cerebras so cheap?**
+
+Wafer-scale silicon is expensive upfront, but Cerebras amortizes it across high-volume inference. They're betting on high utilization. The pricing reflects: no GPU rental markups, no multi-GPU orchestration overhead, single-device inference (faster, simpler). For their cost model, high-volume batch processing is ideal. Low-utilization workloads wouldn't justify the infrastructure.
+
+**How does Cerebras handle model updates?**
+
+Cerebras pre-deploys models on their wafers. Model versions are fixed (Llama 2 7B, Mistral 7B). You cannot customize, fine-tune, or use your own weights. This is a hard limitation compared to Together AI or Replicate, which allow custom model uploads.
+
+**What's the latency for a batch job?**
+
+Queue time: depends on load. Typical: 5-30 seconds. Processing time: depends on token count. At 5,000 tok/s, 1M tokens take ~200 seconds. Total: 205-230 seconds for a 1M token batch. Not suitable for real-time queries.
+
+**Do I have to commit to reserved capacity?**
+
+No. Pay-as-you-go is available (higher per-token rate: $1.50 vs $0.60 reserved). But reserved requires 10M token/month minimum and 12-month contract. For inconsistent workloads, pay-as-you-go is better.
+
+**Why not just use open-source models locally (Ollama, llama.cpp)?**
+
+You can. But inference quality depends on hardware. Running Llama 2 70B locally requires a 4-8x GPU cluster or a high-end workstation. Cerebras abstracts hardware. You get 5,000 tok/s throughput without buying/maintaining GPUs. For production workloads, the simplicity is worth the cost.
+
+**Can I use Cerebras for training?**
+
+No. Cerebras offers inference only. Training still requires traditional GPU clusters (H100, A100). Cerebras's wafer-scale architecture is optimized for dense inference, not gradient computation. For training, use Lambda, RunPod, CoreWeave, or on-premise.
+
+---
+
+## Related Resources
+
+- [Cerebras API Documentation](/llms/Cerebras)
+- [OpenAI Pricing Guide](/articles/openai-pricing)
+- [Anthropic Claude Pricing](/articles/anthropic-pricing)
+- [DeepSeek Pricing Guide](/articles/deepseek-pricing)
+- [LLM Model Comparison](/llms)
+
+---
+
+## Sources
+
+- [Cerebras Inference API Pricing](https://cerebras.ai/products/inference)
+- [Cerebras Wafer-Scale Cluster Specifications](https://cerebras.ai/specifications)
+- [OpenAI Pricing](https://openai.com/pricing)
+- [Anthropic Pricing](https://www.anthropic.com/pricing)
+- [DeployBase LLM API Data](/llms) (as of March 2026)

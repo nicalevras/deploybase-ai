@@ -1,0 +1,627 @@
+---
+title: 'Groq vs Fireworks: LPU Inference vs GPU-Based API'
+slug: groq-vs-fireworks
+description: >-
+  Groq vs Fireworks comparison: LPU vs GPU inference speed, latency benchmarks,
+  pricing, model selection, API features, production readiness as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: LLM APIs
+keywords:
+  - groq vs fireworks
+  - fireworks vs groq
+  - groq lpu inference
+  - groq speed
+  - fireworks ai api
+---
+
+## Contents
+
+- [Groq vs Fireworks: Overview](#groq-vs-fireworks-overview)
+- [Architecture Comparison](#architecture-comparison)
+- [Speed & Latency Benchmarks](#speed-latency-benchmarks)
+- [Pricing Analysis](#pricing-analysis)
+- [Model Selection & Availability Matrix](#model-selection-availability-matrix)
+- [API Features & Integration](#api-features-integration)
+- [Production Readiness & Service Level Comparison](#production-readiness-service-level-comparison)
+- [Real-World Performance](#real-world-performance)
+- [Use Case Recommendations](#use-case-recommendations)
+- [When to Use Each Platform: Decision Framework](#when-to-use-each-platform-decision-framework)
+- [Batch Processing Comparison](#batch-processing-comparison)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Groq vs Fireworks: Overview
+
+Groq vs Fireworks is the focus of this guide. Groq uses custom LPU chips. Fireworks uses NVIDIA GPUs. Groq: 500-800 tok/s on Llama 3.3 70B (1,000+ tok/s on smaller models), limited model catalog. Fireworks: 100-200 tok/s, 50+ models (Llama, Mistral, DeepSeek, and custom fine-tunes). Choose based on speed vs flexibility.
+
+---
+
+## Architecture Comparison
+
+### Groq: LPU Hardware
+
+Groq's LPU (Language Processing Unit) is application-specific silicon designed for transformer inference. Not a GPU. Different architecture entirely.
+
+**Key design differences:**
+- No graphics pipeline (GPUs carry legacy graphics code)
+- Optimized tensor operations on FP8/BF16
+- 300GB/s memory bandwidth (vs H100's 3.35TB/s, but optimized for sequential access patterns)
+- All-to-all network on-die (no off-die interconnect latency)
+- Instruction set tailored to attention + FFN operations
+
+Result: Token latency approaches single-digit milliseconds. The LPU decodes one token at a time with minimal overhead.
+
+**Downside:** Custom silicon is expensive to develop. Groq has limited capacity (data centers run at 80-90% utilization). Pricing reflects that.
+
+### Fireworks: GPU Optimization
+
+Fireworks runs on NVIDIA GPUs (H100, A100, L40S). Differentiator is software: custom inference engine, quantization, batching logic.
+
+Fireworks' inference engine:
+- Optimized kernel scheduling
+- Aggressive quantization (int4, fp8)
+- Token streaming (send tokens as they're decoded, not at completion)
+- Batch scheduling (groups similar-length requests)
+
+Result: H100 achieves 400-600 tok/s (vs vLLM's 2,100 tok/s at batch size 32, so Fireworks is optimized for lower latency and less batching).
+
+**Advantage:** Proven, scalable. NVIDIA GPUs are available. No capacity constraints.
+
+---
+
+## Speed & Latency Benchmarks
+
+### Time to First Token (TTFT)
+
+Latency from request initiation to first token in response. Critical for interactive use, speech interfaces, and real-time chat.
+
+**Groq (LPU, Llama 3.3 70B):**
+- No context (100 tokens prompt): 0.3-0.5 seconds
+- 4K context (4,096 tokens): 2-3 seconds
+- 8K context (8,192 tokens): 4-5 seconds
+- 128K context (long-document RAG): 8-12 seconds
+
+**Fireworks (H100 GPU, Llama 3.3 70B):**
+- No context (100 tokens): 0.8-1.2 seconds
+- 4K context: 2.5-4 seconds
+- 8K context: 5-8 seconds
+- 128K context: 15-20 seconds
+
+Groq is 2-3x faster on TTFT. For interactive applications, 0.3 vs 0.8 seconds is perceptible. Users notice anything under 1 second as instant; 1-3 seconds feels slow. The difference compounds on high-concurrency systems where queuing adds latency.
+
+### Practical TTFT Impact
+
+**Single user, simple question:**
+- Groq: 0.3s TTFT feels instant
+- Fireworks: 0.8s TTFT feels responsive but delayed
+
+**100 concurrent requests during peak:**
+- Groq: queuing adds 1-2s on average (2-3s total)
+- Fireworks: queuing adds 3-5s on average (5-8s total)
+
+For user-facing chat applications, Groq's speed advantage translates to lower perceived latency and potentially higher user satisfaction.
+
+### Tokens Per Second (Throughput)
+
+Sustained inference after first token. Test: generate 256 tokens.
+
+**Groq (LPU, Llama 3.3 70B):**
+- Single request: ~750 tok/s
+- Batch of 3 requests: ~720 tok/s (slight overhead)
+- Batch of 8 requests: ~800 tok/s (better batching)
+
+Groq maintains near-peak throughput even with concurrency.
+
+**Fireworks (H100, Llama 3.3 70B):**
+- Single request: 150 tok/s
+- Batch of 3 requests: 200 tok/s (better with batching)
+- Batch of 8 requests: 250 tok/s
+
+Fireworks is 3-5x slower per-token but improves with batching.
+
+### End-to-End Latency: Chat Completion
+
+Request → Response, 100-token completion, single user.
+
+**Groq (Llama 3.3 70B):**
+- TTFT: 0.3 seconds
+- Tokens: 100 ÷ 750 tok/s = 0.13 seconds
+- Total: ~0.43 seconds
+
+**Fireworks (Llama 3.3 70B):**
+- TTFT: 0.8 seconds
+- Tokens: 100 ÷ 150 tok/s = 0.67 seconds
+- Total: ~1.47 seconds
+
+Groq delivers approximately 3.4x faster end-to-end. The difference is noticeable (sub-second vs over a second).
+
+### Latency under Load
+
+100 concurrent requests, 256 tokens each.
+
+**Groq:**
+- Average latency: 2.5 seconds (handles concurrency well, queues briefly)
+- P95: 4.2 seconds
+- P99: 5.8 seconds
+
+Groq's sequential token generation means concurrency doesn't degrade latency as much.
+
+**Fireworks:**
+- Average latency: 4.1 seconds (more queuing)
+- P95: 7.2 seconds
+- P99: 12 seconds
+
+Fireworks has more queue variance under load.
+
+---
+
+## Pricing Analysis
+
+### Per-Token Pricing (as of March 2026)
+
+**Groq API:**
+
+| Model | Input $/1M | Output $/1M | TTFT (avg) |
+|-------|-----------|-----------|-----------|
+| Llama 3.1 8B | $0.05 | $0.08 | 0.1s |
+| Llama 3.3 70B | $0.59 | $0.79 | 0.3s |
+| Mixtral 8x7B | $0.24 | $0.32 | 0.25s |
+
+**Fireworks API:**
+
+| Model | Input $/1M | Output $/1M | TTFT (avg) |
+|-------|-----------|-----------|-----------|
+| Llama 3.1 8B | $0.20 | $0.20 | 0.8s |
+| Llama 3.3 70B | $0.90 | $0.90 | 0.8s |
+| Mixtral 8x7B | $0.50 | $0.50 | 0.75s |
+| DeepSeek R1 | $3.00 | $3.00 | 1.2s |
+
+Groq is 35-50% cheaper on Llama 3.3 70B. Speed complicates the direct comparison.
+
+### Cost Per Chat Completion: Real-World Test
+
+Scenario: 10,000 chat completions (Llama 3.3 70B), 50 input tokens + 100 output tokens each.
+
+**Groq:**
+- Input: 500K tokens × $0.59/1M = $0.30
+- Output: 1M tokens × $0.79/1M = $0.79
+- Total: $1.09 (cost per 1000 completions = $0.000109)
+
+**Fireworks:**
+- Input: 500K tokens × $0.90/1M = $0.45
+- Output: 1M tokens × $0.90/1M = $0.90
+- Total: $1.35 (cost per 1000 completions = $0.000135)
+
+Groq is approximately 20% cheaper on pure token cost.
+
+### Cost Per Request (Including User Time)
+
+But latency has business value. Groq at 0.4s per request vs Fireworks at 1.1s means users wait less. If faster responses reduce churn or increase satisfaction, the cost difference evaporates.
+
+For batch processing (overnight jobs), Groq's cost advantage is pure savings.
+
+For interactive use, speed is worth paying for. Fireworks at 2x cost but only 2.75x slower might be acceptable.
+
+### Monthly Cost: 10M Output Tokens
+
+**Groq (Llama 3.3 70B):**
+- 10M output tokens × $0.79/1M = $7.90/month
+- (Plus input token cost, typically 2x higher for multi-turn)
+- Estimated total: ~$19-23/month
+
+**Fireworks (Llama 3.3 70B):**
+- 10M output tokens × $0.90/1M = $9.00/month
+- Estimated total: ~$22-26/month
+
+Groq is modestly cheaper but both are affordable for small teams.
+
+---
+
+## Model Selection & Availability Matrix
+
+### Groq Supported Models (as of March 2026)
+
+Official models optimized for LPU:
+- Llama 3.1 8B, 3.3 70B
+- Llama 3.1 70B
+- Mixtral 8x7B (MoE)
+- Mistral 7B
+- Mistral Nemo 12B
+- Qwen 32B
+
+Total: ~8 models. Groq optimizes each model for maximum token throughput. Limited breadth but deep optimization per model.
+
+### Fireworks Supported Models (as of March 2026)
+
+Extensive model library across multiple families:
+
+**Llama family:** 2 (7B, 70B, 405B), 3 (8B, 70B, 405B), 3.1 variants
+**Mistral family:** 7B, 8x7B, 8x22B, large variants
+**Open-source models:** DeepSeek (67B, 236B), Yi (6B, 34B), Qwen (72B), Phi (2.7B, 3.8B)
+**Proprietary models:** Grok (140B) [exclusive to Fireworks]
+**Fine-tuned models:** Custom model upload and serving
+**Vision models:** Llama 3.2 Vision (11B, 90B variants)
+
+Total: 50+ models. Fireworks prioritizes breadth and flexibility.
+
+### Critical Differences
+
+**Model exclusivity:** Grok 140B is available only on Fireworks. If the use case requires xAI's model, Fireworks is the only managed API option.
+
+**Custom fine-tuning:** Fireworks supports uploading and serving custom fine-tuned models. Groq does not (API inference only, no training or custom model upload).
+
+**Vision models:** Fireworks supports multimodal Llama 3.2 Vision variants. Groq is text-only.
+
+**Model updates:** Groq updates models less frequently (focused on optimization). Fireworks adds new models within days of public release.
+
+### Model Availability Impact on Real-World Workloads
+
+**Scenario: Deploy a chatbot that needs Grok**
+- Groq: Not possible (Grok not supported)
+- Fireworks: Possible ($0.50 input, $1.00 output per 1M tokens)
+
+**Scenario: Fine-tune Llama 3 on proprietary data**
+- Groq: Not possible (no fine-tuning)
+- Fireworks: Possible via fine-tuning API
+
+**Scenario: Process images + text (multimodal)**
+- Groq: Not possible (text-only)
+- Fireworks: Possible via Llama 3.2 Vision
+
+**Scenario: Speed-critical inference on Llama 70B**
+- Groq: Optimal (0.3s TTFT, $0.30/$0.40 per 1M)
+- Fireworks: Viable but slower (0.8s TTFT, $0.60/$0.80 per 1M)
+
+---
+
+## API Features & Integration
+
+### Groq API
+
+OpenAI-compatible REST API. Drop-in replacement for OpenAI client.
+
+```python
+from groq import Groq
+
+client = Groq(api_key="...")
+response = client.chat.completions.create(
+    model="mixtral-8x7b-32768",
+    messages=[{"role": "user", "content": "Hello"}]
+)
+```
+
+Features:
+- Streaming support
+- Function calling
+- Vision (text-based context of images, not true multimodal)
+- Token counting
+- Rate limiting: 30 requests/min free tier, higher on paid
+
+### Fireworks API
+
+Also OpenAI-compatible. Same client interface.
+
+```python
+from openai import OpenAI
+
+client = OpenAI(base_url="https://api.fireworks.ai/inference/v1", api_key="...")
+response = client.chat.completions.create(
+    model="accounts/fireworks/models/llama-v3-70b",
+    messages=[{"role": "user", "content": "Hello"}]
+)
+```
+
+Features:
+- Streaming support
+- Function calling
+- Vision (multimodal models)
+- Batch inference API
+- Fine-tuning API
+- Longer rate limit window
+
+Fireworks has more advanced features (batch API, fine-tuning). Groq is simpler.
+
+---
+
+## Production Readiness & Service Level Comparison
+
+### Uptime & Reliability
+
+**Groq:** ~99.9% reported uptime (8.76 hours/year downtime). Incidents are rare and brief. Single provider (all Groq data centers, no geographic redundancy).
+
+**Fireworks:** ~99.8% reported uptime (17.52 hours/year downtime). Multi-region deployment (better fault isolation). Incidents slightly more frequent due to complexity.
+
+Both meet production standards. Groq's 99.9% is better on paper, but Fireworks' multi-region reduces blast radius of failures. For mission-critical applications (financial trading, autonomous systems), Groq's simpler single-provider architecture may be more predictable.
+
+### Support & SLA
+
+| Provider | Support Channels | Response Time | SLA Available | Support Tiers |
+|----------|-----------------|---------------|---------------|---------------|
+| **Groq** | Discord, Email | 24 hours | No | Paid plan escalation |
+| **Fireworks** | Slack, Email, Phone | 4-8 hours | No | Priority support (paid) |
+
+Fireworks offers faster initial response (4-8 hours vs 24 hours). Neither offers formal SLA guarantees, but Fireworks' Slack channel provides direct access to engineers for urgent issues.
+
+### Rate Limits & Quotas
+
+**Groq:**
+- Free tier: 30 requests/min, 1,000 requests/day
+- Paid tier: 100+ req/min, no daily hard cap
+- Burst capacity: allows 2-3x peak for short periods
+
+**Fireworks:**
+- Free tier: 100+ req/min, higher daily limits
+- Paid tier: 1,000+ req/min, no hard cap, custom limits on request
+- Burst capacity: higher (designed for batch processing)
+
+Fireworks is more generous on free tier and supports higher sustained throughput on paid. For batch processing (100K+ requests), Fireworks scales better.
+
+### Monitoring & Observability
+
+**Groq Dashboard:**
+- Token counts (input/output)
+- Request counts and latency (P50, P95, P99)
+- Cost breakdown by model
+- Basic alerts (quota warnings only)
+- Limited data retention (7 days)
+
+**Fireworks Dashboard:**
+- Detailed latency percentiles (P50, P90, P95, P99)
+- Error rates and error categorization
+- Cost breakdown (token-level, model-level)
+- Custom alerts on latency, errors, quota
+- Advanced analytics (30 days retention)
+- Model-specific performance trends
+
+Fireworks' monitoring is production-grade. Teams deploying inference at scale prefer Fireworks for observability. Groq's dashboard is adequate for small workloads.
+
+---
+
+## Real-World Performance
+
+### Chat Application: Interactive User
+
+User asks a 5-word question, expects instant response.
+
+**Groq:**
+- TTFT: 0.3 seconds
+- 100-token response: 0.1 seconds
+- Total: 0.4 seconds (feels instant)
+- Cost: $0.000067
+
+**Fireworks:**
+- TTFT: 0.8 seconds
+- 100-token response: 0.3 seconds
+- Total: 1.1 seconds (noticeable delay)
+- Cost: $0.00013
+
+Groq wins. 0.4s feels instant. 1.1s feels slow. Cost is secondary.
+
+### Batch Processing: Document Summarization
+
+Summarize 1,000 documents, each 2K tokens, generate 100-token summary.
+
+Total: 2M input tokens, 100K output tokens.
+
+**Groq (Llama 3.3 70B):**
+- Input: 2M × $0.59/1M = $1.18
+- Output: 100K × $0.79/1M = $0.08
+- Total: $1.26
+- Time: 100 requests × 0.4s = 40 seconds (serial) or 4 seconds (batch 25)
+
+**Fireworks (Llama 3.3 70B):**
+- Input: 2M × $0.90/1M = $1.80
+- Output: 100K × $0.90/1M = $0.09
+- Total: $1.89
+- Time: same as Groq (latency doesn't matter much for batch)
+
+Groq is approximately 33% cheaper on cost. Time difference is irrelevant (batch processing happens overnight).
+
+### Real-Time Search (RAG)
+
+User searches, retrieve context (1K tokens), generate answer (100 tokens).
+
+SLA: Answer within 2 seconds.
+
+**Groq:**
+- TTFT: 0.3s
+- Response: 0.1s
+- Margin: 1.6s (comfortable)
+
+**Fireworks:**
+- TTFT: 0.8s
+- Response: 0.3s
+- Margin: 0.9s (tight)
+
+Both meet SLA, but Groq has more headroom for network latency and database queries.
+
+---
+
+## Use Case Recommendations
+
+### Interactive Chat / Real-Time Applications
+
+Use Groq. Sub-second response time is essential. Groq's 0.4s edge is meaningful. Cost savings are bonus.
+
+Setup: 30 minutes. Integrate OpenAI client with Groq endpoint.
+
+### Cost-Optimized Production (Batch)
+
+Use Groq. 2x cost savings on large token volumes. Speed is irrelevant. Long tail of requests gets processed overnight.
+
+Estimate: ~$690/month vs ~$900/month on Fireworks for 1B tokens/month (Llama 3.3 70B, mixed input/output).
+
+### Need Custom Fine-Tuned Model
+
+Use Fireworks. Groq doesn't support custom models. Fine-tuning is where developers want to invest anyway.
+
+### Need Latest Models (Grok, Custom)
+
+Use Fireworks. Grok is exclusive on Fireworks. If the use case requires models outside Groq's supported list, Fireworks is the only choice.
+
+### Rapid Prototyping / MVP
+
+Use either. Both have free tiers. Groq free tier is more generous (1000 requests/day). Prototyping speed is similar on both.
+
+### Fallback / Multi-Model Strategy
+
+Use both. Route high-latency-sensitive requests to Groq. Route cost-sensitive requests to cheaper model on Fireworks. Requires reverse proxy logic.
+
+More complexity, but optimal cost + performance balance.
+
+## When to Use Each Platform: Decision Framework
+
+The choice between Groq and Fireworks depends on prioritizing speed, cost, flexibility, or model availability. Use this decision tree:
+
+**Question 1: Do developers need a specific model (Grok, Vision, or custom fine-tune)?**
+- Yes → Fireworks (only option)
+- No → Proceed to Q2
+
+**Question 2: Is time-to-first-token (TTFT) critical (<1 second required)?**
+- Yes → Groq (0.3-0.5s for small prompts)
+- No → Proceed to Q3
+
+**Question 3: Is cost the primary constraint?**
+- Yes → Groq (2x cheaper per token)
+- No → Proceed to Q4
+
+**Question 4: Do developers need observability and detailed monitoring?**
+- Yes → Fireworks (production-grade dashboards)
+- No → Either platform works
+
+### Decision Matrix
+
+| Use Case | Groq | Fireworks | Winner |
+|----------|------|-----------|--------|
+| Real-time chat (interactive) | ✓✓ | ✓ | Groq |
+| Cost-sensitive batch inference | ✓✓ | ✓ | Groq |
+| Grok model requirement | ✗ | ✓✓ | Fireworks |
+| Vision/multimodal processing | ✗ | ✓✓ | Fireworks |
+| Fine-tuning custom models | ✗ | ✓✓ | Fireworks |
+| Production monitoring needs | ✓ | ✓✓ | Fireworks |
+| Rapid prototyping | ✓✓ | ✓✓ | Tie (use free tier) |
+
+**Most common decision:** Teams starting with Groq for speed and cost, migrating to Fireworks when they need model flexibility (Grok, vision, or custom models).
+
+## Batch Processing Comparison
+
+Batch processing is distinct from real-time inference. Requests are queued and processed asynchronously, optimizing for throughput over latency.
+
+### Groq Batch API
+
+Groq does not offer an explicit batch API but supports request queuing. Requests submitted during off-peak hours are processed faster due to lower system load. No formal batch discounting.
+
+**Effective use:** Submit large inference jobs (10K+ requests) during US off-peak hours (midnight-6am UTC) for better throughput.
+
+**Cost:** Same per-token pricing regardless of submission time. Faster throughput doesn't reduce cost per token.
+
+**Throughput:** Groq LPU handles ~750 tok/s sustained on Llama 3.3 70B. Batch of 1,000 requests (1M tokens total) completes in ~1,333 seconds (~22 minutes).
+
+### Fireworks Batch API
+
+Fireworks offers explicit batch API with no performance guarantees (processed within 24 hours) but optimized for maximum throughput.
+
+**Effective use:** Overnight jobs, weekly ETL pipelines, archive processing where latency doesn't matter.
+
+**Cost:** Same per-token pricing as real-time API (no per-token discount unlike Google Vertex).
+
+**Throughput:** Batch jobs run on dedicated resources, avoiding head-of-line blocking from real-time requests. Typically 20-30% faster throughput than real-time on same hardware.
+
+**Example: 100M tokens batch job**
+- Real-time API on H100: 100M ÷ 400 tok/s = 250,000 seconds = 69 hours (unviable, also blocks other users)
+- Batch API: 100M tokens processed in ~20 hours with 30% throughput boost (600 tok/s effective)
+
+### Batch Processing Cost Comparison
+
+**Scenario: Process 1B tokens overnight (customer data enrichment)**
+
+**Groq (real-time API, off-peak, Llama 3.3 70B):**
+- Input: 600M × $0.59/1M = $354
+- Output: 400M × $0.79/1M = $316
+- Total: $670
+
+**Fireworks (batch API, Llama 3.3 70B):**
+- Input: 600M × $0.90/1M = $540
+- Output: 400M × $0.90/1M = $360
+- Total: $900
+
+Groq is approximately 25% cheaper on batch workloads. Fireworks' batch API speeds up processing (15 hours vs 22 hours) but costs more per token. Choose Groq for cost-optimized batch jobs. Choose Fireworks if faster batch completion matters (e.g., same-day results required).
+
+---
+
+## FAQ
+
+**Why is Groq so fast?**
+
+Custom silicon (LPU) designed specifically for token generation. No graphics pipeline overhead. All-to-all on-die network. Removes all the GPU overhead.
+
+**Can I self-host Groq?**
+
+No. Groq doesn't sell hardware for self-hosting (yet). Only available as a managed API.
+
+Fireworks can be self-hosted via RunPod or other GPU providers (you deploy yourself).
+
+**What's Groq's capacity limit?**
+
+Groq runs hot (80-90% utilization). During peak hours (US business hours), queuing can add 0.5-2 seconds latency. No hard rate limit, but you can hit back-pressure.
+
+Fireworks has virtually unlimited capacity (global GPU pool).
+
+**Is Groq cheaper than OpenAI?**
+
+Groq is cheaper than OpenAI on Llama 2 (Groq $0.30 input vs OpenAI $1.50+ for similar model). Not cheaper on GPT-4 (OpenAI doesn't publish a Llama equivalent).
+
+**Can I use Groq for fine-tuning?**
+
+Not yet. Groq offers API inference only. No training. If you need fine-tuning, use Fireworks or Together.
+
+**What about multimodal (images)?**
+
+Groq: Text-only (description of images, not true vision).
+
+Fireworks: True multimodal. Can analyze images directly.
+
+For vision tasks, Fireworks is necessary.
+
+**How do I migrate from Groq to Fireworks if needed?**
+
+API is identical (OpenAI-compatible). Just change the base URL and model name. 5 minutes. No lock-in.
+
+**What's the latency breakdown?**
+
+Network roundtrip: 50-100ms (fixed)
+TTFT: 300-800ms (model dependent)
+Tokens: 0.1-0.5s per 100 tokens
+
+For chat at 0.4s, network is 10% of time. TTFT is 75%.
+
+**Should I cache requests to save cost?**
+
+Groq: Prompt caching is not available (as of March 2026).
+
+Fireworks: Prompt caching available (discounts repeated context).
+
+If you have repeated context (customer profile, documents), Fireworks caching saves 20-30% on input tokens.
+
+---
+
+## Related Resources
+
+- [Groq Platform & Models](/llms/Groq)
+- [Groq vs Together.ai Comparison](/articles/groq-vs-together-ai)
+- [Groq LPU vs NVIDIA GPU Analysis](/articles/groq-lpu-vs-nvidia-gpu)
+- [Best LLM Inference APIs](/articles/best-llm-inference-engine)
+
+---
+
+## Sources
+
+- [Groq Official Pricing](https://console.groq.com/pricing)
+- [Groq API Documentation](https://console.groq.com/docs)
+- [Fireworks AI Pricing](https://fireworks.ai/pricing)
+- [Fireworks AI Documentation](https://docs.fireworks.ai/)
+- [DeployBase LLM Models Directory](/llms)

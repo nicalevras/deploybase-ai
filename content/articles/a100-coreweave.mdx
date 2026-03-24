@@ -1,0 +1,339 @@
+---
+title: >-
+  A100 CoreWeave: Kubernetes-Native Clusters, Reserved Pricing, and Production
+  AI
+slug: a100-coreweave
+description: >-
+  CoreWeave 8xA100 cluster costs $21.60/hr ($2.70/GPU). Deploy Kubernetes-native
+  AI workloads, autoscaling, and reserved contracts at production scale.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Providers
+---
+
+## Contents
+
+- [A100 CoreWeave: Kubernetes-First GPU Infrastructure for AI](#a100-coreweave-kubernetes-first-gpu-infrastructure-for-ai)
+- [A100 CoreWeave Pricing Structure](#a100-coreweave-pricing-structure)
+- [CoreWeave A100 Setup and Kubernetes Integration](#coreweave-a100-setup-and-kubernetes-integration)
+- [Storage Integration](#storage-integration)
+- [A100 Performance and Distributed Training](#a100-performance-and-distributed-training)
+- [Reserved Capacity and Cost Optimization](#reserved-capacity-and-cost-optimization)
+- [Production Workload Patterns](#production-workload-patterns)
+- [Comparing CoreWeave to Single-GPU Providers](#comparing-coreweave-to-single-gpu-providers)
+- [Monitoring and Cost Tracking](#monitoring-and-cost-tracking)
+- [FAQ](#faq)
+- [Sources](#sources)
+
+
+## A100 CoreWeave: Kubernetes-First GPU Infrastructure for AI
+
+**A100 CoreWeave** prices 8xA100 clusters at $21.60/hr ($2.70/GPU). The distinctive part: Kubernetes-native orchestration. Automatic pod scheduling, service discovery, and autoscaling are built in. For teams running production AI with containers, this operational value can offset the higher per-GPU cost versus RunPod or Lambda.
+
+This guide covers CoreWeave's A100 pricing, Kubernetes integration, reserved capacity strategies, and production deployment patterns.
+
+## A100 CoreWeave Pricing Structure
+
+CoreWeave prices GPU clusters rather than individual instances, with 8xA100 as the standard configuration.
+
+**A100 Cluster Pricing and Monthly Analysis**
+
+| Configuration | Hourly | Monthly (730 hrs) | Annual | Per-GPU | Reserved Savings |
+|---|---|---|---|---|---|
+| 8x A100 On-Demand | $21.60 | $15,768 | $189,216 | $2.70 | Baseline |
+| 8x A100 Reserved (3-month) | $19.44 | $14,191 | N/A | $2.43 | 10% |
+| 8x A100 Reserved (12-month) | $13.82 | $10,088 | $119,304 | $1.73 | 36% |
+
+12-month reservations save 36% versus on-demand ($13.82/hr vs $21.60/hr = $5.52/hr savings = $40,320/year savings). Custom cluster sizes (2x, 4x A100) cost 15-20% more per GPU due to fixed infrastructure overhead.
+
+**Performance Benchmarks on CoreWeave A100 Clusters**
+
+| Configuration | Training Throughput (13B) | Inference Throughput | Scaling Efficiency |
+|---|---|---|---|
+| 1x A100 | 450 tokens/sec | 50 tokens/sec | 100% |
+| 2x A100 | 850 tokens/sec | 95 tokens/sec | 94% |
+| 4x A100 | 1,650 tokens/sec | 190 tokens/sec | 92% |
+| 8x A100 | 3,200 tokens/sec | 380 tokens/sec | 89% |
+
+## CoreWeave A100 Setup and Kubernetes Integration
+
+**Launching CoreWeave A100 Clusters: Step-by-Step**
+
+1. Access CoreWeave console at https://cloud.coreweave.com
+2. Handle to "Kubernetes" section
+3. Click "Deploy Cluster"
+4. Select configuration:
+   - GPU Type: A100 SXM
+   - Cluster Size: 8xA100 (standard), or custom 2x/4x/16x
+   - Region: US-East, US-West, or EU
+   - Billing: On-Demand or Reserved (select 12-month for 36% savings)
+5. Configure ingress domain and API access
+6. Review specs and monthly cost estimate
+7. Deploy cluster (10-15 minute provisioning)
+8. Download kubeconfig upon provisioning
+9. Access cluster: `kubectl --kubeconfig=coreweave.yaml cluster-info`
+
+**Container Orchestration for GPU Workloads**
+
+CoreWeave exposes GPUs as Kubernetes resources. Deploy training jobs and inference services through declarative manifests:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: a100-training
+spec:
+  containers:
+  - name: training
+    image: pytorch:2.0-cuda12.2
+    resources:
+      limits:
+        nvidia.com/gpu: 2  # Request 2 GPUs from 8-GPU cluster
+    volumeMounts:
+    - name: model-storage
+      mountPath: /models
+volumes:
+- name: model-storage
+  persistentVolumeClaim:
+    claimName: model-pvc
+```
+
+**Automatic Pod Scheduling**
+
+Kubernetes scheduler automatically distributes pods across available GPUs. Multiple training jobs can coexist on same cluster with resource quotas preventing starvation:
+
+```yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: team-training
+spec:
+  hard:
+    requests.nvidia.com/gpu: "4"  # Team can use max 4 GPUs
+    memory: "64Gi"
+    pods: "10"
+```
+
+This multi-tenant isolation enables cost sharing across teams.
+
+## Storage Integration
+
+**Persistent Volumes for Model and Data**
+
+Mount persistent volumes containing model weights and training datasets:
+
+```yaml
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: model-pvc
+spec:
+  storageClassName: fast-ssd
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Gi
+```
+
+CoreWeave's network-attached storage provides <10ms latency, suitable for continuous data access during training.
+
+**S3-Compatible Object Storage**
+
+For larger datasets, integrate with CoreWeave's S3-compatible storage:
+
+```python
+import boto3
+
+s3 = boto3.client('s3',
+    endpoint_url='https://storage.coreweave.com',
+    aws_access_key_id='YOUR_KEY',
+    aws_secret_access_key='YOUR_SECRET'
+)
+
+s3.download_file('my-bucket', 'training_data.tar.gz', '/data/train.tar.gz')
+```
+
+## A100 Performance and Distributed Training
+
+**Single-GPU Throughput**
+
+The A100 40GB delivers:
+- FP32: 312 TFLOPS
+- TensorFloat32: 312 TFLOPS
+- 16-bit: 312 TFLOPS
+- Memory bandwidth: 2.04 TB/s
+
+For fine-tuning 13B-parameter models, A100 achieves 600-800 tokens/second effective throughput. Compare [H100 performance](/articles/a100-vs-h100) for larger models and [Lambda multi-GPU clusters](/articles/lambda-labs-gpu-pricing) for distributed setups.
+
+**Multi-GPU Training with DDP**
+
+Distribute training across 4x A100 cluster for larger models:
+
+```python
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+
+dist.init_process_group('nccl')
+model = model.to(rank)
+model = DDP(model, device_ids=[rank])
+
+loss = model(batch)
+loss.backward()
+optimizer.step()
+```
+
+Expected throughput: 2,400-3,200 tokens/second for 13B-parameter model on 4x A100.
+
+## Reserved Capacity and Cost Optimization
+
+**Multi-Year Contracts**
+
+Calculate ROI for reserved capacity:
+
+- 12-month reserved: $13.82/hr = $121,099/year (8xA100)
+- On-demand equivalent: $21.60/hr = $189,216/year
+- Annual savings: $68,117 (36% reduction)
+
+Break-even: 5.5 months of continuous utilization. For production systems running 24/7, 12-month reservations are financially optimal.
+
+**Hybrid Capacity Planning**
+
+Reserve baseline capacity for predictable load, burst on-demand for peaks:
+
+- Reserve 1x 8xA100 cluster (baseline): $13.82/hr × 24 × 365 = ~$121,099/year
+- Average burst capacity: 0.5x 8xA100 on-demand: $21.60/hr × 24 × 180 = ~$93,312/year
+- Total: ~$214,411/year
+
+This hybrid approach is cheaper than reserving 1.5x capacity (~$205,648/year) while maintaining flexibility.
+
+## Production Workload Patterns
+
+**Distributed Training Pipeline**
+
+Deploy multi-stage training pipeline leveraging CoreWeave's Kubernetes orchestration:
+
+1. Data preparation (small instance, 1x A100)
+2. Distributed fine-tuning (4x A100 cluster)
+3. Evaluation (2x A100 cluster)
+4. Model export (1x A100)
+
+Use Kubernetes Jobs and StatefulSets to orchestrate stages:
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: finetune-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: trainer
+        image: training:latest
+        resources:
+          limits:
+            nvidia.com/gpu: 4
+      restartPolicy: Never
+```
+
+**Inference Serving with Autoscaling**
+
+Deploy inference service with automatic scaling based on request queue:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inference
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: inference
+  template:
+    spec:
+      containers:
+      - name: vllm
+        image: vllm:latest
+        resources:
+          limits:
+            nvidia.com/gpu: 1
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: inference-scaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: inference
+  minReplicas: 2
+  maxReplicas: 8
+  metrics:
+  - type: Resource
+    resource:
+      name: gpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+```
+
+This configuration automatically scales from 2x A100 instances to 8x based on GPU utilization.
+
+## Comparing CoreWeave to Single-GPU Providers
+
+**Per-GPU Cost Analysis**
+
+| Provider | A100 Cost | Per-GPU (8-GPU cluster) |
+|---|---|---|
+| RunPod | $1.19/hr | $1.19 (single instance) |
+| Lambda | $1.48/hr | $1.48 (single instance) |
+| Vast.AI | $1.00/hr avg | $1.00 (single instance) |
+| CoreWeave | $21.60/hr | $2.70 (8x cluster) |
+
+CoreWeave costs 2.3x more per GPU than RunPod single-instance. But for multi-tenant production systems, Kubernetes handles autoscaling and pod scheduling automatically. That saves engineering time compared to manual cluster setup.
+
+See the [A100 RunPod guide](/articles/a100-runpod) for single-GPU cost-optimized deployments. Compare [Lambda's multi-GPU clusters](/articles/lambda-labs-gpu-pricing) and [AWS p4d pricing](/articles/aws-vs-azure-gpu-pricing) for alternative production deployments.
+
+## Monitoring and Cost Tracking
+
+CoreWeave dashboard shows GPU utilization and costs per pod, namespace, and team. Track spending per team to find optimization opportunities.
+
+## FAQ
+
+**When should I choose CoreWeave versus RunPod for A100 training?**
+
+CoreWeave excels for production multi-GPU training with Kubernetes orchestration and autoscaling. RunPod is optimal for single-GPU workloads and development. For 4x+ A100 clusters running 24/7, CoreWeave 12-month reserved pricing ($1.73/GPU) becomes competitive with RunPod spot ($0.50-0.80/hr) despite higher upfront commitment.
+
+**Can I run multiple teams' workloads on same CoreWeave cluster?**
+
+Yes, through Kubernetes namespaces and resource quotas. Each team gets isolated namespace with GPU limits. This enables cost sharing: if 4 teams equally use 1x 8xA100 cluster, cost per team is $5.40/hr versus $21.60/hr solo.
+
+**What cost optimization strategies work best for A100 CoreWeave clusters?**
+
+(1) Reserve 12-month baseline capacity for 36% savings, (2) Batch inference requests to maximize throughput (batch size 32-64 reduces per-token cost 80%), (3) Share clusters across teams via Kubernetes namespaces (4-5 team sharing reduces per-team cost 60%), (4) Use multi-tier clusters: reserve 1x 8xA100, burst with 2x A100 on-demand during peaks. For organization with 4 teams running 40-hour projects monthly: reserved 12-month ($13.82/hr) + 20 hours on-demand burst ($21.60/hr) = total $4,956/month, versus 4x independent Lambda clusters ($1.48 × 24 × 30 × 4 = $4,249/month). CoreWeave becomes cost-effective with cluster sharing.
+
+**How does CoreWeave A100 compare when accounting for infrastructure setup time savings?**
+
+CoreWeave's Kubernetes-native deployment eliminates manual infrastructure setup (estimated 40-80 hours engineering time for Kubernetes cluster setup). At $150/hour engineering cost, this equals $6,000-12,000 in setup savings alone. Over 12-month cluster lifetime, CoreWeave's operational value justifies the per-GPU cost premium versus bare RunPod instances for teams with limited infrastructure expertise.
+
+**What team size justifies CoreWeave A100 cluster investment versus individual RunPod instances?**
+
+For engineering team of N people: CoreWeave cluster cost = $119,412/year (12-month reserved 8xA100). RunPod per-person cost = $1.19/hr × 24 × 365 = $10,427/year. Break-even: 119,412 / 10,427 = 11.4 team members. For teams with 12+ members running continuous A100 workloads, shared CoreWeave cluster is more economical. For teams <10 members or bursty usage patterns, RunPod individual instances are cheaper.
+
+**How should I implement cost chargeback for CoreWeave A100 clusters across multiple teams?**
+
+(1) Create Kubernetes namespaces per team, (2) Set resource quotas limiting GPU access per team, (3) Monitor usage via Prometheus/Grafana, (4) Calculate cost: (team_gpu_hours / total_gpu_hours) × monthly_cluster_cost. Example: Team A uses 200 GPU-hours, Team B uses 300 GPU-hours, total 500 GPU-hours monthly. Team A cost share: (200/500) × $10,088 = $4,035/month. Team B: $6,053/month. This enables cost transparency and fair allocation.
+
+**How does CoreWeave's 2x A100 cluster pricing compare to using 2x single instances?**
+
+CoreWeave offers 2x A100 clusters at ~$5.40/hr (custom configurations), versus 2x 8xA100 instances at $21.60/hr. Per-GPU cost for small clusters is higher due to infrastructure overhead amortization. For small training, use single A100s. For clusters exceeding 4 GPUs, CoreWeave is economical.
+
+## Sources
+
+- CoreWeave Pricing: https://www.coreweave.com/pricing
+- Kubernetes GPU Documentation: https://kubernetes.io/docs/tasks/manage-gpus/
+- CoreWeave Documentation: https://docs.coreweave.com/
+- NVIDIA A100 Specifications: https://www.nvidia.com/en-us/data-center/a100/

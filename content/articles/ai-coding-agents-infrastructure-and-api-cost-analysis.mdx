@@ -1,0 +1,282 @@
+---
+title: 'AI Coding Agents: Infrastructure and API Cost Analysis'
+slug: ai-coding-agents-infrastructure-and-api-cost-analysis
+description: >-
+  Analyze costs for running coding agents (Cursor, Aider, Devin). Compare
+  self-hosted vs API costs, infrastructure requirements, and economics.
+date: '2026-03-22'
+author: DeployBase
+category: AI Infrastructure
+keywords:
+  - AI coding agents
+  - developer tools
+  - cost analysis
+  - infrastructure
+---
+
+## Contents
+
+- [AI Coding Agents Explained](#ai-coding-agents-explained)
+- [Model Selection for Code Generation](#model-selection-for-code-generation)
+- [Real-World Cost Scenarios](#real-world-cost-scenarios)
+- [Infrastructure Requirements for Coding Agents](#infrastructure-requirements-for-coding-agents)
+- [Financial Breakeven Analysis](#financial-breakeven-analysis)
+- [Quality vs Cost Trade-offs](#quality-vs-cost-trade-offs)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## AI Coding Agents Explained
+
+AI coding agents infrastructure and API cost analysis reveals surprising economics. Agents like Cursor, Aider, and Devin combine LLMs with code execution, debugging loops, and repository context management. Cost structure differs fundamentally from simple LLM inference.
+
+Coding agents process:
+- Full codebase context (1000+ file repo: 500K-2M tokens)
+- Problem statement (200-500 tokens)
+- Error feedback loops (100-200 tokens per iteration)
+- Execution environment (sandboxed runtime)
+
+A typical coding task requires 5-10 iteration cycles. Each cycle involves:
+- Context retrieval: 500K+ tokens
+- Problem encoding: 500 tokens
+- Code generation: 1000-5000 tokens
+- Feedback processing: 500 tokens
+- Total per cycle: 2000-6000 tokens
+
+10-iteration task: 20K-60K tokens, costing $0.50-2.00 on OpenAI GPT-4o, $0.10-0.20 on Together AI Llama 3.1.
+
+### Cost Structure: API vs Self-Hosted
+
+**API-Based (Cursor/GitHub Copilot)**
+
+Cursor Pro: $20/month includes 500 monthly code completions. Additional completions: $0.50 each for GPT-4o, $0.10 for GPT-3.5.
+
+For professional developers completing 50 non-trivial coding tasks monthly:
+- Cursor Pro: $20
+- Additional 50 tasks × $0.50 (GPT-4o): $25
+- Total: $45/month
+
+GitHub Copilot: $10/month (individual), $100/month (business). Includes unlimited completions using GPT-3.5 (fast) or GPT-4 (slower).
+
+Compare: GitHub Copilot $10 vs Cursor Pro $45, favorable to GitHub for high-volume users.
+
+See [OpenAI API pricing](/articles/openai-pricing) for underlying costs.
+
+**Self-Hosted (Aider, Continue.dev)**
+
+Aider with local models requires GPU infrastructure for acceptable performance. Llama 3.1 70B handles code generation at 95% GPT-3.5 quality.
+
+Infrastructure costs:
+- RTX 4090: $0.34/hour on RunPod
+- Per 100 hours usage monthly: $34
+- Model serving: Ollama (free, open-source)
+- Development environment: laptop (local) or cloud
+
+100 coding tasks monthly (10 iterations each, 5 minutes local inference): 833 minutes = 14 hours GPU time
+
+Local inference often preferable. Running Llama 3.1 7B on M3 MacBook Pro:
+- 30 tokens/second generation
+- 1000-token code generation: 33 seconds
+- Full task (10 iterations): 5-10 minutes
+
+**Cost: Zero (development machine only)**
+
+This explains Aider's popularity in developer communities. Local inference costs only electricity ($0.20/month).
+
+## Model Selection for Code Generation
+
+**GitHub Copilot (GPT-4 Fast)**
+
+Achieves 92-95% accuracy on competitive programming problems. Generation speed: 50-100 tokens/second on OpenAI infrastructure.
+
+For straightforward completions (function body, common patterns): Excellent performance.
+
+For complex architectural decisions: Often generates incomplete solutions requiring developer refinement.
+
+**GPT-4 Turbo (OpenAI)**
+
+Achieves 95-97% accuracy on competitive programming. 15-30% slower than GPT-4 Fast.
+
+For code review and architectural guidance: Significantly outperforms GPT-4 Fast.
+
+Cost: $10/1M input tokens, $30/1M output tokens. Code generation (4000 tokens output): $0.12/request.
+
+**Claude 3.5 Sonnet (Anthropic)**
+
+Benchmarks indicate 94-96% accuracy, edge cases over GPT-4 Turbo. See [Anthropic API pricing](/articles/anthropic-pricing).
+
+Cost: $3/1M input tokens, $15/1M output tokens. Same code generation task: $0.06/request.
+
+Claude's code quality often exceeds GPT-4 at lower cost.
+
+**Llama 3.1 70B**
+
+Open-source model, locally runnable or API-accessible. Achieves 85-92% accuracy on code generation.
+
+Self-hosted on H100: $2.69/hour includes unlimited inference. API through Together AI: $0.88-1.06/1M tokens.
+
+For simple code generation: Acceptable quality, extreme cost advantage.
+
+For complex refactoring: Noticeably weaker than GPT-4 Turbo, requires more human review.
+
+See [Together AI pricing](/articles/together-ai-pricing).
+
+## Real-World Cost Scenarios
+
+**Scenario 1: Junior Developer Using AI Assistant**
+
+300 code completions monthly, average 500 tokens per completion
+
+GitHub Copilot: $10/month (unlimited completions)
+Cursor Pro: $20 + (250 × $0.50) = $145/month
+Self-hosted Llama 3.1 7B: $0.20 electricity/month
+
+GitHub Copilot wins cost-wise. Feature-for-feature comparison favors GitHub despite lower price.
+
+**Scenario 2: Team of 5 Developers Using IDE Plugins**
+
+5 developers × 300 completions monthly = 1500 completions
+
+GitHub Copilot (Business): $100 × 5 = $500/month
+Cursor Pro: $20 × 5 + (1500 × $0.50) = $850/month
+Self-hosted cluster: 1500 completions × 5 minutes = 125 hours, H100 on RunPod = $336/month
+
+Self-hosted becomes cost-competitive at team scale.
+
+**Scenario 3: Full Coding Agent (Problem to Merged PR)**
+
+Aider agent tackling full features: 5000-token problem statement, 15 iterations, 1000 tokens per iteration generation.
+
+Total tokens per task: 5000 + (15 × 1000) = 20K tokens
+
+OpenAI GPT-4 Turbo cost: (5000 × $10 + 15000 × $30) / 1M = $0.50 per feature
+Together AI Llama 3.1 cost: (5000 × $0.88 + 15000 × $1.06) / 1M = $0.024 per feature
+Self-hosted Llama 3.1 70B: $2.69/hour, assuming 30-minute execution = $1.35 per feature
+
+For 50 features monthly:
+- OpenAI: $25
+- Together AI: $1.20
+- Self-hosted: $67.50
+
+Together AI provides best cost-performance. Self-hosted beats OpenAI but loses developer time due to inference latency.
+
+## Infrastructure Requirements for Coding Agents
+
+**Minimum Self-Hosted GPU**
+
+Llama 3.1 7B (4-bit quantized): RTX 3090 (24GB) sufficient. $0.40/hour on RunPod.
+
+Llama 3.1 70B (4-bit quantized): A100 (40GB) minimum. $1.39/hour on RunPod.
+
+Code generation inference latency:
+- 7B model: 30-50 tokens/second = 30-50 seconds per 1000 tokens
+- 70B model: 100-150 tokens/second = 7-10 seconds per 1000 tokens
+
+70B models dramatically reduce developer idle time. For production use cases, 70B justifies 3x cost.
+
+**Inference Server Setup**
+
+vLLM provides optimized serving for open-source models. Performance characteristics:
+- Request batching: 2-4 concurrent requests without degradation
+- Throughput: 150-250 tokens/second per GPU (model dependent)
+- Latency: Time-to-first-token 100-200ms, sustained 50-150 tokens/second
+
+Ollama (simplified serving):
+- Single request handling
+- Throughput: 30-80 tokens/second
+- Startup time: 2-5 seconds (CPU overhead)
+
+For developer-facing agents, vLLM outperforms Ollama.
+
+**Execution Sandbox**
+
+Running generated code requires isolated execution environment. Options:
+- Docker container (2-5 second startup)
+- WebAssembly sandbox (100ms startup)
+- systemd user service (negligible startup)
+
+Most agents use Docker for maximum flexibility. E2B provides managed sandboxes ($0.05 per minute execution).
+
+For a coding agent running 50 features monthly, 30 minutes execution per feature:
+E2B cost: $0.05 × 30 × 50 = $75/month
+
+Self-hosted Docker on shared VM: Included in VM cost.
+
+See [Lambda GPU pricing](/articles/lambda-labs-gpu-pricing) for dedicated inference machine options.
+
+## Financial Breakeven Analysis
+
+Self-hosting becomes profitable when:
+- Usage exceeds 40+ hours monthly (H100 fixed costs vs API overage)
+- Team size exceeds 3-5 developers
+- Generated code value justifies infrastructure complexity
+
+Conservative teams should use APIs. Optimizing teams should self-host.
+
+For startups: API + GitHub Copilot ($50-100/month) outperforms self-hosted.
+
+For established teams (10+ engineers): Dedicated inference cluster ($3000-5000/month) provides ROI through cost savings and control.
+
+## Quality vs Cost Trade-offs
+
+**API Hierarchy (Quality):**
+1. OpenAI GPT-4 Turbo (best)
+2. Claude 3.5 Sonnet (excellent, cheaper)
+3. Together AI Llama 3.1 70B (good, very cheap)
+4. Open-source 7B models (basic, free)
+
+**Recommended Approach:**
+
+Use Claude 3.5 Sonnet API as primary model. Costs $0.06 per complex code generation, providing excellent cost-quality balance.
+
+Route simple completions (function bodies, common patterns) to Llama 3.1 70B via Together AI ($0.025 per request).
+
+For mission-critical code requiring highest quality: OpenAI GPT-4 Turbo with human review.
+
+This hybrid approach provides 70% cost savings versus GPT-4 exclusive while maintaining quality.
+
+## FAQ
+
+**Is GitHub Copilot or Cursor better?**
+GitHub Copilot: $10/month, unlimited completions, integrated with most IDEs.
+Cursor: $20/month Pro, excellent code generation, native Cursor IDE.
+
+Choose GitHub for cost-conscious teams. Choose Cursor for best-in-class features.
+
+**Can I use open-source models for production coding agents?**
+Yes, with caveats. Llama 3.1 70B handles routine code generation acceptably. Complex architectures, security-sensitive code, and mathematical algorithms require GPT-4 Turbo.
+
+**What's the fastest local model for code generation?**
+Mistral 7B on modern MacBook Pro: 40-60 tokens/second. RTX 4090: 80-120 tokens/second. M3 Max: 50-80 tokens/second.
+
+**Should coding agents replace developers?**
+No. Coding agents amplify developer productivity 1.5-2x. Most generated code requires review. Agents handle routine scaffolding, developers focus on architecture and complex logic.
+
+**How accurate are coding agents on real projects?**
+GitHub Copilot: 60-75% code passes tests immediately, 95%+ passes with developer refinement.
+GPT-4 Turbo: 75-85% immediate pass rate.
+Claude 3.5 Sonnet: 78-88% immediate pass rate.
+
+Pass rates vary by task difficulty. Simple CRUD operations: 95%+. Algorithm implementation: 40-60%.
+
+**What's the infrastructure cost for a 10-person engineering team using coding agents?**
+GitHub Copilot Team: $100/month
+Or hybrid (APIs + local models): $300-500/month
+
+Net cost per developer: $30-50/month, negligible compared to developer salaries.
+
+## Related Resources
+
+- [OpenAI API Pricing](/articles/openai-pricing)
+- [Anthropic API Pricing](/articles/anthropic-pricing)
+- [Together AI Pricing](/articles/together-ai-pricing)
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [Lambda GPU Pricing](/articles/lambda-labs-gpu-pricing)
+
+## Sources
+
+- GitHub Copilot official benchmarks
+- Cursor AI documentation
+- OpenAI Codex research papers
+- vLLM performance benchmarks
+- Industry benchmarks for code generation accuracy (March 2026)

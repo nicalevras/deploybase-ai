@@ -1,0 +1,185 @@
+---
+title: 'How to Host Open Source LLMs: GPU Cloud Cost Comparison'
+slug: how-to-host-open-source-llms-gpu-cloud-cost-comparison
+description: >-
+  Self-hosted open source LLMs give developers cost control, data privacy, and
+  full customization. No vendor lock-in. No recurring API bills that grow with.
+date: '2026-03-22'
+author: DeployBase
+---
+
+## Contents
+
+- [Why Host Open Source LLMs](#why-host-open-source-llms)
+- [Popular Open Source Models](#popular-open-source-models)
+- [GPU Requirements by Model Size](#gpu-requirements-by-model-size)
+- [Cloud Provider Cost Comparison](#cloud-provider-cost-comparison)
+- [Infrastructure Setup Guide](#infrastructure-setup-guide)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Why Host Open Source LLMs
+
+Self-hosted open source LLMs give developers cost control, data privacy, and full customization. No vendor lock-in. No recurring API bills that grow with scale.
+
+Cost. OpenAI's GPT-4 API runs $0.03 per 1K input tokens and $0.06 per 1K output tokens. A 100-token request: $0.009. At 1 million monthly requests, that's $9,000+. Self-hosting open source on modest GPUs cuts this 50-80% with comparable quality.
+
+Privacy. If handling sensitive data, proprietary info, or regulated content, cloud APIs are off the table. Compliance requires data staying in-house. Self-hosted means the data never leaves the servers.
+
+Customization. Fine-tune on domain-specific data. Train on proprietary knowledge bases. Add custom vocabularies. APIs don't let developers do this. Open source does - all the way.
+
+## Popular Open Source Models
+
+**Llama 2 / Llama 3 family (as of March 2026)**
+
+Meta's Llama dominates. Llama 3 hits commercial quality for general work. Sizes: 8B, 70B, 400B. The 7B runs on cheap GPUs. 70B is the production standard.
+
+**Mistral 7B / Mixtral**
+
+Mistral trades performance for efficiency. Mistral 7B matches Llama 2 70B while using 90% less compute. Mixtral 8x7B uses mixture-of-experts - activates only relevant model parts, dropping latency. Great for cost-sensitive builds.
+
+**Phi-3 / Phi-4**
+
+Microsoft's Phi series cuts fat through training design. Phi-3 (3.8B) shocks with performance on specialized tasks. Beats overkill commercial models at summarization, code, and classification.
+
+**Qwen / Baichuan**
+
+Chinese models built for multilingual. Qwen competes with Llama. Baichuan specializes in Chinese. Matter for non-English markets.
+
+**Open Llama / Alpaca derivatives**
+
+Community fine-tunes of Llama. Marginal gains for niche cases. Less stable. Use for testing, not production.
+
+## GPU Requirements by Model Size
+
+**3B parameters (e.g., Phi-3):**
+- Minimum VRAM: 8GB
+- Recommended: 12-16GB
+- Cost-efficient GPU: L4 at $0.44/hour (RunPod)
+- Throughput: 20-40 tokens/second
+- Best for: Experimentation, edge deployment, cost-conscious teams
+
+**7B parameters (e.g., Mistral 7B, Llama 3 8B):**
+- Minimum VRAM: 16GB
+- Recommended: 24GB
+- Cost-efficient GPU: L40S at $0.79/hour (RunPod)
+- Throughput: 40-80 tokens/second
+- Best for: Production endpoints, balanced cost/performance
+
+**13B parameters:**
+- Minimum VRAM: 28GB
+- Recommended: 40GB
+- Cost-efficient GPU: A100 PCIe at $1.19/hour (RunPod)
+- Throughput: 30-60 tokens/second
+- Best for: Higher quality outputs, moderate scale
+
+**70B parameters (e.g., Llama 3 70B):**
+- Minimum VRAM: 80GB
+- Recommended: 80GB+ with distributed inference
+- Cost-efficient GPU: H100 PCIe at $1.99/hour (RunPod)
+- Throughput: 40-100 tokens/second depending on optimization
+- Best for: Commercial-grade deployments, complex reasoning
+
+**400B+ parameters (e.g., Llama 3.1 405B):**
+- Minimum VRAM: 400GB+ across multiple GPUs
+- Recommended: 8xH100 or 8xH200 clusters
+- Cost: CoreWeave [8xH200 at $50.44/hour](https://coreweave.com)
+- Throughput: 100-200 tokens/second on dedicated infrastructure
+- Best for: Frontier research, production deployments only
+
+## Cloud Provider Cost Comparison
+
+**Small model deployment (Mistral 7B on L40S):**
+- RunPod: $0.79/hour = $580/month (24/7)
+- Lambda: $0.92/hour = $672/month
+- CoreWeave: No direct pricing, multi-GPU pricing only
+- Clear winner: RunPod
+
+**Medium deployment (Llama 70B on H100 PCIe):**
+- RunPod: $1.99/hour = $1,452/month
+- Lambda: $2.86/hour = $2,088/month
+- CoreWeave: $49.24/hour for 8xH100 = $36,000/month (but serves massive scale)
+- Clear winner: RunPod for single-GPU, CoreWeave for multi-GPU
+
+**Large-scale deployment (8xH200 cluster):**
+- RunPod: No 8-GPU bundles, must rent separately (~$28.72/hour) = $20,965/month
+- Lambda: No multi-GPU bundles
+- CoreWeave: [8xH200 at $50.44/hour](https://coreweave.com) = $36,821/month
+- Clear winner: RunPod if available; otherwise CoreWeave
+
+**Batch processing (overnight model serving):**
+- RunPod H100 ($1.99/hour) for 8 hours/night = $11.92/night = $358/month
+- Lambda for 8 hours/night = $17.04/month = $512/month
+- CoreWeave 8xH100 overnight: $394/month
+- Recommendation: RunPod for small-scale, CoreWeave for large-scale
+
+## Infrastructure Setup Guide
+
+**Step 1: Choose a model**
+
+Mistral 7B handles most tasks cheaply. Llama 70B only if developers need complex reasoning or domain-specific power.
+
+**Step 2: Select GPU tier**
+
+Match VRAM to model size plus headroom for context and batching. 13B needs 28GB minimum; 40GB is comfortable. Undersized setups bottleneck hard.
+
+**Step 3: Pick a provider**
+
+RunPod wins for single-GPU under 100 tokens/sec. For bigger clusters, check CoreWeave's bundles against renting individual GPUs on RunPod.
+
+**Step 4: Deploy with vLLM or TGI**
+
+vLLM and Text Generation Inference handle loading, quantization, batching. Both run easily on RunPod via Docker.
+
+```bash
+docker run -p 8000:8000 \
+  -v ~/.cache/huggingface:/root/.cache/huggingface \
+  vllm/vllm-openai:latest \
+  --model mistralai/Mistral-7B-Instruct-v0.2
+```
+
+**Step 5: Configure auto-scaling**
+
+Production needs load balancers across multiple GPUs. Ray Serve or Kubernetes orchestrate. RunPod serverless is simpler for unpredictable traffic.
+
+**Step 6: Monitor costs**
+
+Track spending hourly. Alert on overruns. Benchmark model quality regularly. A $1K/month endpoint with worse results is just waste.
+
+## FAQ
+
+### How much does it cost to run Llama 70B continuously?
+
+Running Llama 70B on RunPod H100 PCIe costs $1.99/hour. Monthly continuous operation reaches $1,452 (accounting for brief maintenance windows). This serves thousands of requests daily at $0.001-0.003 per request depending on context length, making it cost-comparable to API providers.
+
+### Can I run open source models cheaper than OpenAI or Anthropic APIs?
+
+At 1M+ monthly requests, self-hosting saves 50-70%. Under 10K monthly, APIs still win when you count engineering overhead. Compare total cost of ownership including DevOps time.
+
+### What about model quantization to reduce GPU requirements?
+
+Quantization shrinks model size 50-75% with 2-5% quality loss. An 8-bit quantized 70B fits a 40GB A100, dropping cost from $1.99 to $1.19/hour. Benchmark quantized models on production workloads first.
+
+### Is it worth fine-tuning open source models?
+
+Fine-tuning pays off when domain-specific output beats compute cost. Medical Q&A and legal doc analysis benefit. General chat rarely justifies it. [LoRA fine-tuning](/articles/fine-tune-llm-with-lora-gpu-requirements-costs) cuts costs 10-100x vs full training.
+
+### How do I handle sudden traffic spikes?
+
+Auto-scale GPU instances on demand. RunPod's API handles this. Kubernetes and Ray work for complex setups. Budget idle capacity if spike size is hard to predict.
+
+## Related Resources
+
+- [Open Source vs Closed Source LLM](/articles/open-source-vs-closed-source-llm) - Comparison of models and use cases
+- [Free Open Source LLM Models in Browser](/articles/free-open-source-llm-browser) - Test models before deployment
+- [Best Small LLM](/articles/best-small-llm) - Overview of efficient models
+- [GPU Pricing Guide](/gpus) - Complete provider comparison
+
+## Sources
+
+- Meta AI Llama Documentation: https://www.meta.com/research/llama/
+- Mistral AI Official Site: https://mistral.ai
+- vLLM Documentation: https://docs.vllm.ai
+- Text Generation Inference Repository: https://github.com/huggingface/text-generation-inference
+- Hugging Face Model Hub: https://huggingface.co/models

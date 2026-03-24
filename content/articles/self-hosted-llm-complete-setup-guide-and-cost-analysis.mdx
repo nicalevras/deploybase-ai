@@ -1,0 +1,688 @@
+---
+title: Self-Hosted LLM - Complete Setup Guide and Cost Analysis
+slug: self-hosted-llm-complete-setup-guide-and-cost-analysis
+description: >-
+  Self-host LLMs cheaply. Setup guide, infrastructure costs, performance
+  benchmarks as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - self hosted llm
+---
+## Contents
+
+- [Infrastructure Requirements](#infrastructure-requirements)
+- [Model Selection](#model-selection)
+- [Deployment Architecture](#deployment-architecture)
+- [Installation and Configuration](#installation-and-configuration)
+- [Cost Analysis](#cost-analysis)
+- [Privacy and Data Control](#privacy-and-data-control)
+- [Performance Optimization](#performance-optimization)
+- [Operational Considerations](#operational-considerations)
+- [Troubleshooting Common Issues](#troubleshooting-common-issues)
+- [Advanced Optimization Techniques](#advanced-optimization-techniques)
+- [Security Considerations](#security-considerations)
+- [Disaster Recovery Planning](#disaster-recovery-planning)
+- [Staffing and Operations](#staffing-and-operations)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## Infrastructure Requirements
+
+### Hardware Options
+
+RTX 4090 ($1,500-$2,000):
+- Memory: 24GB VRAM
+- Models: Up to 13B parameters (FP16), 30B (INT8)
+- Inference: 50-100 tokens/second
+- Monthly cost (rented): $200-$400 ([RunPod](/articles/runpod-gpu-pricing) at $0.34/hour)
+
+A100 40GB ($15K-$20K):
+- Memory: 40GB VRAM
+- Models: Up to 33B parameters (FP16), 70B (INT8)
+- Inference: 100-200 tokens/second
+- Monthly cost (rented): $500-$700
+
+A100 80GB ($40K-$50K):
+- Memory: 80GB VRAM
+- Models: Up to 70B parameters (FP16), 200B (INT8)
+- Inference: 200-400 tokens/second
+- Monthly cost (rented): $900-$1,200
+
+H100 ($50K-$80K):
+- Memory: 80GB VRAM
+- Models: Same as A100 80GB, faster inference
+- Inference: 300-600 tokens/second
+- Monthly cost (rented): $1,500-$2,500
+
+Model selection drives hardware choice. 7B model fits RTX 4090. 70B requires A100 or H100.
+
+### Compute Configuration
+
+Single GPU (simplest):
+- 1x RTX 4090 or A100
+- Setup: 4 hours
+- Cost: $200-$700/month
+- Throughput: 50-200 tokens/second
+
+Multi-GPU (production):
+- 2x-8x GPUs same model
+- Setup: 1-2 days
+- Cost: $400-$9,600/month
+- Throughput: 100-1,600 tokens/second
+- Orchestration complexity: moderate
+
+CPU-only (budget):
+- Standard CPU with optimization (quantization, distillation)
+- Cost: $10-$50/month
+- Throughput: 5-20 tokens/second
+- Only viable for small models
+
+## Model Selection
+
+### Popular Open-Source Models
+
+**Llama 2 (Meta)**
+- 7B, 13B, 70B versions
+- Training data: 2T tokens
+- Context: 4K tokens
+- License: Commercial friendly
+- Inference: Good speed/quality balance
+
+**Mistral 7B**
+- 7B parameters
+- Training data: 32K context window
+- Fast inference on RTX 4090
+- Excellent reasoning relative to size
+
+**Llama 2 Chat**
+- Instruction-tuned version
+- Better for dialogue
+- Same hardware requirements as base
+- Recommended for production
+
+**OpenLLaMA (Open-Source GPT-3)**
+- 7B, 13B versions
+- Trained on open data only
+- Decent quality, fast inference
+- Good for privacy-critical applications
+
+**Code Llama**
+- Specialized for programming
+- 7B, 13B, 34B variants
+- Significantly outperforms general models on code
+
+**Falcon (TII)**
+- 7B, 40B, 180B versions
+- Trained on 1.35T tokens
+- Good instruction following
+- Permissive license
+
+Cost comparison: All free/open-source. Infrastructure cost dominates, not model cost.
+
+## Deployment Architecture
+
+### Single-Instance Deployment
+
+Simplest: Run inference server on single GPU.
+
+```
+User Request → Load Balancer → Single GPU Instance → Model Server → Response
+```
+
+Setup (30 minutes):
+1. Rent GPU instance from [RunPod](/articles/runpod-gpu-pricing)
+2. Install container: `docker pull vllm/vllm-openai:latest`
+3. Run inference server: `docker run --gpus all -p 8000:8000 vllm/vllm-openai:latest`
+4. Point API clients to instance
+
+Cost: Single A100 at $1.39/hour = $1,007/month
+
+Limitations: Single point of failure. No redundancy. Max ~1,000 concurrent requests.
+
+### Load-Balanced Multi-GPU Deployment
+
+```
+User Request → Load Balancer (Round-Robin) → GPU Instance 1 → Model Server
+                                            → GPU Instance 2 → Model Server
+                                            → GPU Instance 3 → Model Server
+```
+
+Setup (2-4 hours):
+1. Launch 3x A100 instances
+2. Configure load balancer (HAProxy, nginx)
+3. Deploy identical inference server on each
+4. Health checks verify availability
+5. Route requests round-robin
+
+Cost: 3x A100 at $1.39/hour = $3,020/month
+
+Benefits: Redundancy, 3x throughput, automatic failover
+
+Throughput scaling: Near-linear. Each GPU adds capacity.
+
+### Kubernetes Deployment (Advanced)
+
+Full container orchestration for scaling to dozens of GPUs.
+
+Setup (1-2 weeks including learning):
+1. Set up Kubernetes cluster (Kubeflow recommended)
+2. Create model serving pods
+3. Configure autoscaling policies
+4. Deploy monitoring and logging
+5. Set up model updating pipelines
+
+Cost: Same GPU cost + orchestration overhead (~5-10%)
+
+Benefits: Automatic scaling, updates without downtime, sophisticated routing
+
+Suitable when: High volume (50M+ requests/month) or critical infrastructure.
+
+## Installation and Configuration
+
+### Option A: vLLM (Recommended)
+
+Simplest, fastest for inference.
+
+Step 1: Install (on GPU instance):
+
+```bash
+docker pull vllm/vllm-openai:latest
+
+pip install vllm
+
+git clone https://github.com/vllm-project/vllm.git
+cd vllm
+pip install -e .
+```
+
+Step 2: Run inference server:
+
+```bash
+python -m vllm.entrypoints.openai.api_server \
+  --model meta-llama/Llama-2-7b-hf \
+  --tensor-parallel-size 1 \
+  --gpu-memory-utilization 0.9 \
+  --port 8000
+```
+
+Step 3: Make requests:
+
+```bash
+curl http://localhost:8000/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "meta-llama/Llama-2-7b-hf",
+    "prompt": "What is machine learning?",
+    "max_tokens": 100
+  }'
+```
+
+Performance: 200-400 tokens/second on A100 (batch of 32).
+
+### Option B: LM Studio (GUI Alternative)
+
+No coding required. Simpler but less flexible.
+
+1. Download LM Studio (Mac, Windows, Linux)
+2. Download model through GUI
+3. Run local server through GUI
+4. Connect external applications to localhost:1234
+
+Performance: Same as vLLM fundamentally, different interface.
+
+### Option C: Ollama (Simplicity Focus)
+
+Minimal setup, models auto-downloaded.
+
+```bash
+curl https://ollama.ai/install.sh | sh
+
+ollama run llama2
+
+ollama serve
+```
+
+Performance: Slightly slower than vLLM (less optimized).
+
+## Cost Analysis
+
+### Scenario 1: Small Team (100K requests/month)
+
+Average request: 50 input tokens, 50 output tokens
+
+Option A: OpenAI API (GPT-3.5-Turbo)
+- Cost: 100K × ($0.0005 + $0.0015) = $200/month
+
+Option B: Self-hosted (A100 rented)
+- GPU cost: $1.39/hour × 730 hours = $1,014/month
+- Throughput: 200 tokens/second × 3600 seconds = 720K tokens/second
+- Capacity: Sufficient for 100K requests
+- Total: $1,014/month
+
+**Winner: OpenAI API by $814/month**
+
+At this scale, API cheaper. Switch when API costs exceed infrastructure.
+
+### Scenario 2: Medium Team (1M requests/month)
+
+100,000 tokens/day across team.
+
+Option A: OpenAI API
+- Cost: 30M tokens/month × $0.0005 = $15,000/month
+
+Option B: Self-hosted (2x A100)
+- GPU cost: 2 × $1.39/hour × 730 hours = $2,029/month
+- Throughput: 400 tokens/second sufficient
+- Total: $2,029/month
+
+**Winner: Self-hosted by $12,971/month (86% savings)**
+
+### Scenario 3: Large Team (10M requests/month)
+
+1M tokens/day across team.
+
+Option A: OpenAI API
+- Cost: 300M tokens/month × $0.0005 = $150,000/month
+
+Option B: Self-hosted (8x A100)
+- GPU cost: 8 × $1.39/hour × 730 hours = $8,116/month
+- Throughput: 1,600 tokens/second
+- Engineering overhead: $20K-$40K/month
+- Total: $28,116-$48,116/month
+
+**Winner: Self-hosted by $102K-$122K/month (68-81% savings)**
+
+## Privacy and Data Control
+
+### API Services (OpenAI, Anthropic)
+
+Data flow:
+1. Request sent over HTTPS to provider servers
+2. Provider stores request logs (varies by policy)
+3. Provider may use data for model improvement
+4. Data subject to provider's privacy policy
+
+Risks:
+- Proprietary data exposure
+- GDPR/HIPAA compliance challenges
+- Vendor lock-in
+
+Mitigations:
+- Choose providers with strong privacy commitments
+- Use APIs with no-logging guarantees (additional cost)
+- Evaluate SOC 2 compliance certifications
+
+### Self-Hosted Models
+
+Data flow:
+1. Request processed locally on infrastructure
+2. No external network transmission
+3. Complete data ownership and control
+4. Compliance determined by infrastructure location
+
+Benefits:
+- HIPAA/GDPR compliance easiest to achieve
+- Proprietary data stays on-premise
+- Audit logs under control
+- No vendor lock-in
+
+Challenges:
+- Infrastructure security burden
+- Compliance responsibility entirely on team
+- Requires security expertise
+
+## Performance Optimization
+
+### Quantization
+
+Reduce model size by lowering precision. 4-bit quantization reduces model from 28GB to 7GB.
+
+Impact:
+- Memory: 75% reduction
+- Speed: 10-20% increase
+- Quality: 1-3% degradation
+- Cost reduction: Fit smaller GPU (RTX 4090 instead of A100)
+
+Implementation:
+
+```python
+from transformers import AutoModelForCausalLM
+
+model = AutoModelForCausalLM.from_pretrained(
+  "model_name",
+  device_map="auto",
+  quantization_config=GPTQConfig(...)
+)
+```
+
+### Batching
+
+Group requests for simultaneous processing. 32-request batch processes nearly same time as 1 request.
+
+Setup: Queue requests, batch every 100ms or 32 requests.
+
+Impact:
+- Throughput: 10-15x improvement
+- Latency: +50-100ms per request (acceptable for non-interactive)
+- Cost: Amortizes infrastructure
+
+### Prompt Caching
+
+Cache responses for identical or similar prompts. Hit rate 30-60% typical.
+
+Setup: Maintain local cache, check before GPU inference.
+
+Impact:
+- Cache hit: <10ms response (vs 1s GPU inference)
+- Overall latency: 30-50% reduction
+- Cost: 50-70% reduction
+
+### Fine-Tuning for Task-Specificity
+
+Smaller fine-tuned model outperforms larger general model.
+
+Example: 7B fine-tuned model on customer support queries outperforms 13B general model. Use 7B (RTX 4090, $200/month) instead of 13B (A100, $1,000/month).
+
+Savings: $800/month.
+
+## Operational Considerations
+
+### Monitoring and Logging
+
+What to monitor:
+- GPU utilization (target: 70-90%)
+- Memory usage (alert at 95%+)
+- Request latency (track p50, p95, p99)
+- Model inference speed (tokens/second)
+- Error rates
+- System temperatures
+
+Tools:
+- Prometheus for metrics collection
+- Grafana for visualization
+- ELK Stack for logging
+- Custom dashboards built with Flask
+
+### Model Updates
+
+Workflow:
+1. Download new model version
+2. Test on staging instance
+3. Swap in production (typically <1 minute downtime)
+4. Verify quality on live traffic
+5. Monitor error rates for 24 hours
+
+Automation: CI/CD pipelines for model updates reduce manual burden.
+
+### Scaling Strategy
+
+Phase 1: Single A100 ($1,000/month)
+- Handles 500K-1M requests/month
+- Team <= 10 people
+
+Phase 2: 3x A100 load-balanced ($3,000/month)
+- Handles 2M-4M requests/month
+- Redundancy added
+- Team <= 50 people
+
+Phase 3: 8x A100 with Kubernetes ($8,500/month + engineering)
+- Handles 10M+ requests/month
+- Automatic scaling
+- Team size unlimited
+- Significant engineering investment
+
+## Troubleshooting Common Issues
+
+### Out of Memory (OOM) Errors
+
+Error message: CUDA out of memory
+
+Causes:
+- Model too large for GPU memory
+- Batch size too large
+- Memory leak in code
+
+Solutions:
+- Reduce batch size by half, test
+- Enable gradient checkpointing (trades speed for memory)
+- Quantize model (INT8 or INT4)
+- Use smaller model
+- Add swap memory (slower but works)
+
+### Slow Training Throughput
+
+Problem: Training significantly slower than expected
+
+Causes:
+- GPU underutilized (CPU bottleneck)
+- I/O bottleneck (loading data slowly)
+- Network issues (multi-GPU)
+- Inefficient code
+
+Debugging:
+- Check GPU utilization (nvidia-smi)
+- Profile code (PyTorch profiler)
+- Benchmark data loading separately
+- Monitor network on multi-GPU (if applicable)
+
+Solutions:
+- Increase batch size
+- Cache data in memory if possible
+- Optimize data loading (parallel workers)
+- Reduce computation overhead
+
+### Poor Model Quality
+
+Problem: Fine-tuned model doesn't improve on task
+
+Causes:
+- Insufficient training data
+- Poor data quality
+- Wrong hyperparameters
+- Overfitting
+
+Solutions:
+- Add more diverse data
+- Manual quality review of training examples
+- Try different learning rate
+- Increase regularization (dropout, weight decay)
+- Reduce epochs to prevent overfitting
+
+### Inference Latency Issues
+
+Problem: Inference slower than expected
+
+Causes:
+- Batch size too small
+- Model not optimized
+- Network bottleneck (if remote)
+- System resource contention
+
+Solutions:
+- Increase batch size (if throughput matters more than latency)
+- Enable optimization flags (fused kernels, etc.)
+- Use optimized inference server (vLLM, TensorRT)
+- Reduce competing workloads
+
+## Advanced Optimization Techniques
+
+### Dynamic Batching
+
+Batch requests on-the-fly without forcing user to wait:
+
+Implementation:
+1. Queue incoming requests (up to 100ms or 32 requests)
+2. Batch all queued requests
+3. Run inference once
+4. Return results to each user
+
+Result: 10-15x throughput improvement vs serial processing.
+
+Tradeoff: Added latency (up to 100ms per request).
+
+Suitable for: Non-interactive workloads, batched processing.
+
+### Speculative Decoding
+
+Parallel decoding to speed up inference:
+
+Concept: Use smaller fast model to predict next tokens, verify with large model
+
+Benefit: 2-3x speedup on generation-heavy workloads
+Cost: Slightly higher memory usage, more computation
+
+Suitable for: Long-form text generation, summarization
+
+### Tensor Parallelism
+
+Split model across multiple GPUs (intra-request):
+
+When model too large for single GPU:
+- 70B model requires 140GB FP32 (impossible on single H100)
+- Split across 2x 80GB H100s
+- Communication overhead: ~10-20% throughput reduction
+
+Suitable for: Very large models (100B+)
+
+## Security Considerations
+
+### Network Security
+
+Self-hosted models expose API. Secure accordingly:
+
+- Firewall rules (restrict to known IPs)
+- HTTPS with certificate (not HTTP)
+- API authentication (token-based)
+- Rate limiting (prevent abuse)
+- DDoS protection (if internet-facing)
+
+### Data Security
+
+Training data sensitive? Take precautions:
+
+- Encrypted storage
+- Access controls (who can train/deploy)
+- Audit logging (track data access)
+- Secure deletion (prevent recovery)
+
+### Model Security
+
+Fine-tuned models contain training data patterns. Protect accordingly:
+
+- Don't publicly release models trained on proprietary data
+- Version control secrets carefully
+- Secure model backups
+- Monitor for unexpected behavior
+
+## Disaster Recovery Planning
+
+### Backup Strategy
+
+What to backup:
+- Fine-tuned model weights
+- Training checkpoints
+- Datasets
+- Configuration files
+
+Backup frequency:
+- Incremental daily
+- Full weekly
+- Off-site monthly
+
+Recovery testing:
+- Actually restore from backup monthly (verify integrity)
+- Document recovery procedures
+- Practice restoration under time pressure
+
+### Failover Procedures
+
+If primary GPU fails:
+
+1. Health check detects failure (automatic)
+2. Requests rerouted to secondary (if available)
+3. Primary GPU replaced/repaired
+4. Resume operations on new GPU
+
+Recovery time objective (RTO): 1-4 hours depending on infrastructure
+
+## Staffing and Operations
+
+### Team Structure
+
+Single engineer:
+- Infrastructure management: 10-20 hours/week
+- Model training/deployment: 20-30 hours/week
+- Total: Full-time (50 hours/week minimum)
+
+Small team (3-5 engineers):
+- Dedicated infrastructure engineer (0.5 FTE)
+- ML engineers (2-3 FTE for model work)
+- Total: 3-4 FTE
+
+Large deployment (20+ GPUs):
+- Infrastructure team: 2-3 FTE (infrastructure, monitoring, scaling)
+- ML team: 5-10 FTE (model development, training, deployment)
+- On-call rotation: Essential for 24/7 operations
+- Total: 8-15 FTE
+
+### Knowledge Requirements
+
+Infrastructure engineer should understand:
+- Docker, Kubernetes basics
+- GPU resource management
+- Networking fundamentals
+- Monitoring and logging
+- Linux system administration
+
+ML engineer should understand:
+- Model training procedures
+- Hyperparameter tuning
+- Data pipeline development
+- Deployment and serving
+- Performance benchmarking
+
+Cross-training reduces single points of failure.
+
+## FAQ
+
+**What's the break-even point with API services?**
+Approximately $10K-$15K monthly API spend. Below: use API. Above: self-host.
+
+**How difficult is self-hosting?**
+Simple deployment: 2-4 hours learning. Production deployment: 1-2 weeks. Kubernetes: 1-2 months.
+
+**Can we use old GPUs (Tesla V100, GTX 1080)?**
+Yes but memory limited. V100 (32GB) handles 13-33B models. GTX 1080 (11GB) handles 7B only.
+
+**What about inference latency compared to API?**
+Self-hosted: 100-500ms first token (network + GPU inference)
+OpenAI API: 200-800ms (network overhead, queue)
+Actually comparable despite API overhead.
+
+**How many engineers needed to maintain?**
+Small scale (single GPU): 1-2 hours/month maintenance
+Medium scale (multi-GPU): 20-40 hours/month
+Large scale (Kubernetes): Full-time role
+
+**Should we use cloud GPUs or on-premise hardware?**
+Cloud: Lower upfront cost, easier scaling, pay-as-you-go
+On-premise: Lower long-term cost (3+ years), faster amortization, complete control
+
+Most teams choose cloud initially, migrate to on-premise at scale.
+
+## Related Resources
+
+[Compare GPU Cloud Providers](/articles/compare-gpu-cloud-providers-side-by-side-pricing-table)
+[Self-Host LLM Cheapest GPU Cloud Options](/articles/self-host-llm-cheapest-gpu-cloud-options-compared)
+[How to Fine-Tune an LLM](/articles/how-to-fine-tune-an-llm-complete-beginner-guide)
+[AI Cost Optimization Tips](/articles/ai-cost-optimization-15-ways-to-cut-your-gpu-and-api)
+[RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+
+## Sources
+
+vLLM documentation and benchmarks. Ollama community guides. LM Studio source. Open-source model licensing (Meta, Mistral, OpenLLaMA). GPU cloud pricing as of March 2026 from RunPod, Lambda, CoreWeave. API pricing from OpenAI official rates. Quantization techniques from academic literature. Industry benchmarks from MLCommons and personal deployment experience.

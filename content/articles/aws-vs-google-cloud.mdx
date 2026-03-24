@@ -1,0 +1,565 @@
+---
+title: 'AWS vs Google Cloud: GPU Cloud Pricing & Performance Compared'
+slug: aws-vs-google-cloud
+description: >-
+  AWS vs Google Cloud GPU pricing comparison: p5, a3-highgpu, A100, H100, TPU
+  v5e. Cost analysis, performance benchmarks, and region availability.
+date: '2026-03-22'
+author: DeployBase
+category: Cloud Infrastructure
+keywords:
+  - aws vs google cloud
+  - AWS GPU pricing
+  - Google Cloud GPU
+  - GCP vs AWS
+  - NVIDIA H100 cloud
+  - TPU v5e
+  - GPU cloud comparison
+---
+
+## Contents
+
+- [AWS vs Google Cloud: Overview](#aws-vs-google-cloud-overview)
+- [AWS GPU Instance Types](#aws-gpu-instance-types)
+- [Google Cloud GPU Instance Types](#google-cloud-gpu-instance-types)
+- [TPU vs GPU Comparison](#tpu-vs-gpu-comparison)
+- [On-Demand Pricing Analysis](#on-demand-pricing-analysis)
+- [Spot Instance Pricing Comparison](#spot-instance-pricing-comparison)
+- [Reserved Instance Discounts](#reserved-instance-discounts)
+- [Regional Availability and Limits](#regional-availability-and-limits)
+- [Network Performance Comparison](#network-performance-comparison)
+- [Storage and Data Transfer Costs](#storage-and-data-transfer-costs)
+- [Machine Learning Platform Integration](#machine-learning-platform-integration)
+- [Performance Benchmarks](#performance-benchmarks)
+- [Total Cost of Ownership Analysis](#total-cost-of-ownership-analysis)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## AWS vs Google Cloud: Overview
+
+AWS vs Google Cloud GPU pricing shows different strategic approaches to AI infrastructure. AWS prioritizes NVIDIA GPU availability with p5 instances (H100) and competitive on-demand rates, while Google Cloud offers TPU v5e alternatives and aggressive spot pricing plus tighter machine learning platform integration.
+
+As of March 2026, AWS maintains GPU market dominance with 70% share versus Google Cloud's 20%. Pricing differences narrow substantially with committed discounts, making selection based on workload characteristics rather than raw hourly rates. This analysis compares instance types, regional availability, and total cost of ownership across typical LLM training and inference scenarios.
+
+## AWS GPU Instance Types
+
+AWS offers multiple GPU instance families targeting different AI workload profiles.
+
+**p5 Instances (Latest, H100)**
+
+p5 represents AWS's current flagship for AI training:
+- GPU: 8x NVIDIA H100 per instance
+- Memory per H100: 80GB HBM2e (640GB total)
+- GPU Memory Bandwidth: 3.3 TB/s per GPU
+- Network: 3,200 Gbps (400 GB/s) per instance
+- On-demand pricing: $98.47/hour (US East 1)
+
+p5 instances target large-scale LLM training where maximum GPU count and network bandwidth matter. Eight-GPU clusters enable full-precision training on 70B parameter models or higher.
+
+Regional availability (March 2026):
+- US East 1 (Virginia): Available
+- US West 2 (Oregon): Limited availability
+- Europe West 1 (Frankfurt): Available
+
+p5 instances face significant availability constraints. AWS prioritizes customers with long-term contracts; short-term access remains difficult. Typical wait times exceed 2-4 weeks for new p5 capacity.
+
+**p4d Instances (A100)**
+
+p4d instances step back from latest hardware, offering A100 GPUs:
+- GPU: 8x NVIDIA A100 per instance
+- Memory per A100: 40GB HBM2 (320GB total)
+- GPU Memory Bandwidth: 2.0 TB/s per GPU
+- Network: 400 Gbps per instance
+- On-demand pricing: $32.77/hour (US East 1)
+
+p4d costs 1/3 of p5 while achieving 85-90% of training performance on large LLM tasks. Teams training 30-70B models efficiently choose p4d over p5, avoiding 3-4 week wait times and reducing costs by $65k+ per month.
+
+p4d maintains availability across most US regions, enabling faster provisioning (1-2 weeks typical wait times).
+
+**g4dn Instances (T4)**
+
+g4dn offers budget GPU instances using NVIDIA T4:
+- GPU: 1-8x T4 per instance
+- Memory per T4: 16GB GDDR6 (16-128GB total)
+- Cost: $0.35-2.80/hour depending on GPU count
+
+g4dn targets inference workloads and development. T4 GPUs run LLM inference at token generation rates (50-70 tokens/second for 70B models) but cannot handle training. Cost-conscious inference deployments use g4dn extensively.
+
+**inf2 Instances (Trainium)**
+
+AWS Trainium accelerators target inference-specific optimization:
+- Accelerator: AWS Trainium (custom ASIC)
+- Memory: 32GB per accelerator (up to 256GB per instance)
+- Cost: $1.27-11.88/hour
+
+Trainium compiles LLM models to proprietary format, achieving 30-40% power efficiency improvement over GPU inference. However, model porting requires AWS tooling and introduces vendor lock-in risks.
+
+## Google Cloud GPU Instance Types
+
+Google Cloud emphasizes TPU availability while offering NVIDIA GPUs through A3 machine types.
+
+**A3-Highgpu (H100)**
+
+A3-Highgpu represents Google Cloud's H100 offering:
+- GPU: 8x NVIDIA H100 per instance
+- Memory per H100: 80GB HBM2e (640GB total)
+- Network: 2,400 Gbps per instance
+- On-demand pricing: $12.93/hour per H100 (approximately $103.44/hour for 8-GPU instance)
+
+A3-Highgpu costs significantly more than AWS p5 on hourly rates. However, Google Cloud applies committed discounts more aggressively, reducing effective costs.
+
+Regional availability (March 2026):
+- US Central (us-central1): Available
+- US East 4 (us-east4): Limited preview
+- Europe (europe-west4): Limited availability
+
+A3-Highgpu availability remains constrained like AWS p5. Typical provisioning requires 2-4 week wait times.
+
+**A3-Highgpu-8g (A100)**
+
+A3-Highgpu-8g provides A100 GPUs:
+- GPU: 8x NVIDIA A100 per instance
+- Memory per A100: 40GB (320GB total)
+- Network: 1,600 Gbps per instance
+- On-demand pricing: $6.39/hour per A100 ($51.12/hour for 8-GPU instance)
+
+A3-A100 costs nearly 40% less than A3-H100 while achieving 85% of H100 performance on LLM training. Google Cloud prioritizes A100 availability over H100.
+
+**A2-Highgpu (A100, legacy)**
+
+A2-Highgpu represents previous-generation A100 instances:
+- GPU: 16x NVIDIA A100 per instance (dual-GPU cards)
+- Memory: 320GB (20GB per A100)
+- Network: 200 Gbps per instance
+- On-demand pricing: $4.97/hour per GPU ($79.52/hour for 16-GPU instance)
+
+A2-Highgpu provides maximum GPU count per instance (16 vs 8) but older GPU variants and limited network bandwidth. Useful for embarrassingly parallel inference (independent batch processing) where network bandwidth doesn't constrain performance.
+
+**L4 Instances (production Inference)**
+
+L4 GPU instances emphasize inference efficiency:
+- GPU: 1-8x NVIDIA L4 per instance
+- Memory: 24GB per L4 GDDR6
+- Cost: $0.35-2.80/hour
+
+L4 offers superior power efficiency and cost compared to T4. Teams standardizing on L4 for inference deployments achieve 30% cost reduction versus T4.
+
+## TPU vs GPU Comparison
+
+Google Cloud's Tensor Processing Units (TPUs) represent custom silicon for specific ML workloads.
+
+**TPU v5e (Current Production)**
+
+TPU v5e introduces Google's latest generation:
+- Memory: 16GB HBM3 per TPU
+- Peak performance: 384 TFLOPS (BF16)
+- Network: 600 Gbps inter-TPU
+- Cost: $1.89/hour per TPU ($30.24/hour for 16-TPU pod)
+
+TPU v5e pricing suggests Google is attacking NVIDIA's market dominance aggressively. Cost per compute approaches NVIDIA GPU equivalents.
+
+**Training Performance: TPU vs H100**
+
+Comparative benchmarks (LLM training on Llama 70B):
+- TPU v5e (16 pods): 125 samples/second (batch size 256)
+- NVIDIA H100 (8 GPU): 120 samples/second (batch size 256)
+
+TPU v5e achieves parity with H100 on LLM training while costing 40% less than equivalent H100 capacity.
+
+**Inference Limitations**
+
+TPUs excel at training but underperform on inference. Inference workloads emphasize sequence length flexibility and dynamic batch sizes. TPUs impose fixed batch dimensions and sequence lengths, complicating production serving.
+
+Also,, TPU programming (XLA/MLIR compilation) differs from standard GPU frameworks, requiring code specialization. Teams preferring flexibility choose GPUs; teams optimizing for training cost select TPUs.
+
+**TPU Availability**
+
+TPU v5e availability (March 2026):
+- us-central1 (primary): Full availability
+- europe-west4 (secondary): Limited preview
+- asia-southeast1: Coming Q2 2026
+
+Google Cloud prioritizes TPU availability over GPUs. TPU provisioning typically completes within days.
+
+## On-Demand Pricing Analysis
+
+Hourly pricing varies substantially by region and instance configuration.
+
+**Single-GPU Cost (most relevant for inference)**
+
+| Provider | Instance | GPU Type | Cost/Hour | Monthly (730 hours) |
+|----------|----------|----------|-----------|------------------|
+| AWS | g4dn.xlarge | T4 | $0.35 | $255 |
+| GCP | n1-standard-8 + L4 | L4 | $0.35 | $255 |
+| AWS | g5.2xlarge | RTX A10G | $0.94 | $686 |
+| GCP | a2-highgpu-1g | A100 | $6.39 | $4,665 |
+| AWS | p4d-24xlarge | A100 x8 | $32.77 | $23,921 |
+| GCP | a3-highgpu | H100 x8 | $103.44 | $75,511 |
+| AWS | p5-48xlarge | H100 x8 | $98.47 | $71,843 |
+
+AWS undercuts Google Cloud on H100 hourly rates. Effective monthly costs favor AWS by 5-7% for similar configurations.
+
+However, workload-specific analysis changes the calculus.
+
+**Cost per Model Training (70B LLM)**
+
+Assuming 10-day training timeline:
+
+AWS p5 (8x H100):
+- Hourly rate: $98.47
+- Days required: 10
+- Total compute cost: $98.47 × 24 × 10 = $23,593
+
+Google Cloud A3-Highgpu (8x H100):
+- Hourly rate: $103.44
+- Days required: 10 (same hardware, same speed)
+- Total compute cost: $103.44 × 24 × 10 = $24,825
+
+AWS wins by $1,232. Small advantage on same hardware.
+
+However, if using different hardware:
+
+AWS p4d (8x A100):
+- Hourly rate: $32.77
+- Days required: 11.5 (slower GPU, larger batch overhead)
+- Total compute cost: $32.77 × 24 × 11.5 = $9,036
+
+GCP TPU v5e (16-pod):
+- Hourly rate: $30.24
+- Days required: 10 (faster per pod, more available)
+- Total compute cost: $30.24 × 24 × 10 = $7,258
+
+Google Cloud saves $1,778 (19%) by using custom silicon.
+
+## Spot Instance Pricing Comparison
+
+Spot instances (preemptible in Google Cloud terminology) offer 60-80% discounts versus on-demand rates.
+
+**AWS Spot Pricing**
+
+p5 spot instances (March 2026):
+- On-demand: $98.47/hour
+- Spot: $29.54/hour (70% discount)
+- Monthly cost (730 hours): $21,584
+
+Spot availability: High for p5 in us-east-1 (interruption risk ~2-3 per month)
+
+p4d spot instances:
+- On-demand: $32.77/hour
+- Spot: $9.83/hour (70% discount)
+- Monthly cost (730 hours): $7,176
+
+p4d spot offers reliable capacity with low interruption risk.
+
+**Google Cloud Preemptible Instances**
+
+A3-Highgpu preemptible (H100 x8):
+- On-demand: $103.44/hour
+- Preemptible: $30.96/hour (70% discount)
+- Monthly cost (730 hours): $22,601
+
+GCP preemptible instances feature 24-hour maximum duration before mandatory termination. This constraint complicates long training jobs (>24 hours) requiring checkpoint/restart logic.
+
+TPU v5e preemptible:
+- On-demand: $30.24/hour
+- Preemptible: $9.07/hour (70% discount)
+- Monthly cost (730 hours): $6,621
+
+TPU v5e preemptible provides cheapest high-end training capacity. 24-hour limit and preemption risk acceptable for training workloads with frequent checkpointing.
+
+**Spot Suitability**
+
+Spot works best for:
+- Training jobs (checkpointing makes interruptions tolerable)
+- Batch inference (recovering from failure simple)
+- Stateless computation
+
+Spot ill-suited for:
+- Long-running inference services (downtime unacceptable)
+- Interactive workloads (interruption disrupts user experience)
+
+## Reserved Instance Discounts
+
+Long-term commitments reduce effective hourly costs significantly.
+
+**AWS Reserved Instances (1-year)**
+
+p5 1-year reserved (All Upfront):
+- On-demand: $98.47/hour
+- Reserved: $68.93/hour (30% discount)
+- Effective monthly cost: $50,359
+- Annual commitment: $603,408
+
+p4d 1-year reserved (All Upfront):
+- On-demand: $32.77/hour
+- Reserved: $22.94/hour (30% discount)
+- Effective monthly cost: $16,747
+- Annual commitment: $200,964
+
+**Google Cloud Commitments (1-year)**
+
+A3-Highgpu 1-year commitment (All Upfront):
+- On-demand: $103.44/hour
+- Commitment: $69.32/hour (33% discount)
+- Effective monthly cost: $50,604
+- Annual commitment: $607,254
+
+TPU v5e 1-year commitment (All Upfront):
+- On-demand: $30.24/hour
+- Commitment: $19.56/hour (35% discount)
+- Effective monthly cost: $14,289
+- Annual commitment: $171,470
+
+Commitments dramatically narrow pricing gaps between AWS and Google Cloud. TPU v5e commitment pricing crushes NVIDIA GPU alternatives.
+
+## Regional Availability and Limits
+
+Geographic distribution impacts latency, data residency, and capacity access.
+
+**AWS GPU Regions (March 2026)**
+
+| Region | p5 | p4d | g4dn |
+|--------|-----|-------|-------|
+| us-east-1 | Available | Available | Available |
+| us-west-2 | Limited | Available | Available |
+| us-west-1 | No | Available | Available |
+| eu-central-1 | Available | Available | Available |
+| eu-west-1 | Limited | Available | Available |
+| ap-southeast-1 | No | Available | Available |
+| ap-northeast-1 | No | Available | Limited |
+
+p5 capacity concentrates in US-East and Europe-Central. Teams in other regions face long provisioning wait times or capacity unavailability.
+
+**Google Cloud GPU Regions (March 2026)**
+
+| Region | A3-Highgpu | A3-A100 | L4 | TPU v5e |
+|--------|-----------|---------|-----|---------|
+| us-central1 | Available | Available | Available | Available |
+| us-east4 | Limited | Available | Available | Limited |
+| europe-west4 | Preview | Available | Available | Preview |
+| asia-southeast1 | No | No | Available | Coming Q2 |
+
+Google Cloud emphasizes us-central1. Other regions face capacity limitations, particularly for latest hardware.
+
+**Quota and Limits**
+
+AWS GPU quotas (new accounts, default):
+- p5 quota: 8 GPUs (1 instance)
+- p4d quota: 8 GPUs (1 instance)
+- Quota increase requires Support Plan (12-48 hour turnaround)
+
+Google Cloud GPU quotas (new accounts, default):
+- A3-Highgpu quota: 8 GPUs (1 instance)
+- TPU v5e quota: 8 TPUs
+- Quota increase requires request form (3-7 day turnaround)
+
+Both providers impose quotas limiting trial users, requiring quota increases for production deployments.
+
+## Network Performance Comparison
+
+GPU cluster training requires high-speed inter-GPU networking.
+
+**Intra-Zone Network Bandwidth**
+
+AWS p5:
+- NVLink-C2 interconnect: 3,200 Gbps (400 GB/s)
+- 8-GPU all-reduce (network bound): 3.2ms per iteration
+
+GCP A3-Highgpu:
+- NVIDIA Quantum-2 InfiniBand: 2,400 Gbps (300 GB/s)
+- 8-GPU all-reduce: 4.2ms per iteration
+
+AWS p5 network outperforms GCP A3 by 25%. For 10-day training, accumulated time advantage reaches hours. Training timeline reduction: 0.5-1.0 days (2-4%).
+
+TPU v5e:
+- Google Tensor-to-TPU interconnect: 600 Gbps per TPU
+- 16-TPU all-reduce: 1.8ms per iteration (proprietary optimization)
+
+TPU's custom interconnect outperforms both GPU options despite lower bandwidth specification due to optimized collective communication.
+
+**Cross-Region/Multi-Cloud**
+
+Neither AWS nor Google Cloud efficiently supports cross-provider GPU clusters. Data transfer costs dominate ($0.02/GB egress for AWS, $0.12/GB egress for GCP). Multi-cloud training remains impractical for latency-sensitive workloads.
+
+## Storage and Data Transfer Costs
+
+GPU instances generate data transfer costs beyond compute.
+
+**Inbound Data Transfer**
+
+AWS:
+- First 1GB/month: Free
+- Next 9,999GB/month: $0.02/GB
+- Above 10,000GB/month: $0.015/GB
+
+GCP:
+- First 1GB/month: Free
+- Next 1TB/month: $0.12/GB
+- Above 1TB: $0.08/GB
+
+GCP charges 6x more for inbound transfer. Large-scale training importing datasets incurs substantial GCP surcharges.
+
+**Outbound Data Transfer**
+
+AWS:
+- Standard: $0.02/GB
+- CloudFront CDN: $0.085/GB
+
+GCP:
+- Standard: $0.12/GB
+- CDN: $0.04/GB (cheaper with CDN)
+
+AWS outbound costs match inbound; GCP charges 6x premium. Teams moving large datasets prefer AWS.
+
+**Managed Storage Costs**
+
+AWS S3:
+- Standard storage: $0.023/GB-month
+- Intelligent-Tiering: $0.016/GB-month
+
+GCP Cloud Storage:
+- Standard bucket: $0.020/GB-month
+- Standard with retrieval fees: $0.01/GB-month (after 30 days)
+
+Storage costs similar, favoring GCP marginally for archival.
+
+## Machine Learning Platform Integration
+
+ML platform maturity impacts developer productivity and operational overhead.
+
+**AWS SageMaker**
+
+SageMaker provides:
+- Built-in algorithms optimized for p5/p4d
+- Automatic model parallelism (splitting models across GPUs)
+- Managed hyperparameter tuning
+- Built-in MLOps features (monitoring, A/B testing)
+
+SageMaker simplifies training orchestration but locks users into AWS APIs. Custom training code requires minimal SageMaker modifications.
+
+**Google Cloud Vertex AI**
+
+Vertex AI provides:
+- Native JAX/PyTorch support
+- Distributed training frameworks (Vertex AI distributed training)
+- AutoML for tabular data
+- Generative AI integration (PaLM API)
+
+Vertex AI emphasizes Google's strengths (JAX compatibility, research integration). Tensorflow developers find tighter integration than PyTorch users.
+
+**Winner Analysis**
+
+teams heavy on PyTorch prefer AWS SageMaker. JAX-first teams prefer GCP Vertex AI. Custom training code works equally well on both.
+
+## Performance Benchmarks
+
+Direct performance comparison across hardware.
+
+**LLM Training Throughput (samples/second)**
+
+Training Llama 70B, batch size 256, mixed precision:
+
+| Instance | Throughput | Time to 100k steps |
+|----------|-----------|------------------|
+| AWS p5 (8x H100) | 123 samples/sec | 13.6 hours |
+| GCP A3-Highgpu (8x H100) | 120 samples/sec | 14.0 hours |
+| AWS p4d (8x A100) | 100 samples/sec | 17.0 hours |
+| GCP TPU v5e (16 pods) | 125 samples/sec | 13.3 hours |
+
+TPU v5e and p5 achieve parity. A100-based systems lag 15-20% in throughput.
+
+**Inference Latency (tokens/second)**
+
+Llama 70B inference, batch size 32:
+
+| Instance | Tokens/sec | 1000-token generation |
+|----------|-----------|---------------------|
+| AWS g4dn.12xlarge (8x T4) | 48 tok/sec | 20.8 sec |
+| GCP a2-highgpu-16g (16x A100) | 280 tok/sec | 3.6 sec |
+| AWS p4d.24xlarge (8x A100) | 280 tok/sec | 3.6 sec |
+| AWS p5.48xlarge (8x H100) | 410 tok/sec | 2.4 sec |
+
+H100 substantially outperforms A100 on inference. T4 suitable only for development.
+
+## Total Cost of Ownership Analysis
+
+Complete cost accounting includes compute, storage, egress, and operational overhead.
+
+**12-Month Training Cost (70B Model)**
+
+Scenario: Train 70B model, checkpoint every epoch (72 hours), egress checkpoints to S3/Cloud Storage.
+
+**AWS p4d route:**
+- Compute (p4d on-demand): $32.77/hour × 2,160 hours = $70,826
+- S3 storage (10GB daily): $0.023/GB-month × 10 × 12 = $2.76
+- Egress (1TB total): $0.02/GB × 1,024 = $20.48
+- Total: $70,849
+
+**GCP TPU v5e route:**
+- Compute (TPU preemptible): $9.07/hour × 2,160 hours = $19,591
+- Cloud Storage (10GB daily): $0.020/GB-month × 10 × 12 = $2.40
+- Egress (1TB total): $0.12/GB × 1,024 = $122.88
+- Total: $19,716
+
+GCP saves $51,133 (72%) through TPU efficiency and lower egress preference (reduced training time).
+
+**Long-term Production Inference Cost (70B Model)**
+
+Scenario: Serve 70B model continuously, process 1M tokens/day (inference only).
+
+**AWS approach (p4d for optimal latency):**
+- Compute (p4d reserved, 1-year): $22.94/hour × 730 = $16,746/month
+- Storage/egress: Negligible
+- Operational overhead: ~2 FTE ($400k/year = $33k/month)
+- Total: $49,746/month or $596,952/year
+
+**GCP approach (TPU v5e):**
+- Compute (TPU v5e reserved): $19.56/hour × 730 = $14,289/month
+- Storage/egress: Negligible
+- Operational overhead: ~1.5 FTE ($300k/year = $25k/month)
+- Total: $39,289/month or $471,468/year
+
+GCP saves $125,484 annually (21%) through simpler operations and cheaper compute.
+
+**Winner: Context Dependent**
+
+- Short-term training (< 1 month): Google Cloud (TPU preemptible)
+- Long-term committed use (> 1 year): Google Cloud (TPU reserved)
+- Mixed workload (training + inference): AWS (ecosystem maturity, regional availability)
+
+## FAQ
+
+**Which provider has faster provisioning?**
+Google Cloud (typically 2-7 days). AWS (typically 2-4 weeks). Both impose capacity constraints; TPU availability remains best.
+
+**Should teams use spot/preemptible instances?**
+Yes, for training workloads with checkpointing. Spot pricing (70% discount) justifies engineering overhead. Interruption risk acceptable for training.
+
+**Does network performance matter for my training?**
+Only for very large clusters (64+ GPUs). Single 8-GPU clusters see negligible network impact. Network matters for distributed training across multiple instance types.
+
+**Can I use AWS and Google Cloud simultaneously?**
+Possible but impractical. Cross-cloud egress costs ($0.02-0.12/GB) exceed compute savings. Maintain separate clusters per provider.
+
+**Which provider should new startups choose?**
+Google Cloud. TPU v5e pricing and availability advantage justify slight ecosystem learning curve. AWS for teams with existing CUDA expertise.
+
+**Are regional differences significant?**
+Yes for latency-sensitive inference. Data residency requirements drive region selection regardless of cost.
+
+## Related Resources
+
+- [GPU Cloud Pricing Comparison](/gpus)
+- [Google Cloud GPU Pricing](/gpus/googlecloud)
+- [AWS vs Azure GPU Pricing](/articles/aws-vs-azure-gpu-pricing)
+- [Vertex AI Pricing Guide](/articles/vertex-ai-pricing)
+- GPU Selection Guide
+
+## Sources
+
+- AWS EC2 Pricing: https://aws.amazon.com/ec2/pricing/on-demand/
+- Google Cloud Pricing: https://cloud.google.com/pricing
+- AWS p5 Instance Specifications: https://aws.amazon.com/ec2/instance-types/p5/
+- Google Cloud A3 Instances: https://cloud.google.com/compute/docs/gpus
+- Google Cloud TPU v5e: https://cloud.google.com/tpu/docs/v5e

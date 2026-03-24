@@ -1,0 +1,199 @@
+---
+title: 'LLM API Gateway: Build vs Buy Comparison'
+slug: llm-api-gateway-build-vs-buy-comparison
+description: >-
+  Complete comparison of building custom LLM API gateways versus buying
+  third-party solutions. Cost analysis, features, and implementation guidance as
+  of March 2026.
+date: '2026-03-22'
+author: DeployBase
+---
+## Contents
+
+- [What is an LLM API Gateway](#what-is-an-llm-api-gateway)
+- [Buy Options Review](#buy-options-review)
+- [Build Approach Analysis](#build-approach-analysis)
+- [Cost Comparison](#cost-comparison)
+- [Feature Matrix](#feature-matrix)
+- [Implementation Considerations](#implementation-considerations)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## What is an LLM API Gateway
+
+One interface to many models. Handles auth, rate limiting, routing, cost tracking.
+
+Switch providers without rewriting code. Use OpenAI one day, Anthropic the next. Same client code.
+
+Core functionality includes:
+- Provider abstraction (unified API format)
+- Request routing and load balancing
+- Token counting and cost attribution
+- Rate limiting and quota management
+- Request logging and analytics
+- Fallback mechanisms for reliability
+
+## Buy Options Review
+
+### Hosted Solutions
+
+**LiteLLM Cloud**: Hosted version of the LiteLLM open-source gateway, providing managed deployment with built-in provider support. Pricing starts at $0.05 per 1M tokens routed plus fixed monthly fee.
+
+**Amazon Bedrock**: AWS-managed service aggregating multiple models from Anthropic, Meta, Mistral, and others. Pricing passes through provider costs with 15-25% markup.
+
+**Replicate Gateway**: Simplified proxy for open-source models with built-in caching.
+
+**Together AI**: Managed platform routing to open-source and proprietary models.
+
+These solutions require minimal infrastructure. Monthly costs range from $100-1,000 depending on token volume.
+
+### Self-Hosted Open Source
+
+**LiteLLM Server**: Self-host LiteLLM gateway component. Deploy on Kubernetes or traditional servers.
+
+**Outlines**: Lightweight Python gateway focusing on structured outputs.
+
+**llama.cpp**: C++ inference engine that can serve models via a built-in HTTP API endpoint, usable as a lightweight self-hosted backend.
+
+Self-hosted options reduce variable costs to hardware only. Initial setup requires 2-4 engineering weeks.
+
+## Build Approach Analysis
+
+Building custom gateways provides maximum control and optimization opportunities.
+
+### Advantages
+
+**Custom Optimization**: Implement provider-specific optimizations. Route slower requests to faster providers. Implement smart fallbacks based on latency.
+
+**Cost Control**: Direct provider relationships allow volume discounts. No SaaS markup applied.
+
+**Feature Customization**: Build domain-specific functionality (specialized caching, prompt optimization, output validation).
+
+**Compliance Requirements**: Keep all data within internal systems for regulated industries.
+
+**No Vendor Lock-in**: Change providers without platform constraints.
+
+### Disadvantages
+
+**Development Cost**: Initial build requires 6-12 engineering weeks. Estimate 2-3 engineers at $150-250/hour.
+
+**Maintenance Burden**: Ongoing updates, monitoring, and debugging consume engineering resources.
+
+**Complexity Management**: Multi-provider support adds operational complexity.
+
+**Scalability Challenges**: Building for global scale requires additional infrastructure.
+
+**Security Responsibility**: Complete responsibility for API security, authentication, and data protection.
+
+## Cost Comparison
+
+### Buy Scenario (Hosted)
+
+**LiteLLM SaaS**: 1B tokens monthly at $50K/month provider costs
+
+- LiteLLM fee: $0.05 per 1M tokens = $50
+- Fixed monthly fee: $500
+- Total: $50,550/month
+- Annual: $606,600
+
+**Amazon Bedrock**: Same 1B tokens at $50K/month provider costs
+
+- Bedrock markup: 20% = $10,000
+- Total: $60,000/month
+- Annual: $720,000
+
+### Build Scenario
+
+**Initial Development**: 3 engineers at $200/hour for 10 weeks
+
+- Engineering cost: 3 × 40 hours/week × 10 weeks × $200 = $240,000
+- Infrastructure setup: $5,000
+- Total initial: $245,000
+
+**Ongoing Operations**: 1 full-time engineer for maintenance
+
+- Annual cost: $200,000
+- Infrastructure: $5,000/month = $60,000/year
+- Total annual: $260,000
+
+**Multi-Year Comparison**:
+- Year 1: $245,000 build + $260,000 ops = $505,000
+- Year 2-3: $260,000/year operations only
+
+Build approach achieves cost parity with SaaS by month 18-24. Teams operating gateways 3+ years benefit from building.
+
+## Feature Matrix
+
+| Feature | LiteLLM | Bedrock | Self-Hosted |
+|---------|---------|---------|-------------|
+| Multi-provider routing | Yes | Limited | Yes |
+| Custom auth | Limited | AWS IAM | Full control |
+| Provider fallback | Yes | No | Custom |
+| Rate limiting | Yes | Yes | Custom |
+| Request caching | Yes | Limited | Custom |
+| Cost tracking | Yes | Yes | Custom |
+| Compliance ready | No | AWS compliance | Yes |
+| Downtime SLA | 99.5% | 99.99% | Self-managed |
+| Setup time | Minutes | Hours | Weeks |
+| Monthly cost (1B tokens) | $550 | $10,000 | $5,000 |
+
+## Implementation Considerations
+
+### Choosing Buy
+
+Teams should consider hosted solutions when:
+- Token volume under 500B monthly
+- Compliance requirements minimal
+- Team lacks infrastructure expertise
+- Rapid deployment critical
+
+### Choosing Build
+
+Build when:
+- Token volume exceeds 1B monthly
+- Custom routing logic valuable
+- Compliance demands internal control
+- Cost optimization critical
+- Multi-year timeline
+
+### Hybrid Approach
+
+Start with hosted solution for 6-12 months gathering requirements. Build custom gateway once patterns emerge and volume justifies engineering investment.
+
+Many teams use [self-hosted LLM](/articles/run-ai-locally) for some services while maintaining documentation and standards. Compare compliance options using [secure compliant LLM hosting in the cloud](/articles/best-gpu-cloud-for-government-defense).
+
+## FAQ
+
+**How many tokens pass through typical gateways?**
+SaaS gateways typically handle 100M-10B tokens monthly. Self-hosted deployments range from 1B-100B tokens monthly depending on organization size.
+
+**What's the latency overhead of API gateways?**
+Well-implemented gateways add 20-100ms latency. LiteLLM adds approximately 50ms. Bedrock adds 100-200ms. Custom gateways optimized for latency achieve 20-50ms overhead.
+
+**Can gateways cache responses?**
+Yes. Semantic caching identifies similar requests and reuses prior responses. Token savings reach 30-50% on typical workloads.
+
+**What happens if a provider becomes unavailable?**
+Quality gateways implement provider fallback. Requests route to backup providers automatically. Fallback latency typically increases 50-100ms.
+
+**Do gateways work with fine-tuned models?**
+Yes. Fine-tuned models route through gateways like standard APIs. Some platforms charge premium rates for custom model serving.
+
+**How much engineering effort maintains a gateway?**
+Full-time engineer can manage gateways handling up to 10B tokens monthly. Beyond that, teams expand to 2-3 engineers.
+
+## Related Resources
+
+Explore self-hosting fundamentals through [self-hosted LLM](/articles/run-ai-locally) documentation. Consider compliance requirements in [secure compliant LLM hosting cloud](/articles/best-gpu-cloud-for-government-defense).
+
+Understand underlying infrastructure costs through [GPU pricing guide](/gpus) for compute requirements.
+
+## Sources
+
+- LiteLLM Documentation: https://docs.litellm.ai/
+- AWS Bedrock Pricing: https://aws.amazon.com/bedrock/pricing/
+- Outlines GitHub: https://github.com/outlines-ai/outlines

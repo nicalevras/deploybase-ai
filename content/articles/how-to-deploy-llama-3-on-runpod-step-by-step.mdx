@@ -1,0 +1,144 @@
+---
+title: 'How to Deploy Llama 3 on RunPod: Step-by-Step'
+slug: how-to-deploy-llama-3-on-runpod-step-by-step
+description: >-
+  Complete guide to deploying Llama 3 models on RunPod GPU cloud. Configuration,
+  setup, and inference API integration as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - deploy llama 3 runpod
+---
+## Contents
+
+- [Prerequisites](#prerequisites)
+- [Step 1: Create a RunPod Account and Pod](#step-1-create-a-runpod-account-and-pod)
+- [Step 2: Select GPU and Template](#step-2-select-gpu-and-template)
+- [Step 3: Launch and Connect to the Pod](#step-3-launch-and-connect-to-the-pod)
+- [Step 4: Start vLLM Inference Server](#step-4-start-vllm-inference-server)
+- [Step 5: Call the Inference API](#step-5-call-the-inference-api)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## Prerequisites
+
+Before deploying Llama 3 on RunPod, confirm:
+
+- RunPod account with billing configured
+- Hugging Face account with access to the [meta-llama/Meta-Llama-3-8B-Instruct](https://huggingface.co/meta-llama/Meta-Llama-3-8B-Instruct) or 70B model
+- Hugging Face API token (for gated model download)
+- Familiarity with SSH or terminal usage
+
+Llama 3 8B requires at minimum an RTX 3090 (24GB VRAM) or RTX 4090. Llama 3 70B requires 2xA100 80GB or 2xH100 80GB in FP16. INT8 quantization reduces the 70B requirement to a single A100 80GB.
+
+## Step 1: Create a RunPod Account and Pod
+
+1. Sign up or log in at [runpod.io](https://runpod.io)
+2. Add a payment method in **Billing**
+3. Navigate to **Pods** > **New Pod**
+
+## Step 2: Select GPU and Template
+
+For Llama 3 8B: select **RTX 4090** (24GB, ~$0.34/hr) or **A100 40GB** (~$1.09/hr).
+
+For Llama 3 70B: select **2x H100 SXM** (~$2.69/hr each) or use INT8 quantization on a single **A100 80GB** (~$1.89/hr).
+
+Under **Container Image**, use `vllm/vllm-openai:latest` which includes vLLM with OpenAI-compatible API out of the box.
+
+Set **Container Disk** to at least 50GB to accommodate model weights. Add your Hugging Face token as an environment variable: `HF_TOKEN=<your_token>`.
+
+## Step 3: Launch and Connect to the Pod
+
+Click **Deploy** and wait 2-5 minutes for the pod to start (model download included in first-boot time).
+
+Once running, open **Connect** > **SSH Terminal** or use the provided SSH command:
+
+```bash
+ssh root@<pod_ip> -p <ssh_port> -i ~/.ssh/id_ed25519
+```
+
+## Step 4: Start vLLM Inference Server
+
+If not using the vLLM template, install and launch manually:
+
+```bash
+pip install vllm
+python -m vllm.entrypoints.openai.api_server \
+  --model meta-llama/Meta-Llama-3-8B-Instruct \
+  --host 0.0.0.0 \
+  --port 8000
+```
+
+For the 70B model with tensor parallelism across 2 GPUs:
+
+```bash
+python -m vllm.entrypoints.openai.api_server \
+  --model meta-llama/Meta-Llama-3-70B-Instruct \
+  --tensor-parallel-size 2 \
+  --host 0.0.0.0 \
+  --port 8000
+```
+
+## Step 5: Call the Inference API
+
+The vLLM server exposes an OpenAI-compatible endpoint. Use it with any OpenAI client:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://<pod_ip>:8000/v1",
+    api_key="none"
+)
+
+response = client.chat.completions.create(
+    model="meta-llama/Meta-Llama-3-8B-Instruct",
+    messages=[{"role": "user", "content": "Explain quantum computing simply."}]
+)
+print(response.choices[0].message.content)
+```
+
+Map port 8000 in the RunPod pod settings under **Expose HTTP Ports** to access the API externally.
+
+
+
+
+## FAQ
+
+**How long does startup take?**
+2-5 minutes typically. Model download included in startup. Subsequent starts faster if template caches model.
+
+**Can we use Llama 3 70B on single GPU?**
+Not in FP16. Requires 2x H100 or quantization (INT8 needs 1x A100).
+
+**What's the cost to run Llama 3 8B 24/7?**
+RTX 4090 at $0.34/hour = $245/month. Llama 3 70B on dual H100 = $2.69 × 2 × 730 = $3,934/month.
+
+**Do we need API authentication?**
+Not by default. For production, add API gateway with auth or use credentials in header.
+
+**Can we host custom inference logic?**
+Yes, modify Dockerfile or deploy separate service alongside vLLM.
+
+**How do we update the model?**
+Terminate pod, deploy new pod with updated template, update endpoint URL in client code.
+
+## Related Resources
+
+- [GPU Memory Requirements for LLMs](/articles/gpu-memory-requirements-for-every-popular-llm)
+- [Best Model Serving Platforms](/articles/best-model-serving-platforms-in-2026)
+- [GPU Cloud for Startups](/articles/gpu-cloud-for-startups-how-to-save-money-on-compute)
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [Self-Hosting LLM Options](/articles/self-hosting-llm-docker-kubernetes-and-bare-metal-options)
+
+## Sources
+
+- vLLM Documentation (vllm.AI)
+- RunPod API Documentation (docs.runpod.io)
+- Meta Llama 3 Model Card (huggingface.co/meta-llama)
+- OpenAI API Compatibility (platform.openai.com/docs)
+- RunPod Community Templates (runpod.io/templates)

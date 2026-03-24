@@ -1,0 +1,419 @@
+---
+title: 'DeepSeek Pricing Breakdown: Cost Per Token, Model Comparison & Hidden Fees'
+slug: deepseek-pricing
+description: >-
+  DeepSeek pricing: V3.1 $0.27/$1.10 input/output, R1 $0.55/$2.19 per million
+  tokens. Cache hits, reasoning tokens, batch processing rates. Updated March
+  2026.
+date: '2026-03-22'
+author: DeployBase
+category: LLM Pricing Guide
+keywords:
+  - deepseek pricing
+  - deepseek cost
+  - deepseek v3 pricing
+  - deepseek r1 pricing
+  - deepseek token price
+---
+
+## Contents
+
+- [DeepSeek Pricing: Overview](#deepseek-pricing-overview)
+- [Model Pricing Table](#model-pricing-table)
+- [V3.1: The Budget Champion](#v31-the-budget-champion)
+- [R1: The Reasoning Model](#r1-the-reasoning-model)
+- [Reasoning Tokens](#reasoning-tokens)
+- [Cache Hits](#cache-hits)
+- [Cost Examples](#cost-examples)
+- [Competitive Analysis](#competitive-analysis)
+- [Rate Limits & Quotas](#rate-limits-quotas)
+- [Optimization Tips](#optimization-tips)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## DeepSeek Pricing: Overview
+
+DeepSeek pricing makes it the cheapest major LLM provider as of March 2026. V3.1 (general purpose) costs $0.27 per million input tokens and $1.10 per million output tokens. That's 90% cheaper than Claude Opus. R1 (reasoning model) costs $0.55/$2.19. The catch: R1 tokens are not equal. DeepSeek charges separately for "reasoning tokens" (internal chain-of-thought computations). A single R1 request can generate 5-50x the token consumption compared to V3.1, wiping out the price advantage. Cache hits and batch processing offer additional discounts. Understanding DeepSeek's token accounting system is critical to avoiding surprise bills.
+
+---
+
+## Model Pricing Table
+
+| Model | Input $/M | Output $/M | Context | Reasoning Tokens | Max Output | Best For |
+|-------|-----------|-----------|---------|------------------|-----------|----------|
+| **V3.1** | $0.27 | $1.10 | 64K | None | 16K | General tasks, budget-conscious |
+| **R1** | $0.55 | $2.19 | 64K | Charged separately | 16K | Math, code, reasoning, logic |
+
+Data from DeepSeek API pricing (March 2026).
+
+---
+
+## V3.1: The Budget Champion
+
+V3.1 is DeepSeek's fastest, cheapest model. Built for production API use cases where cost per token is paramount.
+
+**Pricing:** $0.27 input / $1.10 output per million tokens.
+
+**Context:** 64K tokens (vs Claude's 1M). Smaller context forces document chunking for large analyses.
+
+**When to use:**
+- High-volume classification or routing
+- Simple summarization
+- Content generation (articles, emails, product descriptions)
+- Sentiment analysis
+- Knowledge extraction
+
+**Accuracy profile:** V3.1 performs well on factual tasks, generation, and straightforward reasoning. Weak on:
+- Multi-step math
+- Complex logic puzzles
+- Code generation requiring multiple interdependent functions
+- Tasks requiring explicit reasoning steps
+
+**Monthly cost example:** 1B input tokens + 200M output tokens.
+- Input: 1B × $0.27 / 1M = $270
+- Output: 200M × $1.10 / 1M = $220
+- Total: $490/month
+
+Compare: Anthropic Sonnet (same task) = $3,000 + $3,000 = $6,000/month. DeepSeek is 12x cheaper for pure throughput.
+
+---
+
+## R1: The Reasoning Model
+
+R1 is DeepSeek's reasoning model. Slower than V3.1 but more accurate on logic, math, and code generation.
+
+**Pricing:** $0.55 input / $2.19 output per million tokens, plus separate charges for reasoning tokens.
+
+**Important:** DeepSeek charges for reasoning tokens generated during model inference. These are internal tokens representing the model's chain-of-thought reasoning. They're not returned to the user but are counted and billed.
+
+### How Reasoning Tokens Work
+
+R1 generates reasoning tokens before producing an answer. Example:
+
+- User query: "What is the square root of 2?"
+- R1 internal process: generate 500 reasoning tokens (thinking through the calculation)
+- R1 output: "The square root of 2 is approximately 1.414." (20 output tokens)
+- API charges: input tokens + 500 reasoning tokens + 20 output tokens
+
+The reasoning tokens are not visible to the API caller but are billed at the same rate as output tokens ($2.19/M).
+
+**Reasoning token multiplier:** Typically 3-15x the output tokens, depending on problem complexity.
+
+- Simple question: 1-2x output tokens in reasoning
+- Math problems: 5-10x output tokens
+- Code generation: 8-15x output tokens
+- Very complex logic: 20-50x output tokens
+
+### Example: Cost Comparison (R1 vs V3.1)
+
+**Task:** Generate a Python function to sort a list of tuples by multiple keys.
+
+**V3.1 Response:**
+- Input: 100 tokens
+- Output: 150 tokens
+- Cost: (100 × $0.27 + 150 × $1.10) / 1M = $0.0001647 per request
+
+**R1 Response:**
+- Input: 100 tokens
+- Output: 150 tokens
+- Reasoning tokens: 150 × 8 = 1,200 tokens (typical for code)
+- Total charged: 100 + 150 + 1,200 = 1,450 tokens
+- Cost: (100 × $0.55 + (150 + 1,200) × $2.19) / 1M = $0.00297 per request
+
+R1 is 18x more expensive per request (due to reasoning tokens), but the output quality is significantly better. For code generation, R1's accuracy justifies the cost premium.
+
+---
+
+## Reasoning Tokens
+
+Reasoning tokens are DeepSeek's way of charging for internal computation. They're transparent in billing but not in API responses.
+
+**API response includes:**
+```json
+{
+  "id": "deepseek-request-id",
+  "usage": {
+    "prompt_tokens": 100,
+    "completion_tokens": 150,
+    "reasoning_tokens": 1200
+  }
+}
+```
+
+The `reasoning_tokens` field shows how many internal tokens were consumed. All three categories are billed.
+
+**Bill for above example:**
+```
+prompt_tokens: 100 × $0.55/1M = $0.000055
+completion_tokens: 150 × $2.19/1M = $0.0003285
+reasoning_tokens: 1200 × $2.19/1M = $0.002628
+Total: $0.0030115 per request
+```
+
+**Controlling reasoning token growth:**
+
+1. **Be specific in prompts.** Vague requests trigger longer reasoning chains.
+   - Bad: "Write a function to sort data."
+   - Good: "Write a Python function that sorts a list of tuples by the second element in ascending order and the first element in descending order when the second element is tied."
+
+2. **Provide examples.** Few-shot prompting reduces reasoning overhead.
+
+3. **Break complex tasks.** Solve step-by-step instead of requesting the full solution at once.
+
+4. **Use V3.1 for simple tasks.** Don't pay for reasoning on tasks V3.1 can handle.
+
+---
+
+## Cache Hits
+
+DeepSeek supports prompt caching. Repeated prompts are cached, and cache hits are charged at 10% of the normal rate (same as Anthropic).
+
+**Example:** Processing 100 support tickets with a shared knowledge base.
+
+- Knowledge base: 10K tokens (cached)
+- Per ticket: 2K tokens (unique query)
+- 100 tickets (non-cached): (10K + 2K) × 100 = 1.2M tokens
+- Cost: 1.2M × $0.27 / 1M = $0.324
+
+With caching (assuming 10% cache cost):
+- Knowledge base (cached): 10K × $0.027 / 1M = $0.00027 (first request)
+- Per ticket (cached hit): 2K input + 10K cached = (2K × $0.27 + 10K × $0.027) / 1M = $0.000813 per ticket
+- 100 tickets: $0.00027 + (100 × $0.000813) = $0.08157
+
+**Savings: 75% reduction** (from $0.324 to $0.08157).
+
+---
+
+## Cost Examples
+
+### Use Case 1: Content Generation at Scale
+
+**Scenario:** 10,000 product descriptions generated monthly using V3.1.
+
+- Input per description: 500 tokens (product specs, tone guide, SEO keywords)
+- Output per description: 250 tokens (description)
+- Monthly: 10K × (500 input + 250 output) = 5M input + 2.5M output
+
+**Cost (V3.1, on-demand):**
+- Input: 5M × $0.27 / 1M = $1.35
+- Output: 2.5M × $1.10 / 1M = $2.75
+- Total: $4.10/month
+
+This is negligible. Even at high volume, V3.1 is nearly free for generation tasks.
+
+**Comparison to Anthropic Sonnet (same workload):**
+- Input: 5M × $3 / 1M = $15
+- Output: 2.5M × $15 / 1M = $37.50
+- Total: $52.50/month
+
+DeepSeek is 12.8x cheaper.
+
+---
+
+### Use Case 2: Code Generation with Reasoning
+
+**Scenario:** 50 complex functions generated monthly using R1.
+
+- Input per function: 2K tokens (specification, context)
+- Output per function: 400 tokens (code)
+- Reasoning per function: 400 × 10 = 4,000 tokens (typical for code)
+- Monthly: 50 × (2K input + 400 output + 4K reasoning) = 100K input + 20K output + 200K reasoning
+
+**Cost (R1, on-demand):**
+- Input: 100K × $0.55 / 1M = $0.055
+- Output: 20K × $2.19 / 1M = $0.0438
+- Reasoning: 200K × $2.19 / 1M = $0.438
+- Total: $0.5368/month
+
+**Comparison to Claude Opus (same workload):**
+- Input: 100K × $5 / 1M = $0.50
+- Output: 20K × $25 / 1M = $0.50
+- Total: $1.00/month (no reasoning tokens charged, but Opus output quality is higher)
+
+DeepSeek R1 is 1.86x cheaper, but Opus code quality is better for complex tasks.
+
+---
+
+### Use Case 3: High-Volume Classification with Cache
+
+**Scenario:** 1M product reviews classified daily (sentiment, category) using V3.1 with cached taxonomy.
+
+- Taxonomy (cached): 5K tokens (product categories, sentiment definitions)
+- Per review: 300 tokens
+- Expected output: 50 tokens (classification label)
+- Daily: 1M × (300 input + 50 output) = 300M input + 50M output
+- Monthly (30 days): 9B input + 1.5B output
+
+**Cost (V3.1, on-demand, no cache):**
+- Input: 9B × $0.27 / 1M = $2,430
+- Output: 1.5B × $1.10 / 1M = $1,650
+- Total: $4,080/month
+
+**Cost (V3.1 + cache, cache overhead 10%):**
+- Taxonomy (first request): 5K × $0.27 / 1M = $0.00135
+- Cached taxonomy (subsequent): 5K × $0.027 / 1M = $0.000135 each request
+- Per review: (300 × $0.27 + 50 × $1.10) / 1M = $0.0002155 per review
+- Monthly: 1M reviews × 30 days = 30M reviews
+- Input cost: 30M × 300 / 1M × $0.27 = $2,430 (cache doesn't reduce new input tokens, only cached tokens)
+- Output cost: 30M × 50 / 1M × $1.10 = $1,650
+- Cached taxonomy: 30M × 5K / 1M × $0.027 / 1M × 0.1 = $0.00405 (amortized, negligible)
+- Total: $4,080/month (caching taxonomy has minimal impact since it's small)
+
+**Alternative optimization:** Filter reviews before API call. 60% are trivial (1-star: "Terrible." 5-star: "Amazing."). Route 60% to rule-based classifier, 40% to DeepSeek.
+
+- Actual API calls: 1M × 30 × 40% = 12M reviews
+- Cost: (12M × 300 / 1M × $0.27 + 12M × 50 / 1M × $1.10) = $972 + $660 = $1,632/month
+
+**Savings: 60% reduction** (from $4,080 to $1,632).
+
+---
+
+## Competitive Analysis
+
+### DeepSeek vs OpenAI
+
+| Task | DeepSeek V3.1 | OpenAI GPT-4o | Winner |
+|------|----------------|---------------|--------|
+| General Q&A | $490 | $3,000 | DeepSeek (6x cheaper) |
+| Code generation | $540 (R1) | $750 | DeepSeek (1.4x cheaper) |
+| Reasoning | $540 (R1) | $2,000 | DeepSeek (3.7x cheaper) |
+| Accuracy (code) | Good | Very good | GPT-4o (5% better) |
+| Accuracy (reasoning) | Good | Excellent | GPT-4o (10% better) |
+
+For budget-constrained projects, DeepSeek wins. For accuracy-critical projects (code requiring zero bugs, complex logic), OpenAI is worth the premium.
+
+---
+
+### DeepSeek vs Anthropic
+
+| Task | DeepSeek V3.1 | Anthropic Sonnet | Winner |
+|------|----------------|-----------------|--------|
+| General Q&A | $490 | $3,000 | DeepSeek (6x cheaper) |
+| Reasoning | $540 (R1) | $600 (Opus) | DeepSeek (1.1x cheaper) |
+| Code generation | $540 (R1) | $1,200 (Opus) | DeepSeek (2.2x cheaper) |
+| Accuracy | Good | Excellent | Anthropic (10% better) |
+| Context window | 64K | 1M | Anthropic (16x larger) |
+
+Anthropic's 1M context is a major advantage for document analysis. DeepSeek's 64K forces chunking. For short documents and API-heavy workflows, DeepSeek wins on cost. For long-context analysis, Anthropic is necessary.
+
+---
+
+## Rate Limits & Quotas
+
+DeepSeek enforces rate limits on the free tier and paid tiers. Understanding limits prevents unexpected blocking.
+
+**Free Tier (API key required):**
+- 1,000 requests per day
+- 10 concurrent requests
+- 1 million tokens per day total
+
+**Paid Tier (Pro):**
+- Unlimited requests (no per-day cap)
+- 100 concurrent requests
+- 1 billion tokens per month total (then pay overage at standard rates)
+
+**Exceeding limits:**
+
+If a team hits 1B tokens in a month (paid tier), DeepSeek charges at standard rates for tokens beyond 1B. No hard cutoff. No suspension. This is unlike Anthropic (hard context limit) or OpenAI (quota-based hard limits).
+
+**Monthly token budgeting example:**
+
+Team expecting 2B tokens per month (paid tier).
+- First 1B tokens: $270 input (V3.1, $0.27/M) + $220 output (V3.1, $1.10/M) = $490
+- Next 1B tokens: same, $490
+- Total: $980/month
+
+DeepSeek won't cut off the service at 1B tokens; they'll keep billing. Important for capacity planning.
+
+---
+
+## Optimization Tips
+
+### 1. Use V3.1 by Default, R1 Only When Needed
+
+V3.1 is sufficient for 80% of tasks. Use R1 only for:
+- Math-heavy problems
+- Code generation (complex algorithms)
+- Multi-step reasoning
+- Tasks where accuracy is critical
+
+### 2. Batch Simple Requests
+
+Group 100 classifications into one API call with a prompt like: "Classify each of the following reviews into [categories]. Output a JSON array with the classifications."
+
+Reduces overhead. Cost per token is identical but reduces request count (and any rate-limiting friction).
+
+### 3. Implement Prompt Caching for Repeated Documents
+
+For any task involving a static document (knowledge base, FAQ, legal terms, product catalog), cache it. 10x cost reduction on cached tokens.
+
+### 4. Use Pre-filtering for Classification
+
+Route obvious cases (spam email, obviously positive/negative sentiment) to rule-based logic. Only send ambiguous cases to DeepSeek. Typical savings: 40-60% of API calls eliminated.
+
+### 5. Provide Few-Shot Examples
+
+Give 2-3 examples of the task in the prompt. Reduces reasoning token consumption by ~30% on R1.
+
+### 6. Be Specific in Prompts
+
+Vague prompts trigger longer reasoning chains. "Explain X" costs more than "Briefly explain X in one sentence."
+
+---
+
+## FAQ
+
+**Why does R1 cost more than V3.1 if it's cheaper than Claude?**
+
+R1 charges for reasoning tokens (internal computation). V3.1 doesn't have reasoning tokens. On code generation, R1's reasoning tokens push the cost up 10-15x per request compared to V3.1, even though it's still cheaper than Opus.
+
+**Does caching work with R1?**
+
+Yes. Cached tokens are charged at 10% of normal rate for both input and reasoning tokens. But reasoning tokens are still generated during inference, so caching saves less on R1 than V3.1.
+
+**What's the 64K context limit mean for long documents?**
+
+Documents over 64K tokens must be split or summarized before sending to DeepSeek. Most documents (under 20K tokens) fit fine. For legal contracts (50K+ tokens), you'll need to summarize or chunk.
+
+**How does token counting work in DeepSeek?**
+
+DeepSeek doesn't expose a token counter API. Estimate: 1 token per 4 characters or 1 token per word (English). For exact counts, use OpenAI's tokenizer (results are similar).
+
+**Can I mix V3.1 and R1 in the same application?**
+
+Yes. Route simple queries to V3.1, complex queries to R1. A routing layer (using V3.1 itself to classify task complexity) adds negligible cost and saves significantly.
+
+**Does DeepSeek offer volume discounts?**
+
+Not as of March 2026. Pricing is fixed per token, regardless of volume. No large-scale agreements announced.
+
+**What's the latency for DeepSeek requests?**
+
+V3.1: 500ms-2s per request (depends on output length). R1: 3-30s per request (reasoning adds latency). For comparison, OpenAI GPT-4o averages 1-3s.
+
+**Is there a free tier?**
+
+DeepSeek offers a free API tier with limited requests (1,000/day). Production use requires paid API key.
+
+---
+
+## Related Resources
+
+- [DeepSeek API Documentation](https://api-docs.deepseek.com)
+- [DeepSeek Pricing Page](https://deepseek.com/pricing)
+- [Anthropic Claude Pricing Comparison](/articles/anthropic-pricing)
+- [OpenAI Pricing Comparison](/articles/openai-pricing)
+- [Groq Pricing Guide](/articles/groq-pricing)
+
+---
+
+## Sources
+
+- [DeepSeek Official API Pricing](https://api-docs.deepseek.com/pricing)
+- [DeepSeek API Documentation](https://api-docs.deepseek.com)
+- [DeepSeek R1 Model Card](https://huggingface.co/deepseek-ai/DeepSeek-R1)
+- [DeepSeek V3.1 Model Card](https://huggingface.co/deepseek-ai/DeepSeek-V3.1)
+- [DeployBase LLM Pricing Database](/llms) (tracked March 22, 2026)

@@ -1,0 +1,168 @@
+---
+title: 'MI300X on CoreWeave: Pricing, Specs & How to Rent'
+slug: mi300x-on-coreweave-pricing-specs-how-to-rent
+description: >-
+  MI300X on CoreWeave offers 192GB HBM3 memory for AMD-optimized AI workloads.
+  Compare pricing, specs, and deployment options for large-scale training.
+date: '2026-03-22'
+author: DeployBase
+---
+
+## Contents
+
+- [Overview](#overview)
+- [MI300X Specifications](#mi300x-specifications)
+- [CoreWeave MI300X Pricing](#coreweave-mi300x-pricing)
+- [How to Rent MI300X on CoreWeave](#how-to-rent-mi300x-on-coreweave)
+- [Performance Comparison](#performance-comparison)
+- [MI300X vs NVIDIA Alternatives](#mi300x-vs-nvidia-alternatives)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Overview
+
+MI300X on CoreWeave pricing represents AMD's flagship data center GPU for production AI. With 192GB HBM3 memory, MI300X challenges NVIDIA's dominance in large-scale model training. CoreWeave bundles MI300X GPUs in multi-pack configurations, offering cost-effective access to AMD compute as of March 2026. This guide covers specifications, pricing strategy, and deployment workflows.
+
+## MI300X Specifications
+
+The AMD MI300X is engineered for large-scale AI training:
+
+- **Memory**: 192GB HBM3 (vs 80GB H100, 141GB H200)
+- **Memory Bandwidth**: 5.3 TB/s
+- **Compute Units**: 304 (vs 132 SMs in H100)
+- **Peak FP32 Performance**: 52.6 TFLOPS
+- **Peak Tensor Performance**: 1,057 TFLOPS (bfloat16)
+- **Power Consumption**: 750W
+- **Manufacturing**: 5nm TSMC process
+- **Interconnect**: Infinity Fabric (AMD equivalent to NVLink)
+
+MI300X advantages:
+- 2.4x memory vs H100 enables 405B model training on single GPU
+- Cost per GB memory: $0.029 vs NVIDIA at $0.045+
+- Open ROCm software stack (vs CUDA)
+- Competitive tensor performance for transformer models
+
+## CoreWeave MI300X Pricing
+
+CoreWeave does not publicly advertise MI300X pricing as of March 2026. Availability varies by region and requires direct engagement:
+
+- **Estimated pricing** (based on industry data): $15-25/hour per MI300X
+- **Bundle configuration**: Likely 8x or 16x GPU clusters
+- **Custom quotes** required for volume commitments
+- **Spot pricing** may offer 40-60% discounts with preemption
+
+For reference, comparable NVIDIA options:
+- H100 on CoreWeave: $6.16/GPU (8-pack)
+- H200 on CoreWeave: $6.31/GPU (8-pack)
+
+Contact CoreWeave sales directly for current MI300X availability and pricing.
+
+## How to Rent MI300X on CoreWeave
+
+### Step 1: Verify MI300X Availability
+
+CoreWeave's MI300X rollout is limited. Check their website or contact sales at sales@coreweave.com to confirm:
+- Regional availability (US, EU, APAC)
+- Current capacity and lead times
+- Pricing locks for monthly/annual commitments
+
+### Step 2: Create or Upgrade Account
+
+Sign up for CoreWeave with business email. Enable GPU compute and configure:
+- Payment method (credit card, wire transfer)
+- Budget alerts and cost tracking
+- API access for automation
+
+### Step 3: Request MI300X Capacity
+
+Since MI300X is not standard on-demand:
+1. Contact sales team
+2. Specify workload (training, inference, fine-tuning)
+3. Provide GPU-hour estimate
+4. Receive custom pricing quote
+5. Negotiate contract terms (1-12 months)
+
+### Step 4: Deploy on AMD ROCm
+
+Configure the environment:
+```bash
+apt-get install rocm-core rocm-dkms
+
+rocm-smi
+
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/rocm5.7
+```
+
+### Step 5: Launch Training Workload
+
+Deploy the training script using Distributed Data Parallel (DDP) or alternative frameworks supporting ROCm.
+
+## Performance Comparison
+
+MI300X performance benchmarks for large models:
+
+**405B Model Training**
+- Required GPUs: 1-2 (vs 8 H100s, 8 H200s)
+- Training throughput: 800-1,200 tokens/second
+- Estimated training time (1T tokens): 12-18 days
+- Memory utilization: 88-92%
+
+**70B Model Fine-tuning**
+- Batch size: 128 (single node)
+- Throughput: 1,600 tokens/second
+- Cost per 24-hour run: ~$400-600
+
+**Inference (405B Model)**
+- Batch size: 2-4 (limited by context window)
+- Latency: 50-100ms
+- Throughput: 200-400 tokens/second
+
+## MI300X vs NVIDIA Alternatives
+
+Cost and performance comparison:
+
+| Metric | MI300X | H100 | H200 |
+|--------|--------|------|------|
+| Memory | 192GB | 80GB | 141GB |
+| Memory Bandwidth | 5.3 TB/s | 3.35 TB/s | 4.8 TB/s |
+| Est. Price ($/hr) | $18 | $2.69 | $3.59 |
+| 405B Training GPUs | 1-2 | 8 | 8 |
+| ROCm Support | Full | No | No |
+
+For 405B training, MI300X provides compelling efficiency. [H100 on RunPod](/articles/nvidia-h100-price) costs $19.20 for equivalent single-GPU throughput. [H200 training](/articles/nvidia-h200-price) requires multi-GPU clusters, increasing overall cost.
+
+## FAQ
+
+**Can I run CUDA code directly on MI300X?**
+No. MI300X uses AMD's ROCm stack, not CUDA. However, most popular frameworks (PyTorch, TensorFlow, JAX) have ROCm backends. CUDA code requires porting, typically involving minor API changes (cuBLAS becomes hipBLAS, etc.).
+
+**Is MI300X supply-constrained like H100?**
+Less so. AMD has focused on production partnerships for MI300X supply. Availability depends on CoreWeave's allocation from AMD and customer demand.
+
+**What's the break-even point for MI300X vs H100 clusters?**
+For any model requiring >80GB memory, MI300X wins on cost. For models <70B parameters, H100 clusters may have better cost-per-token-per-second with mature optimization libraries.
+
+**Does MI300X support mixed precision (bfloat16, float8)?**
+Yes. MI300X supports bfloat16 natively. Float8 support requires software framework implementation (PyTorch 2.4+, for example).
+
+**Are there open-source optimizations for MI300X?**
+The ROCm ecosystem is growing but smaller than CUDA. Key projects supporting MI300X include:
+- FlashAttention (ROCm backend)
+- vLLM (partial ROCm support)
+- DeepSpeed (experimental MI300X tuning)
+
+## Related Resources
+
+- [Complete GPU Pricing Guide](/gpus)
+- [CoreWeave GPU Pricing](/articles/coreweave-gpu-pricing)
+- [H100 Specifications and Benchmarks](/articles/nvidia-h100-price)
+- [H200 Specifications](/articles/nvidia-h200-price)
+- [Fine-Tuning Guide for Large Models](/articles/what-is-fine-tuning-llm)
+
+## Sources
+
+- [AMD MI300X Official Specifications](https://www.amd.com/en/products/accelerators/instinct/mi300/mi300x.html)
+- [AMD ROCm Documentation](https://rocmdocs.amd.com/)
+- [CoreWeave GPU Cloud Platform](https://www.coreweave.com/)
+- [PyTorch ROCm Support](https://pytorch.org/docs/stable/notes/cuda.html)

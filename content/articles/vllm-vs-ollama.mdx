@@ -1,0 +1,397 @@
+---
+title: 'vLLM vs Ollama: Production Serving vs Local Inference'
+slug: vllm-vs-ollama
+description: >-
+  vLLM vs Ollama: production-grade inference engine vs local LLM runtime. Speed,
+  throughput, and deployment patterns compared for 2026. Current as of March
+  2026.
+date: '2026-03-21'
+author: DeployBase
+category: AI Tools Comparison
+keywords:
+  - vllm vs ollama
+  - vllm ollama
+  - vllm vs ollama comparison
+  - ollama vs vllm
+  - open source inference engine
+---
+
+## Contents
+
+- [vLLM vs Ollama: Core Difference](#vllm-vs-ollama-core-difference)
+- [Summary Comparison Table](#summary-comparison-table)
+- [Architecture Deep-Dive](#architecture-deep-dive)
+- [PagedAttention Explained](#pagedattention-explained)
+- [Deployment Patterns](#deployment-patterns)
+- [Performance and Throughput Benchmarks](#performance-and-throughput-benchmarks)
+- [Feature Comparison](#feature-comparison)
+- [Use Case Recommendations](#use-case-recommendations)
+- [Integration Ecosystems](#integration-ecosystems)
+- [Production Scaling Scenarios](#production-scaling-scenarios)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## vLLM vs Ollama: Core Difference
+
+vLLM and Ollama are both open-source inference engines. They solve completely different problems. Treating them as interchangeable wastes engineering time.
+
+vLLM is a production inference server. Built for throughput, multi-GPU scaling, and batching many concurrent API requests. Designed to serve models over HTTP/gRPC with continuous requests from thousands of clients. Powers large-scale inference deployments in data centers and cloud clusters.
+
+Ollama is a local model runtime. Purpose-built for running LLMs on personal machines: laptops, desktops, single-GPU boxes. No API server overhead. Models download once, run locally, respond to queries. Emphasis on simplicity: one command, model runs instantly.
+
+The choice matters enormously. vLLM is infrastructure. Ollama is a desktop app. vLLM requires engineering setup and knowledge. Ollama requires almost nothing. vLLM wins at scale. Ollama wins at convenience.
+
+Deploy vLLM to a cluster and serve 10,000 requests/hour from a few GPUs. Deploy Ollama to the laptop and serve 10 requests/hour locally. Both are "right" for their context.
+
+---
+
+## Summary Comparison Table
+
+| Dimension | vLLM | Ollama | Edge |
+|-----------|------|--------|------|
+| **Use Case** | Production inference at scale | Local/single-machine inference | Different purposes |
+| **Deployment** | Cloud clusters, Kubernetes, VMs | Laptop, Mac, desktop GPU | Ollama (simpler) |
+| **Setup Complexity** | High (Docker, config, tuning) | Minimal (download, run) | Ollama |
+| **Throughput** | 100-1000s requests/sec | 1-10 requests/sec | vLLM |
+| **Multi-GPU** | Yes, automatic scaling | Limited/workaround | vLLM |
+| **API Standard** | OpenAI-compatible HTTP API | REST API + local socket | vLLM (more standardized) |
+| **Memory Efficiency** | PagedAttention (20-40x better) | Baseline inference | vLLM |
+| **Model Zoo** | All open-source + proprietary | Open-source only | vLLM |
+| **Cost (self-hosted)** | Compute + ops overhead | Single machine | Ollama |
+| **First-Token Latency** | 50-200ms | 200-500ms | vLLM |
+
+Neither replaces the other. Use vLLM for teams serving production traffic. Use Ollama for individuals or local development.
+
+---
+
+## Architecture Deep-Dive
+
+### vLLM: Purpose-Built for Throughput
+
+vLLM's architecture prioritizes request batching and memory efficiency through a powerful technique: PagedAttention.
+
+Standard LLM inference allocates a full attention cache for every single request. Input tokens plus all output tokens. Pre-allocated upfront. If 100 users query the same model with different prompts simultaneously, that's 100 separate attention caches eating 100x the memory for the same compute.
+
+PagedAttention treats attention caches like operating system virtual memory. Attention blocks are allocated on-demand, not pre-allocated. Blocks are paged in and out as needed. Overhead is minimal.
+
+Real result: A single A100 with 80GB VRAM can serve **hundreds of concurrent requests** with vLLM. Same GPU with naive batching? Dozens at most. The efficiency gain is 10-40x depending on workload shape.
+
+Architectural requirement: vLLM assumes many concurrent requests arrive at unpredictable times. Benefits scale with request concurrency. Single-user workloads (one query at a time) see negligible improvement from PagedAttention.
+
+Memory management: vLLM keeps KV cache blocks in a pool. When a request finishes, its blocks return to the pool. New requests immediately grab available blocks. No allocation overhead, no fragmentation.
+
+### Ollama: Simplicity Over Optimization
+
+Ollama's architecture prioritizes ease of use. One GPU. One model. Process requests sequentially.
+
+No batching. No memory optimization tricks. No Kubernetes orchestration. Load model into VRAM, answer question, return response, wait for next query.
+
+The trade-off is predictable. Ollama is slower per request than vLLM for high concurrency. Processing 100 sequential queries on Ollama takes 100x longer than processing 100 concurrent requests on vLLM (assuming each query takes 1 second).
+
+But for one user, Ollama's simplicity is a massive win. Spin up, ask a question, get an answer. No DevOps. No configuration. Works offline.
+
+---
+
+## PagedAttention Explained
+
+PagedAttention is vLLM's core innovation. Understanding it explains vLLM's throughput advantage.
+
+Standard attention computes relationships between all input and output tokens. The key-value (KV) cache stores intermediate results to avoid recomputation. For a request processing 1000 input tokens and generating 500 output tokens, the KV cache holds 1500 × hidden_dim × 2 (key + value) bytes.
+
+With 100 concurrent requests, that's 100 × 1500 × 2 = 300,000 token-pairs worth of KV data in VRAM.
+
+PagedAttention virtualizes this. The 300,000 token-pairs are stored in **blocks** (e.g., 16 tokens per block = ~1,875 blocks). When a new request arrives, assign it a few blocks. As tokens are generated, assign more blocks. When the request finishes, reclaim its blocks.
+
+Fragmentation drops to near-zero. Efficiency improves dramatically because:
+1. Blocks are reused immediately
+2. No pre-allocation
+3. Memory usage scales with actual tokens, not worst-case capacity
+
+Benchmark: Llama 2 70B on a single A100.
+- Naive batching: 8-16 concurrent requests before OOM
+- vLLM with PagedAttention: 200+ concurrent requests at same latency
+
+---
+
+## Deployment Patterns
+
+### vLLM: Cloud and Kubernetes Clusters
+
+vLLM deploys in Docker containers, Kubernetes orchestration, or on cloud providers with GPU (RunPod, Lambda, CoreWeave, AWS g4dn instances).
+
+Typical setup:
+1. Write Dockerfile with vLLM runtime and model
+2. Configure model (Llama 3 70B, Mistral 8x7B, etc.)
+3. Launch 1 or more containers on GPU instances
+4. Load balance HTTP requests across instances
+5. Monitor throughput, memory, latency, costs
+
+Production setup: Terraform or Helm charts manage infrastructure. CI/CD pipelines push model updates and configs. Auto-scaling rules spin up more instances on traffic spikes, shut down during low usage.
+
+Real engineering overhead. Requires understanding Docker, Kubernetes, load balancing, monitoring. Break-even: teams with >100 concurrent requests per day. Below that, managed APIs are simpler.
+
+### Ollama: Local Machine or Docker
+
+Ollama runs on Mac, Windows, Linux, or inside Docker.
+
+Typical setup:
+1. Download and install Ollama
+2. Run: `ollama run llama2` or `ollama run mistral`
+3. Query locally at `http://localhost:11434`
+
+No configuration. Model downloads automatically (1-10 GB depending on model and quantization). First run takes minutes (download + initial load). Subsequent queries are fast.
+
+For shared access across a network: Ollama exposes an HTTP API, same as vLLM. But it's not designed for multi-client scaling. Works fine for small teams (5-10 people) on a LAN, breaks under production load.
+
+Docker deployment: same simplicity.
+```bash
+docker run -d -v ollama:/root/.ollama -p 11434:11434 ollama/ollama
+ollama run llama2
+```
+
+---
+
+## Performance and Throughput Benchmarks
+
+### Single-Request Latency
+
+Time from request to first token (p50 percentile):
+- vLLM: 50-200ms on A100
+- Ollama: 200-500ms on same GPU
+- vLLM Mini: 30-60ms
+
+vLLM is 2-5x faster due to kernel-level optimizations and compiled inference kernels (CUTLASS, cuBLAS). Ollama prioritizes correctness and ease over latency.
+
+For conversational AI, that difference is perceptible. 50ms feels instant. 250ms feels delayed. The UX gap is real.
+
+### Concurrent Request Throughput
+
+vLLM on A100 with PagedAttention:
+- 100 concurrent requests (1K tokens each): 500-2000 tokens/sec aggregate throughput
+- 200 concurrent requests: 1000-3000 tokens/sec
+- Request latency p99: stays <200ms even at 200 concurrent
+
+Ollama on same A100:
+- 1 sequential request at a time: 50-100 tokens/sec
+- 100 requests processed sequentially: takes 100x longer
+- Request latency p99: 200-500ms per request
+
+At scale, vLLM's advantage compounds. Process 10,000 requests/day: vLLM on one A100 handles it. Ollama requires 100+ GPUs to match throughput (because it's sequential).
+
+### Cost Per Token (Self-Hosted Infrastructure)
+
+vLLM on A100 cloud rental:
+- $1.19/hr at RunPod
+- Serving 1000 tokens/sec = 86.4M tokens/day
+- Cost per token: ($1.19 × 24 / 86.4M) = **$0.00033/token**
+
+Ollama on same A100:
+- $1.19/hr
+- Serving 100 tokens/sec = 8.64M tokens/day (because sequential)
+- Cost per token: ($1.19 × 24 / 8.64M) = **$0.0033/token**
+
+vLLM is 10x cheaper per token due to throughput efficiency.
+
+Single-user scenario flips: Ollama on consumer GPU (amortized) is cheaper than renting cloud infrastructure for vLLM.
+
+---
+
+## Feature Comparison
+
+### vLLM Features
+
+- **Request batching.** Automatic batching and scheduling of concurrent requests
+- **Quantization support.** AWQ, GPTQ, AQLM, fp16, int8 (memory efficient)
+- **Multi-GPU scaling.** Single request spans multiple GPUs via tensor parallelism
+- **OpenAI-compatible API.** Drop-in replacement for OpenAI (`/v1/completions`, `/v1/chat/completions`)
+- **Streaming.** Server-sent events (SSE) for token-by-token responses
+- **LoRA runtime loading.** Load different fine-tuned adapters without restarting
+- **Custom CUDA kernels.** Hardware-specific optimizations (flashattention, paged attention)
+- **Guided generation.** Constrain outputs to valid JSON, regex patterns, or grammar
+- **Vision models.** Multimodal inference (image + text queries)
+
+### Ollama Features
+
+- **Model download automation.** `ollama run llama2` fetches and runs Llama 2 (quantized variant)
+- **Quantization.** Built-in model quantization (GGML format, CPU or GPU)
+- **Multimodal models.** Vision support via LLaVA (image + text in single prompt)
+- **REST API.** Simple HTTP interface compatible with standard client libraries
+- **Model library.** Ollama registry (ollama.ai/library) has 100+ pre-packaged models
+- **Low setup.** Sensible defaults for most use cases, no complex configuration
+- **Offline operation.** Models run entirely locally, no external API calls
+- **Hot model swapping.** Load different models in sequence without restart
+
+---
+
+## Use Case Recommendations
+
+### Use vLLM For:
+
+**Production inference serving.** Multiple users, many concurrent requests, SLA requirements. APIs, chatbots, retrieval-augmented generation pipelines with high volume.
+
+Example: A startup runs a code assistant API. 1,000 developers query daily (avg 10K requests/day). vLLM on 2x A100s costs $2,000/month and handles the load comfortably. Ollama would require 50+ GPUs to match throughput (unrealistic).
+
+**Cost-sensitive, large-scale deployments.** vLLM's throughput efficiency reduces GPU count (and cost). At scale, vLLM is 10-50x cheaper than Ollama per request.
+
+**Multi-GPU training or inference.** vLLM's tensor parallelism allows 70B parameter models to run on 2x consumer GPUs. Ollama doesn't support this.
+
+**Fine-tuning at scale.** LoRA adapter management, multi-model serving, constrained generation for structured outputs.
+
+### Use Ollama For:
+
+**Local development and experimentation.** Test models on the machine. No infra setup. Run Llama 2 70B on a Mac with decent GPU (M1 Pro or better).
+
+**Solo users or small teams.** Knowledge workers, researchers, individual developers. One person, one machine, one model running locally.
+
+**Offline operation.** No internet required after model download. Sensitive data stays local.
+
+**Learning and tinkering.** Understand how LLMs work without cloud complexity. Read the source code (simple), modify, experiment.
+
+**Rapid prototyping.** Zero config. Answers in seconds. Iterate fast on prompts and logic before committing to production.
+
+### Hybrid Approach (Best Practice)
+
+Develop on Ollama locally. Deploy with vLLM to production. Same model, different runtimes.
+
+Flow:
+1. Download model with Ollama locally
+2. Test prompts, fine-tune prompt engineering
+3. Validate quality locally
+4. Package same model in Docker + vLLM for production
+5. Deploy to Kubernetes cluster
+
+---
+
+## Integration Ecosystems
+
+### vLLM Integration
+
+vLLM is OpenAI API-compatible. Most Python libraries support vLLM as a drop-in replacement:
+
+```python
+from openai import OpenAI
+client = OpenAI(
+ base_url="http://localhost:8000/v1",
+ api_key="sk-dummy"
+)
+response = client.chat.completions.create(
+ model="meta-llama/Llama-2-70b-hf",
+ messages=[{"role": "user", "content": "Hello"}]
+)
+```
+
+Langchain, LlamaIndex, and other RAG frameworks support vLLM natively. Kubernetes manifests and Helm charts available in the community. Integration is smooth.
+
+### Ollama Integration
+
+Ollama exposes a REST API:
+
+```bash
+curl http://localhost:11434/api/generate -d '{
+ "model": "llama2",
+ "prompt": "Hello"
+}'
+```
+
+Python clients (e.g., `ollama` package) provide simplified interfaces. Langchain and LlamaIndex support Ollama. Community integrations are solid.
+
+Ollama is less standardized than vLLM (no OpenAI API compatibility). Switching from Ollama to a cloud provider requires code changes (different endpoints, different response formats).
+
+---
+
+## Production Scaling Scenarios
+
+### Scenario 1: Startup Chat API (10K requests/day)
+
+Requirements: 50ms first-token latency, <100ms p99.
+
+vLLM approach:
+- 1x A100 at RunPod: $1.19/hr
+- Handles 1000+ concurrent requests with PagedAttention
+- Cost: $1.19 × 730 = **$869/month**
+- Per request: $869 / 10K requests = **$0.087/request**
+
+Ollama approach:
+- 10x RTX 4090s: 10 × $0.34 = **$3.40/hr**
+- Cost: $3.40 × 730 = **$2,482/month**
+- Per request: $2,482 / 10K = **$0.248/request**
+
+vLLM is 2.8x cheaper and requires 1/10 the GPUs.
+
+### Scenario 2: Large-Scale Deployment (1M requests/day)
+
+Requirements: <100ms p99, 99.9% uptime SLA.
+
+vLLM approach:
+- 4x A100 cluster with load balancing: 4 × $1.19 × 730 = **$3,476/month**
+- Handles 1M requests/day comfortably
+- Kubernetes auto-scaling handles spikes
+
+Ollama approach:
+- 400x RTX 4090s: unrealistic and uneconomical
+- Cost would exceed $10K/month
+
+vLLM is the only practical option at this scale.
+
+### Scenario 3: Local Development (Single User)
+
+No production requirements. Just want to experiment.
+
+vLLM: overkill. Setup time: 30 minutes. Complexity: medium.
+
+Ollama: perfect. Setup time: 2 minutes. Complexity: zero.
+
+---
+
+## FAQ
+
+**Can we use Ollama in production?**
+Technically yes, but not recommended. Ollama processes requests sequentially. High-volume production systems will bottleneck immediately. Use Ollama for low-traffic internal tools (<100 requests/day) or single-user production systems. For customer-facing products, vLLM is the only sane choice.
+
+**Is vLLM hard to set up?**
+Moderately. Requires Docker, Kubernetes knowledge, or manual VM setup. Easiest path: use a cloud provider with vLLM pre-installed (RunPod, Lambda). Hardest: bare metal Kubernetes cluster with GPU orchestration and monitoring.
+
+**Can we run vLLM on a consumer GPU (RTX 4090)?**
+Yes. vLLM works on any NVIDIA GPU with sufficient VRAM. A single RTX 4090 (24GB) runs Llama 2 7B easily, struggles with 70B (requires quantization or tensor parallelism). vLLM shines with multiple GPUs.
+
+**Does Ollama support multi-GPU?**
+Not natively. Ollama assumes one GPU. Workaround: run multiple instances on different GPUs, but that defeats the purpose (no load balancing, no shared model). For multi-GPU, vLLM is the right choice.
+
+**Can we use both vLLM and Ollama on the same machine?**
+Yes. No conflicts. Ollama runs on port 11434 by default. vLLM runs on port 8000 by default. Route traffic separately.
+
+**Which is faster?**
+vLLM on latency and throughput. Ollama on simplicity. Speed isn't Ollama's goal; convenience is.
+
+**Can we migrate from Ollama to vLLM without rewriting?**
+Mostly. Both expose HTTP APIs. Client code needs updating (different endpoints, different response formats). Application logic should transfer cleanly if written against a generic LLM abstraction.
+
+**Does vLLM cost more than Ollama?**
+At scale, vLLM is cheaper (fewer GPUs needed). Single user, Ollama is cheaper (one GPU, no infra cost). At medium scale (100-1000 requests/day), costs are similar; engineering time favors vLLM.
+
+**What's the future of both projects?**
+vLLM is actively developed by UC Berkeley (LLM Inference Lab) and supported by cloud providers. Ollama is backed by Ollama Inc. Both are mature and stable as of March 2026. No indication either is deprecated.
+
+---
+
+## Related Resources
+
+- [LLM Inference Platforms and Tools](/llms)
+- [Llama.cpp vs Ollama Comparison](/articles/llama-cpp-vs-ollama)
+- [LM Studio vs Ollama Comparison](/articles/lm-studio-vs-ollama)
+- [How to Use Ollama: Setup and Configuration](/articles/how-to-use-ollama)
+- [Open Source vs Closed Source LLMs](/articles/open-source-vs-closed-source-llm)
+
+---
+
+## Sources
+
+- [vLLM GitHub Repository](https://github.com/vllm-project/vllm)
+- [vLLM Documentation](https://docs.vllm.ai/en/latest/)
+- [Ollama GitHub Repository](https://github.com/ollama/ollama)
+- [Ollama Model Library](https://ollama.ai/library)
+- [PagedAttention Paper (vLLM Core Innovation)](https://arxiv.org/abs/2309.06180)
+- [DeployBase LLM Tool Tracker](/llms) (comparison observed March 21, 2026)

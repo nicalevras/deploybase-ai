@@ -1,0 +1,559 @@
+---
+title: 'How to Build an AI Agent: Framework Guide for Developers'
+slug: how-to-build-ai-agent
+description: >-
+  Build AI agents with LangChain, CrewAI, AutoGen, Claude SDK. Framework
+  comparison, tool integration, memory patterns, cost optimization guide 2026.
+date: '2026-03-22'
+author: DeployBase
+category: Development
+keywords:
+  - how to build ai agent
+  - ai agent framework
+  - agentic ai
+  - agent architecture
+  - tool use patterns
+---
+
+## Contents
+
+- [How to Build AI Agent: Building AI Agents](#how-to-build-ai-agent-building-ai-agents)
+- [Core Agent Architecture](#core-agent-architecture)
+- [Framework Comparison](#framework-comparison)
+- [Building with LangChain](#building-with-langchain)
+- [CrewAI for Multi-Agent Systems](#crewai-for-multi-agent-systems)
+- [AutoGen: Conversation Patterns](#autogen-conversation-patterns)
+- [Claude Agent SDK](#claude-agent-sdk)
+- [Tool Integration and Function Calling](#tool-integration-and-function-calling)
+- [Memory and State Management](#memory-and-state-management)
+- [Cost Optimization for Agent Inference](#cost-optimization-for-agent-inference)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## How to Build AI Agent: Building AI Agents
+
+AI agents have three layers: an LLM that reasons, tool execution environment, and orchestration logic. Most agents: observe state → reason → pick tools → execute → loop.
+
+**Minimum requirements:**
+- LLM with function calling (Claude, GPT-4, Gemini)
+- Tool definitions
+- Memory for context
+- State machine for loops
+- Cost tracking
+
+## Core Agent Architecture
+
+### The Agent Loop
+
+All agents share a common execution pattern. The loop repeats until termination conditions are met. For detailed framework comparisons, see [agentic AI frameworks](/articles/agentic-ai-frameworks).
+
+```
+Observe → Reason → Plan → Execute → Reflect → Loop
+```
+
+**Observe** means reading the current state. This includes task description, previous outputs, tool results, and available actions.
+
+**Reason** is the LLM generating thoughts and decisions based on observations. Quality of reasoning depends heavily on context window size and model capabilities.
+
+**Plan** involves determining which tools to call next, with what parameters. Function calling syntax varies by framework.
+
+**Execute** runs the selected tool in a sandboxed environment. Results become inputs for the next observation phase.
+
+**Reflect** allows the agent to evaluate whether progress is happening. Some frameworks include explicit reflection steps.
+
+The loop continues until the agent outputs a final answer or hits iteration limits.
+
+### Context Window Implications
+
+Context window size directly impacts agent effectiveness. Longer conversations accumulate tool results, previous reasoning traces, and intermediate outputs.
+
+Claude Sonnet 4.6 provides 200k context (as of March 2026), supporting extended reasoning chains. Smaller models like GPT-4.1 still offer 128k context. For long-running agents processing many tool results, larger context windows reduce information loss between iterations.
+
+Cost scales with context usage. An agent processing 100 tool calls and accumulating 150k tokens of conversation costs more than the same task structured to minimize context. Strategic context management becomes critical for production deployments.
+
+### Memory Architecture
+
+Agents need multiple memory layers. Working memory holds the current task and recent interactions. This refreshes each iteration. Long-term memory stores facts learned from previous tool results, applicable across runs.
+
+Simple implementations use system prompts to inject context. Sophisticated systems maintain vector databases of past interactions, retrieving relevant memories when needed.
+
+## Framework Comparison
+
+Four major frameworks dominate the agent space.
+
+| Framework | Best For | Learning Curve | Tool Integration | Memory Support |
+|-----------|----------|----------------|------------------|---|
+| **LangChain** | Prototyping, chains | Low-Medium | Excellent | Basic |
+| **CrewAI** | Multi-agent collab | Medium | Good | Built-in |
+| **AutoGen** | Conversation flows | Medium-High | Very Good | External |
+| **Claude SDK** | Advanced agents | High | Native | Custom |
+
+LangChain dominates for tutorials and quick prototypes. It abstracts common patterns into composable objects. Tool calling works well. The framework feels natural for developers coming from traditional software engineering.
+
+CrewAI emphasizes role-based agents. Each agent has a persona, goal, and backstory. This structure works well for systems where multiple agents cooperate toward shared objectives. The framework handles inter-agent communication.
+
+AutoGen treats agents as conversation participants. Agents exchange messages until consensus is reached or a termination condition triggers. This works well for reasoning tasks where dialogue between perspectives improves outcomes.
+
+Claude Agent SDK provides low-level control. It exposes the raw patterns without heavy abstraction. This appeals to teams building novel architectures or needing precise behavior control.
+
+## Building with LangChain
+
+### Setup and Basic Structure
+
+```python
+from langchain.agents import initialize_agent, Tool
+from langchain.llms import OpenAI
+from langchain.memory import ConversationBufferMemory
+
+llm = OpenAI(model="gpt-4.1", temperature=0)
+memory = ConversationBufferMemory()
+
+tools = [
+    Tool(
+        name="Search",
+        func=web_search,
+        description="Search the web for current information"
+    ),
+    Tool(
+        name="Calculator",
+        func=calculate,
+        description="Perform mathematical operations"
+    )
+]
+
+agent = initialize_agent(
+    tools=tools,
+    llm=llm,
+    agent="zero-shot-react-description",
+    memory=memory,
+    verbose=True
+)
+```
+
+The agent type determines reasoning strategy. "zero-shot-react-description" uses the ReAct pattern: Reasoning, Action, Observation. It works without training examples.
+
+### Tool Definition
+
+Tools map natural language to functions. Quality descriptions matter significantly. Vague descriptions lead to incorrect tool selection.
+
+```python
+def search_financial_data(query: str) -> str:
+    """
+    Search financial databases for stock prices, earnings, and market data.
+
+    Args:
+        query: Specific question about financial data, e.g., 'AAPL earnings 2024'
+
+    Returns:
+        Relevant financial information with dates and sources
+    """
+    # Implementation
+    pass
+
+tool = Tool(
+    name="FinancialSearch",
+    func=search_financial_data,
+    description="Search financial databases for stock prices, earnings, and market data. Use this for investment research questions."
+)
+```
+
+Good descriptions specify use cases and expected input formats. This reduces hallucination and incorrect selections.
+
+### Agent Execution
+
+```python
+response = agent.run("What is the market cap of Apple?")
+```
+
+During execution, the framework logs each decision. Intermediate reasoning steps appear in verbose output. Tool results flow back into context for the next decision cycle.
+
+Cost tracking requires monitoring API calls. Explore available [tools for cost tracking](/tools). LangChain provides callback hooks for this.
+
+```python
+from langchain.callbacks import get_openai_token_count
+
+class CostTracker(BaseCallbackHandler):
+    def __init__(self):
+        self.total_tokens = 0
+
+    def on_llm_end(self, response, **kwargs):
+        tokens = response.llm_output.get("token_usage", {})
+        self.total_tokens += tokens.get("total_tokens", 0)
+```
+
+## CrewAI for Multi-Agent Systems
+
+### Agent Definition
+
+CrewAI structures agents with explicit roles.
+
+```python
+from crewai import Agent, Task, Crew
+
+researcher = Agent(
+    role="Research Analyst",
+    goal="Provide accurate, well-researched information",
+    backstory="Expert analyst with 10 years experience",
+    tools=[web_search_tool, database_tool]
+)
+
+writer = Agent(
+    role="Technical Writer",
+    goal="Explain complex concepts clearly",
+    backstory="Former software engineer who writes documentation",
+    tools=[formatting_tool, template_tool]
+)
+```
+
+Roles shape reasoning behavior. The agent considers its persona when generating responses.
+
+### Task Creation and Orchestration
+
+```python
+research_task = Task(
+    description="Research best practices for API design",
+    agent=researcher,
+    expected_output="Comprehensive report with citations"
+)
+
+writing_task = Task(
+    description="Write a blog post about API design best practices",
+    agent=writer,
+    expected_output="2000-word blog post in markdown"
+)
+
+crew = Crew(
+    agents=[researcher, writer],
+    tasks=[research_task, writing_task],
+    process=Process.sequential
+)
+
+result = crew.kickoff()
+```
+
+Sequential processing ensures the researcher completes before the writer begins. Hierarchical processing assigns a manager agent to coordinate other agents.
+
+### Multi-Agent Reasoning
+
+When multiple agents collaborate, each brings different expertise. The framework handles context passing between agents. Earlier agents' outputs become inputs for downstream agents.
+
+This pattern works well for complex tasks decomposing into specialized subtasks. A research agent gathers information. An analyst agent evaluates findings. A writer agent produces final output.
+
+## AutoGen: Conversation Patterns
+
+### Agent Registration
+
+```python
+from autogen import AssistantAgent, UserProxyAgent
+
+config_list = [{"model": "gpt-4.1", "api_key": "your-key"}]
+
+assistant = AssistantAgent(
+    name="Assistant",
+    llm_config={"config_list": config_list}
+)
+
+user_proxy = UserProxyAgent(
+    name="User",
+    human_input_mode="NEVER"
+)
+```
+
+AutoGen distinguishes between assistant agents (LLM-powered) and user proxy agents (represent users). Proxy agents can approve actions or provide human feedback.
+
+### Conversation Loop
+
+```python
+user_proxy.initiate_chat(
+    assistant,
+    message="Analyze this dataset and provide insights"
+)
+```
+
+The framework manages message exchange until a termination condition is met. Termination conditions include word limits, iteration counts, or explicit "exit" messages.
+
+### Tool Use in AutoGen
+
+```python
+def analyze_data(file_path: str) -> str:
+    # Analysis implementation
+    return "Dataset contains X records..."
+
+assistant.register_function(
+    func=analyze_data,
+    description="Analyze a CSV file and return statistical summaries"
+)
+```
+
+Tools are functions registered on specific agents. When an agent decides to use a tool, it calls the function and receives results.
+
+## Claude Agent SDK
+
+The Claude Agent SDK from Anthropic provides native support for agentic patterns. Unlike wrapper frameworks, it exposes the core agent logic directly. Learn more about [AI agent frameworks](/articles/ai-agent-framework) and [MCP server integration](/articles/what-is-mcp-server).
+
+### Basic Implementation
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic()
+
+tools = [
+    {
+        "name": "get_weather",
+        "description": "Get weather for a location",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "location": {
+                    "type": "string",
+                    "description": "City and state"
+                }
+            }
+        }
+    }
+]
+
+messages = []
+
+def run_agent(user_message: str):
+    messages.append({"role": "user", "content": user_message})
+
+    while True:
+        response = client.messages.create(
+            model="claude-opus-4-6",
+            max_tokens=1024,
+            tools=tools,
+            messages=messages
+        )
+
+        if response.stop_reason == "tool_use":
+            # Process tool calls
+            for content_block in response.content:
+                if content_block.type == "tool_use":
+                    tool_name = content_block.name
+                    tool_input = content_block.input
+                    tool_result = execute_tool(tool_name, tool_input)
+
+                    messages.append({"role": "assistant", "content": response.content})
+                    messages.append({
+                        "role": "user",
+                        "content": [{
+                            "type": "tool_result",
+                            "tool_use_id": content_block.id,
+                            "content": tool_result
+                        }]
+                    })
+        else:
+            # Agent reached conclusion
+            return response.content[-1].text
+```
+
+The SDK returns structured tool use objects. Developers explicitly handle tool results and continue the conversation loop.
+
+### Advantages of Low-Level Control
+
+Direct control enables custom termination logic, specialized caching strategies, and precise cost monitoring. Developers see exactly what happens at each iteration.
+
+The trade-off is verbosity. Simple agents require more code than with LangChain.
+
+## Tool Integration and Function Calling
+
+### Designing Tool Functions
+
+Effective tools have clear boundaries. A weather tool should return weather. A calculator tool should do math. Mixing responsibilities confuses the agent.
+
+```python
+def calculate_compound_interest(principal: float, rate: float, years: int) -> str:
+    """Calculate compound interest using the standard formula."""
+    result = principal * (1 + rate) ** years
+    return f"${result:.2f}"
+
+def financial_analysis(principal: float, rate: float, years: int, action: str) -> str:
+    """Do financial stuff."""
+    if action == "compound":
+        # Calculate compound interest
+    elif action == "simple":
+        # Calculate simple interest
+    # etc
+```
+
+### Function Calling Patterns
+
+Different models have different function calling syntax. Claude uses tool_use blocks. GPT models use function_call format. Gemini uses function_declaration syntax.
+
+Most frameworks abstract these differences. Developers define tools once, and the framework handles model-specific formatting.
+
+### Tool Result Integration
+
+After a tool executes, results must flow back into the agent context. Different frameworks handle this differently.
+
+LangChain's agent automatically incorporates results into the next observation. AutoGen requires explicit result messages. The Claude SDK requires manual message construction.
+
+This difference affects code structure. With LangChain, the framework handles orchestration. With the Claude SDK, developers orchestrate explicitly.
+
+### Streaming Tool Results
+
+For long-running tools (database queries, API calls), streaming provides feedback before completion.
+
+```python
+def search_large_dataset(query: str):
+    for result in fetch_results(query):
+        yield f"Found: {result}"
+        time.sleep(0.1)
+```
+
+Some frameworks buffer entire results. Others support streaming. Check the framework documentation for streaming support.
+
+## Memory and State Management
+
+### Conversation History
+
+The simplest memory is conversation history. Every message since task start gets included in context. This works for brief interactions but becomes expensive as conversations grow.
+
+Claude Sonnet 4.6 supports 200k token context. GPT-4.1 offers 128k. This is substantial, but 100 tool calls with detailed results can consume half the context window.
+
+### Hierarchical Memory
+
+Sophisticated agents use multiple memory tiers:
+
+1. **Working Memory**: Current task, recent interactions, immediate context (last 5-10 turns)
+2. **Session Memory**: Full conversation history for the current session
+3. **Long-term Memory**: Facts and learnings persisted across sessions
+
+Working memory appears in the prompt. Session memory is available for retrieval if needed. Long-term memory lives in external storage.
+
+### Vector Database Integration
+
+For long-term memory, vector databases (Pinecone, Weaviate, Milvus) store semantic representations of past interactions.
+
+When starting a new task, the agent retrieves relevant memories using semantic search:
+
+```python
+previous_insights = vector_db.search(
+    query=current_task,
+    top_k=5
+)
+```
+
+This pattern works well for multi-session agents that learn over time.
+
+### State Serialization
+
+Production agents need to pause and resume. Serializing state requires capturing:
+
+- Agent reasoning trace
+- Tool results
+- Memory snapshots
+- Current task
+
+JSON provides a simple serialization format:
+
+```json
+{
+  "task_id": "analyze_sales_data_2026-03",
+  "state": "awaiting_tool_result",
+  "pending_tool": "database_query",
+  "context_length": 45000,
+  "messages": [...],
+  "session_memory": {...}
+}
+```
+
+On resume, deserialize state and continue the agent loop from where it paused.
+
+## Cost Optimization for Agent Inference
+
+### Token Accounting
+
+Each agent iteration consumes tokens for:
+- Prompt tokens (initial instruction + conversation history)
+- Completion tokens (agent reasoning)
+- Tool results (added to context)
+
+As conversations grow, prompt tokens dominate. A 100-turn conversation with 150k context is expensive regardless of completion length.
+
+Example cost for agents using Claude Sonnet 4.6 (as of March 2026):
+- Input: $3 per 1M tokens
+- Output: $15 per 1M tokens
+
+A 150k token conversation with 5k output costs: (150 * $3 + 5 * $15) / 1000 = $0.52 per iteration.
+
+### Cost Reduction Strategies
+
+**Strategy 1: Summarization.** After every 10 turns, summarize conversation into a single paragraph. Replace the full history with the summary. This keeps context bounded.
+
+**Strategy 2: Selective History.** Include only the last N messages in context. Older messages get archived.
+
+**Strategy 3: Compression.** Use a smaller, cheaper model (GPT-5 Mini at $0.25/$2) for routine tasks. Escalate to Claude Sonnet 4.6 only when reasoning complexity increases.
+
+**Strategy 4: Batch Processing.** If multiple similar tasks exist, batch them. A single agent iteration processing 10 similar queries amortizes fixed costs.
+
+**Strategy 5: Tool Result Pruning.** Tool results often contain noise. Extract only relevant fields before adding to context.
+
+```python
+full_result = {
+    "status": 200,
+    "data": [...],
+    "metadata": {...},
+    "debug_info": {...}
+}
+
+relevant_result = json.dumps(full_result["data"])
+```
+
+### Comparing Framework Costs
+
+All frameworks eventually call the same LLM API. Cost differences come from:
+- Token counting accuracy (some frameworks overestimate)
+- Internal retries (failed requests)
+- Middleware overhead (negligible for most)
+
+For cost-sensitive applications, prefer frameworks with transparent token accounting. The Claude SDK exposes token usage directly. LangChain requires callbacks.
+
+## FAQ
+
+**Q: What model should I use for agentic applications?**
+
+Claude Sonnet 4.6 and GPT-4.1 are the current standards. Both support 128k+ context and reliable tool use. For simple agents, GPT-5 Mini ($0.25/$2) handles basic tasks. Larger models improve reasoning quality but increase cost.
+
+**Q: How do I prevent infinite loops?**
+
+Set hard iteration limits. Most frameworks support max_iterations parameter. Also, track iteration count and exit if stuck.
+
+```python
+if iteration_count > max_iterations:
+    return "Task exceeded maximum iterations"
+```
+
+**Q: Should I use an agent or a chain for this task?**
+
+Chains execute predetermined sequences. Agents reason about next steps. If the task has a known, fixed sequence, use chains. If the task requires dynamic decision-making, use agents. Many real-world tasks use both: an agent coordinates multiple chains.
+
+**Q: How does multi-agent reasoning compare to single-agent?**
+
+Multiple agents with different perspectives often reach better conclusions through debate. The overhead is higher (more API calls, longer execution). Use multi-agent systems when reasoning quality justifies the cost.
+
+**Q: Can agents access private data?**
+
+Yes. Tools can call internal APIs, databases, or file systems. Ensure proper authentication and access controls. Never expose credentials in tool definitions.
+
+**Q: What about latency and real-time requirements?**
+
+Agents introduce latency. Each reasoning step requires an LLM call. For low-latency applications, consider pre-computed responses or caching tool results. StreamingSDK support in frameworks helps with perception of latency.
+
+## Related Resources
+
+- [AI Agent Framework Comparison](/articles/ai-agent-framework)
+- [Agentic AI Patterns](/articles/agentic-ai-frameworks)
+- [MCP Server Integration](/articles/what-is-mcp-server)
+- [Tool Integration Guide](/tools)
+
+## Sources
+
+- Anthropic Claude Agent SDK Documentation
+- LangChain Documentation
+- CrewAI Documentation
+- Microsoft AutoGen Documentation
+- OpenAI Function Calling Guide

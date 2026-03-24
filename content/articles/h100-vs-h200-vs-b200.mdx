@@ -1,0 +1,282 @@
+---
+title: 'NVIDIA H100 vs H200 vs B200: Which Generation Should Teams Rent?'
+slug: h100-vs-h200-vs-b200
+description: >-
+  H100 vs H200 vs B200: 80GB to 192GB memory, $2.69 to $5.98/hr. Compare
+  performance scaling, bandwidth, and when each GPU generation justifies costs.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - h100 vs h200 vs b200
+  - h200 vs b200
+  - h100 vs b200 cost
+  - nvidia gpu comparison
+  - h200 price
+  - b200 rental
+---
+## Contents
+
+- [H100 vs H200 vs B200: Quick Breakdown](#h100-vs-h200-vs-b200-quick-breakdown)
+- [Specification Overview](#specification-overview)
+- [Memory Analysis: When H200 Becomes Necessary](#memory-analysis-when-h200-becomes-necessary)
+- [Compute Performance: When B200 Justifies Cost](#compute-performance-when-b200-justifies-cost)
+- [Training Speed Scaling Analysis](#training-speed-scaling-analysis)
+- [Batch Size and Sequence Length Considerations](#batch-size-and-sequence-length-considerations)
+- [Inference Workload Characteristics](#inference-workload-characteristics)
+- [H100 Remaining Advantages](#h100-remaining-advantages)
+- [H200 Niche: The Memory Bridge](#h200-niche-the-memory-bridge)
+- [Multi-GPU Cluster Considerations](#multi-gpu-cluster-considerations)
+- [Decision Framework](#decision-framework)
+- [Provider Comparison: Rental Pricing](#provider-comparison-rental-pricing)
+- [Workload-Specific Recommendations](#workload-specific-recommendations)
+- [Monitoring Provider Evolution](#monitoring-provider-evolution)
+- [Emerging GPU Alternatives](#emerging-gpu-alternatives)
+- [Reserved Capacity and Bulk Pricing](#reserved-capacity-and-bulk-pricing)
+- [Geographic and Regulatory Considerations](#geographic-and-regulatory-considerations)
+- [Lifecycle and Deprecation Planning](#lifecycle-and-deprecation-planning)
+- [Final Thoughts](#final-thoughts)
+
+
+## H100 vs H200 vs B200: Quick Breakdown
+
+H100 vs h200 vs b200 comes down to three numbers: H100 at $2.69/hr, H200 at $3.59/hr, B200 at $5.98/hr. Each generation targets different workloads. H100 is the cost baseline for models under 70B parameters. H200 bridges the gap when developers need more than 80GB but don't want distributed training. B200 makes sense when speed justifies the 2.2x hourly cost.
+
+Which generation minimizes total training cost depends on model size, compute requirements, and how tight the timeline is.
+
+## Specification Overview
+
+**H100**: 80GB HBM2e, 141 GB/s bandwidth, 60 TFLOPS FP32, 18 NVLink connections. Baseline pricing.
+
+**H200**: 141GB HBM3, 141 GB/s bandwidth, 65 TFLOPS FP32, 18 NVLink connections. 33% cost premium over H100.
+
+**B200**: 192GB HBM3e, 360 GB/s bandwidth, 180 TFLOPS FP32, 1.4 PFLOPS FP8 tensor (quantized inference). 122% cost premium over H100 or 67% over H200.
+
+Pricing (RunPod, March 2026):
+- H100: $2.69/hr
+- H200: $3.59/hr
+- B200: $5.98/hr
+
+Key insight: 3x compute doesn't justify 2.2x cost increase unless the workload actually scales 2.2x faster. That's the entire decision framework.
+
+## Memory Analysis: When H200 Becomes Necessary
+
+H100's 80GB works for most stuff. A 7B model trains fine at batch 32 and 2048 token sequences. 13B needs gradient checkpointing or smaller batches. 34B starts maxing out.
+
+Here's the math for a 13B model with 16-bit precision:
+- Base weights: 26GB
+- Gradients: 26GB
+- Optimizer state (Adam): 52GB
+- Activations: 10-15GB
+- Buffers/temp: 5-10GB
+- Total: ~120-130GB
+
+That's already over H100's limit. H200's 141GB handles this comfortably. 34B models need ~250GB, which exceeds even H200.
+
+H200 doesn't help on 7B models:H100 has plenty of headroom. Where H200 wins is when H100 approaches limits.
+
+Multi-GPU clusters reduce per-GPU memory requirements, so 8xH100 can train larger models than one H200. But distributed training adds synchronization overhead.
+
+Memory bandwidth is basically the same on both (141 GB/s). For bandwidth-constrained workloads, both hit similar walls.
+
+Pick H200 when:
+- Model size exceeds H100 capacity (34B+)
+- Gradient checkpointing hurts training speed too much
+- Long sequences (4096+) with large batches (64+) need headroom
+- Single-GPU simplicity beats distributed training complexity
+
+For everything else, H100 wins on cost.
+
+## Compute Performance: When B200 Justifies Cost
+
+B200 has 3x more TFLOPS than H100 (180 vs 60). But GPUs rarely hit theoretical peak. A model at 75% H100 efficiency gets 45 TFLOPS. Same model at 70% B200 efficiency gets 126 TFLOPS. That's 2.8x, not 3x.
+
+B200's advantage is bigger for inference and quantized models. FP8 inference runs at ~240 TFLOPS on H100 but 600+ TFLOPS on B200. Bandwidth matters here too (360 GB/s vs 141 GB/s).
+
+Take a 34B model needing 300 TFLOPS sustained throughput:
+- H100: 300 / 45 = 6.7 hours → $18.02 at $2.69/hr
+- B200: 300 / 126 = 2.4 hours → $14.35 at $5.98/hr
+
+B200 wins on both time and cost. But this assumes compute is the bottleneck.
+
+If the workload is memory-bandwidth limited and only sees 2x actual speedup:
+- B200: 3.3 hours → $19.73
+
+H100 wins despite slower wall-clock time.
+
+The lesson: measure actual speedup on the model, don't trust theoretical TFLOPS.
+
+## Training Speed Scaling Analysis
+
+Empirical training benchmarks from Meta and other companies show:
+
+Small models (7B parameters, large batch sizes): B200 shows 2.2-2.5x speedup over H100, primarily through improved bandwidth.
+
+Medium models (13B-34B parameters, standard batch sizes): B200 shows 2.6-2.9x speedup, approaching theoretical 3x as compute becomes more dominant.
+
+Large models (70B+ parameters, memory pressure): B200 shows 2.0-2.2x speedup, as memory and communication constraints limit the compute advantage.
+
+These empirical results suggest B200's advantages are most pronounced for the 13B-34B model range where compute truly dominates and memory constraints remain manageable.
+
+## Batch Size and Sequence Length Considerations
+
+Larger batches increase arithmetic intensity. A model at batch 4 shows 2.0x B200 speedup but 2.8x at batch 32. Longer sequences do the same. A 13B model with 512 tokens is bandwidth-limited (2.2x speedup) but becomes compute-bound at 4096 tokens (2.8x speedup).
+
+Scale up batch size or sequence length, and B200's advantage grows. This matters for production workloads at scale.
+
+## Inference Workload Characteristics
+
+Single-request inference (batch 1) is bandwidth-bound. B200's 360 GB/s bandwidth beats H100's 141 GB/s here.
+
+Batched inference saturates B200's compute capacity better, showing bigger speedups.
+
+Quantized inference (INT8/FP8) shows the largest B200 gains. 240 TFLOPS on H100 vs 600+ on B200.
+
+Inference workloads favor B200 more than training does.
+
+## H100 Remaining Advantages
+
+Cost. $2.69/hr is half B200's price.
+
+Ecosystem. More teams have run H100 workloads. More frameworks optimize for H100. B200 implementations are still figuring things out.
+
+Availability. H100s are everywhere (RunPod, Lambda, CoreWeave). B200 is spotty.
+
+Sufficiency. Most 70B-and-under workloads finish fine on H100. Theoretical B200 advantages don't matter if the actual workload doesn't need them.
+
+## H200 Niche: The Memory Bridge
+
+H200 is 33% more expensive than H100 but barely faster. It's a pure memory play.
+
+Pick H200 when:
+- Model is 30-50B parameters (doesn't fit H100, doesn't need B200)
+- Single GPU matters more than cost
+- Avoiding distributed training complexity is worth the premium
+
+Otherwise, H100 or B200 usually wins on economics.
+
+## Multi-GPU Cluster Considerations
+
+8xH100: $21.52/hr. 8xB200: $47.84/hr.
+
+If training takes 24 hours on H100: $516 total.
+If B200's 2.8x speedup cuts it to 8.6 hours: $411 total.
+
+B200 wins on cost despite hourly rate. But if B200 shows only 1.8x real speedup, H100 wins.
+
+Interconnect matters too. CoreWeave 8xH100 NVLink is $49/hr vs RunPod 8xH100 PCIe at $21.52/hr. Better interconnect costs more. See [NVLink vs PCIe](/articles/nvlink-vs-pcie) for the breakdown.
+
+## Decision Framework
+
+Start with: What is the model size and what precision do developers need?
+
+If model fits H100 (80GB) with comfortable margin: Evaluate H100 vs B200 based on training timeline and compute requirements.
+
+If model approaches H100 limits (70-80GB): Consider H200 if developers want single-GPU simplicity, or use 2xH100 cluster if developers accept distributed training overhead.
+
+If model exceeds 100GB: H200 is necessary for single GPU. For cost optimization, consider 4xH100 cluster if interconnect is available.
+
+Next: Estimate compute requirements and realistic TFLOPS utilization.
+
+If workload is memory-bandwidth limited: B200's bandwidth advantage is more compelling than compute advantage. Consider B200 even for smaller models.
+
+If workload is compute-limited with large batches: B200's 3x compute delivers closer to 2.8x actual speedup. Cost-benefit calculation likely favors B200.
+
+Next: Calculate total infrastructure cost for different options.
+
+H100 single GPU: $X hours x $2.69
+
+H200 single GPU: ($X / 1.33) hours x $3.59
+
+B200 single GPU: ($X / 2.8) hours x $5.98
+
+Where $X is estimated H100 training time. Compare total cost rather than hourly rates.
+
+Finally: Account for the timeline constraints.
+
+If project timeline is flexible: H100 cost-optimization often prevails despite longer wall-clock time.
+
+If project timeline is fixed: B200's faster completion may justify cost premium to meet deadlines.
+
+## Provider Comparison: Rental Pricing
+
+RunPod baseline pricing (H100 $2.69, H200 $3.59, B200 $5.98) represents competitive rates. Lambda Labs and other providers typically offer similar pricing within 10-20%.
+
+CoreWeave's NVLink multi-GPU clusters price at $49.24 for 8xH100 (approximately $6.16 per GPU) and would likely price 8xB200 clusters significantly higher, shifting economics toward PCIe clusters for budget-constrained teams.
+
+TensorDock and other specialty providers may offer B200 earlier or at different price points as adoption increases.
+
+## Workload-Specific Recommendations
+
+For 7B fine-tuning: H100 is optimal. The model has no memory pressure, and compute demands are modest. Estimated cost: $2-10.
+
+For 13B fine-tuning on production data: H100 remains optimal unless batch sizes or sequence lengths are very large. Estimated cost: $5-30.
+
+For 34B model training from scratch: Either H200 (single GPU, simplicity) or 4xH100 cluster (cost optimization). B200 becomes interesting if timeline pressure justifies faster completion.
+
+For 70B model training: Distributed training is mandatory. H100 or B200 cluster depends on bandwidth constraints and timeline pressure. NVLink cluster costs may exceed PCIe cluster benefits.
+
+For inference-focused workloads: B200 becomes more compelling due to bandwidth advantages and quantization benefits.
+
+## Monitoring Provider Evolution
+
+[GPU pricing](/gpus) evolves continuously. H100 prices declined from $4/hr to current $2.69 as availability increased. B200 will likely follow similar trajectory, potentially reaching $3-4/hr as adoption increases.
+
+Availability of H200 is declining as providers skip to B200. Long-term, H200 may become harder to find, making the choice simpler between H100 and B200.
+
+New GPU generations (Blackwell-next) will shift the calculus again in 2026-2027. Current decisions about H100 vs H200 vs B200 should account for replacement timeline expectations.
+
+## Emerging GPU Alternatives
+
+AMD MI300X has 192GB like B200 at lower cost, but ROCM tooling lags CUDA. Availability is spotty.
+
+Google TPUs work well for TensorFlow but nothing else. Limited on AWS/Azure.
+
+Cerebras and SambaNova look good on paper but lack flexibility. Not production-ready yet.
+
+For 2026-2027, NVIDIA stays dominant for general ML work.
+
+## Reserved Capacity and Bulk Pricing
+
+Beyond spot-market hourly pricing, volume commitments often provide substantial discounts. CoreWeave and other providers offer reserved capacity at 20-40% discounts for annual commitments.
+
+For teams with predictable, sustained training needs, reserved pricing changes the economic calculus. An H100 available at $1.50/hr through reserved pricing beats B200 at on-demand rates, reversing the calculation advantages.
+
+Bulk pricing across teams or projects sometimes enables negotiation with providers for better rates not advertised publicly. Teams with consistent high-volume GPU needs should contact sales representatives about volume pricing.
+
+These discounts matter primarily for large teams and companies. Individual researchers and small teams benefit less from volume pricing but should still inquire about promotional offers.
+
+## Geographic and Regulatory Considerations
+
+US providers (RunPod, Lambda, CoreWeave) have the best pricing and availability.
+
+EU providers offer GDPR compliance and data residency but less competitive pricing.
+
+Asia-Pacific varies wildly by region. Check TensorDock for the area.
+
+For inference, distribute by region for latency. For training, centralize on cheapest provider:latency doesn't matter as much.
+
+## Lifecycle and Deprecation Planning
+
+GPU hardware depreciates as new generations appear. H100s that cost $5+/hr in 2023 now cost $2.69/hr in 2026. This 46% reduction reflects market commoditization as hardware ages.
+
+Plans for 2027-2028 should anticipate that B200 pricing will decline similarly as newer GPU generations (Blackwell-next) appear. Current B200 premium pricing is temporary while supply is limited.
+
+Building cost models accounting for depreciation helps estimate long-term infrastructure costs. A three-year training infrastructure plan should assume GPU prices decline 30-40% by year three.
+
+These trends suggest avoiding extremely long-term commitments to premium-priced hardware early in product lifecycle. Waiting 6-12 months often provides better pricing as hardware matures.
+
+## Final Thoughts
+
+No universal answer. Pick based on model size, compute needs, timeline, and actual workload characteristics.
+
+**H100** ($2.69/hr): Best for models under 34B. Cost wins.
+
+**H200** ($3.59/hr): 30-50B models that need single GPU. Rare use case.
+
+**B200** ($5.98/hr): 2.8x+ actual speedup justifies cost. Inference wins here too.
+
+Measure real performance on the models, not theoretical TFLOPS. An H100 often surprises teams as adequate.
+
+Compare total project cost, not hourly rates. Wall-clock time matters less than what developers actually pay.
+
+Check [NVLink vs PCIe](/articles/nvlink-vs-pcie) for cluster interconnect impact. Check reserved pricing and volume discounts with providers:bigger teams negotiate, not default to published rates.

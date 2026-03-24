@@ -1,0 +1,355 @@
+---
+title: 'AWS GPU Cloud Pricing: Complete Guide for Every GPU (March 2026)'
+slug: aws-gpu-cloud-pricing-complete-guide-vs-hr-for-every-gpu
+description: >-
+  AWS GPU pricing for p5, g4dn, g5 instances. Compare costs and find cost
+  optimization strategies.
+date: '2026-03-22'
+author: DeployBase
+category: Pricing Guides
+keywords:
+  - AWS
+  - GPU pricing
+  - p5
+  - g4dn
+  - g5
+---
+## Contents
+
+- [AWS GPU Pricing Overview](#aws-gpu-pricing-overview)
+- [AWS GPU Instance Pricing](#aws-gpu-instance-pricing)
+- [Commitment Discounts](#commitment-discounts)
+- [Spot Instance Pricing](#spot-instance-pricing)
+- [Regional Pricing Variations](#regional-pricing-variations)
+- [Data Transfer Costs](#data-transfer-costs)
+- [Total Cost of Ownership](#total-cost-of-ownership)
+- [Cost Optimization Strategies](#cost-optimization-strategies)
+- [AWS vs Alternatives](#aws-vs-alternatives)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## AWS GPU Pricing Overview
+
+AWS offers multiple GPU instance families optimized for different workloads. Pricing varies significantly by instance type, region, and commitment level.
+
+As of March 2026, AWS GPU pricing remains high compared to specialized providers. However, integration with AWS services, global infrastructure, and reliability justify premiums for companies.
+
+This guide breaks down each instance family, pricing structures, and strategies to minimize costs.
+
+### AWS Instance Families for ML
+
+**P5 instances (training):** NVIDIA H100 SXM GPUs, 8 per instance
+**P4 instances (legacy training):** NVIDIA A100 SXM GPUs, 8 per instance
+**G5 instances (inference):** NVIDIA A10G, 1-8 per instance
+**G4dn instances (inference):** NVIDIA T4, 1-8 per instance
+**Trn instances (training):** AWS Trainium chips
+
+P5 and P4 are for serious training. G5 and G4dn handle inference better. Trn is emerging but less mature.
+
+### Pricing Structure
+
+AWS charges hourly for on-demand instances. No minimum commitment required but long-term commitments offer substantial discounts.
+
+Additional costs include:
+- Storage (EBS): $0.10-0.20/GB/month
+- Data transfer: $0.02/GB outbound
+- IP addresses: $3.60/month if unattached
+
+The base GPU hourly cost is only part of the bill. Careful architecture minimizes ancillary costs.
+
+## AWS GPU Instance Pricing
+
+### P5 Instances (H100 GPUs)
+
+**p5.48xlarge (8x H100 SXM):**
+- On-demand: ~$98.32/hr
+- Per H100: ~$12.29/hr
+- Storage included: 8TB NVMe SSD
+- Memory: 1.1TB RAM
+- CPUs: 192 vCPUs
+- Networking: 400Gbps EFA
+
+The p5.48xlarge contains 8 H100 GPUs. AWS only offers H100 as full 8-GPU instances — you cannot rent individual H100s on AWS. Per-GPU cost of ~$12.29/hr is the highest in the market, but the included 400Gbps EFA networking and 1.1TB RAM add substantial value for distributed training.
+
+**Cost comparison:**
+- AWS p5: ~$12.29/hr per H100 (full instance only)
+- RunPod H100: $2.69/hr
+- Vast.AI H100: $2.00-3.50/hr
+
+AWS is 3.5-5x more expensive per GPU, but includes enterprise networking, CPU/RAM, and AWS ecosystem integration.
+
+### P4 Instances (A100 GPUs)
+
+**p4d.24xlarge (8x A100 SXM):**
+- On-demand: ~$20.00/hr
+- Per A100: ~$2.50/hr
+- Storage: 8TB EBS included
+- Memory: 384GB RAM
+- CPUs: 96 vCPUs
+
+P4 pricing is slightly better than P5 per GPU. However, P5 (H100) is faster despite higher cost. For many workloads, P5 is more cost-effective despite the hourly premium.
+
+**Cost comparison:**
+- AWS p4: $2.50/hr per A100
+- RunPod A100: $1.39/hr
+- Vast.AI A100: $0.80-1.50/hr
+
+AWS is 1.6-3x more expensive than alternatives.
+
+### G5 Instances (A10G GPUs)
+
+**g5.12xlarge (4x A10G):**
+- On-demand: ~$7.48/hr
+- Per GPU: ~$1.87/hr
+- Storage: 960GB EBS
+- Memory: 192GB RAM
+- CPUs: 48 vCPUs
+
+G5 provides good value for inference workloads. The A10G has 24GB VRAM. Four GPUs handle large-scale inference at a fraction of H100 cost.
+
+**Smaller options:**
+- g5.4xlarge (1x A10G): ~$1.87/hr
+- g5.2xlarge (1x A10G): ~$1.87/hr
+
+Per-GPU costs are similar regardless of instance size. Larger instances add CPUs and memory, not additional GPUs.
+
+### G4dn Instances (T4 GPUs)
+
+**g4dn.12xlarge (4x T4 GPUs):**
+- On-demand: ~$3.06/hr
+- Per T4: ~$0.77/hr
+- Storage: 900GB EBS
+- Memory: 48GB RAM
+- CPUs: 48 vCPUs
+
+T4 GPUs are older and slower than A10G. Cost is lower. Good for cost-sensitive inference on smaller models.
+
+**Bare metal option:**
+- g4dn.metal (8x T4): ~$4.61/hr
+
+The g4dn family is T4-only. Most workloads that outgrow T4 upgrade to G5 (A10G) rather than mixing GPU types.
+
+### Instance Size Breakdown
+
+AWS offers various sizes within each family:
+
+**P5 family:**
+- p5.48xlarge (8x H100): ~$98/hr (only H100 instance available on-demand)
+- p5e.48xlarge (8x H200): ~$116/hr (H200 variant)
+
+AWS H100 compute is only available as 8-GPU instances — no single-GPU option.
+
+**G5 family:**
+- g5.2xlarge (1x A10G): ~$1.87/hr
+- g5.4xlarge (1x A10G): ~$1.87/hr
+- g5.12xlarge (4x A10G): ~$7.48/hr
+
+Smaller instances cost less. Larger instances offer better per-core pricing on CPUs but GPUs are bottleneck.
+
+## Commitment Discounts
+
+AWS offers multi-year commitments for significant savings:
+
+### Reserved Instances (1-3 year commitment)
+
+**p5.48xlarge (8x H100):**
+- 1-year all-upfront: ~$49/hr (-50% vs on-demand)
+- 3-year all-upfront: ~$35/hr (-64% vs on-demand)
+
+Paying upfront ($306,000 for 3 years) is challenging but saves substantially.
+
+**g5.4xlarge (1x A10G):**
+- 1-year all-upfront: ~$0.94/hr (-50%)
+- 3-year all-upfront: ~$0.67/hr (-64%)
+
+Smaller instances benefit similarly.
+
+### Savings Plans (1-3 year commitment)
+
+Flexible commitment based on compute dollars rather than instance type:
+
+- 1-year commitment: ~35-40% discount
+- 3-year commitment: ~55-60% discount
+
+Savings Plans offer flexibility to change instance types. Reserved Instances lock developers into one type.
+
+### Compute Savings Plans Example
+
+Spend $20,000/year on compute (any GPU, any instance):
+- 1-year plan: $13,000/year savings
+- 3-year plan: $8,000/year cost
+
+For companies running continuous ML workloads, Savings Plans are wise.
+
+## Spot Instance Pricing
+
+AWS Spot provides unused capacity at 70-90% discounts. Risk is interruption.
+
+**p5.48xlarge Spot:**
+- On-demand: $32/hr
+- Spot: ~$9-15/hr (70% discount typical)
+
+Spot pricing fluctuates hourly. Monitor prices. Bid strategically.
+
+**Use Spot for:**
+- Non-critical workloads
+- Batch jobs that can restart
+- Development and testing
+- Workloads with built-in checkpointing
+
+**Avoid Spot for:**
+- Production inference (interruption = downtime)
+- Long training runs (interruption = restart from checkpoint)
+- Time-sensitive work (price spikes)
+
+Spot pricing varies dramatically by region and time. US regions are cheaper than Europe. Off-peak hours are cheaper than peak.
+
+## Regional Pricing Variations
+
+AWS pricing varies by region significantly:
+
+**US East (Virginia):** Cheapest (baseline)
+**US West (Oregon):** +5-10% vs US East
+**Europe (Ireland):** +15-20% vs US East
+**Asia Pacific:** +20-40% vs US East
+
+For non-latency-critical work, US East always wins on price.
+
+## Data Transfer Costs
+
+Often overlooked, data transfer adds up:
+
+- Data IN: Free
+- Data OUT: $0.02/GB
+- Data between regions: $0.02/GB
+- Data to internet: $0.09/GB (expensive)
+
+Downloading 10TB of model weights: $100 (at $0.02/GB)
+
+Keep data within AWS. Use S3 buckets in the same region. Avoid downloading to local machines.
+
+## Total Cost of Ownership
+
+Don't look at GPU hourly cost in isolation. Consider complete costs:
+
+**p5 instance (8x H100) example:**
+- On-demand: $98/hr
+- Reserved (3-year): $35/hr
+- Storage (8TB): $0.80/hr
+- Data transfer (~100GB/month): $2/hr average
+- Total: ~$38/hr reserved with overhead (~$4.75/GPU/hr)
+
+Compare to Vast.AI:
+- H100 (single): $2.50/hr average
+- Storage: $0.05/hr
+- Data transfer: <$0.50/hr
+- Total: ~$3/hr
+
+AWS is 3-5x more expensive per GPU. However, for 8-GPU distributed training at scale, the included 400Gbps EFA networking, managed infrastructure, and AWS ecosystem integration change the math for enterprise workloads.
+
+## Cost Optimization Strategies
+
+### 1. Right-size for the workload
+
+Don't rent p5.48xlarge (8x H100) if developers only need 1 GPU. Rent g5.4xlarge ($1.87/hr, A10G) instead. Avoid paying for unused hardware.
+
+### 2. Use Spot for non-critical work
+
+Training? Use Spot and save 70%. Testing? Spot works. Production serving? Use on-demand.
+
+### 3. Commit if workload is consistent
+
+Continuous training for 6+ months? Savings Plans save 50%+. One-off projects? Hourly is fine.
+
+### 4. Minimize data transfer
+
+Keep data in AWS. Use S3 in the same region. Avoid downloading to local machines. Each GB transferred costs money.
+
+### 5. Stop instances when idle
+
+Running a $98/hr instance overnight is wasteful. Stop (not terminate) when not actively computing.
+
+### 6. Use appropriate instance size
+
+p5.48xlarge (8x H100) for large-scale training. g5.4xlarge (A10G) for inference. Match instance to actual workload size.
+
+### 7. Architecture for cost
+
+Train on cheaper hardware in development. Use Spot. Switch to reserved on-demand only for production training.
+
+## AWS vs Alternatives
+
+**H100 GPU hourly (March 2026):**
+- AWS p5: ~$12.29/hr per GPU (8-GPU instance only)
+- RunPod: $2.69/hr
+- Vast.AI: $2.00-3.50/hr
+- Lambda: $2.49/hr (SXM) / $2.86/hr (PCIe)
+
+**A100 GPU hourly:**
+- AWS p4: $2.50/hr
+- RunPod: $1.39/hr
+- Vast.AI: $0.80-1.50/hr
+- Google Cloud: $3.67/hr
+
+AWS is premium for GPU compute. Developers're paying for integration with other AWS services (SageMaker, S3, Lambda).
+
+For pure ML compute, specialized providers are cheaper. For companies using broader AWS, AWS GPU may be better integrated.
+
+For comparisons, see:
+- [GPU pricing across platforms](/gpus)
+- [RunPod GPU pricing](/articles/runpod-gpu-pricing)
+- [Vast.ai GPU pricing](/articles/vast-ai-pricing)
+- [Google Cloud GPU pricing](/articles/google-cloud-gpu-pricing)
+
+## FAQ
+
+**What's the cheapest way to run ML on AWS?**
+
+Use g4dn instances with Spot pricing. T4 GPUs at ~$0.10/hr (Spot) handle inference. For training, use g5 (A10G) on Spot or reserve p4d (A100) instances for multi-year workloads.
+
+**Can I mix instance types in a training job?**
+
+Distributed training usually requires identical hardware. Mixing types complicates orchestration. Keep to one instance type per job.
+
+**How do I estimate my AWS GPU bill?**
+
+(GPU hours × hourly rate) + storage + data transfer = total. Budget conservatively. Set up billing alerts.
+
+**Are there free GPU credits?**
+
+AWS provides $300 credits for new accounts (12 months). Some startup programs offer additional credits. Check AWS Activate for eligibility.
+
+**Should I use AWS for ML or a specialized provider?**
+
+AWS if integrating with other AWS services. Specialized providers if pure ML compute on a budget. For larger companies, AWS. For cost-sensitive teams, Vast.AI or RunPod.
+
+**What happens to my instance if I can't pay?**
+
+AWS suspends access if billing fails. Instances persist. Re-enable billing to restore access. Data is safe. AWS doesn't delete stopped instances due to non-payment (within reason).
+
+**Can I pause an instance to avoid charges?**
+
+Stop (not terminate) instances. Stopped instances don't charge for compute. Storage charges continue. Start anytime to resume.
+
+## Related Resources
+
+- [Complete GPU Pricing Comparison](/gpus)
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [Vast.ai GPU Pricing](/articles/vast-ai-pricing)
+- [Google Cloud GPU Pricing](/articles/google-cloud-gpu-pricing)
+- [CPU vs GPU vs TPU for Machine Learning](/articles/cpu-vs-gpu-vs-tpu-for-machine-learning-when-to-use-each)
+
+## Sources
+
+- AWS EC2 Pricing (as of March 2026)
+- AWS Instance Type Specifications
+- GPU Benchmarks and Comparisons
+- Data Transfer Cost Analysis
+
+---
+
+*Last updated: March 2026. Pricing reflects market rates as of March 22, 2026.*

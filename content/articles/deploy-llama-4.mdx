@@ -1,0 +1,667 @@
+---
+title: 'How to Deploy Llama 4 on Cloud GPUs: Complete Guide'
+slug: deploy-llama-4
+description: >-
+  Deploy Meta's Llama 4 models on cloud GPUs. GPU requirements by size, vLLM
+  setup, quantization options, and cost comparison between self-hosting and
+  APIs.
+date: 2026-03-22T00:00:00.000Z
+author: DeployBase
+keywords:
+  - deploy llama 4
+---
+## Contents
+
+- [How to Deploy Llama 4 on Cloud GPUs: Complete Guide](#how-to-deploy-llama-4-on-cloud-gpus-complete-guide)
+- [Understanding Llama 4 Architecture](#understanding-llama-4-architecture)
+- [GPU Requirements by Model Size](#gpu-requirements-by-model-size)
+- [Step 1: Provision Cloud GPU Infrastructure](#step-1-provision-cloud-gpu-infrastructure)
+- [Step 2: Install vLLM and Dependencies](#step-2-install-vllm-and-dependencies)
+- [Step 3: Download and Validate Model Weights](#step-3-download-and-validate-model-weights)
+- [Step 4: Configure vLLM for Optimal Performance](#step-4-configure-vllm-for-optimal-performance)
+- [Step 5: Monitor Inference Performance](#step-5-monitor-inference-performance)
+- [Step 6: Expose Over Network (Production)](#step-6-expose-over-network-production)
+- [Step 7: Implement Request Batching for Throughput](#step-7-implement-request-batching-for-throughput)
+- [Step 8: Quantization for Cost Reduction](#step-8-quantization-for-cost-reduction)
+- [Step 9: Production Hardening](#step-9-production-hardening)
+- [Step 10: Cost Optimization Strategies](#step-10-cost-optimization-strategies)
+- [Real-World Deployment Example](#real-world-deployment-example)
+- [Performance Metrics Summary](#performance-metrics-summary)
+- [Comparison: Self-Hosted vs API](#comparison-self-hosted-vs-api)
+- [Getting Started Checklist](#getting-started-checklist)
+- [Advanced Optimization for Production](#advanced-optimization-for-production)
+- [Handling Model Updates and Versioning](#handling-model-updates-and-versioning)
+- [Integration with LLM Frameworks](#integration-with-llm-frameworks)
+- [Fine-Tuning Strategy for Domain Adaptation](#fine-tuning-strategy-for-domain-adaptation)
+- [Fallback and Failover Strategies](#fallback-and-failover-strategies)
+- [Monitoring and Alerting Setup](#monitoring-and-alerting-setup)
+- [Cost Comparison: Self-Hosted vs API at Scale](#cost-comparison-self-hosted-vs-api-at-scale)
+- [Comparison with vLLM Alternatives](#comparison-with-vllm-alternatives)
+- [Advanced Topics](#advanced-topics)
+
+
+## How to Deploy Llama 4 on Cloud GPUs: Complete Guide
+
+Deploying Llama 4 on cloud GPUs requires understanding sparse architecture memory requirements, quantization trade-offs, and cost optimization strategies. This guide walks through deployment from infrastructure selection through production hardening, comparing costs with API-based alternatives.
+
+## Understanding Llama 4 Architecture
+
+Meta released Llama 4 with a sparse mixture-of-experts architecture distinct from traditional dense models. Scout and Maverick variants use conditional computation: only a subset of parameters activate per token, reducing computational overhead while maintaining model knowledge.
+
+Scout has 17 billion active parameters with 109 billion total parameters. This means roughly 84% of the model stays inactive per inference step. Maverick has 17 billion active parameters with 400 billion total, providing dramatically more dormant capacity.
+
+This architecture has profound implications for deployment. A dense Llama 3 70B model requires full parameter activation. Llama 4 Scout, despite having 109B total parameters, requires only 17B to activate, costing roughly 25-30% of what a dense 70B costs to run.
+
+Practically, Scout inference speed roughly matches Llama 3 70B while consuming half the compute. Maverick achieves speeds approaching Llama 3 70B while containing far more knowledge (400B parameters versus 70B).
+
+## GPU Requirements by Model Size
+
+Llama 4 Scout fits on modest hardware. The model requires 50-60GB GPU memory in full precision. This fits on a single NVIDIA A100 80GB or A6000 GPU. For cost-conscious deployments, an NVIDIA L40S 48GB GPU works with 4-bit quantization. Review the [GPU pricing comparison](/articles/runpod-gpu-pricing) for current cloud GPU pricing across providers.
+
+Running unquantized Scout costs $1.19 per hour on RunPod A100. Running quantized Scout on an L40S costs $0.70 per hour. For small deployments, quantization saves 40% of infrastructure cost with roughly 2-3% quality reduction. For detailed GPU selection guidance, see the [GPU performance guide](/articles/best-gpu-for-llm-inference).
+
+Llama 4 Maverick requires 150-192GB GPU memory. This necessitates either dual A100s ($2.38/hour) or dual H100s ($7.56/hour on Lambda). For teams requiring Maverick capability, multi-GPU deployment is non-negotiable.
+
+The sparse architecture helps, but Maverick's 400B total parameters demand substantial hardware. Tensor parallelism across 4-8 GPUs is common for high-throughput deployments.
+
+Benchmark performance guides GPU selection:
+- Scout performance matches Llama 3 70B for most tasks
+- Maverick performance approaches (but doesn't match) GPT-4.1
+- Scout adequately handles classification, extraction, and straightforward generation
+- Maverick is necessary for multi-step reasoning or novel problem-solving
+
+If the task is achievable with Llama 3 70B quality, Scout provides 50-70% cost savings. If developers truly need Maverick performance, no smaller model suffices.
+
+## Step 1: Provision Cloud GPU Infrastructure
+
+For Scout deployment, create a RunPod account and select an A100 80GB instance. RunPod's pricing page shows $1.19 per hour for on-demand A100s and $0.60-0.80 per hour for spot instances. For development, spot instances are acceptable. For production, on-demand reliability is worth the premium.
+
+Configure the instance with at least 100GB storage (model files are 50-60GB, plus system overhead). Select the "PyTorch" template or "vLLM" template if available.
+
+Launch the instance. RunPod assigns an IP address and SSH connection string within 1-2 minutes:
+
+```bash
+ssh root@the-instance-ip
+```
+
+Verify GPU access:
+
+```bash
+nvidia-smi
+```
+
+The output should show GPU memory information confirming the GPU is available.
+
+For Maverick deployment, select dual-GPU instances or provision two separate GPU instances with network connectivity. Most production deployments use container orchestration (Kubernetes) to manage multiple instances.
+
+## Step 2: Install vLLM and Dependencies
+
+vLLM is the recommended inference engine for Llama 4. Installation is straightforward:
+
+```bash
+pip install vllm torch transformers
+```
+
+Verify installation:
+
+```bash
+python -c "import vllm; print(vllm.__version__)"
+```
+
+PyTorch and CUDA should already be installed on RunPod. If not, install via pip or conda.
+
+## Step 3: Download and Validate Model Weights
+
+Llama 4 models are available on Hugging Face under Meta's organization. Scout is available as `meta-llama/Llama-4-Scout-1B-Instruct-GPTQ` (quantized) or `meta-llama/Llama-4-Scout` (full precision).
+
+Model download happens automatically on first inference. vLLM checks the Hugging Face cache directory and downloads if needed.
+
+If the instance lacks direct internet access (rare but possible in some corporate environments), pre-download models before starting inference:
+
+```bash
+python -c "
+from transformers import AutoTokenizer, AutoModelForCausalLM
+model_name = 'meta-llama/Llama-4-Scout'
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModelForCausalLM.from_pretrained(model_name)
+"
+```
+
+This downloads and caches the model for offline use.
+
+For Maverick, the model is larger. Download time is 30-45 minutes on typical cloud instance bandwidth. Plan accordingly.
+
+## Step 4: Configure vLLM for Optimal Performance
+
+vLLM accepts several parameters controlling memory usage and throughput:
+
+**Basic Configuration:**
+```bash
+vllm serve meta-llama/Llama-4-Scout \
+  --port 8000 \
+  --gpu-memory-utilization 0.9 \
+  --max-model-len 8192
+```
+
+This starts vLLM on port 8000, using 90% of GPU memory for inference, with 8192 token maximum sequence length.
+
+**For Production Deployment:**
+```bash
+vllm serve meta-llama/Llama-4-Scout \
+  --port 8000 \
+  --gpu-memory-utilization 0.85 \
+  --max-model-len 4096 \
+  --tensor-parallel-size 1 \
+  --dtype float16 \
+  --api-key sk-prod-key-here
+```
+
+Parameters explained:
+- `--gpu-memory-utilization 0.85`: Conservative memory usage reduces out-of-memory errors
+- `--max-model-len 4096`: Balances sequence length with batch size
+- `--tensor-parallel-size 1`: Single GPU deployment (set to 2 for dual-GPU Maverick)
+- `--dtype float16`: Half-precision reduces memory 50% with minimal accuracy loss
+- `--api-key`: Requires authentication for API access
+
+**For Quantized Models:**
+```bash
+vllm serve meta-llama/Llama-4-Scout-GPTQ \
+  --port 8000 \
+  --quantization gptq \
+  --max-model-len 8192 \
+  --gpu-memory-utilization 0.95
+```
+
+Quantized models (GPTQ or AWQ) reduce memory by 50-75% but require specifying the quantization method.
+
+## Step 5: Monitor Inference Performance
+
+Once vLLM starts, monitor token generation rate and GPU utilization:
+
+```python
+import requests
+import time
+
+url = "http://localhost:8000/v1/completions"
+payload = {
+    "model": "meta-llama/Llama-4-Scout",
+    "prompt": "The future of artificial intelligence is",
+    "max_tokens": 100,
+    "temperature": 0.7
+}
+
+start = time.time()
+response = requests.post(url, json=payload)
+elapsed = time.time() - start
+
+print(f"Latency: {elapsed:.2f}s")
+print(f"Tokens: {response.json()['usage']['completion_tokens']}")
+print(f"Token rate: {response.json()['usage']['completion_tokens'] / elapsed:.0f} tok/s")
+```
+
+For Scout on a single A100, expect:
+- Single request: 100-150 tokens per second
+- Concurrent requests (10+): 800-1,200 tokens per second aggregate
+
+These numbers validate that the deployment is functioning normally.
+
+## Step 6: Expose Over Network (Production)
+
+For development, SSH tunneling works:
+
+```bash
+ssh -L 8000:localhost:8000 root@the-instance-ip
+curl http://localhost:8000/v1/completions
+```
+
+For production, expose the port directly. RunPod exposes ports automatically:
+
+```bash
+curl https://your-instance-id-8000.runpod.io/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{...the payload...}'
+```
+
+This URL is publicly accessible. Add authentication and use HTTPS in production.
+
+## Step 7: Implement Request Batching for Throughput
+
+vLLM's strength is continuous batching. Saturate the GPU with concurrent requests to achieve peak throughput:
+
+```python
+import concurrent.futures
+import requests
+import time
+
+def send_inference_request(request_id, prompt):
+    url = "https://your-instance-id-8000.runpod.io/v1/completions"
+    payload = {
+        "model": "meta-llama/Llama-4-Scout",
+        "prompt": prompt,
+        "max_tokens": 50
+    }
+    start = time.time()
+    response = requests.post(url, json=payload, timeout=30)
+    return {
+        "request_id": request_id,
+        "latency": time.time() - start,
+        "tokens": response.json()['usage']['completion_tokens']
+    }
+
+prompts = [f"Query {i}: Explain AI to me" for i in range(50)]
+
+with concurrent.futures.ThreadPoolExecutor(max_workers=20) as executor:
+    futures = [executor.submit(send_inference_request, i, p)
+               for i, p in enumerate(prompts)]
+    results = [f.result() for f in concurrent.futures.as_completed(futures)]
+
+avg_latency = sum(r['latency'] for r in results) / len(results)
+total_tokens = sum(r['tokens'] for r in results)
+total_time = max(r['latency'] for r in results)
+throughput = total_tokens / total_time
+
+print(f"Average latency: {avg_latency:.2f}s")
+print(f"Throughput: {throughput:.0f} tokens/sec")
+```
+
+This test sends 50 requests with 20 concurrent connections. For Scout on A100, expect:
+- Average latency: 2-4 seconds
+- Throughput: 800-1,200 tokens per second
+
+## Step 8: Quantization for Cost Reduction
+
+Running Scout without quantization uses full model precision (FP32 or FP16). Quantized versions reduce memory 50-75% at 2-5% quality cost.
+
+Download a pre-quantized model:
+
+```bash
+vllm serve meta-llama/Llama-4-Scout-GPTQ \
+  --quantization gptq \
+  --max-model-len 8192
+```
+
+GPTQ quantized Scout fits on L40S (48GB) or even A6000 (48GB), saving 40% on infrastructure cost ($0.70/hour vs $1.19/hour).
+
+For quality-critical applications, run full precision. For cost-sensitive applications, quantization is worthwhile.
+
+## Step 9: Production Hardening
+
+**Logging and Monitoring:**
+```bash
+vllm serve meta-llama/Llama-4-Scout \
+  --port 8000 \
+  --log-directory /root/vllm-logs \
+  --log-level INFO
+```
+
+Configure log rotation to prevent disk full issues:
+
+```bash
+apt-get install logrotate
+```
+
+**Prometheus Metrics:**
+
+vLLM exposes metrics at `/metrics`:
+
+```bash
+curl http://localhost:8000/metrics
+```
+
+Sample output shows request counts, latency percentiles, and token throughput. Set up Prometheus to scrape this endpoint every 30 seconds:
+
+```yaml
+scrape_configs:
+  - job_name: 'vllm'
+    static_configs:
+      - targets: ['localhost:8000']
+```
+
+Then visualize in Grafana to monitor:
+- Request success rate
+- Average latency
+- P95 and P99 latency percentiles
+- Token throughput
+- GPU memory utilization
+
+**Restart on Failure:**
+
+Use systemd or supervisor to restart vLLM if it crashes:
+
+```bash
+cat > /etc/systemd/system/vllm.service << 'EOF'
+[Unit]
+Description=vLLM Inference Server
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/python -m vllm.entrypoints.openai.api_server \
+  --model meta-llama/Llama-4-Scout \
+  --port 8000
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl enable vllm
+systemctl start vllm
+```
+
+## Step 10: Cost Optimization Strategies
+
+**Spot Instances:** RunPod spot pricing is 40-60% cheaper than on-demand. For non-critical applications, use spot instances with fault tolerance:
+
+```python
+for attempt in range(3):
+    try:
+        response = requests.post(url, json=payload, timeout=10)
+        break
+    except requests.Timeout:
+        if attempt < 2:
+            time.sleep(5)
+            continue
+        raise
+```
+
+**Reserved Capacity:** RunPod offers reserved GPU hours at 30-40% discount. Committing to 100 GPU hours monthly is economical for continuous deployments.
+
+**Auto-scaling:** For Kubernetes deployments, implement horizontal pod autoscaling based on queue depth:
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vllm-scaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: vllm
+  minReplicas: 1
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 80
+```
+
+This automatically scales vLLM instances from 1 to 10 based on CPU load.
+
+**Batch Processing:** For non-real-time workloads, batch requests together and process overnight on spot instances:
+
+```python
+import json
+
+requests_batch = []
+for item in large_dataset:
+    requests_batch.append({
+        "prompt": item['text'],
+        "max_tokens": 100
+    })
+
+response = requests.post(
+    "http://vllm-service/batch",
+    json={"requests": requests_batch}
+)
+```
+
+## Real-World Deployment Example
+
+A content moderation system processes 100M tokens monthly.
+
+**Infrastructure:**
+- 1 A100 80GB at $1.19/hour
+- 4-hour daily operation: $1,425/month
+- Setup and optimization: $200 (one-time)
+
+**Alternative: GPT-4 API**
+- Cost: $250-400/month
+- Infrastructure: None
+
+**Break-Even Analysis:**
+Llama 4 costs $1,425 but provides full control, fine-tuning capability, and data privacy. GPT-4.1 costs $300 but requires API dependency and data transmission.
+
+If the organization needs:
+1. Fine-tuning on moderation guidelines (saves $50k in repeated API costs)
+2. Data residency compliance (makes GPT-4.1 impossible)
+3. Custom preprocessing (requires model control)
+
+Then Llama 4 is clearly superior despite higher upfront costs.
+
+## Performance Metrics Summary
+
+| Metric | Scout A100 | Scout L40S | Maverick Dual A100 |
+|--------|---|---|---|
+| Single request latency | 0.7-1.2s | 1.2-1.8s | 0.8-1.3s |
+| Concurrent (10 req) throughput | 900 tokens/sec | 400 tokens/sec | 1,200 tokens/sec |
+| Monthly cost (4hr/day) | $1,425 | $840 | $2,850 |
+| Cost per 1M tokens | $0.0018 | $0.0021 | $0.0035 |
+
+## Comparison: Self-Hosted vs API
+
+**Self-Hosted Llama 4 Advantages:**
+- Data privacy and residency compliance
+- Full fine-tuning capability
+- Cost advantage at 100M+ monthly tokens
+- Complete control over model behavior
+
+**Self-Hosted Llama 4 Disadvantages:**
+- Infrastructure management overhead
+- Requires GPU expertise
+- Higher upfront infrastructure cost
+- Operational complexity
+
+**GPT-4.1 API Advantages:**
+- Zero infrastructure overhead
+- Marginal cost structure
+- Proven reliability
+- No operational burden
+
+**GPT-4.1 API Disadvantages:**
+- Cannot fine-tune
+- Data transmitted to OpenAI
+- Cannot modify model behavior
+- $2+ per 1M input tokens
+
+## Getting Started Checklist
+
+- [ ] Create RunPod account
+- [ ] Provision A100 instance
+- [ ] SSH into instance and verify GPU
+- [ ] Install vLLM via pip
+- [ ] Start vLLM with Scout model
+- [ ] Test with sample requests
+- [ ] Expose port for network access
+- [ ] Load test with concurrent requests
+- [ ] Set up monitoring and logging
+- [ ] Implement auto-restart via systemd
+- [ ] Calculate cost per token
+- [ ] Compare with API-based alternatives
+
+Expected timeline: 2-3 hours from account creation to production-ready deployment.
+
+## Advanced Optimization for Production
+
+**Continuous Batching with vLLM:** vLLM implements continuous batching, allowing multiple requests in flight simultaneously. For Scout on a single A100, the setup can maintain 10-20 concurrent requests without throughput degradation. This is vLLM's biggest advantage over simpler inference engines.
+
+**Tensor Parallelism for Maverick:** For Maverick deployments requiring multiple GPUs, tensor parallelism distributes model layers across GPUs. Configure with `--tensor-parallel-size 2` for dual-GPU systems. Communication overhead is 10-20%, but the setup gains 1.8x throughput instead of 2x, a worthwhile trade for handling large models.
+
+**Flash Attention:** vLLM includes Flash Attention by default, reducing attention complexity from O(n^2) memory to near-linear. This is essential for handling long sequences (8K+ tokens) without excessive memory overhead.
+
+**Dynamic Prefill:** vLLM's dynamic prefill processing handles token preparation more efficiently than alternatives, reducing latency 10-30% for typical workloads.
+
+## Handling Model Updates and Versioning
+
+Track the deployed model versions. Llama 4 Scout might have multiple fine-tuned variants tailored to different tasks (customer support, technical writing, code generation).
+
+Implement a versioning system:
+
+```bash
+models/
+  scout-v1-base/
+  scout-v2-finetuned-support/
+  scout-v3-finetuned-writing/
+  maverick-v1-base/
+```
+
+Deploy multiple model versions and route requests based on task requirements. This flexibility is a key advantage of self-hosted Llama 4.
+
+## Integration with LLM Frameworks
+
+**LangChain Integration:**
+```python
+from langchain.llms import HuggingFaceLLM
+
+llm = HuggingFaceLLM(
+    model_name="meta-llama/Llama-4-Scout",
+    model_kwargs={
+        "temperature": 0.7,
+        "max_length": 512,
+    }
+)
+
+result = llm("Explain quantum computing")
+```
+
+**LlamaIndex Integration:**
+```python
+from llama_index.llms import HuggingFace
+
+llm = HuggingFace(
+    model_name="meta-llama/Llama-4-Scout",
+    generate_kwargs={"temperature": 0.7, "max_new_tokens": 512},
+)
+
+response = llm.complete("What is AI?")
+```
+
+Both frameworks handle vLLM backend automatically through HuggingFace transformers.
+
+## Fine-Tuning Strategy for Domain Adaptation
+
+Fine-tuning Llama 4 Scout on the domain-specific data can dramatically improve performance. A financial services firm fine-tuning on 100,000 historical customer interactions might achieve 95% accuracy on routing and classification versus 82% accuracy with base Scout.
+
+Fine-tuning process:
+
+1. Collect 10,000-100,000 examples of input-output pairs
+2. Format as JSON lines: `{"input": "...", "output": "..."}`
+3. Upload to fine-tuning service (Together AI, Replicate, or self-hosted)
+4. Train for 1-3 epochs on H100 GPU (costs $100-500 depending on dataset size)
+5. Deploy fine-tuned model through vLLM
+
+The fine-tuned model runs on identical infrastructure (same GPU cost) but with dramatically improved accuracy for the specific domain.
+
+## Fallback and Failover Strategies
+
+Reliability matters in production. Implement failover to ensure continuity if the vLLM instance fails.
+
+**Option 1: Multiple vLLM Instances**
+Deploy two Scout instances in different cloud regions. Route requests to region 1; on failure, automatically route to region 2. This requires careful state management to avoid duplicate processing.
+
+**Option 2: Fallback to API**
+Deploy Llama 4 Scout for primary inference, fall back to GPT-4.1 API if Scout is unavailable:
+
+```python
+def inference_with_fallback(prompt):
+    try:
+        response = requests.post(
+            "http://scout-instance/v1/completions",
+            json={"prompt": prompt},
+            timeout=10
+        )
+        return response.json()
+    except (requests.Timeout, requests.ConnectionError):
+        # Fallback to GPT-4.1
+        return openai.ChatCompletion.create(
+            model="gpt-4.1",
+            messages=[{"role": "user", "content": prompt}]
+        )
+```
+
+This approach combines cost efficiency (Llama 4 for primary workload) with reliability (GPT-4.1 as backup).
+
+## Monitoring and Alerting Setup
+
+Comprehensive monitoring prevents production incidents:
+
+```python
+from prometheus_client import Counter, Histogram, Gauge
+import time
+
+inference_latency = Histogram(
+    'llama_inference_latency_seconds',
+    'Inference latency'
+)
+inference_errors = Counter(
+    'llama_inference_errors_total',
+    'Total inference errors'
+)
+gpu_memory_usage = Gauge(
+    'gpu_memory_usage_percent',
+    'GPU memory utilization'
+)
+
+@inference_latency.time()
+def run_inference(prompt):
+    try:
+        # The inference code
+        return result
+    except Exception as e:
+        inference_errors.inc()
+        raise
+```
+
+Export metrics to Prometheus and visualize in Grafana. Alert when:
+- P95 latency exceeds 5 seconds
+- Error rate exceeds 5%
+- GPU memory exceeds 90%
+- Request queue depth exceeds 50
+
+## Cost Comparison: Self-Hosted vs API at Scale
+
+**100M monthly tokens:**
+- Self-hosted Scout (4 hrs/day): $143 + operational overhead
+- GPT-4.1 API: $250
+- Winner: Self-hosted by 40%
+
+**500M monthly tokens:**
+- Self-hosted Scout (continuous A100): $855
+- GPT-4.1 API: $1,250
+- Winner: Self-hosted by 30%
+
+**1B monthly tokens:**
+- Self-hosted Maverick (2x A100 continuous): $17,088
+- GPT-4.1 API: $2,500
+- Winner: Self-hosted by 85% (but requires 2x GPU investment)
+
+**2B monthly tokens:**
+- Self-hosted Maverick (spot instances, optimized): $7,000
+- GPT-4.1 API: $5,000
+- Winner: GPT-4.1 unless fine-tuning or privacy requirements favor Llama 4
+
+The break-even point shifts with infrastructure optimization. Spot instances, reserved capacity, and aggressive quantization can make self-hosting economical at lower volumes.
+
+## Comparison with vLLM Alternatives
+
+Other inference engines (TensorRT-LLM, DeepSpeed, Ollama) offer different trade-offs.
+
+**Ollama:** Easier setup but slower inference. Good for development and low-volume production. Skip for high-throughput applications.
+
+**TensorRT-LLM:** Faster inference but complex compilation process. Good for production requiring maximum throughput. Higher setup burden.
+
+**DeepSpeed:** Optimized for distributed inference across many GPUs. Good for Maverick deployments requiring 4+ GPUs.
+
+**vLLM:** Best all-around balance of ease, performance, and compatibility. Recommended for most deployments.
+
+For Scout deployments, vLLM is overkill. Ollama is simpler. For Maverick or production requiring maximum throughput, vLLM is ideal.
+
+## Advanced Topics
+
+For fine-tuning Llama 4 on domain-specific data, see the [LLM fine-tuning guide](/articles/fine-tune-llama-3). For comparing deployment options across providers, explore the [GPU pricing comparison](/articles/runpod-gpu-pricing) and [LLM inference engine guide](/articles/best-llm-inference-engine). For understanding when self-hosting makes financial sense, use the [cost calculator](/gpus) with the expected token volume.

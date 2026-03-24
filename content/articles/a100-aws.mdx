@@ -1,0 +1,331 @@
+---
+title: 'A100 AWS: EC2 p4d Instances, Pricing, and Cost Optimization'
+slug: a100-aws
+description: >-
+  AWS p4d.24xlarge (8xA100) costs $32.77/hr on-demand. Explore reserved pricing,
+  spot savings, and when managed services justify GPU cost premium.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Providers
+---
+
+## Contents
+
+- [A100 AWS: EC2 p4d for Managed GPU Infrastructure](#a100-aws-ec2-p4d-for-managed-gpu-infrastructure)
+- [AWS p4d Instance Pricing](#aws-p4d-instance-pricing)
+- [AWS EC2 p4d Specifications](#aws-ec2-p4d-specifications)
+- [Spot Instance Strategy](#spot-instance-strategy)
+- [Setup and Cost Optimization](#setup-and-cost-optimization)
+- [AWS-Specific Advantages](#aws-specific-advantages)
+- [p4d vs H100 (p5) on AWS](#p4d-vs-h100-p5-on-aws)
+- [Production Deployment Patterns](#production-deployment-patterns)
+- [FAQ](#faq)
+- [Sources](#sources)
+
+
+## A100 AWS: EC2 p4d for Managed GPU Infrastructure
+
+**A100 AWS** is available exclusively through p4d.24xlarge instances with 8xA100 GPUs, high-performance CPUs, and networking. On-demand pricing is approximately $32.77 per hour. That's 3x more expensive than dedicated providers on raw cost, but includes managed services, IAM, and automated scaling.
+
+This guide covers AWS p4d pricing, instance selection, reserved capacity, and cost optimization strategies for A100 workloads.
+
+## AWS p4d Instance Pricing
+
+AWS prices A100 exclusively as 8-GPU clusters via p4d.24xlarge. Individual A100 instances are not available.
+
+**p4d.24xlarge Pricing Breakdown and Analysis**
+
+| Pricing Model | Hourly | Monthly (730 hrs) | Annual | Per-GPU | Effective Cost |
+|---|---|---|---|---|---|
+| On-Demand | $32.77 | $23,922 | $287,051 | $4.10 | $4.10/GPU |
+| 1-Year Reserved | $16.38 | $11,957 | $143,525 | $2.05 | $2.05/GPU |
+| 3-Year Reserved | $14.33 | $10,461 | $123,846 | $1.79 | $1.79/GPU |
+| Savings Plan (1-year) | $16.38 | $11,957 | $143,525 | $2.05 | $2.05/GPU |
+| Spot (typical) | $9.83 | $7,176 | $86,108 | $1.23 | $1.23/GPU |
+
+Per-GPU on-demand cost: $4.10 (8 A100s / $32.77/hr). This exceeds dedicated providers: [RunPod A100 costs $1.19/hr](/articles/a100-runpod) ($0.15/GPU per single instance), making AWS on-demand 27x more expensive per GPU. However, AWS includes CPU, RAM, networking, and managed services worth $15-20/hr separately.
+
+**Performance Benchmarks on AWS p4d A100**
+
+| Workload | Throughput |
+|---|---|
+| 70B Llama-2 Inference | 200-300 tokens/sec (8x parallelism) |
+| 13B Model Training | 3,600 tokens/sec (distributed) |
+| Batch Inference (size 32) | 500-700 tokens/sec |
+
+**Savings Plans Discount**
+
+AWS compute Savings Plans provide 50% on-demand discounts for 1-year or 3-year commitments. A p4d.24xlarge under 1-year Savings Plan costs ~$16.38/hr ($2.05/GPU), matching [CoreWeave's reserved pricing](/articles/coreweave-gpu-pricing) while providing integrated AWS services.
+
+## AWS EC2 p4d Specifications
+
+**Hardware Configuration**
+
+| Component | Specification |
+|---|---|
+| GPU | 8x A100 SXM (40GB each) |
+| GPU Memory | 320GB (40GB per GPU) |
+| CPU | 96 vCPU (3rd-gen Intel Xeon) |
+| System Memory | 768GB RAM |
+| Networking | 400Gbps EFA (Elastic Fabric Adapter) |
+| Storage | EBS only (no local NVMe) |
+
+Note: p4d provides A100 40GB variants, limiting individual model capacity to 40GB without distributed memory techniques.
+
+**EFA Networking**
+
+EFA provides 400Gbps bandwidth for GPU-to-GPU communication across p4d clusters. This enables low-latency distributed training across multiple instances for models exceeding single-GPU memory.
+
+## Spot Instance Strategy
+
+AWS Spot pricing for p4d.24xlarge averages $9.83/hr (70% savings), making it competitive with CoreWeave reserved pricing ($13.82/hr for 8xA100).
+
+**Spot Interruption Handling**
+
+Spot instances maintain p4d availability at approximately 85-90% uptime during standard hours. AWS provides 2-minute interruption warnings:
+
+```python
+import signal
+
+def handle_interruption(signum, frame):
+    print("Spot interruption imminent")
+    save_checkpoint()
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, handle_interruption)
+
+for epoch in range(num_epochs):
+    if epoch % 10 == 0:
+        save_checkpoint(f'checkpoint_epoch_{epoch}.pt')
+```
+
+For resumable workloads with checkpointing, Spot p4d ($9.83/hr) provides exceptional value.
+
+## Setup and Cost Optimization
+
+**Launching AWS p4d.24xlarge**
+
+1. Access AWS EC2 console at https://console.aws.amazon.com/ec2/
+2. Click "Launch Instances"
+3. Search for "p4d.24xlarge" in instance types
+4. Select "Deep Learning AMI (Ubuntu)" or "PyTorch AMI" (pre-optimized for GPU)
+5. Configure instance: Default VPC, 500GB EBS storage minimum
+6. Add tags for cost tracking and resource identification
+7. Configure security group: Allow SSH from the local IP
+8. Launch (provisioning takes 5-10 minutes)
+9. SSH: `ssh -i the-key.pem ubuntu@instance-public-ip`
+
+**Cost Optimization Strategies**
+
+**Reserved vs Savings Plans**
+
+Reserved instances guarantee capacity; Savings Plans provide identical discounts without guaranteed capacity (can be preempted by on-demand).
+
+For sustained production workloads, reserved instances at $16.38/hr offer better reliability than Savings Plans. For research or variable-demand workloads, Savings Plans provide identical 50% discount with flexibility to terminate without penalty.
+
+**Spot Instance Economics**
+
+AWS p4d Spot pricing at $9.83/hr saves 70% versus on-demand:
+
+- 30-day training job: 720 hours × $9.83/hr = $7,078 (vs $23,594 on-demand = $16,516 savings)
+- Implement checkpointing to tolerate interruptions
+- Effective cost with 5% interruption rate: $7,078 × 1.05 = $7,432 (still 69% savings)
+
+For resumable training, Spot is optimal despite occasional reruns.
+
+**Break-Even Analysis for Reserved Capacity**
+
+Calculate when reserved instances justify upfront commitment:
+
+| Commitment | Upfront | Break-Even Point | Savings at 12 months |
+|---|---|---|---|
+| None (On-Demand) | $0 | Immediate | $0 |
+| 1-Year Reserved | $143,525 | 6.0 months | $143,526 |
+| 3-Year Reserved | $123,846 | 7.8 months | $243,205 |
+
+Break-even for 1-year reservation: 6 months of continuous usage (4,380 hours). For production training lasting 6+ months, 1-year reserved becomes optimal. For shorter experimental workloads, Spot at $9.83/hr with checkpointing provides best value.
+
+**Hybrid Multi-Instance Setup**
+
+For large teams, run permanent baseline cluster on reserved instances and burst on Spot:
+
+- 1x p4d reserved (baseline): $16.38/hr = $11,957/month
+- 1-3x p4d Spot (burst capacity): $9.83/hr each = $7,176/month per instance
+- Total for 2-instance setup: $26.21/hr = $19,133/month (baseline + one Spot)
+
+This approach provides redundancy and flexibility while maintaining cost efficiency, saving $5,789/month versus running two on-demand instances.
+
+**Multi-Team Cost Allocation**
+
+AWS p4d enables fine-grained cost allocation across teams via tags and Cost Explorer:
+
+```yaml
+Instance Tags:
+  - Team: ml-platform
+  - Project: llm-training
+  - CostCenter: engineering-ai
+
+```
+
+This operational capability justifies AWS cost premium for large teams with complex cost management requirements.
+
+## AWS-Specific Advantages
+
+**SageMaker Integration**
+
+AWS's managed training service handles distributed training orchestration automatically:
+
+```python
+from sagemaker import get_execution_role
+from sagemaker.pytorch import PyTorch
+
+role = get_execution_role()
+
+estimator = PyTorch(
+    entry_point='train.py',
+    role=role,
+    instance_type='ml.p4d.24xlarge',
+    instance_count=2,
+    framework_version='2.0',
+    hyperparameters={
+        'epochs': 10,
+        'batch_size': 32,
+        'learning_rate': 0.001
+    }
+)
+
+estimator.fit(training_data)
+```
+
+SageMaker handles multi-instance setup, parameter server coordination, and fault tolerance automatically, eliminating manual distributed training setup.
+
+**Data Pipeline Integration**
+
+AWS integrates GPU compute with data services:
+
+- **S3**: Unlimited dataset storage with built-in caching
+- **DynamoDB**: High-speed metadata store for training samples
+- **Redshift**: Data warehouse integration for feature pipelines
+- **Lake Formation**: Data governance for regulated workloads
+
+This ecosystem integration adds operational value absent from bare-metal providers.
+
+## p4d vs H100 (p5) on AWS
+
+AWS offers both p4d (A100) and p5 (H100) instances. Comparison:
+
+| Metric | p4d (A100) | p5 (H100) |
+|---|---|---|
+| Hourly Rate | $32.77 | $98.16 |
+| Per-GPU Cost | $4.10 | $12.27 |
+| Performance | 312 TFLOPS | 989 TFLOPS |
+| Memory | 320GB (8x40GB) | 640GB (8x80GB) |
+| EFA Networking | 400Gbps | 400Gbps |
+
+Choose p4d for inference and moderate-scale training (models <40B parameters). Choose p5 for large models (70B+) and research requiring latest compute performance.
+
+## Production Deployment Patterns
+
+**Multi-Tier Training Pipeline**
+
+Implement cost-efficient training pipeline leveraging on-demand and Spot instances:
+
+```yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: llm-training
+spec:
+  template:
+    spec:
+      containers:
+      - name: trainer
+        image: pytorch-training:latest
+        resources:
+          limits:
+            cpu: "96"
+            memory: "768Gi"
+      restartPolicy: Never
+      nodeSelector:
+        instance-type: "ml.p4d.24xlarge"
+```
+
+AWS Batch automatically places jobs on cheapest available resources (Spot first, then on-demand).
+
+**Model Serving Through SageMaker Endpoints**
+
+Deploy trained models with automatic scaling:
+
+```python
+from sagemaker.model import Model
+
+model = Model(
+    image_uri=training_job.latest_training_job.image,
+    model_data=training_job.latest_training_job.model_data,
+    role=role
+)
+
+predictor = model.deploy(
+    initial_instance_count=2,
+    instance_type='ml.p4d.24xlarge',
+    endpoint_name='llm-inference'
+)
+
+predictor.deploy_config.auto_scaling_config = {
+    'min_capacity': 2,
+    'max_capacity': 10,
+    'target_value': 0.7
+}
+```
+
+## FAQ
+
+**Is AWS p4d worth the cost premium versus RunPod or Lambda?**
+
+AWS excels for teams requiring integrated IAM, logging, compliance, and multi-team cost allocation. For solo engineers or small teams prioritizing GPU cost alone, [RunPod A100 at $1.19/hr](/articles/a100-runpod) is 27x cheaper. AWS becomes cost-competitive at 1-year Savings Plan rates ($16.38/hr = $2.05/GPU) for sustained workloads exceeding 6 months when including managed services value. Compare [Lambda A100 reserved pricing](/articles/lambda-labs-gpu-pricing) and [CoreWeave Kubernetes clusters](/articles/coreweave-gpu-pricing) for alternative production setups.
+
+**Should I use p4d Spot instances for training?**
+
+Yes, if implementing checkpointing and tolerating rare interruptions. Spot at $9.83/hr saves $23/hr versus on-demand. For a 100-hour training job, Spot saves $2,294. The trade-off: occasional reruns from checkpoints versus guaranteed on-demand execution.
+
+**How does p4d performance compare to p5 for A100-compatible models?**
+
+A100's 312 TFLOPS matches p5's peak performance for 8-bit and 4-bit quantized workloads (most production inference). For full-precision training of large models, p5's 989 TFLOPS provides 3x advantage. For A100-era models, p4d suffices; for latest architectures, p5 is recommended.
+
+**What's the minimum usage duration for AWS p4d reserved instances to break even?**
+
+1-year p4d reserved requires 6 months of continuous usage (4,380 hours) to break even versus on-demand. For shorter projects (<6 months), use Spot instances at 70% discount. For 6-12 month projects, 1-year reserved provides best ROI.
+
+**How should I structure multi-team A100 training on AWS to minimize costs?**
+
+(1) Create shared VPC with centralized p4d instances, (2) Use IAM roles to manage per-team access, (3) Tag all instances by team/project for cost allocation, (4) Reserve baseline capacity (1x p4d) for continuous workloads, (5) Burst with Spot instances for experimentation, (6) Use Cost Explorer to track per-team spending and chargeback. Estimated 30-40% cost reduction versus isolated per-team instances through consolidation and Spot savings.
+
+**AWS p4d vs Lambda vs RunPod: Complete Cost Comparison for 100-Hour Training Job**
+
+| Provider | Hourly Rate | Job Cost | Setup Overhead | Total Cost |
+|---|---|---|---|---|
+| RunPod (8x A100 single instances) | $1.19 × 8 | $952 | 30 min ($50) | $1,002 |
+| Lambda (8x A100 cluster) | $1.48 | $148 | 15 min ($25) | $173 |
+| Lambda (4x cluster × 2) | $5.92 × 2 | $1,184 | 30 min ($50) | $1,234 |
+| AWS p4d Spot | $9.83 | $983 | 1 hour ($150) | $1,133 |
+| AWS p4d Reserved (break-even) | $16.38 | $1,638 | 1 hour ($150) | $1,788 |
+
+For single 100-hour job: RunPod single-GPU instances cheapest. For sustained multi-GPU training: Lambda 8xA100 cluster most economical. AWS becomes optimal for 6+ month commitments with managed service integration value.
+
+**AWS SageMaker vs Direct EC2: When to Use Managed Services**
+
+SageMaker adds 15-25% cost overhead versus raw EC2 but provides:
+- Automatic distributed training setup
+- Hyperparameter tuning
+- Model versioning and registry
+- Automated monitoring and logging
+- Built-in security and compliance
+
+ROI calculation: 40 hours engineering time to setup distributed training manually × $150/hour = $6,000. SageMaker overhead on 100-hour training = $1,638 × 0.20 = $327. SageMaker provides 18x ROI in engineering time savings for teams lacking distributed training expertise.
+
+## Sources
+
+- AWS EC2 p4d Pricing: https://aws.amazon.com/ec2/pricing/on-demand/
+- AWS EC2 p4d Specifications: https://aws.amazon.com/ec2/instance-types/p4d/
+- AWS SageMaker Documentation: https://docs.aws.amazon.com/sagemaker/
+- NVIDIA A100 Data Sheet: https://www.nvidia.com/en-us/data-center/a100/

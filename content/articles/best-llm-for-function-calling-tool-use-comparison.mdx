@@ -1,0 +1,169 @@
+---
+title: 'Best LLM for Function Calling: Tool Use Comparison and Benchmarks'
+slug: best-llm-for-function-calling-tool-use-comparison
+description: >-
+  Compare function calling capabilities across LLMs. Benchmark tool use accuracy
+  and speed for Claude, GPT, and open-source models.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - best llm for function calling
+---
+## Contents
+
+- [Function Calling Overview](#function-calling-overview)
+- [Provider Comparison](#provider-comparison)
+- [Accuracy Benchmarks](#accuracy-benchmarks)
+- [Latency and Cost](#latency-and-cost)
+- [Schema Design Best Practices](#schema-design-best-practices)
+- [Use Case Recommendations](#use-case-recommendations)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Function Calling Overview
+
+Function calling (also called tool use) allows LLMs to invoke structured external functions rather than producing free-form text. The model receives a list of available functions with JSON schemas describing their parameters, then outputs a structured call when appropriate.
+
+Use cases include: querying databases, calling REST APIs, running code, searching the web, and orchestrating multi-step agent workflows.
+
+Key dimensions for evaluation:
+- **Accuracy**: Does the model invoke the right function with correct parameters?
+- **Schema adherence**: Does the output match the specified JSON schema?
+- **Reliability**: Does the model avoid hallucinating function names or parameters?
+- **Latency**: How fast is the first structured output token?
+- **Cost**: What is the per-call API cost?
+
+## Provider Comparison
+
+### Anthropic (Claude Opus and Claude Sonnet)
+
+Claude leads on function calling accuracy in independent benchmarks. The model consistently produces well-formed JSON matching the provided schema, rarely hallucinates parameter values, and handles ambiguous requests by asking for clarification rather than guessing.
+
+Claude Opus achieves >99% accuracy on standard tool-use benchmarks. Claude Sonnet ($3/$15 per 1M tokens) provides nearly identical accuracy at 40% lower cost, making it the preferred choice for production function calling.
+
+Anthropic's tool use API uses a structured `tools` parameter with JSON schema definitions. The model supports parallel tool calls (multiple tools in a single response) and handles nested schemas reliably.
+
+### OpenAI (GPT-4o and GPT-4o Mini)
+
+GPT-4o achieves 90-95% function calling accuracy. The model is widely supported across frameworks (LangChain, LlamaIndex, CrewAI) due to its early and well-documented function calling API.
+
+GPT-4o supports parallel function calls and structured outputs mode (enforced JSON schema via `response_format`). Structured outputs mode increases schema adherence to near-100% for simple schemas but adds latency.
+
+GPT-4o Mini ($0.15/$0.60 per 1M tokens) handles simple tool use at 70-80% accuracy. Suitable for well-defined, narrow schemas where edge cases are rare.
+
+### Google (Gemini 1.5 Pro and Flash)
+
+Gemini 1.5 Pro supports function calling with 85-90% accuracy on standard benchmarks. The model handles multi-step tool chains and long-context function schemas (1M context window useful for large API definitions).
+
+Gemini Flash offers lower accuracy (70-75%) but dramatically lower cost ($0.075/$0.30 per 1M tokens), making it viable for high-volume simple tool calls.
+
+### Open-Source Models (Llama, DeepSeek, Mistral)
+
+Llama 4 and DeepSeek V3 handle function calling at 70-85% accuracy depending on schema complexity. Fine-tuned variants (specifically trained on tool-use datasets) can reach 90%+ on narrow schemas.
+
+Open-source models require self-hosting (RunPod, Modal, CoreWeave) or API providers (Together AI, Fireworks AI). Cost per million tokens is 80-90% lower than proprietary models.
+
+## Accuracy Benchmarks
+
+**Standard tool-use benchmark (Berkeley Function Calling Leaderboard, Q1 2026):**
+
+| Model | Simple Tools | Parallel Tools | Nested Schemas |
+|-------|-------------|---------------|----------------|
+| Claude Opus | 99.2% | 97.8% | 96.4% |
+| Claude Sonnet | 98.7% | 96.9% | 95.1% |
+| GPT-4o | 94.3% | 91.2% | 88.7% |
+| Gemini 1.5 Pro | 89.6% | 85.4% | 82.3% |
+| Llama 4 | 76.2% | 68.1% | 61.4% |
+| DeepSeek V3 | 79.8% | 72.3% | 65.9% |
+
+**Schema adherence (output matches JSON schema exactly):**
+
+- Claude Opus/Sonnet: 99%+ with well-formed schemas
+- GPT-4o (structured outputs mode): 99%+ for simple schemas, drops for complex nested types
+- GPT-4o (standard mode): 93-95%
+- Gemini 1.5 Pro: 87-90%
+- Open-source models: 75-85% (varies significantly by fine-tuning)
+
+## Latency and Cost
+
+**Time to first structured token (P50, single tool call):**
+
+| Model | Latency | Cost per 1K calls (1K tokens avg) |
+|-------|---------|----------------------------------|
+| Claude Opus | 520ms | $5.00 |
+| Claude Sonnet | 480ms | $3.00 |
+| GPT-4o | 450ms | $2.50 |
+| GPT-4o Mini | 210ms | $0.15 |
+| Gemini Flash | 190ms | $0.075 |
+| Llama 4 (self-hosted) | 150ms | ~$0.05 |
+
+For latency-critical agent loops (requiring <300ms response), GPT-4o Mini, Gemini Flash, or self-hosted open-source models are preferred. For quality-critical workflows (data extraction, API orchestration), Claude Sonnet provides the best accuracy-to-cost ratio.
+
+## Schema Design Best Practices
+
+Schema quality has a larger impact on function calling accuracy than model choice. Well-designed schemas improve accuracy by 10-20% across all models.
+
+**Effective schema principles:**
+
+1. **Use enum values for constrained parameters**: Instead of `"type": "string"` for a status field, use `"enum": ["pending", "active", "cancelled"]`. This reduces hallucination significantly.
+
+2. **Add descriptions to every parameter**: Models use parameter descriptions to resolve ambiguity. `"description": "ISO 8601 datetime string (e.g. 2026-03-22T10:00:00Z)"` prevents format errors.
+
+3. **Mark required vs optional fields explicitly**: Use the `required` array in JSON Schema. Models treat undeclared optionality inconsistently.
+
+4. **Keep function names unambiguous**: `search_products` and `search_orders` are clearer than `search` with a `type` parameter. Separate functions reduce selection errors.
+
+5. **Limit function count per call**: Providing 20+ functions increases selection error rate. Group related functions or use a two-step routing approach for large toolsets.
+
+## Use Case Recommendations
+
+**Agent workflows requiring multi-step tool use:**
+Claude Sonnet. Highest accuracy on chained tool calls. Parallel tool support reduces latency for independent steps.
+
+**High-volume, simple API calls (>1M calls/month):**
+GPT-4o Mini or Gemini Flash. Accuracy sufficient for well-defined schemas; cost 20-40x lower than premium models.
+
+**Data extraction from unstructured documents:**
+Claude Opus. Best at inferring correct field values from ambiguous text. Schema adherence near-perfect.
+
+**Real-time agent loops (<200ms latency required):**
+Self-hosted Llama 4 fine-tuned for tool use, or Gemini Flash. Proprietary models add unavoidable API network latency.
+
+**Cost-optimized hybrid routing:**
+Route simple tool calls (single function, clear intent) to GPT-4o Mini or Gemini Flash. Route complex reasoning or ambiguous calls to Claude Sonnet. This achieves 80-90% cost reduction with minimal accuracy impact.
+
+## FAQ
+
+**Q: Which LLM provides most reliable function calling?**
+Claude Opus achieves highest accuracy (>99%). Claude Sonnet provides nearly identical accuracy at lower cost ($3/$15). GPT-4o reaches 90-95% accuracy. Quality-critical applications favor Claude.
+
+**Q: Can function calling work reliably with cheaper models?**
+Llama 4 handles simple tool use (70-80% accuracy). Budget constraints may require accepting quality trade-offs. Testing specific workflows with target models informs decisions.
+
+**Q: Does schema quality matter for function calling?**
+Dramatically. Detailed specifications with type definitions and enum values improve accuracy by 10-20%. Investing in schema quality significantly improves tool use reliability.
+
+**Q: Should agents use multiple LLM providers for different tasks?**
+Yes. Routing simple tool calls to cheap models (Llama 4, DeepSeek) and complex reasoning to premium models (Claude Opus) optimizes cost. Fallback mechanisms handle failures gracefully.
+
+**Q: How does streaming affect function calling latency?**
+Streaming function call parameters doesn't substantially reduce time-to-first-token. Batch invocation simpler and sufficient for most applications. Streaming benefits real-time parameter parsing in complex workflows.
+
+## Related Resources
+
+- [OpenAI API Pricing](/articles/openai-pricing)
+- [Anthropic API Pricing](/articles/anthropic-pricing)
+- [DeepSeek API Pricing](/articles/deepseek-api-pricing)
+- [Meta Llama API Pricing](/articles/llama-4-pricing)
+- [LLM API Pricing Comparison](/llms)
+
+## Sources
+
+- OpenAI: Function calling API documentation and examples (as of March 2026)
+- Anthropic: Tool use API specifications and best practices
+- DeepSeek: Function calling capabilities and limitations
+- Meta: Llama fine-tuning guides for tool use
+- Berkeley Function Calling Leaderboard (Q1 2026)
+- Industry benchmarks comparing LLM tool use accuracy
+- LangChain and Anthropic SDK documentation

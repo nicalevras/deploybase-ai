@@ -1,0 +1,493 @@
+---
+title: What Are AI Tokens? How LLM Tokenization Works
+slug: what-are-ai-tokens
+description: >-
+  Understand AI tokens: how LLMs break down text into chunks. Token count,
+  pricing models, and why it matters for API costs and model performance.
+date: '2026-03-21'
+author: DeployBase
+category: AI Concepts
+keywords:
+  - what are ai tokens
+  - ai tokens
+  - llm tokens
+  - how do tokens work
+  - token counting
+  - tokenization
+---
+
+## Contents
+
+- [What Are AI Tokens: Overview](#what-are-ai-tokens-overview)
+- [What Is a Token?](#what-is-a-token)
+- [How Tokenization Works](#how-tokenization-works)
+- [Tokenizer Comparison (BPE vs SentencePiece)](#tokenizer-comparison-bpe-vs-sentencepiece)
+- [Token Counting Examples](#token-counting-examples)
+- [Pricing and Cost](#pricing-and-cost)
+- [Token Limits and Context Windows](#token-limits-and-context-windows)
+- [Tokenization Across Different Models](#tokenization-across-different-models)
+- [Cost Optimization Through Token Reduction](#cost-optimization-through-token-reduction)
+- [Optimization Tips](#optimization-tips)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## What Are AI Tokens: Overview
+
+What are AI tokens? A token is the smallest unit an LLM reads. Roughly 1 token = 4 characters or 0.75 words of English text. Every API call is metered in tokens: input tokens (what teams send) and output tokens (what the model generates). Model pricing is per-million-tokens. Understand tokens and teams understand LLM costs, performance, and limits. Misunderstand tokens and teams are flying blind on budgets, as of March 2026.
+
+---
+
+## What Is a Token?
+
+A token is a numerical ID that represents a piece of text. The model does not see words or characters. It sees numbers. The tokenizer converts text to numbers, the model processes numbers, and the detokenizer converts numbers back to text.
+
+Example: "Hello, world!" becomes tokens [7, 42, 1205, 3, 0, 2]. Each number maps to a chunk of text. Token 7 might represent "Hello", token 42 might represent ",", token 1205 might represent " world", etc. The exact mapping depends on the tokenizer's vocabulary.
+
+Models operate on token sequences. This sequence [7, 42, 1205, 3, 0, 2] is fed through neural network layers, and the model predicts the next token. It outputs token 5, which detokenizes to "?" or "." or any other single token. The model predicts one token at a time. Each prediction is one inference step.
+
+### Why Tokens Instead of Characters?
+
+Characters would be inefficient. The English alphabet has 26 letters + punctuation = ~100 unique values. A 1-million-word document needs 7 million character tokens. With a word vocabulary, the same document is 1 million tokens. Word tokens compress information.
+
+Subword tokenization splits rare words into known parts. The word "untranslatable" might tokenize as ["un", "translate", "able"], a 3-token sequence instead of one made-up token the model has never seen.
+
+### Token Statistics
+
+A rule of thumb: 1 token ≈ 4 characters ≈ 0.75 words (for English text).
+
+This varies:
+- Code is more token-expensive (1 token ≈ 3-5 characters) due to operators and symbols
+- Structured data (JSON, XML) is more token-expensive
+- Common words are 1 token (the, is, a)
+- Rare words are 2-3 tokens (quinoa, cryptocurrency)
+
+---
+
+## How Tokenization Works
+
+### The Tokenizer
+
+A tokenizer is a lookup table built during model training. It contains a vocabulary (a list of token strings) and maps each string to a unique ID.
+
+**Example tokenizer vocabulary (simplified):**
+```
+{
+ "the": 1,
+ "quick": 2,
+ "brown": 3,
+ "fox": 4,
+ "jumps": 5,
+ " over": 6,
+ " the": 7,
+ " lazy": 8,
+ " dog": 9,
+ ".": 10
+}
+```
+
+Text: "the quick brown fox"
+
+Tokenizer breaks it into known vocabulary pieces: ["the", "quick", "brown", "fox"]
+
+Maps to IDs: [1, 2, 3, 4]
+
+The model sees [1, 2, 3, 4].
+
+### Subword Tokenization
+
+Real tokenizers use subword tokenization. They split unknown words into smaller pieces.
+
+Text: "The foxes jumped"
+
+Vocabulary has "fox" and "jump" but not "foxes" or "jumped".
+
+Tokenizer splits: ["the", "fox", "es", "jump", "ed"]
+
+Maps: [1, 4, 11, 5, 12]
+
+Result: 5 tokens instead of 3. Longer, but the model can handle unfamiliar words.
+
+### Byte Pair Encoding (BPE)
+
+Most modern LLMs use BPE (or variants like SentencePiece). BPE builds the vocabulary by merging the most-common byte pairs during training.
+
+**Process:**
+1. Start with individual bytes.
+2. Count frequency of all byte pairs.
+3. Merge the most common pair.
+4. Repeat until teams have a vocabulary of fixed size (e.g., 50,000 tokens).
+
+Result: A vocabulary that balances coverage (handles rare words) and compression (keeps sequence length short).
+
+**Example BPE merge sequence:**
+- Initial: "d", "o", "g", "s", " ", "r", "u", "n"
+- Step 1: Merge "d" + "o" → "do". Vocabulary: ["do", "g", "s", "r", "u", "n", .]
+- Step 2: Merge "do" + "g" → "dog". Vocabulary: ["dog", "s", "r", "u", "n", .]
+- Eventually: "dogs" becomes ["dog", "s"], "runs" becomes ["run", "s"]
+
+---
+
+## Tokenizer Comparison (BPE vs SentencePiece)
+
+### Byte Pair Encoding (BPE)
+
+**Used by:** OpenAI (tiktoken), Llama models
+
+**Characteristics:**
+- Merges common byte sequences
+- Vocabulary size: 50K-100K
+- Better for Latin-alphabet languages (English, Spanish, French)
+- Worse for non-Latin scripts (Chinese, Arabic, Devanagari)
+
+**Example (English):**
+"The quick brown fox" = 5 tokens
+
+**Example (Chinese):**
+"快速的棕色狐狸" (same meaning) = 12-15 tokens
+
+BPE treats each Chinese character as multiple tokens because they're not in the vocabulary (built primarily on English).
+
+### SentencePiece
+
+**Used by:** DeepSeek, Qwen, PaLM, T5
+
+**Characteristics:**
+- Treats text as bytes, learns BPE on entire byte stream
+- Vocabulary size: 30K-50K
+- Language-agnostic (works equally well for all languages)
+- Slightly larger vocabulary (padding tokens for unknown bytes)
+
+**Example (English):**
+"The quick brown fox" = 5 tokens (same as BPE)
+
+**Example (Chinese):**
+"快速的棕色狐狸" = 8-10 tokens (fewer than BPE)
+
+SentencePiece is more efficient for multilingual tasks.
+
+### Cost Impact
+
+Same text, different tokenizers:
+
+**English query: "Build a REST API in Python"**
+- OpenAI (BPE): 8 tokens
+- Claude (BPE variant): 8 tokens
+- DeepSeek (SentencePiece): 7 tokens
+
+**Cost difference:** Negligible on English.
+
+**Chinese query: "用Python构建REST API"**
+- OpenAI (BPE): 18 tokens
+- Claude (BPE variant): 16 tokens
+- DeepSeek (SentencePiece): 12 tokens
+
+**Cost difference:** Using DeepSeek saves 33% on Chinese queries. Material if 20%+ of traffic is non-Latin languages.
+
+---
+
+## Token Counting Examples
+
+### Short Text
+
+"Hello, world!"
+
+Claude tokenizer: ~4 tokens
+GPT-4 tokenizer: ~5 tokens
+
+Exact count depends on the tokenizer. Different models have different vocabularies.
+
+### Paragraph
+
+"The quick brown fox jumps over the lazy dog. This sentence contains every letter of the alphabet."
+
+Claude tokenizer: ~20 tokens
+GPT-4 tokenizer: ~22 tokens
+
+Rough rule: 1 token per 4 characters, or 0.75 words.
+
+This 97-character paragraph: 97 / 4 = 24 tokens (close match).
+
+### Code Block
+
+```python
+def add(a, b):
+ return a + b
+```
+
+Claude tokenizer: ~15 tokens
+GPT-4 tokenizer: ~18 tokens
+
+Code is more token-expensive than prose. Operators, indentation, and special characters tokenize separately.
+
+### Long Document
+
+A 10,000-word research paper: ~13,300 tokens (at 0.75 words/token)
+
+A 100,000-word novel: ~133,000 tokens
+
+### API Call Example
+
+**Prompt:** "Explain quantum computing in 100 words."
+**Tokens:** ~15 tokens
+
+**Model response:** 100 words explaining quantum computing.
+**Tokens:** ~130 tokens (1.3 words per token for generated text, slightly higher than input)
+
+Total: 15 input + 130 output = 145 tokens billed.
+
+---
+
+## Pricing and Cost
+
+### Per-Token Pricing
+
+OpenAI GPT-5: $1.25 per million input tokens, $10.00 per million output tokens.
+
+Claude Sonnet 4.6: $3.00 per million input tokens, $15.00 per million output tokens.
+
+Perplexity Sonar Pro: $3.00 per million input tokens, $10.00 per million output tokens.
+
+### Cost Calculation
+
+Request: 500 input tokens, 200 output tokens.
+
+**GPT-5 cost:** (500/1,000,000 × $1.25) + (200/1,000,000 × $10.00) = $0.000625 + $0.000200 = **$0.000825**
+
+Claude Sonnet 4.6 cost: (500/1,000,000 × $3.00) + (200/1,000,000 × $15.00) = $0.0015 + $0.0030 = **$0.0045**
+
+Claude is 5.5x more expensive per request but may produce better output. Tradeoff depends on the task.
+
+### Monthly Budget Example
+
+A team runs 1 billion input tokens and 500 million output tokens per month.
+
+**GPT-5 cost:** ($1.25 × 1,000) + ($10.00 × 500) = $1,250 + $5,000 = **$6,250/month**
+
+**Claude Sonnet 4.6 cost:** ($3.00 × 1,000) + ($15.00 × 500) = $3,000 + $7,500 = **$10,500/month**
+
+GPT-5 is cheaper at scale. Claude costs 68% more.
+
+Token efficiency (shorter prompts, lower token counts) matters more than model choice for budget control.
+
+---
+
+## Token Limits and Context Windows
+
+### Context Window
+
+A model's context window is its maximum input + output token capacity.
+
+Claude Opus 4.6: 1 million tokens (1M context)
+GPT-5.4: 1.05 million tokens (API extended mode; standard is 272K)
+Grok 4.1 Fast: 2 million tokens
+GPT-5 Nano: 400K tokens
+
+A 1M context window means teams can fit an entire 750,000-word novel in a single prompt. No splitting needed.
+
+### Exceeding Context
+
+If the prompt exceeds the context window, the API rejects it.
+
+Send 300K tokens to GPT-5 (272K limit), the API returns an error. Teams must either:
+1. Use a model with a larger context window (GPT-5.4 or Claude)
+2. Split the prompt and call the API multiple times (loses cross-document context)
+3. Use a retrieval system (RAG) to embed and search relevant sections, then send only the relevant part to the model
+
+### Cost of Large Context
+
+Longer prompts = more input tokens = higher cost.
+
+A 100K-token document sent to Claude Sonnet: 100K × $3.00/1M = $0.30 in input cost.
+
+Send it twice in the same month: $0.60.
+
+Send it 100 times: $30.
+
+Token efficiency saves money.
+
+---
+
+## Tokenization Across Different Models
+
+### Different Tokenizers, Different Counts
+
+The same text tokenizes differently in different models because they have different vocabularies.
+
+Text: "I'm building an LLM API."
+
+- Claude tokenizer: "I", "'m", " building", " an", " LLM", " API", "." = 7 tokens
+- GPT-4 tokenizer: "I", "'m", " building", " an", " LLM", " API", "." = 7 tokens
+- Llama tokenizer: might differ (Llama uses SentencePiece)
+
+Difference is small for English. Larger for non-English text. Chinese or Japanese text is more token-expensive in most tokenizers.
+
+### Cost Implications
+
+Budget for 1 million tokens on Claude. The same text might be 950K tokens on GPT-5, or 1.1M tokens on another model. Tokenizer variance is real but usually small (±10%).
+
+### Tokenizer Mismatch in Practice
+
+When building a product, use the exact model's tokenizer for counting. Libraries exist for this:
+
+- OpenAI: `tiktoken` library
+- Anthropic: `tokenizers` library
+- Open-source: `transformers` library (Hugging Face)
+
+Rough estimations (0.75 words per token) are good for back-of-napkin math. Exact billing uses the model's tokenizer.
+
+---
+
+## Cost Optimization Through Token Reduction
+
+Reducing token count is the single most effective way to cut API costs. One 50% reduction in tokens saves 50% in costs, regardless of which model teams use.
+
+### Token Reduction Strategies
+
+**1. Compress Prompts**
+
+BAD: "Hey, I'm building a product and I'd like the help with it. The product is an API. It's a GPT API but for a specific use case. The use case is X. Can teams help me think through the requirements?"
+
+GOOD: "API for [use case X]. What are the core requirements?"
+
+Bad version: ~70 tokens
+Good version: ~15 tokens
+Savings: 78%
+
+**2. Remove Unnecessary Examples**
+
+Including 5 examples when 2 suffice doubles the prompt size. Test with fewer examples. LLMs often work fine with 1-2 examples instead of 5-10.
+
+**3. Use Abbreviations**
+
+"The quick brown fox jumps over the lazy dog" = 14 tokens
+"Quick brown fox jumps lazy dog" = 10 tokens
+Savings: 28%
+
+Real scenario: Data extraction. Replace full field names with abbreviations. "customer_email_address" → "email". Tell model the mapping once, reuse abbreviations in entire batch.
+
+**4. Reuse Cached Prompts**
+
+If using OpenAI's prompt caching or Anthropic's prompt caching, cache the system prompt and context. Subsequent queries pay 90% less on cached tokens.
+
+A 1,000-token system prompt:
+- First request: $3 (full price)
+- Subsequent requests (same day): $0.30 (10% of price)
+
+At 100 requests/day: savings of $270/day on system prompt overhead.
+
+**5. Use Retrieval-Augmented Generation (RAG)**
+
+Don't send entire knowledge base in every prompt. Index it externally, retrieve only relevant sections.
+
+Example: Customer support chatbot on 10,000-page knowledge base.
+
+BAD: Embed entire knowledge base in every request (100K tokens)
+- 1,000 requests/month: 100M tokens = $300K/month
+
+GOOD: Retrieve top 3 relevant pages (3K tokens) via semantic search
+- 1,000 requests/month: 3M tokens = $9K/month
+- Savings: $291K/month (97% reduction)
+
+---
+
+## Optimization Tips
+
+### Shorter Prompts = Lower Cost
+
+A 500-token prompt asking the same question as a 5,000-token prompt produces similar answers. Audit prompts for filler phrases, hedging language, and redundant context that the model doesn't need. Apply the prompt compression strategies described in the Cost Optimization section above.
+
+### System Prompts Add to Cost
+
+System prompts are billed like input tokens. A 1,000-token system prompt costs $3.00 on Claude per request. For teams that make 100 requests, that's $300 on system prompt overhead alone.
+
+Consider: Is the system prompt necessary? Can instructions be encoded in few-shot examples instead (shown once, then reused)?
+
+### Cache Long Prompts (if supported)
+
+OpenAI's API supports prompt caching. Store a long document in cache, send it once, then reuse it for multiple queries. Cache hits cost 90% less.
+
+A 100K-token document cached: first request pays full price, subsequent requests in the same day pay 10% of the normal input rate.
+
+### Compression and Summarization
+
+For long documents, consider pre-summarizing. Send a 2K-token summary instead of a 50K-token full document. Quality trade-off, but cost drops dramatically.
+
+Useful for bulk document review, due diligence, legal discovery.
+
+### Model Selection for Token Efficiency
+
+Some models are more token-efficient than others.
+
+DeepSeek V3 (SentencePiece tokenizer) is ~10-15% more efficient on non-English text than BPE-based models.
+
+For multilingual workloads: use DeepSeek, not OpenAI, for token cost savings.
+
+### Batch Processing
+
+Batch APIs often charge less per token (50% discount on Groq, 50% discount on Anthropic batch processing).
+
+If teams can wait 24 hours for results, batch processing saves 50% on token costs at scale.
+
+---
+
+## FAQ
+
+**How many tokens is a sentence?**
+15-25 tokens depending on punctuation and word length. "The cat sat on the mat." is ~8 tokens. A dense technical sentence with jargon is 30+.
+
+**How many tokens is a page?**
+~600-800 tokens (assuming 250 words per page, at 0.75 words per token).
+
+**Can I control token count?**
+Not directly. You can optimize prompt length, but the tokenizer decides the exact count. Use the model's tokenizer library to estimate before sending.
+
+**Why does GPT-4 cost more than GPT-5?**
+It doesn't always. GPT-4.1 is cheaper ($2/$8) than GPT-5 ($1.25/$10) in some tiers. Pricing depends on model version and release date, not raw capability.
+
+**Do input and output tokens cost the same?**
+No. Output tokens are usually 4-8x more expensive. GPT-5: $1.25 input, $10 output (8x). Claude: $3 input, $15 output (5x).
+
+**What about vision tokens (images)?**
+Images are converted to tokens. A high-resolution image might be 500-2000 tokens depending on detail. GPT-4 charges differently for images vs text. Claude charges uniform per-token but images are more dense.
+
+**If I prompt the same question twice, do I pay twice?**
+Yes. Each API call is billed independently. No caching by default. OpenAI's API supports prompt caching (pay once, reuse at 10% cost). Most APIs don't.
+
+**How do I count tokens before sending?**
+Use the model's tokenizer library:
+- OpenAI: `tiktoken.encoding_for_model("gpt-4")`
+- Anthropic: `client.count_message_tokens(.)`
+- Llama: `transformers.AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b")`
+
+**What's the relationship between token count and latency?**
+Longer prompts take longer to process. TTFT (time to first token) increases with input length. Rule of thumb: 1M input tokens ≈ 2-3 seconds latency overhead.
+
+**Can I reduce output tokens?**
+Yes, by asking for concise responses. "Explain in 1 sentence" vs "explain in detail" can reduce output tokens by 50%+.
+
+**What happens if I go over context limit?**
+API returns error. Retry with shorter prompt, use a model with larger context, or use RAG to retrieve relevant sections.
+
+---
+
+## Related Resources
+
+- [LLM Models and Pricing](/llms)
+- [GPU vs CPU for AI](/articles/gpu-vs-cpu-for-ai)
+- [LLM VRAM Requirements](/articles/llm-vram-requirements)
+- [What Is a Cloud GPU](/articles/what-is-cloud-gpu)
+
+---
+
+## Sources
+
+- [Microsoft Learn: Understanding Tokens](https://learn.microsoft.com/en-us/dotnet/ai/conceptual/understanding-tokens)
+- [Tokenization in LLMs Explained](https://seantrott.substack.com/p/tokenization-in-large-language-models)
+- [OpenAI Tokenizer (TikToken)](https://github.com/openai/tiktoken)
+- [Mistral Tokenization Guide](https://docs.mistral.ai/guides/tokenization/)
+- [Anthropic Claude Pricing](https://www.anthropic.com/pricing/claude)
+- [OpenAI API Pricing](https://openai.com/api/pricing/)
+- [DeployBase LLM Pricing Tracker](/llms) (data observed March 21, 2026)

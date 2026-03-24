@@ -1,0 +1,167 @@
+---
+title: 'H100 on CoreWeave: Pricing, Specs, and How to Rent'
+slug: h100-on-coreweave-pricing-specs-and-how-to-rent
+description: >-
+  CoreWeave H100 pricing, multi-GPU cluster configurations, and rental process
+  for large-scale AI workloads.
+date: '2026-03-22'
+author: DeployBase
+category: Provider Guides
+---
+
+## Contents
+
+- [Renting H100 on CoreWeave](#renting-h100-on-coreweave)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Renting H100 on CoreWeave
+
+CoreWeave: 8xH100 clusters at $49.24/hr ($6.16 per GPU). Designed for batch processing and distributed training. Built on Kubernetes.
+
+### H100 GPU Specifications
+
+H100 PCIe variant: 80GB HBM3 memory, 700W power consumption, dual PCIe 5.0 connection
+H100 SXM variant: 80GB HBM3 memory, 700W power consumption, NVLink connectivity
+
+NVLink connectivity enables lower-latency communication between GPUs. This matters for large distributed models where inter-GPU bandwidth exceeds PCIe capabilities.
+
+H100 specifications support large language models up to 70B parameters in full precision. Quantized models can exceed 70B parameters within 80GB constraints.
+
+### Pricing
+
+8xH100 cluster: $49.24/hr ($6.16 per GPU). Good for sustained batch/training.
+
+16xH100 clusters: $100-140/hr (negotiated). Reserved capacity discounts: 15-20%.
+
+### What Developers Get
+
+Each 8xH100 cluster:
+- 640GB total GPU memory (80GB per GPU)
+- NVLink inter-GPU (900GB/s)
+- 400Gbps network bandwidth
+- Kubernetes pre-installed
+
+Runs 70B models distributed across GPUs. Batch sizes 16-32. Handles 100K+ daily inference requests.
+
+### How to Rent H100 on CoreWeave
+
+1. Create CoreWeave account at coreweave.com
+2. Configure cluster: Select 8xH100, choose region, confirm specs
+3. Deploy container: Provide Docker image with model code
+4. Monitor usage: Track GPU utilization, costs
+5. Pay by invoice: Monthly billing for sustained usage
+
+CoreWeave requires containerization. Provide Docker containers running NVIDIA Container Toolkit compatible images.
+
+Setup takes 30-60 minutes after account approval. Approval is typically instant for individuals with credit cards. Companies might require business verification.
+
+### Performance Characteristics
+
+H100 on CoreWeave achieves consistent performance across time. Unlike spot instances, reserved capacity guarantees no preemption.
+
+Typical performance benchmarks:
+- LLaMA 2 70B: 50 tokens/second (batched inference)
+- Fine-tuning LLaMA 2 7B: 200 examples/second throughput
+- Stable Diffusion batch inference: 10-15 images/minute per GPU
+
+Multi-GPU communication overhead is minimal (2-3% degradation for 8-GPU clusters due to NVLink efficiency).
+
+### Cost Comparison vs Other Providers
+
+CoreWeave 8xH100: $49.24/hour for sustained batch workload
+RunPod 8xH100: 8 × $2.69/hour = $21.52/hour (RunPod targets single/dual GPU workloads primarily)
+AWS P4d (8x GPUs): $40/hour (older hardware, less efficient)
+Lambda Labs: Single H100 only ($2.49/hour), no multi-GPU pods
+
+CoreWeave beats RunPod on multi-GPU orchestration. But costs $3.47/GPU more per hour.
+
+## FAQ
+
+**What models work best on CoreWeave H100 clusters?**
+Models exceeding 40B parameters distributed across 4-8 GPUs. Single-GPU models might not justify CoreWeave's multi-GPU overhead. Teams with modest inference requirements should consider RunPod or Lambda instead.
+
+**Can I use CoreWeave for real-time inference APIs?**
+Technically yes, but not optimal. CoreWeave targets batch processing with 100ms+ latency tolerance. Real-time APIs requiring <50ms latency benefit from RunPod's single-GPU optimization.
+
+**How does CoreWeave pricing compare to AWS?**
+CoreWeave $49.24/8xH100 is $6.155/hour per GPU. AWS P4d pricing is $40/hour for 8 older GPUs. CoreWeave is 15% more expensive but provides newer hardware and superior interconnects.
+
+**What happens if my job fails mid-way?**
+CoreWeave charges for elapsed time. Implement checkpointing to resume jobs. Costs are incurred even if computation fails.
+
+**Does CoreWeave offer volume discounts?**
+Monthly commitment discounts are available at 15-20% reduction for teams committing to sustained usage.
+
+### Examples
+
+**Training a 70B model on 100M documents**: 100 hours at $49.24/hr = $4,924.
+
+**Serving 70B to 10K concurrent users**: Need 8-16 H100s for sub-second latency. CoreWeave handles this natively with distributed serving.
+
+**Processing 1M inference requests**: 8xH100 does ~200 tokens/sec. 50M tokens total = 250 seconds = $3.42 cost.
+
+### Development
+
+CoreWeave supports git-based CI/CD. Push code, CoreWeave deploys automatically. Kubernetes integration handles multi-cluster deployments. Your existing PyTorch/TensorFlow code works as-is.
+
+### Cost Optimization
+
+Spot pricing: 50-70% cheaper for fault-tolerant batch jobs. Reserved capacity: 15-20% savings for monthly commitments.
+
+These custom configurations require longer lead times but provide economies of scale for Teams with sustained, large-scale workloads.
+
+### Alternative Multi-GPU Providers
+
+AWS P4d instances (8x H100-equivalent): $40/hour
+Google Cloud TPU pods: $16-32/hour (different architecture, not H100)
+Azure GPU clusters: $35-45/hour depending on configuration
+
+CoreWeave's $49.24/hour pricing for 8xH100 is reasonable compared to alternatives. AWS is cheaper but less specialized for multi-GPU AI workloads.
+
+### Networking and Bandwidth
+
+CoreWeave provides 400Gbps interconnect within cluster. This extreme bandwidth enables distributed training on large models with minimal communication overhead.
+
+Inter-cluster networking at $0.10/GB ($0.01 within CoreWeave data center). Bandwidth costs are secondary to compute costs for most workloads.
+
+Low-latency networking suitable for real-time distributed inference requiring sub-millisecond communication.
+
+### Training Infrastructure Considerations
+
+CoreWeave excels for long-duration training jobs (8+ hours). Setup overhead amortizes over training duration. Cost per training hour remains constant regardless of job length.
+
+Distributed data parallelism across 8xH100 reduces training time significantly. A 100-hour training job on single GPU becomes 15 hours on 8 GPUs with optimal parallelization.
+
+Training cost: $49.24/hour × 15 hours = $739 for full training job. Cost per model version is predictable and economical.
+
+### Model Serving Architecture
+
+CoreWeave infrastructure enables large-scale model serving. A 70B model distributed across 4 GPUs processes 200 tokens/second = 7.2M tokens/hour.
+
+Serving 1B tokens monthly requires 139 GPU-hours. Cost: $49.24/8 × 139 = $856/month (per GPU-hour for one of the 8 GPUs).
+
+This cost structure is economical for high-volume inference, making CoreWeave competitive with API-based services.
+
+### Considerations for Batch Workloads
+
+Batch processing benefits from CoreWeave's high throughput. Processing 1M images with Stable Diffusion XLXL at 4 images per minute per GPU: 1M / 4 / 8 / 60 = 52 hours required.
+
+Cost: $49.24/hour × 52 = $2,561 total for 1M image batch. Cost per image: $0.0026.
+
+This economics work for price-sensitive image processing services.
+
+## Related Resources
+
+- [CoreWeave GPU Pricing](/articles/coreweave-gpu-pricing)
+- [NVIDIA H100 Price](/articles/nvidia-h100-price)
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [Lambda Labs GPU Pricing](/articles/lambda-labs-gpu-pricing)
+- [AI Inference Platform Cost Calculator](/articles/ai-inference-platform-cost-calculator-enterprise-pricing)
+
+## Sources
+
+- CoreWeave pricing documentation (accessed March 2026)
+- H100 technical specifications from Nvidia (2026)
+- Performance benchmarks from DeployBase.AI testing (March 2026)

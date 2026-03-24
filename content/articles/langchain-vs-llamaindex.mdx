@@ -1,0 +1,463 @@
+---
+title: 'LangChain vs LlamaIndex: Architecture and RAG Patterns'
+slug: langchain-vs-llamaindex
+description: >-
+  LangChain vs LlamaIndex: agent orchestration vs data indexing frameworks, RAG
+  patterns comparison as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: AI Tools
+keywords:
+  - langchain vs llamaindex
+  - langchain vs llama index
+  - rag frameworks
+  - agent framework comparison
+  - llamaindex architecture
+---
+
+## Contents
+
+- [Langchain vs Llamaindex: Overview](#langchain-vs-llamaindex-overview)
+- [Architecture Comparison](#architecture-comparison)
+- [Core Design Philosophy](#core-design-philosophy)
+- [Agent vs Data Framework](#agent-vs-data-framework)
+- [RAG Implementation](#rag-implementation)
+- [Use Case Breakdown](#use-case-breakdown)
+- [Implementation Deep-Dive: Building Real Systems](#implementation-deep-dive-building-real-systems)
+- [Integration Patterns](#integration-patterns)
+- [FAQ](#faq)
+- [Production Considerations and Trade-offs](#production-considerations-and-trade-offs)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Langchain vs Llamaindex: Overview
+
+Langchain vs Llamaindex is the focus of this guide. LangChain handles agents: orchestrate LLM calls, tool selection, memory, chains.
+
+LlamaIndex handles retrieval: index documents, rank results, augment prompts.
+
+Most teams use both. LangChain coordinates. LlamaIndex retrieves.
+
+---
+
+## Architecture Comparison
+
+### LangChain: Agent Orchestration
+
+LangChain's core is a chain: a sequence of LLM calls and tool invocations. Start with a prompt. Call an LLM. Parse the output. Conditionally invoke tools. Feed results back into the LLM. Repeat until a stop condition is met. For more context on agentic patterns, see the [AI Agent Framework Guide](/articles/ai-agent-framework).
+
+Core components:
+
+- **LLMs:** Abstract interface to OpenAI, Anthropic, local Ollama, LiteLLM (multi-provider routing).
+- **Prompts:** Template system with variable substitution and few-shot examples.
+- **Chains:** Composition primitives. `LLMChain` sequences a prompt + LLM. `SequentialChain` runs chains in order. `ConversationChain` maintains memory across turns.
+- **Agents:** Agentic loops. Given a task, the agent picks a tool (function call), executes it, observes the result, decides the next action. Supports ReAct (reasoning + acting), tool calling, structured output.
+- **Memory:** Session state. `ConversationBufferMemory` stores all messages. `ConversationSummaryMemory` compresses old messages. `EntityMemory` extracts and tracks facts about entities.
+- **Tools:** Function definitions. Accepts arbitrary Python functions, LLM-callable APIs, integrations (Google Search, web scraping, database queries).
+
+LangChain is thick in orchestration, thin in data handling.
+
+### LlamaIndex: Retrieval and Indexing
+
+LlamaIndex's core is the index: a data structure that maps documents to retrieval-optimized representations.
+
+Core components:
+
+- **Loaders:** Ingest documents (PDFs, websites, databases, code repos). `SimpleDirectoryReader`, `UnstructuredReader`, custom loaders.
+- **Document Nodes:** Chunk documents into semantic units. Automatic chunking (size-based, overlap). Custom chunking (semantic, recursive).
+- **Embeddings:** Dense vector representations. Supports OpenAI, Cohere, Hugging Face, local models. Handles batching and caching.
+- **Index Types:** VectorStore (dense retrieval), BM25 (sparse/keyword), Tree (hierarchical), Keyword (exact match).
+- **Query Engine:** Given a user query, retrieve relevant chunks, optionally rerank, synthesize into an LLM response.
+- **Response Synthesizers:** Combine retrieved context with the LLM. Refine (iterative), compact (context compression), tree (hierarchical aggregation).
+- **Chat Engine:** Conversational interface. `CondensedQuestionChatEngine` rephrases questions given history. `ContextChatEngine` retrieves at each turn.
+
+LlamaIndex is thin in orchestration, thick in data retrieval.
+
+---
+
+## Core Design Philosophy
+
+### LangChain: "Tools First"
+
+LangChain treats everything as a tool: LLMs, APIs, databases, search engines, calculators. The agent framework makes tool selection programmable: an LLM reads a tool description and decides which to call.
+
+Philosophy: Agents are the future. Build flexible composition. Let the LLM decide the path.
+
+Consequence: Integrations are broad but often shallow. Many tools have SDK wrappers but aren't deeply integrated. The library evolves quickly (sometimes breaking changes between minor versions).
+
+### LlamaIndex: "Data First"
+
+LlamaIndex assumes the bottleneck is retrieval. A worse LLM with better context beats a better LLM with worse context. Optimization focus: faster retrieval, better ranking, smarter chunking.
+
+Philosophy: Most information problems are retrieval problems. Index everything once, query many times. Compression and ranking matter more than raw LLM capability.
+
+Consequence: Best-in-class retrieval. Integrations are fewer but deeper (e.g., tighter vector store abstraction). Library is more stable.
+
+---
+
+## Agent vs Data Framework
+
+| Aspect | LangChain | LlamaIndex |
+|--------|-----------|-----------|
+| **Primary Layer** | Agent orchestration | Data retrieval |
+| **Typical Role** | Decision making, tool routing, memory | Context sourcing, ranking, synthesis |
+| **Core Loop** | LLM → tool selection → execution → feedback | Query → embedding → retrieval → ranking |
+| **Extensibility** | High (agents can do anything) | Medium (retrieval-focused) |
+| **Integration Breadth** | Broad (50+ tools) | Deep (10+ vector stores) |
+| **Typical Stack** | LangChain orchestrator + any retrieval | LlamaIndex retrieval + any LLM |
+
+**LangChain without LlamaIndex:** Possible, common. Build agents with custom retrieval.
+
+**LlamaIndex without LangChain:** Possible, common. Use LlamaIndex's query engine (it handles context + synthesis).
+
+**Both together:** Most common in production. LangChain's agent framework decides when and what to retrieve; LlamaIndex supplies the retrieval logic.
+
+---
+
+## RAG Implementation
+
+Retrieval-Augmented Generation (RAG) combines retrieval (pull relevant context) with generation (LLM synthesizes the answer).
+
+### Basic RAG: LlamaIndex
+
+```python
+from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
+
+loader = SimpleDirectoryReader("./documents")
+documents = loader.load_data()
+index = VectorStoreIndex.from_documents(documents)
+
+response = index.as_query_engine().query("What is X?")
+```
+
+LlamaIndex handles: chunking, embedding, vector storage, retrieval, reranking, synthesis. One call. Opinionated defaults.
+
+### Advanced RAG: LangChain + LlamaIndex
+
+```python
+from langchain.agents import initialize_agent, Tool
+from llama_index.core import VectorStoreIndex
+
+index = VectorStoreIndex.from_documents(documents)
+retriever = index.as_query_engine()
+
+def retrieve_docs(query):
+    return retriever.query(query)
+
+tools = [
+    Tool(
+        name="DocumentSearch",
+        func=retrieve_docs,
+        description="Search company documents for X"
+    )
+]
+
+agent = initialize_agent(
+    tools,
+    llm,
+    agent="zero-shot-react-description",
+    verbose=True
+)
+
+response = agent.run("What is our Q1 revenue?")
+```
+
+LangChain decides when retrieval is needed. LlamaIndex supplies the retrieval. This is the production pattern.
+
+### Custom Retrieval in LangChain
+
+```python
+from langchain_openai import OpenAIEmbeddings
+from langchain_community.vectorstores import Chroma
+from langchain.chains import RetrievalQA
+
+embeddings = OpenAIEmbeddings()
+vectorstore = Chroma.from_documents(documents, embeddings)
+qa_chain = RetrievalQA.from_chain_type(
+    llm,
+    chain_type="stuff",
+    retriever=vectorstore.as_retriever()
+)
+```
+
+LangChain's RAG is simple but less optimized. Good for basic use cases. LlamaIndex's retrieval is more sophisticated (reranking, query rewriting, metadata filtering).
+
+---
+
+## Use Case Breakdown
+
+### Use LangChain Alone
+
+**Multi-step workflows with branching logic.**
+
+Example: Customer support agent. Read a ticket. Is it a billing issue? If yes, look up the customer's account, check invoices, generate a response. If no, is it a technical issue? Open a debugging session.
+
+LangChain's agents handle the conditional branching and memory. Tool selection is programmatic. Developers don't pre-architect all paths; the agent learns them. This is ReAct: the agent reasons about which tool to use, acts (invokes the tool), observes the result, and decides the next step.
+
+The agent framework handles: prompt engineering (adding tool descriptions), function calling (parsing LLM output to determine which tool to invoke), error handling (if a tool fails, the agent retries or switches tools), and memory management (tracking what tools were called and their results).
+
+**Tools that depend on each other.**
+
+Example: Data analyst. Query database → inspect schema → write SQL → execute → visualize → save report. Each step depends on the previous result. LangChain's chains compose these naturally.
+
+A sequential chain runs steps in order. An agent chain allows branching: "if the query returns an error, re-write the SQL" or "if the result set is large, paginate it." LangChain agents make this flexible without hard-coding every decision point.
+
+**Systems with many integrations.**
+
+Example: HR platform. Create a Slack message, update Salesforce, send an email, log to a database. LangChain has SDKs for all of these. One framework to bind them.
+
+Without LangChain, a developer would write: LLM decision logic → if X, call Slack SDK → if Y, call Salesforce API → etc. With LangChain, developers define tools once and let the agent decide which to call. Separation of concerns. Easier to test and debug.
+
+### Use LlamaIndex Alone
+
+**Document-heavy retrieval.**
+
+Example: Internal wiki for a company with 10,000 pages. Index the wiki once. Users query. LlamaIndex retrieves relevant pages, synthesizes answers. No agents needed; the query engine is sufficient.
+
+Scaling matter: 10,000 pages is large. Traditional vector stores can handle it, but speed and ranking matter. LlamaIndex optimizes: (1) chunking strategy (semantic chunks, not just fixed-size splits), (2) reranking (retrieve 50 candidates, re-rank to top 5), (3) caching (repeated queries don't re-embed), (4) hybrid search (combine dense and sparse retrieval).
+
+**Semantic search.**
+
+Example: Search medical literature. Embed papers, index, allow users to find similar studies. LlamaIndex's VectorStore is the entire product.
+
+Dig in: Medical papers are long (~15K tokens). LlamaIndex sections them into subsections (introduction, methods, results). Each subsection embeds separately. A user queries "treatment for condition X." LlamaIndex finds relevant subsections across many papers, then synthesizes a summary. A vector DB alone would return papers; LlamaIndex returns sub-document-level context.
+
+**Structured data retrieval from unstructured documents.**
+
+Example: Extract contract terms from 1,000 PDFs. LlamaIndex chunks the PDFs, indexes them, and developers query for specific clauses. It synthesizes answers from multiple document fragments.
+
+Practical scenario: Legal team has 1,000 contracts. They ask: "What's the IP ownership clause across all agreements?" LlamaIndex queries for IP-related chunks (via embedding), retrieves 20-30 fragments from 15-20 contracts, and synthesizes a summary: "Most agreements grant Company A full IP ownership. 3 agreements share IP with the licensor. 2 agreements are silent."
+
+This is SQL-like structured retrieval on unstructured text. LlamaIndex enables it without manual annotation.
+
+### Use Both
+
+**Agentic RAG with decision trees.**
+
+Example: Customer inquiry system. Agent receives a question. Decides: is this about billing (query billing docs), shipping (query order history), or product features (query knowledge base)? Routes to the appropriate retriever. LangChain decides; LlamaIndex retrieves. This pattern is common in [Agentic AI Frameworks](/articles/agentic-ai-frameworks) across the industry.
+
+**Multi-hop reasoning with retrieval.**
+
+Example: "Summarize the financial impact of our recent product launch." Agent must: retrieve product launch announcement → retrieve sales data → retrieve cost data → synthesize a financial summary. Multi-step reasoning with retrieval at each step. LangChain coordinates; LlamaIndex retrieves at each step.
+
+**Production RAG systems.**
+
+Example: Customer-facing chatbot. High availability, low latency, scalable retrieval. LlamaIndex optimizes retrieval (vector DB, caching, reranking). LangChain handles user sessions, fallback logic, feedback loops.
+
+---
+
+## Implementation Deep-Dive: Building Real Systems
+
+### LangChain: Building a Multi-Step Data Pipeline Agent
+
+Scenario: Data team needs to analyze sales trends. Agent should: fetch sales data from database, aggregate by region, identify underperforming areas, generate a report.
+
+LangChain orchestrates:
+
+```python
+from langchain.agents import initialize_agent, Tool
+from langchain_openai import ChatOpenAI
+
+def fetch_sales_data(query: str):
+    # Query database, return JSON
+    return database.query(query)
+
+def identify_trends(data: str):
+    # Pandas analysis
+    return analysis_results
+
+tools = [
+    Tool(name="FetchSales", func=fetch_sales_data, description="Query sales data by region"),
+    Tool(name="AnalyzeTrends", func=identify_trends, description="Identify trends in data")
+]
+
+agent = initialize_agent(tools, ChatOpenAI(), agent="zero-shot-react")
+response = agent.run("What are our worst performing regions?")
+```
+
+The agent decides: "I need to fetch sales data first, then analyze it." Chains the tools automatically. No hard-coded branching.
+
+### LlamaIndex: Building a Document Question-Answering System
+
+Scenario: Legal team has 500 contracts. They ask: "What's our standard payment term across all agreements?"
+
+LlamaIndex orchestrates:
+
+```python
+from llama_index.core import SimpleDirectoryReader, VectorStoreIndex
+
+loader = SimpleDirectoryReader("./contracts")
+documents = loader.load_data()
+
+index = VectorStoreIndex.from_documents(documents)
+
+query_engine = index.as_query_engine(
+    similarity_top_k=20,
+    response_mode="tree_summarize"
+)
+
+response = query_engine.query("What payment terms are standard?")
+```
+
+LlamaIndex chunks 500 contracts, embeds them, retrieves the 20 most relevant chunks mentioning "payment," and synthesizes a summary. No agent; pure retrieval + synthesis.
+
+## Integration Patterns
+
+### Pattern 1: LlamaIndex as LangChain Tool
+
+```python
+from langchain.agents import Tool
+from llama_index.core import VectorStoreIndex
+
+index = VectorStoreIndex.from_documents(documents)
+
+llama_tool = Tool(
+    name="SearchDocs",
+    func=lambda q: index.as_query_engine().query(q),
+    description="Search indexed documents"
+)
+
+agent_tools = [llama_tool, other_tools...]
+agent = initialize_agent(agent_tools, llm, agent="zero-shot-react")
+```
+
+LlamaIndex handles indexing and retrieval. LangChain decides when to use it.
+
+### Pattern 2: LangChain Memory with LlamaIndex Retrieval
+
+```python
+from langchain.memory import ConversationSummaryMemory
+
+memory = ConversationSummaryMemory(llm=llm)
+
+chat_engine = index.as_chat_engine(
+    chat_mode="condense_question",
+    memory=memory
+)
+
+response = chat_engine.chat("Follow-up question?")
+```
+
+LangChain's memory framework integrates with LlamaIndex's retrieval. Not as tightly coupled as LlamaIndex's native chat engine, but more flexible.
+
+### Pattern 3: Custom Retriever in LangChain
+
+```python
+from langchain.schema import BaseRetriever
+from llama_index.core import VectorStoreIndex
+
+class LlamaIndexRetriever(BaseRetriever):
+    def __init__(self, index: VectorStoreIndex):
+        self.index = index
+
+    def get_relevant_documents(self, query: str):
+        results = self.index.as_retriever().retrieve(query)
+        return [doc for doc in results]
+
+retriever = LlamaIndexRetriever(index)
+qa_chain = RetrievalQA.from_chain_type(
+    llm,
+    retriever=retriever
+)
+```
+
+LlamaIndex becomes a black box inside LangChain's retrieval abstraction. Allows mixing LlamaIndex with LangChain's chains and tools.
+
+---
+
+## FAQ
+
+**Which should I learn first?**
+
+LangChain. It's broader and more fundamental. You'll use it for any multi-step workflow. LlamaIndex is specialized for retrieval; you'll add it when retrieval becomes a bottleneck.
+
+**Can I use LangChain's built-in retrieval instead of LlamaIndex?**
+
+Yes, for basic cases. LangChain's retrieval (Chroma, Pinecone integration) handles standard RAG. LlamaIndex is better if you need: advanced reranking, query rewriting, metadata filtering, multiple retrieval strategies, or semantic document chunking.
+
+**Do LangChain and LlamaIndex compete?**
+
+No. LangChain is orchestration; LlamaIndex is retrieval. They're complementary layers. Both projects contribute to each other's ecosystems.
+
+**Is LlamaIndex just a vector DB wrapper?**
+
+No. Vector DB (Pinecone, Chroma, Weaviate) is storage. LlamaIndex is the retrieval abstraction above it. LlamaIndex handles chunking, embedding, reranking, and synthesis. Multiple vector DBs can plug into LlamaIndex.
+
+**Can LlamaIndex's agents compete with LangChain's agents?**
+
+LlamaIndex added agents recently, but they're less mature. LangChain agents are still the default for complex agent workflows. LlamaIndex agents are good for retrieval-focused tasks (e.g., "query my documents and answer").
+
+**What about newer frameworks like Anthropic's Claude SDK vs LangChain?**
+
+Claude SDK is lightweight and direct (call Claude, get response). LangChain is heavier and more flexible (compose many LLMs, tools, agents). Different tiers. Claude SDK for simple use cases. LangChain for complex orchestration. They can coexist (Claude SDK as an LLM option in LangChain).
+
+**Is LlamaIndex required for production?**
+
+No, but strongly recommended. Most production systems have retrieval. LlamaIndex handles: caching (avoid re-embedding repeated queries), reranking (improve retrieval quality), fallbacks (if retrieval fails, use alternate strategy), evaluation (measure retrieval accuracy). Writing custom retrieval is error-prone.
+
+Alternative: Build retrieval in-house using a vector DB (Pinecone, Chroma) directly. Pros: lightweight, full control. Cons: you own chunking strategy, embedding caching, reranking logic, query preprocessing. Easy to get wrong. LlamaIndex abstracts these details.
+
+**Can I use LangChain's built-in memory with LlamaIndex?**
+
+Partially. LangChain's ConversationSummaryMemory is incompatible with LlamaIndex's native chat engine. LlamaIndex's chat engine manages conversation context internally. If you want to mix them, write a custom memory adapter (involves passing history to LlamaIndex as context, not memory).
+
+Better approach: Use LlamaIndex's native chat engine (it handles memory) or LangChain's conversational agent (it handles memory) separately. Mixing adds complexity.
+
+## Production Considerations and Trade-offs
+
+### Error Handling and Graceful Degradation
+
+LangChain agents can fail if a tool fails. If the agent tries to call a database query tool and the database is down, the entire agent fails unless you add error handling.
+
+LlamaIndex's retrieval is more graceful. If vector DB is temporarily slow, LlamaIndex retries. If no relevant documents are found, it returns "I couldn't find information about X" (honest fallback) rather than crashing.
+
+For production systems: LangChain requires explicit error handling per tool. LlamaIndex's failures are typically retrieval timeouts or empty results (managed gracefully).
+
+### Latency Profiles
+
+LangChain agents have variable latency depending on tool calls. A financial data lookup (5ms) vs an API call (500ms) changes response time unpredictably.
+
+LlamaIndex retrieval is more predictable. Latency: embedding lookup (100-200ms) + vector search (50-100ms) + synthesis (2-3 seconds for LLM). Total: ~2.5 seconds consistently.
+
+For real-time applications (sub-500ms requirement): neither is ideal. LangChain agents with cached tools perform better. LlamaIndex is too slow.
+
+For chat applications (5-10 second tolerance): both are fine.
+
+### Evaluation and Monitoring
+
+LangChain: Hard to evaluate agent decisions (did the agent pick the right tool? Did it interpret the tool output correctly?). Mostly manual inspection.
+
+LlamaIndex: Evaluation frameworks exist (measure retrieval accuracy, re-ranking quality, synthesis BLEU score). Built-in tracing and metrics.
+
+For production monitoring: LlamaIndex has better observability built-in. LangChain requires custom logging.
+
+### Cost Implications
+
+LangChain: Each tool call might hit an API (cost per call). Agent loops with multiple tool invocations multiply cost.
+
+LlamaIndex: Primarily LLM cost (synthesis) + embedding cost (retrieval). Embeddings are cheaper per token than LLM inference.
+
+For large-scale systems: LlamaIndex's cost profile (embedding-heavy, not tool-heavy) is more predictable and often cheaper.
+
+---
+
+## Related Resources
+
+- [AI Tools Directory](/tools)
+- [What is MCP Server](/articles/what-is-mcp-server)
+- [AI Agent Framework Guide](/articles/ai-agent-framework)
+- [Agentic AI Frameworks Comparison](/articles/agentic-ai-frameworks)
+
+---
+
+## Sources
+
+- [LangChain Documentation](https://python.langchain.com/docs)
+- [LlamaIndex (formerly GPT Index) Documentation](https://docs.llamaindex.ai/)
+- [LangChain Agent Architecture](https://python.langchain.com/docs/agents/)
+- [LlamaIndex RAG Patterns](https://docs.llamaindex.ai/en/stable/getting_started/concepts.html)
+- [RAG Survey and Benchmarks (2025)](https://github.com/run-llama/llamaindex)
+- [ReAct: Synergizing Reasoning and Acting (Yao et al.)](https://arxiv.org/abs/2210.03629)
+- [Framework comparison tracked March 2026](/tools)

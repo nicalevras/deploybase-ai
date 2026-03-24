@@ -1,0 +1,245 @@
+---
+title: 'H100 Rental Price: Where to Get the Cheapest H100s'
+slug: h100-rental-price-where-to-get-the-cheapest-h100s
+description: >-
+  Complete H100 GPU rental pricing guide comparing RunPod, Lambda, AWS,
+  CoreWeave, and Vast.AI with cost optimization strategies.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - cheapest h100 rental
+---
+
+## Contents
+
+- [Cheapest H100 Rental: H100 Availability and Pricing](#cheapest-h100-rental-h100-availability-and-pricing)
+- [Spot vs On-Demand Pricing](#spot-vs-on-demand-pricing)
+- [Provider Comparison: Detailed Analysis](#provider-comparison-detailed-analysis)
+- [Cost Optimization Strategies](#cost-optimization-strategies)
+- [Long-Term Commitment Discounts](#long-term-commitment-discounts)
+- [Total Cost of Ownership](#total-cost-of-ownership)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Cheapest H100 Rental: H100 Availability and Pricing
+
+Cheapest H100 Rental is the focus of this guide. H100 SXM GPUs remain the fastest single-GPU chips for LLM inference as of March 2026. Demand continues outpacing supply despite production increases. Pricing has stabilized after supply constraints eased in late 2025. Nvidia produces approximately 5 million H100 equivalent units annually; demand exceeds 7 million units across cloud providers, companies, and research institutions.
+
+Baseline pricing ranges $2.49-$3.50 per hour across major providers. At 730 hours monthly, even a $1/hr difference adds $730/month — nearly $9,000/year. Selecting the wrong provider costs more than the hardware itself.
+
+Market pricing dynamics shifted with supply normalization. In 2024, H100 spot pricing exceeded $2.00/hour due to scarcity. By March 2026, spot pricing stabilized at $0.68-$1.07/hour as supply caught up to demand. On-demand pricing settled: $2.49-$3.50/hour across dedicated providers reflects competition rather than supply constraints.
+
+Availability varies geographically. US providers stock H100s readily. European availability lags; premiums reach 20-30%. Asian providers charge 15-25% premiums. Factor location into selections; cross-region latency adds 50-200ms. Teams with global user bases should test latency between providers and user locations.
+
+GPU memory (80GB HBM) matters for workloads. Large models (LLaMA 70B, GPT-3) require full 80GB. Smaller models (LLaMA 13B, GPT-2-scale) fit in 40GB easily. Some workloads use 40GB H100A variants (slightly cheaper at $2.50-$3.60/hr). If 40GB suffices, use them. If 80GB is required, no substitution exists. Calculate model size: (parameters * bytes-per-parameter) + (batch-size * sequence-length * hidden-dim * bytes-per-value). Full precision = 4 bytes, half precision = 2 bytes, quantized = 1 byte per value.
+
+SXM vs PCIe form factors differ in cooling and power. SXM is production-standard, used in data centers with advanced cooling. PCIe is newer, cheaper ($2.20-$3.20/hr), but less mature. Workloads sensitive to thermal performance prefer SXM. PCIe chips run hotter; throttling can reduce performance 5-10% during sustained load. Testing both is prudent for production workloads.
+
+## Spot vs On-Demand Pricing
+
+Spot instances cost 60-75% less than on-demand through provider willingness to interrupt. RunPod spot H100s run $0.68-$1.07/hour. Lambda doesn't offer spots; reliability is guaranteed. Vast.AI marketplace pricing sometimes undercuts spots, reaching $0.55-$0.80/hour for budget-conscious miners.
+
+Interruption rates define spot viability. During peak demand (16:00-22:00 US/Pacific), interruptions happen 5-10% hourly. Overnight demand is low; interruptions drop to 1-2% hourly. Plan training jobs for off-peak when possible. Weekends see consistently lower demand; Friday-Sunday pricing drops 20-30% versus weekday pricing.
+
+Interruption costs compound. A 12-hour training run interrupted at hour 11 wastes 11 hours of progress without checkpointing. Checkpointing every 30 minutes reduces loss to 30 minutes. Infrastructure cost becomes negligible; compute cost dominates. The decision: add checkpointing complexity or accept higher on-demand costs.
+
+Economic breakeven: Compare spot cost with recovery overhead. A 12-hour training run at $0.68/hr costs $8.16 on spot. Expected cost with interruptions: 4 interruptions * 30 min recovery * $0.68/2 = $4.08. Total: $12.24. Same run on-demand at $2.69/hr: $32.28. Spot saves $20.04 (38%) but requires checkpointing.
+
+Spot economics work for embarrassingly parallel workloads. Process 1000 small inference requests? Interruptions don't matter; request another machine. Process one large training job? Interruptions are catastrophic without checkpointing. Batch inference, dataset processing, and distributed experiments use spots excellently.
+
+Reserved instances smooth costs. AWS H100 on-demand costs $6.50/hr; 1-year reserved runs $4.20/hr (35% savings). Monthly spend of $4,745 becomes $3,066. Savings justify commitment for stable workloads. Three-year commitments drop further to $3.50/hr (46% savings), totaling $2,555 monthly. Companies projecting 2+ years of consistent H100 usage should commit.
+
+Hybrid strategies optimize costs. Use spots for prototyping and R&D (70% cost savings). Move to reserved instances for production (30-40% savings). Overflow to on-demand during demand spikes (expensive but necessary). This tri-tier approach balances cost and reliability.
+
+## Provider Comparison: Detailed Analysis
+
+**RunPod: Best Overall Value**
+- On-demand: $2.69/hr (standard), $4.20/hr (dedicated isolated)
+- Spot: $0.68-$1.07/hr depending on demand
+- Availability: Excellent in US
+- Interruption SLA: None (best-effort)
+- Pros: Lowest on-demand pricing, global availability, containerized deployment
+- Cons: Spot interruptions unpredictable, support slower than competitors
+- Best for: Budget-conscious teams, batch processing, distributed workloads
+
+**Lambda Labs: Reliability Premium**
+- On-demand: $2.49/hr SXM / $2.86/hr PCIe (SLA-backed)
+- Spot: None offered
+- Availability: US primarily
+- Interruption SLA: 99.95% uptime
+- Pros: Guaranteed uptime, excellent support, consistent latency, competitive pricing
+- Cons: No spot market, limited geographic coverage
+- Best for: Production inference, latency-sensitive applications, large teams
+
+**AWS: Integration and Compliance**
+- On-demand: $6.50/hr (SageMaker API)
+- Reserved: $4.20/hr (1-year commitment)
+- Spot: $1.95-$3.25/hr
+- Availability: Global
+- Interruption SLA: Spot SLA available
+- Pros: Integration with EC2/S3/SageMaker, compliance certifications, global reach
+- Cons: Pricing premiums, VPC overhead, vendor lock-in
+- Best for: Enterprises with AWS commitments, compliance-heavy workloads, integrated pipelines
+
+**CoreWeave: High-Performance Networking**
+- On-demand: $3.10/hr standard, $4.50/hr with guaranteed priority
+- Spot: $2.20-$2.80/hr
+- Availability: US/EU
+- Interruption SLA: 99.9% for non-spot
+- Pros: Fastest interconnects (400Gbps), distributed training optimization, bare-metal performance
+- Cons: Higher than RunPod, smaller network, production-focused
+- Best for: Distributed training, multi-GPU clusters, demanding workloads
+
+**Vast.AI: Marketplace Volatility**
+- Price range: $2.40-$3.50/hr
+- Availability: Highly variable
+- Interruption SLA: None (provider-dependent)
+- Pros: Lowest prices possible, massive selection
+- Cons: Provider quality varies, unreliable uptime, customer support via provider
+- Best for: Experimentation, cost-minimization projects, tolerant-to-failure workloads
+
+**Check [Nvidia H100 price](/articles/nvidia-h100-price) for additional provider comparisons.**
+
+## Cost Optimization Strategies
+
+**1. Time-of-Use Optimization**
+Schedule compute during off-peak hours. H100 prices drop 10-20% overnight and weekends. A training job flexible on timing saves significantly.
+
+Monthly off-peak (midnight-6am Mon-Fri) H100 usage: 40 hours at $2.69 = $107.60
+Peak usage same amount: 40 hours at $3.20 = $128
+Monthly savings: $20.40 per 40-hour job
+
+Automate scheduling. Infrastructure-as-code tools (Terraform, Pulumi) spin up/down on schedules. Initial setup costs $1K-$5K; savings accumulate quickly. Cron jobs trigger training at 02:00 local time; results appear in morning. Human oversight is minimal.
+
+**2. Batch Processing**
+Consolidate workloads. Process 10,000 samples in one 2-hour job costs $5.38 using RunPod. Process via 100 separate 1.2-minute jobs costs $10.76 (overhead tax). Batch 50 jobs into 3 blocks saves 50%.
+
+Queue management matters. Buffer requests; process in batches rather than one-by-one. This requires API design changes but delivers substantial savings. A chatbot serving 1000 queries daily: process one-at-a-time costs $20/day. Batch every 5 minutes costs $0.60/day. 99.7% cost reduction.
+
+**3. GPU Sharing and Multiplexing**
+Time-multiplex GPUs across workloads. ML inference can run at 10-20% GPU utilization. Share remaining capacity. Three 33%-utilized workloads share one H100 efficiently. Container orchestration (Kubernetes) enables this automatically.
+
+Requires containerization (Docker) and orchestration (Kubernetes). Infrastructure cost adds $5K-$20K. Savings exceed cost at scale (>50 weekly jobs). MIG (Multi-Instance GPU) partitioning on H100 splits into 7 smaller GPUs. Inference workloads fit perfectly; training performance drops due to inter-GPU latency.
+
+**4. Model Quantization and Optimization**
+Reduce model size through quantization. Full-precision LLaMA 70B needs 140GB (doesn't fit H100). Quantize to 4-bit: 17.5GB. Run 4-5x more inference concurrently. Latency increases 5-10%; throughput increases 200%.
+
+Quantization cost: 2-4 hours one-time setup. Ongoing savings are substantial. Tools like GPTQ, AWQ, and bitsandbytes automate quantization. A quantized model can serve 5x more concurrent users on the same hardware.
+
+Knowledge distillation further reduces model size. Teach a smaller model (7B parameters) to mimic a larger model's (70B) behavior. Quantized 7B model fits in 2GB. Throughput per dollar increases 10-50x. Quality degradation averages 5-15% for well-executed distillation.
+
+**5. Spot Instance Checkpointing**
+Checkpoint every 15-30 minutes during spot usage. Train for 8 hours; 1 expected interruption costs 30 minutes. Same training on on-demand costs $21.52; spot costs $8.61 + 30 min rework (~$1.35). Net savings: $11.56. Checkpointing overhead: ~$2/training job.
+
+Checkpoint frequency affects economics. Checkpointing every 5 minutes adds overhead but reduces interruption loss. Every 30 minutes balances overhead and safety. Test on real workloads; overhead varies.
+
+**6. Provider Switching and Arbitrage**
+Monitor pricing across providers continuously. RunPod drops to $0.68/hr during low demand; AWS stays at $1.95/hr. Switch to RunPod immediately. Automation tools (scripts polling provider APIs) handle this.
+
+Vast.AI offers the cheapest rates ($0.55-$0.80/hr) but requires manual quality evaluation. Identify reliable miners with 100+ hours of history. Accept lower reliability; failures are rare.
+
+**7. Preemptible and Interruptible Instances**
+Google Cloud offers preemptible instances (stopped without notice, restart from scratch, no cost). Slightly cheaper than AWS spots. Suitable for idempotent workloads (map operations that succeed or fail independently).
+
+## Long-Term Commitment Discounts
+
+AWS Reserved Instances offer 30-40% discounts for 1-3 year commitments. $6.50/hr on-demand becomes $4.20/hr reserved ($3,066/month vs $4,745/month for 730 hours). Three-year commitments add an additional 10-15% discount, bringing costs to $3.50-$3.80/hr.
+
+Payment terms matter. All-upfront payment (pay entire year at purchase) gives maximum discounts (40%). Partial upfront (pay 50% upfront, monthly installments) reduces discounts to 30-35%. No upfront (monthly payments) yields 25-30% discounts. Startups typically use partial/no upfront; mature companies capitalize all-upfront for maximum savings.
+
+CoreWeave provides production discounts for committed spend. Negotiate terms for sustained (>1000 hr/month) usage. Published pricing is starting point; serious negotiations yield 15-25% discounts. Contracts specify minimum spend; overage occurs at discounted rates.
+
+RunPod's staking program rewards long-term participants. Lock capital; earn reduced rates. 10% staking (commit $1000 for 6+ months) reduces rates 15%. Rates improve at higher tiers: 20% staking gives 25% discount, 30% staking gives 35% discount. Tie-up risk is real (if RunPod fails, capital is lost); diversify across providers.
+
+Lambda doesn't publish discounts but negotiates production rates. Contact sales for high-volume (>500 hr/month) opportunities. production discounts typically reach 10-20% depending on volume and contract length. Lambda prioritizes production reliability over price competition; discounts are modest.
+
+Vast.AI has no formal commitment discounts. Miners (GPU owners) sometimes offer long-term discounts; negotiate directly. Multi-month agreements with stable miners yield 10-20% discounts. Risks include miner disappearance (capital reclaimed, GPUs gone) or price changes. Written agreements protect both parties.
+
+Blended pricing strategies work. Commit 50% of expected usage to AWS reserved (40% discount). Keep 30% on RunPod on-demand (baseline). Use 20% for Vast.AI spot (maximum savings). Weighted average discount: 25-30%. Flexibility is retained; avoidance of locked-in commitments.
+
+## Total Cost of Ownership
+
+Hardware cost is 60-70% of total expense. Add: storage access ($100-$500/month), network egress ($50-$200/month), operator time ($500-$5000/month), and opportunity cost of failures (varies).
+
+**Project Scenario 1: One-time fine-tune of Llama 70B (100K examples, 40 hours)**
+
+RunPod on-demand: $107.60 (GPU) + $20 (storage) = $127.60
+RunPod spot: $27.20 + $10 (checkpoint overhead) + $20 (storage) = $57.20
+Lambda: $151.20 + $20 = $171.20
+AWS on-demand: $260 + $50 = $310
+AWS spot: $78 + $30 = $108
+CoreWeave: $124 + $30 = $154
+
+RunPod spot wins for one-off projects with checkpointing. Lambda is preferred for reliability if failure risk is high (experimental setup, novel data).
+
+**Project Scenario 2: Annual fine-tuning pipeline (500 hours training, batch updates)**
+
+RunPod on-demand: $1,345 (GPU) + $250 (storage/network) = $1,595
+RunPod spot: $340 (GPU) + $100 (recovery overhead) + $250 (storage) = $690
+AWS reserved (1-year): $2,100 (GPU) + $500 (storage) = $2,600
+AWS reserved (3-year prepay, amortized): $1,440/year (GPU) + $500 (storage) = $1,940
+CoreWeave committed: $1,550 (GPU) + $300 (storage) = $1,850
+Vast.AI conservative estimate: $400 (GPU) + $250 (storage) = $650
+
+RunPod spot offers best raw cost with 70% savings versus RunPod on-demand. AWS reserved breaks even if commitment is multi-year. Vast.AI cheapest but requires provider quality management.
+
+**Infrastructure and Operational Costs**
+
+Operator salary: $5K-$10K monthly (contractor), $15K-$25K monthly (full-time engineer). Small projects outsource (hire contractor for 40 hours). Large projects hire dedicated staff.
+
+Storage costs compound. Training data (100GB) costs $10/month on cloud storage. Model artifacts (100GB) cost $10/month. Checkpoint storage (intermediate backups) adds $50-$100/month.
+
+Network costs matter for data-heavy workloads. Downloading 1TB training data at $0.05/GB costs $50. Uploading 100GB results costs $5. Annual costs: $50-$200.
+
+Support overhead for production systems. Debugging failed training runs, infrastructure troubleshooting, cost optimization. Budget $500-$2000 monthly for mature production systems.
+
+**Project Scenario 3: Continuous inference serving (1000 queries/day, 6-month contract)**
+
+RunPod on-demand: $60/day * 180 = $10,800 (assuming 2.2 hours daily serving = 400 queries/GPU, accounting for off-peak idle)
+Lambda: $84/day * 180 = $15,120 (premium SLA adds 40%)
+AWS spot + fallback on-demand: $20/day (spot) + $20/day (on-demand fallback 10% of time) = $40/day * 180 = $7,200
+CoreWeave: $70/day * 180 = $12,600
+
+AWS hybrid strategy wins for inference through spot fallback. Lambda wins if downtime costs exceed $3000 (lost revenue, reputation damage). RunPod hits middle ground.
+
+Spot instance strategy requires infrastructure investment (checkpointing, restart logic, health monitoring). RunPod on-demand remains simplest for small teams without DevOps resources. Calculate hourly downtime cost: (monthly revenue / 730 hours). If downtime cost exceeds spot savings, use on-demand.
+
+## FAQ
+
+**Q: Are H100 prices still dropping?**
+A: Prices have stabilized. Expect 5-10% annual decreases as supply increases. Major drops unlikely unless H200/H300 saturation reduces H100 demand significantly.
+
+**Q: Should I buy H100 GPUs instead of renting?**
+A: Only at extreme scale (>2000 hours/year). Capital cost of $30K-$50K per H100 + infrastructure ($10K-$50K setup) requires sustained utilization. Enterprises with stable 24/7 workloads benefit; startups should rent.
+
+**Q: Can I mix providers to minimize cost?**
+A: Yes. Spot instances for fault-tolerant workloads, on-demand for latency-sensitive work. Different training vs inference providers. Load-balance across APIs. Multi-provider strategies reduce cost 15-25%.
+
+**Q: What about H200 pricing?**
+A: H200 (141GB HBM) runs $3.59-$5.00/hr depending on provider. 30-40% premium over H100. Only justifies cost for workloads needing >80GB memory. Most workloads work fine on H100.
+
+**Q: Are PCIe H100s actually cheaper?**
+A: Yes, 15-20% cheaper. Thermal performance is slightly worse. For inference and training with good cooling, PCIe works. Temperature-sensitive applications prefer SXM.
+
+**Q: How do I monitor H100 pricing?**
+A: Set up alerts on provider pricing pages. Weekly spreadsheets track rates. DeployBase.AI pricing pages (linked below) aggregate current rates.
+
+## Related Resources
+
+[GPU Pricing Comparison](/gpus)
+[RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+[Lambda GPU Pricing](/articles/lambda-labs-gpu-pricing)
+[AWS GPU Pricing](/articles/aws-vs-azure-gpu-pricing)
+[CoreWeave GPU Pricing](/articles/coreweave-gpu-pricing)
+[Vast.ai GPU Pricing](/articles/vast-ai-pricing)
+[Nvidia H100 Pricing Guide](/articles/nvidia-h100-price)
+[H200 GPU Pricing](/articles/nvidia-h200-price)
+
+## Sources
+
+Provider Pricing Data (March 2026)
+GPU Rental Market Analysis
+Total Cost of Ownership Studies
+Industry Benchmarking Reports
+Deployment Case Studies

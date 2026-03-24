@@ -1,0 +1,454 @@
+---
+title: 'Groq vs Together AI: Inference Speed vs Model Selection'
+slug: groq-vs-together-ai
+description: >-
+  Groq LPU vs Together AI: Inference speed vs model catalog. Groq optimizes for
+  100ms latency. Together offers 31 models. Compare pricing, capabilities, and
+  use cases.
+date: '2026-03-21'
+author: DeployBase
+category: LLM API Comparison
+keywords:
+  - groq vs together ai
+  - groq vs together
+  - groq pricing
+  - together ai pricing
+  - lpu inference
+  - fastest llm inference
+---
+
+## Contents
+
+- [Groq vs Together AI: Overview](#groq-vs-together-ai-overview)
+- [Summary Comparison](#summary-comparison)
+- [Architecture and Speed](#architecture-and-speed)
+- [Model Catalog Breakdown](#model-catalog-breakdown)
+- [Pricing Breakdown](#pricing-breakdown)
+- [Batch Processing and Caching](#batch-processing-and-caching)
+- [Latency Benchmarks](#latency-benchmarks)
+- [Use Case Recommendations](#use-case-recommendations)
+- [Real-World Scenarios](#real-world-scenarios)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Groq vs Together AI: Overview
+
+Groq vs Together AI is the focus of this guide. Groq: custom LPU hardware, 100ms median latency, limited models (Llama, Mixtral). Together AI: 31 models (Llama, Mistral, Grok, etc.), flexible deployment, no hardware lock-in. Choose based on speed vs flexibility.
+
+---
+
+## Summary Comparison
+
+| Dimension | Groq | Together AI | Edge |
+|-----------|------|------------|------|
+| **Inference Latency (median)** | ~100ms | ~500-2000ms | Groq |
+| **Model Count** | 11 models | 31 models | Together |
+| **Cost per Token (typical)** | $0.04-6.00/M | $0.00-5.00/M | Similar range |
+| **Hardware** | Custom LPU | Varies per provider | Groq proprietary |
+| **Batch Processing** | 50% discount | Standard pricing | Groq |
+| **Prompt Caching** | 50% discount on cached input | Not available | Groq |
+| **Production SLA** | Developer tier available | Case-by-case | Together |
+| **API Simplicity** | Unified API | Multi-provider backend | Groq |
+
+Data from DeployBase API tracking and official pricing pages as of March 21, 2026.
+
+---
+
+## Architecture and Speed
+
+### Groq's LPU Advantage
+
+Groq built custom silicon optimized for sequential token generation. The LPU (Language Processing Unit) executes transformer layers at line speed. No GPU memory bandwidth bottlenecks. No cross-layer cache misses. The result: median inference latency of ~100ms for a typical query.
+
+This speed comes from fundamental hardware design. GPUs excel at parallel computation across thousands of small operations simultaneously. Transformers generate tokens sequentially, one at a time. Each token depends on the previous token. Groq chose to design silicon for the actual execution pattern of language models, not generic compute. Trade-off: less flexibility. Groq doesn't train models. Groq runs inference on curated open-source models (Mixtral, LLaMA, Qwen) and proprietary Groq models.
+
+The 100ms latency is measurable and real. Real-time inference applications (chatbots, autocomplete, live code generation) feel snappy on Groq. Users perceive responses instantly. 500ms latency on competitors introduces perceptible delay. Studies show users abandon interfaces when response time exceeds 250ms.
+
+**Speed advantage breakdown:**
+- Standard GPU (A100/H100) single-request: Token generation at ~50-100 tokens/second
+- Groq LPU single-request: Token generation at ~500-800 tokens/second (Llama 3.3 70B), 1,000+ for smaller models
+- Effective latency: GPU 500-2000ms per full response, Groq 100-500ms per response
+- This isn't theoretical. Groq publishes benchmarks. Users report real-world experience matches specs.
+
+### Latency Breakdown by Model
+
+Different models tokenize at different rates on Groq. Smaller models (Llama 3.1 70B) generate tokens faster than larger proprietary Groq models. A typical query breakdown:
+
+**Llama 3.3 70B on Groq:**
+- Prompt processing (first token): ~200ms
+- Token generation (output): ~1.3ms per token (~750 tok/s)
+- 50-token response: ~200 + (50 × 1.3ms) = ~265ms total
+
+**Mixtral 8x7B on Groq:**
+- Prompt processing: ~100ms (smaller model)
+- Token generation: ~1ms per token (~1,000 tok/s)
+- Same response: ~100 + (50 × 1ms) = ~150ms total
+
+Smaller models hit the speed advantage harder. Mixtral 8x7B runs at over 500 tokens per second on Groq LPU, making responses feel near-instant even for long completions.
+
+### Together AI's Flexibility
+
+Together doesn't build hardware. Together aggregates inference across multiple cloud providers and open-source backends. The platform is an abstraction layer. Deploy the same prompt to Llama 3.1 70B, DeepSeek V3, or Qwen on Together, and it hits a provider's infrastructure (AWS, GCP, Azure, or specialized LLM serving providers like vLLM). The provider rotates based on load and availability.
+
+Latency depends on the provider backbone. If Groq integrates with Together (which it may), Groq inference runs at 100ms. Other providers (GPU-based) run at 500-2000ms. Together's advantage isn't speed. It's model selection and cost flexibility. Teams want to switch from Mixtral to Llama without code changes. They want to run fine-tuned custom models on-demand. That's Together's value.
+
+**Flexibility advantages:**
+- 31 models vs Groq's 11 models
+- Easy switching between models for quality/cost tradeoffs
+- Support for custom fine-tuned models
+- Multi-provider redundancy (if one provider is down, requests route to another)
+- No vendor lock-in (models aren't Groq proprietary)
+
+---
+
+## Model Catalog Breakdown
+
+### Groq's 11 Models
+
+Groq's curated selection focuses on proven architectures optimized for LPU inference:
+- Mixtral 8x7B (MoE, balanced cost/quality)
+- LLaMA 3.3 70B Instruct (latest, strong reasoning)
+- LLaMA 3.1 70B Instruct (workhorse, proven)
+- Qwen 32B (multilingual, efficient)
+- Groq proprietary models (exact names not published, tuned for LPU)
+
+The catalog is intentionally small. Groq prioritizes models that work well on LPU hardware. Larger model lists would require maintaining performance guarantees across more architectures.
+
+**Model release cycle:** Groq adds new models roughly quarterly. Recent additions: Llama 3.3 70B (latest). But the platform doesn't aggressively chase every new release like Together does.
+
+### Together AI's 31 Models
+
+Together's philosophy: support everything. The platform lists:
+- Llama 4 Maverick and Scout (2 variants, latest Meta)
+- Llama 3.3, 3.1 (multiple sizes: 8B, 70B, 405B)
+- DeepSeek V3, R1 (Chinese reasoning models)
+- Qwen 3, QwQ (Alibaba multilingual)
+- Mistral Large 3 (French-backed open source)
+- Grok 3 (xAI reasoning)
+- Claude Opus, Sonnet (Anthropic, via API pass-through)
+- Custom fine-tuned models (user-uploaded)
+
+Plus 15+ more options in the catalog. If a model exists and has a public API, Together likely lists it.
+
+**Model management:** Teams can upload custom fine-tuned models and serve them through the Together API. This is where Together dominates for research teams needing domain-specific models without infrastructure overhead.
+
+---
+
+## Pricing Breakdown
+
+### Per-Token Pricing
+
+**Groq** publishes per-token pricing. Llama 3.3 70B: $0.59/M input, $0.79/M output. Smaller models start from $0.05/M input. Pricing is transparent and usage-based with a free tier for exploration.
+
+**Together AI** lists 31 models at $0.00-5.00/M per token. Pricing is more transparent:
+- Llama 4 Scout at $0.03-0.80/M (cheapest)
+- Llama 4 Maverick at $0.05-1.00/M
+- DeepSeek V3 at $0.15-3.00/M
+- Claude Opus (via Together): $5.00/M input, $25.00/M output
+- Mistral Large 3 at $0.20-2.00/M
+
+Both platforms are similar in token cost range. Groq is not cheaper on a per-token basis. Groq's value is in volume discounts.
+
+### Cost Optimization Features
+
+**Groq:**
+- **Batch API:** Submit up to 1B tokens for overnight processing at 50% off. Ideal for daily jobs, report generation, bulk analysis.
+- **Prompt caching:** Identical prompts cached for 5 minutes at 50% discount on input tokens. Works well for high-traffic endpoints with repetitive system prompts.
+
+Together does not offer batch or caching. Effective pricing is standard per-token.
+
+### Cost Comparison: Three Workload Types
+
+**Chatbot (query-heavy, 1M API calls/month, 500 input + 100 output tokens/month, Llama 3.3 70B):**
+
+Groq ($0.59/M input, $0.79/M output):
+- 600M tokens total = (500M × $0.59) + (100M × $0.79) = $374/month
+
+Together AI (Llama 3.3 70B at $0.88/M input and output):
+- (500M × $0.88) + (100M × $0.88) = $528/month
+
+Groq saves approximately 29% on per-token cost.
+
+**Batch jobs (1B tokens/month, 50% off with Groq batch API):**
+
+Groq batch (Llama 3.3 70B): 1B × ($0.69/M avg * 0.5) = $345/month
+Together (no batch, Llama 3.3 70B): 1B × $0.88/M = $880/month
+
+Groq batch saves approximately 61% on batch workloads.
+
+**Research (variable model switching, 100M tokens/month across 5 models):**
+
+Groq (limited to 11 models, some may not match research needs):
+- Can only benchmark on Groq's 11 models
+- Cost: variable, but ~$50-100/month
+
+Together (31 models available):
+- Can test all major models
+- Cost: ~$50-100/month (per-token same, but more model options)
+
+Together wins on flexibility for research.
+
+### Monthly Cost at Scale
+
+For a chatbot running 1M queries/month with 500 tokens input and 100 tokens output (Llama 3.3 70B):
+
+**Groq ($0.59/M input, $0.79/M output):**
+- (500M × $0.59) + (100M × $0.79) = $374/month
+
+**Together AI ($0.88/M input and output):**
+- (500M × $0.88) + (100M × $0.88) = $528/month
+
+Groq costs approximately 29% less. The advantage widens further at scale when Groq's batch processing and caching discounts apply.
+
+---
+
+## Batch Processing and Caching
+
+### Groq's Batch API
+
+Groq's batch endpoint accepts up to 1B tokens and processes overnight at 50% discount. Perfect for:
+- Daily summary reports from 1B tokens of logs
+- Bulk data extraction (10M documents × 100 tokens each)
+- Periodic analysis jobs that don't need real-time responses
+
+Example: Analyze 10B tokens of customer support logs overnight (Llama 3.3 70B). Cost with batch at 50% off: (5B × $0.295) + (5B × $0.395) = $3,450. Without batch: $6,900. Savings: $3,450/night.
+
+At scale, batch API becomes Groq's primary competitive advantage. High-volume teams can batch 50-100B tokens/month and see 40-50% cost reductions.
+
+### Prompt Caching on Groq
+
+Identical prompts (same system prompt, same context) cached for 5 minutes at 50% discount on input tokens. Useful for:
+- API endpoints with fixed system prompts (same 2K tokens reused 1000x/day)
+- Retrieval-augmented generation (same knowledge base, different queries)
+
+Example: Knowledge base API with 10K-token knowledge base sent with each query. 1,000 queries/day.
+- Without caching: 1,000 queries × 10K tokens = 10M tokens input/day
+- With caching: 1 × 10K + 999 queries × 0 (cached) = 10K input tokens, rest at 50% = ~5M billed tokens
+- Savings: 5M tokens at $0.59/M = $2.95/day = ~$88/month
+
+At 10K queries/day: ~$880/month savings. Caching compounds.
+
+---
+
+## Latency Benchmarks
+
+Groq publishes latency benchmarks. Together relies on provider-reported specs.
+
+### First Token Latency (TTFT)
+
+**Groq LPU:**
+- 50-100ms first token for most models
+- Mixtral 8x7B: ~50ms
+- Llama 3.1 70B: ~60ms
+
+**Together AI (provider-dependent):**
+- Groq provider (if integrated): ~50-100ms
+- GPU providers (A100/H100): ~200-500ms
+- Small model providers: ~100-300ms
+- Inference optimized (TensorRT): ~150-300ms
+
+Groq's TTFT is 3-5x faster than GPU-based providers.
+
+### Per-Token Latency (PTL)
+
+**Groq LPU:**
+- ~1.3ms per output token on Llama 3.3 70B (~750 tok/s)
+- Mixtral 8x7B: ~1ms (1,000+ tok/s)
+- Llama 3.1 8B: ~0.7ms (1,400+ tok/s)
+
+**Together AI (GPU-based):**
+- A100: ~10-20ms per token (~50-100 tok/s)
+- H100: ~7-13ms per token (~75-150 tok/s)
+
+### End-to-End Response Time Example
+
+User sends: "Explain quantum computing in 100 words"
+
+**Groq response (Llama 3.3 70B):**
+- TTFT: 200ms
+- Token generation: 100 tokens × 1.3ms = 130ms
+- Total: ~330ms (user sees response in <0.5 seconds)
+
+**Together on H100 (Llama 3.3 70B):**
+- TTFT: 400ms
+- Token generation: 100 tokens × 10ms = 1,000ms
+- Total: ~1,400ms (user waits ~1.4 seconds)
+
+Groq feels approximately 4x faster to the end user.
+
+---
+
+## Use Case Recommendations
+
+### Groq fits better for:
+
+**Latency-critical inference.** Chatbots, autocomplete, live code generation, real-time translation. 100ms is fast enough to feel instant. 500ms introduces perceptible lag. If latency is the bottleneck, Groq wins decisively.
+
+**Batch processing at scale.** Overnight jobs on large datasets. 50% batch discount compounds. 1B tokens/month in batch saves $500K. This is where Groq's architecture matters.
+
+**High-traffic endpoints with repetitive inputs.** API endpoints with system prompts or templates reused thousands of times per day. Prompt caching at 50% discount reduces token costs by 30-40% in these scenarios.
+
+**Single-player teams.** Small teams running internal tools. Groq's 11 models are sufficient for most tasks. Simplicity wins.
+
+Companies running inference pipelines where speed and cost both matter. Groq delivers both if the workload fits.
+
+### Together AI fits better for:
+
+**Model experimentation and switching.** Research teams, dev shops testing multiple architectures. Switch models in config, not code. No recompilation or redeployment. Try Llama 4 Scout for cost, Llama 4 Maverick for quality, Qwen for reasoning. Same API.
+
+**Multi-model serving.** Applications needing different models for different tasks. Summarization on Llama. Code generation on Codestral. Reasoning on DeepSeek R1. Together handles the routing and load balancing.
+
+**Fine-tuning custom models.** Train a domain-specific model on customer data, deploy it on Together without maintaining internal GPU infrastructure. Fine-tuned models run through Together's API.
+
+**Teams without speed constraints.** Internal tools, batch reporting, content generation, data analysis. 500ms latency doesn't matter. Model quality and flexibility do.
+
+---
+
+## Real-World Scenarios
+
+### Scenario 1: Real-Time Customer Support Chatbot
+
+Chatbot fielding 100 questions/minute, each averaging 30-second response time. Users expect sub-500ms latency or the interface feels broken.
+
+**Groq at 100ms latency:**
+- User types a question.
+- Server sends prompt to Groq.
+- LPU processes query at 100ms median latency.
+- Response appears on screen. Feels instant, like a web search.
+- Token cost: 100 queries/minute × 500 input tokens + 100 output tokens = 60K tokens/minute = 2.6B tokens/month.
+- Groq Llama 3.3 70B ($0.59/M input, $0.79/M output): (1.8B × $0.59) + (0.8B × $0.79) = ~$1,694/month.
+
+**Together at 500-1000ms latency:**
+- User types.
+- Server sends to GPU-based provider.
+- Takes 500-1000ms to process.
+- Response appears. Perceptible lag. Feels like an old search engine.
+- Together Llama 3.3 70B ($0.88/M): 2.6B tokens × $0.88/M = ~$2,288/month.
+- Groq is ~26% cheaper and much faster.
+
+Groq wins decisively. Speed pays for itself in reduced bounce rate and better user retention.
+
+### Scenario 2: Daily Batch Report Generation
+
+Engineering team runs nightly reports: analyzing 10B tokens of logs, extracting metrics, generating summaries. Results needed by 6am.
+
+**Groq with batch API (Llama 3.3 70B):**
+- 11pm: Submit 10B tokens to batch API endpoint.
+- Groq processes overnight at 50% discount: (5B × $0.295/M) + (5B × $0.395/M) = ~$3,450 (vs $6,900 on-demand).
+- 6am: Results ready. Reports generated. No latency pressure because batch jobs run off-peak.
+- Monthly: ~10 batch jobs × 10B tokens = 100B tokens/month in batch = ~$34,500/month (50% off on-demand).
+
+**Together AI (no batch, Llama 3.3 70B):**
+- Same 10B tokens per night at $0.88/M: ~$8,800/night.
+- Monthly: $264K vs Groq's $34.5K.
+- No cost optimization. Margin difference: $229K/month.
+
+Groq wins by 84% cost reduction on batch-friendly workloads.
+
+### Scenario 3: Multi-Model ML Research Platform
+
+Research team wants to benchmark 5 different models on the same input corpus (100K documents). They want to:
+- Measure output quality across models
+- Compare token costs
+- Identify which model best fits their use case
+
+**Together AI approach:**
+- Same API endpoint for all models.
+- Code to send query to Llama 4 Scout, Llama 4 Maverick, DeepSeek V3, Qwen 3, Mistral Large.
+- Parse results and compare side-by-side in spreadsheet.
+- Cost variance across 100K documents:
+ - Scout: $50 (cheapest)
+ - Maverick: $150 (mid-range)
+ - DeepSeek V3: $120 (good value)
+ - Qwen: $110 (efficient)
+ - Mistral: $130 (quality focused)
+- Total: ~$560 for comprehensive comparison.
+
+**Groq approach:**
+- Can only test on Groq's 11 available models.
+- Can't test Llama 4 Maverick (if not available on Groq), or DeepSeek V3 (if not available).
+- Must choose: Use Groq for speed or switch to another platform for model selection.
+- Effectively forced to use one platform or lose consistency in benchmarking setup.
+
+Together wins on flexibility. Research demands breadth. Groq demands speed on a narrow path.
+
+### Scenario 4: Production Fine-Tuning Service
+
+Company offers fine-tuning as a service. Customers upload datasets, get back custom models. Team operates 50 fine-tuning jobs per month.
+
+**Groq:**
+- Groq doesn't support fine-tuning. Only inference.
+- Have to use a different platform for training (Lambda, RunPod).
+- Then deploy to Groq for fast inference.
+- Adds operational complexity: train on one platform, serve on another.
+
+**Together AI:**
+- Fine-tune on Together's infrastructure.
+- Deploy the custom model on Together's API.
+- One platform for train and serve.
+- Simpler operations. Same API.
+
+Together wins for operational simplicity on fine-tuning workflows.
+
+### Scenario 5: Cost-Optimized Batch Analysis at Extreme Scale
+
+Data team needs to process 100B tokens/month (logs, reports, extraction jobs) with zero real-time latency requirements.
+
+**Groq batch (Llama 3.3 70B, avg $0.69/M at 50% off = $0.345/M):**
+- 100B tokens/month with batch API at 50% discount = ~$34.5K/month
+- Infrastructure: Simple cron job that submits batch requests
+- Setup: 2 hours
+
+**Together (Llama 3.3 70B at $0.88/M):**
+- 100B tokens/month standard pricing = ~$88K/month
+- Savings with Groq batch: ~$53.5K/month
+
+Groq batch mode wins when volume is massive and latency doesn't matter.
+
+---
+
+## FAQ
+
+**Is Groq always faster than Together?**
+Groq's LPU is specifically optimized for token generation speed. Groq typically sees 100ms latency, while GPU-based providers on Together see 500-2000ms. If speed is critical, Groq is faster. If speed doesn't matter, Together's model flexibility is more valuable.
+
+**Can I use Groq and Together interchangeably?**
+API patterns are similar (text input, token output). But code switching between them requires changes to model names, context lengths, and output formats. Not truly interchangeable for production.
+
+**Does Groq support fine-tuning?**
+No. Groq runs inference only. For fine-tuning, use Together or dedicated training platforms. Train on Together, deploy inference to Groq if speed is critical.
+
+**Which is cheaper at volume?**
+At massive volume (1B+ tokens/month), Groq's batch and caching discounts save money. Together is cheaper if you need model flexibility or don't qualify for batch use cases. Break-even: roughly 500M tokens/month where Groq's discounts start mattering more.
+
+**Does Together have SLAs?**
+Together publishes availability goals (99%+) but not formal SLAs for most plans. Groq's Production tier includes SLAs. For mission-critical workloads, check with sales.
+
+**Can I run Groq models on Together?**
+No. Groq doesn't expose its LLMs as models. Groq runs inference on third-party models (Llama, Mixtral). No cross-deployment.
+
+**What about multi-region failover?**
+Groq: Single region (US-based). No built-in multi-region redundancy.
+Together: Multi-provider (rotates between AWS, GCP, Azure). Higher availability for critical applications.
+
+---
+
+## Related Resources
+
+- [Groq API Pricing 2026](/articles/groq-api-pricing)
+- [Groq LPU vs NVIDIA GPU](/articles/groq-lpu-vs-nvidia-gpu)
+- [LLM API Pricing Comparison](/llms)
+- [Together AI Model Catalog](/llms/Together)
+- [Groq Console](https://console.groq.com)
+
+---
+
+## Sources
+
+- [Groq Console Pricing](https://console.groq.com/settings/billing/plans)
+- [Together AI Documentation](https://www.together.ai/blog)
+- [DeployBase LLM Catalog](/llms)
+- [Groq Blog: LPU Speed Benchmarks](https://groq.com/blog)

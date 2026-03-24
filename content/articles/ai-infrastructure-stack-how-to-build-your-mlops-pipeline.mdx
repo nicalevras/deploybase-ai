@@ -1,0 +1,113 @@
+---
+title: 'AI Infrastructure Stack: How to Build Your MLOps Pipeline'
+slug: ai-infrastructure-stack-how-to-build-your-mlops-pipeline
+description: >-
+  Production MLOps needs: GPU compute, inference frameworks, data pipelines,
+  orchestration, monitoring.
+date: '2026-03-22'
+author: DeployBase
+---
+
+## Contents
+
+- [Core Components of AI Infrastructure](#core-components-of-ai-infrastructure)
+- [GPU Compute Layer](#gpu-compute-layer)
+- [Model Serving and Inference](#model-serving-and-inference)
+- [Data Pipeline and Storage](#data-pipeline-and-storage)
+- [Monitoring and Operations](#monitoring-and-operations)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Core Components of AI Infrastructure
+
+Production MLOps needs: GPU compute, inference frameworks, data pipelines, orchestration, monitoring.
+
+Each does one thing. GPUs for training. Inference frameworks for latency. Data systems for preprocessing. Orchestration for job coordination. Monitoring for visibility.
+
+Separate training from serving. Training updates models on schedule. Serving handles continuous requests.
+
+Slow data pipeline bottlenecks fast GPUs. Bad monitoring makes debugging hell. Architecture design matters.
+
+## GPU Compute Layer
+
+The GPU compute layer handles model training and experimentation. This layer requires flexibility to support diverse workloads from small research prototypes to production-scale training runs.
+
+[GPU pricing guides](/gpus) help handle provider selection. RunPod provides cost-effective on-demand and spot pricing for variable workloads. Lambda specializes in managed infrastructure with strong support. CoreWeave targets production deployments with sustainability focus.
+
+Provider selection depends on project needs. Research teams favor RunPod's broad hardware selection and low cost. Production teams often choose Lambda or CoreWeave for professional support and uptime guarantees.
+
+Multi-GPU orchestration requires attention. Kubernetes-based systems like Kubeflow or Ray can coordinate training across GPU clusters. Simpler projects use provider-native orchestration tools.
+
+Data center location affects training speed for data-intensive workloads. Collocating storage and compute reduces transfer latency. Cloud-agnostic teams often place training close to data sources.
+
+## Model Serving and Inference
+
+Inference infrastructure must handle production demands like low latency, high availability, and cost efficiency. Several frameworks optimize this task.
+
+vLLM excels at batching inference requests into high-throughput operations. The framework serves LLMs efficiently through sophisticated kernel optimizations. vLLM integrates with OpenAI API interfaces for drop-in compatibility with applications.
+
+HuggingFace Text Generation Inference provides similar functionality with flexibility across model architectures. TGI supports vision models, multimodal systems, and specialized formats beyond standard transformers.
+
+Ollama simplifies local and cloud inference with containerized models. The system handles GPU management automatically and provides OpenAI-compatible APIs.
+
+For non-LLM models, TensorFlow Serving and TorchServe remain industry standards. These systems handle versioning, A/B testing, and traffic routing transparently.
+
+Load balancing becomes critical as request volume scales. Round-robin systems distribute load simply. More sophisticated approaches use response time or queue depth for smarter routing.
+
+## Data Pipeline and Storage
+
+Data handling determines end-to-end pipeline throughput. Models train only as fast as data can be loaded and processed. Efficient data pipelines prevent GPU underutilization during training.
+
+Preprocessing steps should execute on CPU to avoid wasting GPU compute. Data augmentation, normalization, and feature extraction all run more cost-effectively on standard compute.
+
+Storage systems require different characteristics for different access patterns. Training data benefits from sequential access patterns typical of HDD storage. Inference latency-critical workloads favor SSD or NVMe storage.
+
+Data versioning tracks which datasets produced which models. Systems like DVC (Data Version Control) enable reproducibility and collaboration on datasets.
+
+Feature stores centralize feature computation and serve pre-computed features to models. Feast or Tecton manage feature pipelines, versioning, and real-time serving.
+
+## Monitoring and Operations
+
+Production ML systems require extensive monitoring beyond traditional application metrics. Model performance divergence indicates data drift or distribution shift requiring intervention.
+
+Standard system metrics track GPU utilization, memory usage, and temperature. Chronically underutilized GPUs signal optimization opportunities. High GPU memory pressure indicates data loading bottlenecks.
+
+Model-specific metrics track prediction quality. Classification models monitor precision, recall, and F1 score continuously. Regression models track prediction error distributions. Drift detection flags when model behavior changes unexpectedly.
+
+Application metrics track inference latency, throughput, and error rates. SLA compliance requires monitoring percentile latencies (p95, p99) rather than averages.
+
+Alerting systems notify operators of anomalies. Automated remediation can trigger model retraining when drift exceeds thresholds.
+
+Logging and tracing enable rapid issue diagnosis. Structured logs capture request-response pairs for debugging. Distributed tracing follows requests through multiple system components.
+
+## FAQ
+
+**Should startups use managed platforms or build custom infrastructure?**
+Startups typically benefit from managed platforms initially to reduce operational overhead. Custom infrastructure makes sense at scale when operational costs justify engineering investment.
+
+**How much GPU compute capacity should production systems maintain?**
+Production systems typically maintain 50 to 100 percent headroom above peak load. During failure scenarios or traffic spikes, excess capacity prevents cascade failures.
+
+**What is the typical cost split between compute, storage, and networking?**
+GPU compute dominates for training-heavy workloads, typically 60 to 80 percent of costs. Serving-focused workloads may shift toward storage and networking, especially for large model serving.
+
+**How often should models be retrained in production?**
+Retraining frequency depends on data and model drift. Some systems retrain weekly, others monthly or seasonally. Data monitoring guides retraining decisions.
+
+**Can open-source frameworks replace commercial ML platforms?**
+Yes, open-source tools increasingly provide feature parity with commercial platforms. Trade-offs involve maintenance burden, expertise requirements, and support availability.
+
+## Related Resources
+
+- [Compare GPU Cloud Providers](/gpus)
+- [Compare LLM APIs](/llms)
+- [AI Infrastructure Stack Guide](/articles/ai-infrastructure-stack)
+- [AI Infrastructure for Startups](/articles/ai-infrastructure-for-startups)
+
+## Sources
+
+- [vLLM Documentation](https://docs.vllm.ai/)
+- [HuggingFace Text Generation Inference](https://huggingface.co/docs/text-generation-inference/)
+- [Kubeflow Machine Learning Toolkit](https://www.kubeflow.org/)
+- [Ray Distributed Computing](https://www.ray.io/)

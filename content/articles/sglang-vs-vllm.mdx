@@ -1,0 +1,480 @@
+---
+title: 'SGLang vs vLLM: LLM Inference Engine Comparison'
+slug: sglang-vs-vllm
+description: >-
+  SGLang vs vLLM: Compare throughput, features, structured output support, and
+  deployment. SGLang hits 16,215 tok/s, vLLM 12,553 tok/s as of March 2026.
+date: '2026-03-21'
+author: DeployBase
+category: LLM Tools
+keywords:
+  - sglang vs vllm
+  - sglang inference engine
+  - vllm inference engine
+  - llm serving framework
+  - best inference engine
+---
+
+## Contents
+
+- [SGLang vs vLLM Overview](#sglang-vs-vllm-overview)
+- [Throughput Benchmarks](#throughput-benchmarks)
+- [Feature Comparison](#feature-comparison)
+- [Structured Output Support](#structured-output-support)
+- [Prefix Caching and Context Reuse](#prefix-caching-and-context-reuse)
+- [Deployment and Operations](#deployment-and-operations)
+- [Use Case Recommendations](#use-case-recommendations)
+- [Architecture Deep Dive](#architecture-deep-dive)
+- [Migration Path](#migration-path)
+- [FAQ](#faq)
+- [Cost Per Million Tokens: Inference Economics](#cost-per-million-tokens-inference-economics)
+- [Real-World Deployment Scenarios](#real-world-deployment-scenarios)
+- [Engineering Complexity: Code Examples](#engineering-complexity-code-examples)
+- [The Prefix Caching Deep Dive](#the-prefix-caching-deep-dive)
+- [Community and Support](#community-and-support)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## SGLang vs vLLM Overview
+
+SGLang: 16,215 tok/s. vLLM: 12,553 tok/s. SGLang wins 29%. But vLLM owns the ecosystem and maturity advantage.
+
+SGLang shines on structured output and multi-turn caching. vLLM is simpler to deploy, battle-tested everywhere.
+
+---
+
+## Throughput Benchmarks
+
+### Raw Throughput (H100, March 2026)
+
+| Engine | Throughput (tok/s) | Batch Size | Model | Notes |
+|--------|-------------------|-----------|-------|-------|
+| SGLang | 16,215 | 256 | Llama 2 70B | Includes RadixAttention overhead |
+| LMDeploy | 16,132 | 256 | Llama 2 70B | TurboMind (C++ engine) |
+| vLLM | 12,553 | 256 | Llama 2 70B | Paged attention baseline |
+
+29% gap. Scheduler overhead kills vLLM between prefill and decode. SGLang's custom CUDA kernels exploit tensor cores better. SGLang's prefill-decode split is more granular.
+
+100M tokens/day? SGLang: 1.7 hours. vLLM: 2.2 hours. Compounding cost savings.
+
+### Latency (Time-to-First-Token, TTFT)
+
+| Engine | TTFT (ms) | P50 Latency (ms) | P99 Latency (ms) |
+|--------|-----------|-----------------|-----------------|
+| SGLang | 45 | 120 | 450 |
+| vLLM | 52 | 140 | 520 |
+
+SGLang cuts TTFT by 15%. Chat apps and RAG need this. vLLM's latency works for batch.
+
+## Feature Comparison
+
+### SGLang Strengths
+
+Structured output: constrained JSON, function calls, regex. FSM runs in-kernel, no post-processing.
+
+Multi-turn caching with RadixAttention. Share a 1k-token system prompt across 10 requests, cache once. Cache hit: 75-95%.
+
+Multi-LoRA batching: serve multiple adapters on one model.
+
+### vLLM Strengths
+
+**Ecosystem.** vLLM integrates with LangChain, LlamaIndex, and OpenAI-compatible REST APIs out of the box. Most RAG frameworks default to vLLM.
+
+**Operator simplicity.** Deployment is straightforward. Standard Python. Easy Docker containerization. Battle-tested at teams like Databricks, ServiceTitan, and others at scale (trillions of tokens daily).
+
+**Quantization ecosystem.** vLLM supports GPTQ, AWQ, FP8, and INT4 natively. More third-party quantization frameworks are tested against vLLM than SGLang.
+
+**Multi-LoRA isn't required.** If not serving multiple fine-tunes per model, this is a non-issue.
+
+---
+
+## Structured Output Support
+
+### SGLang: Native Constrained Decoding
+
+SGLang accepts regex patterns, JSON schemas, or custom FSMs. During decode, the model is constrained to generate only tokens that keep the output valid.
+
+Example:
+
+```python
+response = engine.forward(
+ "Extract person: [NAME: <name>, AGE: <age>]",
+ constraints=regex(r"\[NAME: \w+, AGE: \d+\]")
+)
+```
+
+Output is guaranteed valid. No post-processing. Decoding speed is baseline.
+
+### vLLM: Post-processing Validation
+
+vLLM generates tokens freely, then validates and auto-corrects the output. If a model generates invalid JSON, vLLM re-tokenizes and regenerates.
+
+Latency overhead: 20-50ms depending on correction complexity. More common than people expect: LLM outputs are sometimes sloppy.
+
+For structured generation workloads (form filling, code generation, API calls), SGLang is superior. The reduction in rework and latency matters at scale.
+
+---
+
+## Prefix Caching and Context Reuse
+
+### SGLang: RadixAttention
+
+RadixAttention is a tree-based KV cache that handles overlapping prefixes automatically. If requests A and B both start with the same 500-token prompt, RadixAttention caches it once.
+
+Impact: In a RAG system answering 100 questions about the same document, the document embedding is cached across all 100 requests. Cost per query drops 10-20% compared to recomputing.
+
+### vLLM: Basic Prefix Caching (Recent)
+
+vLLM added prefix caching in v0.5 but it's less efficient than RadixAttention. Requires explicit API calls to cache prefixes. Less automatic.
+
+For conversational AI and RAG pipelines, SGLang's RadixAttention is a clear win. For one-off requests with unique prefixes, the benefit is zero.
+
+---
+
+## Deployment and Operations
+
+### SGLang Deployment
+
+**Setup:** Python, pip install sglang. Standard NVIDIA CUDA stack.
+
+**Maturity:** v0.3.x as of March 2026. Still actively evolving. Fewer long-term production deployments than vLLM (though companies like Cursor and LinkedIn use it).
+
+**Scaling:** Tensor parallelism, pipeline parallelism. No Kubernetes operator built-in (though the community is building OME, an open operator that works with both).
+
+**Downtime risk:** SGLang is newer. Breaking API changes are possible. Monitor releases before upgrading.
+
+### vLLM Deployment
+
+**Setup:** Python, pip install vllm. Stable CUDA ABI.
+
+**Maturity:** v0.8.x as of March 2026. Thousands of production deployments. Battle-tested. Changes are backward-compatible.
+
+**Scaling:** Distributed serving with tensor/pipeline parallelism. Kubernetes integration exists (though not officially maintained). Most cloud providers have vLLM templates.
+
+**Downtime risk:** Minimal. vLLM treats stability as a feature. Updates rarely break existing deployments.
+
+For risk-averse teams or large deployments, vLLM is safer. For teams willing to optimize for bleeding-edge performance, SGLang is worth the operational complexity.
+
+---
+
+## Use Case Recommendations
+
+### Use SGLang If.
+
+1. **Structured generation is core.** JSON, function calls, code generation. Constrained decoding matters.
+2. **Multi-turn is the workload.** Chatbots, RAG, agents. RadixAttention cache hit rates are 75-95%.
+3. **Cost-per-token is the metric.** The 29% throughput gap compounds into savings on long-running services.
+4. **Teams are fine-tuning with LoRA.** Multi-LoRA batching on a single model is a real advantage.
+
+### Use vLLM If.
+
+1. **Teams need production stability.** Kubernetes, Helm, CI/CD integration. Thousands of known deployments.
+2. **Team is small or junior.** vLLM's simplicity is underrated. Less knob-turning required.
+3. **Teams are already invested in the ecosystem.** LangChain, LlamaIndex, OpenAI APIs. vLLM is the default.
+4. **Throughput under 10K tok/s.** The gap matters at scale. At 1K tok/s (research or small service), both are fine.
+5. **Quantization is core.** vLLM has more third-party quantization support.
+
+### A Third Option: LMDeploy
+
+LMDeploy's TurboMind engine matches SGLang in throughput (16,132 tok/s) while maintaining vLLM-like stability. C++-based. Fewer Python dependencies. Worth considering for high-throughput batch processing.
+
+---
+
+## Architecture Deep Dive
+
+### vLLM Architecture
+
+```
+Request Queue
+ ↓
+Batch Scheduler (assigns prefill + decode phases)
+ ↓
+Prefill Phase (attend to full input)
+ ↓
+Decode Phase (generate tokens one-by-one)
+ ↓
+Output Buffer
+```
+
+The scheduler batches requests across both phases. Latency: request spends time waiting for prefill, then waits again for decode slot.
+
+### SGLang Architecture
+
+```
+Request Queue
+ ↓
+Zero-Overhead Scheduler (fine-grained token scheduling)
+ ↓
+Prefill (chunked, interleaved with decode)
+ ↓
+Decode (prioritized, interleaved with prefill)
+ ↓
+Output Buffer (with RadixAttention KV tree)
+```
+
+SGLang disaggregates prefill and decode: each token from decode can interleave with prefill of the next request. Reduces stalls. KV state is stored in a tree (Radix tree, hence RadixAttention) for efficient sharing.
+
+This is why SGLang is faster. More efficient use of GPU compute.
+
+---
+
+## Migration Path
+
+### vLLM → SGLang
+
+Both support OpenAI-compatible REST APIs. Swap the backend URL. If using raw Python, API is similar but not identical. Budget 1-2 weeks for integration testing.
+
+### SGLang → vLLM
+
+More disruptive. Lose RadixAttention caching and structured output. Implement post-processing validation for structured outputs.
+
+---
+
+## FAQ
+
+**Is SGLang production-ready?**
+
+As of March 2026, yes. Cursor, LinkedIn, and other high-traffic services use it. But it's younger than vLLM. Monitor releases closely.
+
+**Can I use both simultaneously?**
+
+Yes. Run vLLM for simple text generation. Route structured generation requests to SGLang. Use a load balancer or async queue. Adds operational complexity.
+
+**Which is easier to deploy?**
+
+vLLM. Docker, Kubernetes, cloud provider templates exist. SGLang is catching up.
+
+**Does throughput difference matter for my workload?**
+
+At <1,000 tok/s (research or single-user chatbot), no. At >10,000 tok/s (production API), the 29% gap saves real money. At scale, SGLang's cost-per-token is 15-20% lower.
+
+**Should I use RadixAttention if I'm not doing RAG?**
+
+Only if you have multi-turn conversations with shared prefixes. Single-turn requests get no benefit.
+
+**Is structured output worth switching to SGLang?**
+
+Depends. If generating JSON responses, yes. Constrained decoding is faster and always-valid. If post-processing is acceptable, vLLM works.
+
+---
+
+## Cost Per Million Tokens: Inference Economics
+
+From a purely cost perspective, both engines have identical hardware costs. But throughput differences cascade into operational expenses.
+
+### Example: 100M Token/Day Service
+
+**vLLM at 12,553 tok/s:**
+- Time to process: 100M ÷ 12,553 = 7,961 seconds = 2.2 hours
+- H100 cost (RunPod): $2.49/hr × 2.2 = $5.48
+
+**SGLang at 16,215 tok/s:**
+- Time to process: 100M ÷ 16,215 = 6,168 seconds = 1.7 hours
+- H100 cost: $2.49/hr × 1.7 = $4.23
+
+Cost difference: $1.25 per 100M tokens. Over a year (36.5B tokens): ~$456 saved on compute alone.
+
+Multi-region deployment complicates the math: need multiple H100 clusters, redundancy costs. But the per-token cost advantage accrues.
+
+---
+
+## Real-World Deployment Scenarios
+
+### Scenario 1: RAG System (e-commerce Q&A)
+
+Customer asks 50-word question about product. System retrieves 3 similar products (1,500 tokens context) and generates 200-word answer.
+
+**Per-request tokens:**
+- Context (retrieval): 1,500
+- Question embedding: 50
+- Answer generation: 200
+- Total: 1,750 tokens per request
+
+**Per-request latency:**
+- Prefill (context + question): 1,550 tokens at 4,000 tok/s = 387 ms
+- Decode (answer, 200 tokens): 200 tokens at varying speed (each token computed serially) = 200 × (1 sec ÷ 1,000 tok/s avg) = 200 ms
+- Total: ~600 ms
+
+**vLLM vs SGLang:**
+- vLLM TTFT: 50 ms (time to first token)
+- SGLang TTFT: 35 ms (15 ms faster, RadixAttention amortizes context)
+- Streaming user perception: user feels SGLang is more responsive
+
+At 1,000 requests/day, vLLM serves 600K tokens/day on one H100. SGLang serves 800K tokens/day (same H100). At scale (100K requests/day), SGLang saves one full H100 ($2.49/hr × 24 = $59.76/day = $21,812/year).
+
+### Scenario 2: Batch Code Generation
+
+Generate 10,000 code snippets, each ~500 tokens. Prompt is fixed (4,000 tokens system prompt). Total: 50M input tokens (system prompt + queries) + 5M output tokens.
+
+RadixAttention hit rate: 99% (system prompt cached, never recomputed).
+
+**vLLM:**
+- Recomputes 4,000-token system prompt for each of 10,000 requests
+- Wasted compute: 40M tokens on recalculating identical context
+- Actual unique compute: 10M (queries) + 5M (outputs) = 15M
+- Overhead: 40M ÷ 15M = 2.67x inefficiency
+
+**SGLang:**
+- Caches 4,000-token system prompt once (RadixAttention tree)
+- Unique compute: 10M (queries) + 5M (outputs) = 15M
+- Overhead: ~1.1x (minimal, just adding queries to cache)
+
+Cost to process 50M tokens:
+- vLLM (55M actual compute): 55M ÷ 12,553 = 4,378 seconds = 1.22 hours. Cost: $3.04
+- SGLang (15M actual compute): 15M ÷ 16,215 = 924 seconds = 0.26 hours. Cost: $0.65
+
+SGLang is **4.7x cheaper** for this workload.
+
+This is the killer advantage of RadixAttention: shared context across many requests.
+
+### Scenario 3: Multi-Turn Conversational AI
+
+User has 20-turn conversation. Each turn adds 200 tokens to conversation history. After 20 turns, history is 4,000 tokens.
+
+**Turn 20 processing:**
+- Full history (4,000 tokens) must be in KV cache
+- User adds new 200-token message
+- Model generates 300-token response
+- Total: 4,200 input + 300 output = 4,500 tokens
+
+**vLLM:**
+- Recomputes entire 4,000-token history every turn
+- Total wasted compute: 4,000 × 20 turns = 80,000 tokens of recomputation
+- Actual useful compute: 200 × 20 (messages) + 300 × 20 (responses) = 10,000
+- Overhead: 8x inefficiency
+
+**SGLang (RadixAttention):**
+- Incrementally updates KV cache tree as new turns arrive
+- Reuses prior turns without recomputation
+- Overhead: ~1.05x (minimal, just adding new turn)
+
+Cost for 20-turn conversation:
+- vLLM: 90K tokens ÷ 12,553 = 7.17 seconds = $0.0000050
+- SGLang: 10.2K tokens ÷ 16,215 = 0.629 seconds = $0.0000004
+
+SGLang is **11x cheaper** per conversation.
+
+---
+
+## Engineering Complexity: Code Examples
+
+### vLLM Setup (Python)
+
+```python
+from vllm import LLM, SamplingParams
+
+llm = LLM(model="meta-llama/Llama-2-7b-hf", tensor_parallel_size=1)
+outputs = llm.generate(prompts, sampling_params)
+```
+
+Minimal boilerplate. Production-ready immediately.
+
+### SGLang Setup (Python)
+
+```python
+import sglang as sgl
+
+@sgl.function
+def generate(s, prompt):
+ s += prompt
+ s += sgl.gen("output", max_tokens=200)
+ return s["output"]
+
+state = sgl.run(generate, prompt="Explain X")
+```
+
+More structured. Requires thinking about computation graph. But enables advanced features (structured output, caching).
+
+The setup complexity is real. vLLM is simpler for basic use cases. SGLang requires slightly more thought but enables optimization.
+
+---
+
+## The Prefix Caching Deep Dive
+
+RadixAttention in SGLang is the core differentiator. How does it work?
+
+### Traditional KV Cache
+
+vLLM stores KV (key-value) pairs sequentially:
+
+```
+Request 1: [Token1, Token2, Token3, . Token500]
+ KV cache stores keys & values for all 500
+
+Request 2: [Token1, Token2, Token3, . Token500]
+ KV cache recomputes keys & values for all 500 (redundant!)
+```
+
+If 100 requests all start with same 500-token prompt, vLLM recomputes 500 × 100 = 50,000 tokens of wasted KV computation.
+
+### RadixAttention (Prefix Tree)
+
+SGLang stores KV cache in a tree:
+
+```
+Shared root: [Token1, Token2, . Token500]
+ ├─ Request 1 branch: [Token501, Token502, .]
+ ├─ Request 2 branch: [Token501, Token502, .]
+ ├─ Request 3 branch: [Token501, Token502, .]
+ └─ .
+```
+
+The shared prefix (first 500 tokens) is computed once and reused. New tokens are computed only once per request. Massive savings.
+
+Cache hit rate depends on workload:
+
+- **Generic chatbot:** 20-30% (users ask different things, little prefix overlap)
+- **RAG system:** 75-85% (same context retrieved for similar queries)
+- **Multi-turn conversation:** 95%+ (history grows but reuses prior turns)
+
+In high-overlap scenarios (RAG, chat), RadixAttention is transformative.
+
+---
+
+## Community and Support
+
+### vLLM Community
+
+- GitHub stars: 20,000+
+- GitHub discussions: Very active
+- Stack Overflow: Established tag with answers
+- Slack/Discord: Large community
+- Blog posts: Hundreds of tutorials
+- Corporate backing: Databricks, NVIDIA
+
+### SGLang Community
+
+- GitHub stars: 8,000+
+- GitHub discussions: Active but smaller
+- Stack Overflow: Newer, fewer answered questions
+- Slack/Discord: Smaller but responsive
+- Blog posts: Growing but not as many as vLLM
+- Corporate backing: xAI, NVIDIA, AMD, Intel
+
+**vLLM has maturity advantage.** 2-3x larger community, more tutorials, more third-party integrations.
+
+**SGLang has momentum.** Newer, faster growth rate, backing from top AI companies.
+
+For teams that need answers quickly or prefer established patterns: vLLM.
+For teams willing to blaze new trails or benefit from newer features: SGLang.
+
+---
+
+## Related Resources
+
+- [LLM Serving Frameworks](/articles/llm-serving-framework)
+- [Best LLM Inference Engines](/articles/best-llm-inference-engine)
+- [LLM Serving Framework Comparison](/articles/llm-serving-framework-comparison)
+
+---
+
+## Sources
+
+- [SGLang GitHub Repository](https://github.com/sgl-project/sglang)
+- [SGLang Documentation](https://sgl-project.github.io/)
+- [vLLM Official Website](https://vllm.ai/)
+- [vLLM GitHub Repository](https://github.com/vllm-project/vllm)
+- [SGLang vs vLLM: Which is the Best Inference Engine in 2026?](https://kanerika.com/blogs/sglang-vs-vllm/)
+- [vLLM vs SGLang vs LMDeploy: Fastest LLM Inference Engine in 2026?](https://blog.premai.io/vllm-vs-sglang-vs-lmdeploy-fastest-llm-inference-engine-in-2026/)

@@ -1,0 +1,587 @@
+---
+title: 'H200 Price: Cloud Rental Costs and Per-Hour Rates'
+slug: h200-price
+description: >-
+  NVIDIA H200 cloud pricing: $3.59/hour on RunPod, $6.50 on CoreWeave. Rental
+  costs and multi-GPU cluster pricing by provider as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Pricing
+keywords:
+  - h200 price
+  - nvidia h200 cost
+  - h200 gpu rental price
+  - h200 per hour
+  - h200 cloud pricing
+---
+
+## Contents
+
+- [Overview](#overview)
+- [H200 Pricing by Provider](#h200-pricing-by-provider)
+- [Single-GPU vs Multi-GPU Pricing](#single-gpu-vs-multi-gpu-pricing)
+- [Monthly Cost Projections](#monthly-cost-projections)
+- [H200 vs H100 Price Comparison](#h200-vs-h100-price-comparison)
+- [When H200 Makes Sense](#when-h200-makes-sense)
+- [Cost-Per-Task Examples](#cost-per-task-examples)
+- [H200 vs Older Generation GPUs](#h200-vs-older-generation-gpus)
+- [Provider Breakdown](#provider-breakdown)
+- [H200 vs Alternatives for Specific Workloads](#h200-vs-alternatives-for-specific-workloads)
+- [Spot Pricing and Reserved Instance Economics](#spot-pricing-and-reserved-instance-economics)
+- [Networking and Interconnect Considerations](#networking-and-interconnect-considerations)
+- [Storage and Data Transfer Costs](#storage-and-data-transfer-costs)
+- [Multi-GPU Cluster Cost Analysis](#multi-gpu-cluster-cost-analysis)
+- [FAQ](#faq)
+- [Workload-Specific Pricing Scenarios](#workload-specific-pricing-scenarios)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Overview
+
+H200 Price is the focus of this guide. RunPod: $3.59/hr. CoreWeave: $6.50/hr (single), $50.44/hr (8-GPU cluster). 141GB HBM3e (vs H100's 80GB). Premium reflects extra memory and bandwidth. Worth it for large models and long-context. H100 better value for smaller workloads.
+
+---
+
+## H200 Pricing by Provider
+
+| Provider | Model | VRAM | Form Factor | $/GPU-hr | $/Month (730 hrs) |
+|----------|-------|------|-------------|----------|-------------------|
+| RunPod | NVIDIA H200 | 141GB | PCIe/SXM | $3.59 | $2,621 |
+| Lambda | GH200 (96GB) | 96GB | Custom | $1.99 | $1,453 |
+| CoreWeave | NVIDIA H200 (single) | 141GB | SXM | $6.50 | $4,745 |
+| CoreWeave | NVIDIA H200 (8x cluster) | 1,128GB | SXM | $50.44 | $36,821 |
+
+Data from official provider pricing pages (March 21, 2026). Monthly projections assume continuous rental at 730 hours per calendar month.
+
+---
+
+## Single-GPU vs Multi-GPU Pricing
+
+### Single-GPU Scenarios
+
+RunPod's single H200 at $3.59/hr is the most accessible entry point. Ideal for:
+
+- Fine-tuning models up to 70B parameters
+- Single-model inference serving (under 100 concurrent users)
+- Research and prototyping with memory-intensive workloads
+- Context window testing (long-context models need VRAM)
+
+One GPU scales to roughly 8-10M tokens per day of inference at typical batch sizes. For production inference at higher scale, multi-GPU clusters are necessary.
+
+### Multi-GPU Clusters
+
+CoreWeave's 8x H200 cluster at $50.44/hr provides 1,128GB aggregate VRAM. Breaks down to $6.31/GPU when shared across 8 units. Necessary for:
+
+- Training large models (70B+) from scratch or with full fine-tuning
+- High-throughput inference (100M+ tokens per month)
+- Distributed multi-GPU workloads with NVLink interconnect
+- Teams needing fault tolerance (spare GPU capacity)
+
+The 8-GPU cluster provides 50% more total VRAM than 8x H100 clusters (640GB), which matters when working with very large models or context windows exceeding 100K tokens.
+
+---
+
+## Monthly Cost Projections
+
+### Light Usage (Research, Prototyping)
+
+**Scenario:** 40 hours per month on RunPod H200
+
+- Hourly cost: $3.59
+- Monthly spend: 40 × $3.59 = $143.60
+- Annual: $1,723
+
+Fits academic research, freelance engineers, or one-off model testing.
+
+### Medium Usage (Ongoing Fine-Tuning)
+
+**Scenario:** 200 hours per month on RunPod H200
+
+- Hourly cost: $3.59
+- Monthly spend: 200 × $3.59 = $718
+- Annual: $8,616
+
+Realistic for teams running weekly fine-tuning cycles or continuous batch inference on context-heavy models.
+
+### Heavy Usage (Continuous Inference)
+
+**Scenario:** 24/7 operation on CoreWeave 8x H200 cluster
+
+- Hourly cost: $50.44
+- Monthly spend: 730 × $50.44 = $36,821
+- Annual: $441,852
+
+Justifies purchase if utilization consistently exceeds 60% over 18+ months. Buy-in cost for H200 clusters is substantial but breakeven on cloud rental occurs around 14,000 GPU-hours (roughly 18-22 months of continuous operation).
+
+---
+
+## H200 vs H100 Price Comparison
+
+| Metric | H100 | H200 | Difference |
+|--------|------|------|-----------|
+| **RunPod Single-GPU** | $1.99/hr | $3.59/hr | +80% |
+| **CoreWeave 8-GPU** | $49.24/hr | $50.44/hr | +2.4% |
+| **Memory (Capacity)** | 80GB | 141GB | +76% |
+| **Memory (Bandwidth)** | 3,350 GB/s | 4,800+ GB/s | +43% |
+| **Best for** | Inference, training 70B | Long-context, extreme VRAM |
+
+H200 costs roughly 80% more per single GPU but only 2.4% more on CoreWeave's 8-GPU cluster (economy of scale). The extra memory capacity benefits context windows and inference on extremely large models.
+
+For teams serving Llama 405B or other 200B+ parameter models, H200's 141GB becomes necessary. For 70B or smaller, H100 delivers better cost-per-task.
+
+---
+
+## When H200 Makes Sense
+
+H200 rental is justified when one or more of these apply:
+
+**Memory Capacity Constraint.** Models exceeding 70B parameters in full precision (or 140B in 4-bit quantization) need more than 80GB VRAM. H200's 141GB accommodates full-precision 100B models or quantized 200B+ models.
+
+**Long-Context Inference.** Models with 100K-200K token context windows use proportionally more VRAM for KV cache storage. H200's extra capacity reduces OOM (out-of-memory) risk when serving long documents or extended conversations.
+
+**Multi-Modal Workloads.** Vision transformers or audio models combined with LLMs push VRAM usage. H200 absorbs these without bottlenecking.
+
+**Throughput Over Cost.** H200's 43% bandwidth advantage over H100 accelerates training throughput on memory-bandwidth-limited operations. If cost-per-task matters more than cost-per-hour, H200 may win despite higher hourly rate.
+
+---
+
+## Cost-Per-Task Examples
+
+### Fine-Tuning a 70B Model
+
+**Scenario:** LoRA fine-tuning on 200K examples, 512 tokens each, batch size 32.
+
+**H100 (RunPod, $1.99/hr):**
+- Time: 18-20 hours
+- Cost: $36-$40
+
+**H200 (RunPod, $3.59/hr):**
+- Time: 15-17 hours (slightly faster due to memory bandwidth)
+- Cost: $54-$61
+
+H100 wins on cost despite H200 being slightly faster. The memory overhead of H200 doesn't offset the higher hourly rate for 70B models.
+
+### Inference: 1M Tokens Per Day
+
+**Scenario:** Serve a 70B model with batch processing.
+
+**H100 (8x cluster, CoreWeave $49.24/hr, 850 tok/s per GPU):**
+- Daily tokens: 8 × 850 × 86,400 = 588M tokens
+- Daily cost: $1,182
+- Cost per million tokens: $2.01
+
+**H200 (8x cluster, CoreWeave $50.44/hr):**
+- Higher throughput (~950 tok/s per GPU due to bandwidth): 8 × 950 × 86,400 = 657M tokens
+- Daily cost: $1,210
+- Cost per million tokens: $1.84
+
+H200 is cost-competitive on high-volume inference due to throughput gains outpacing the hourly premium.
+
+---
+
+## H200 vs Older Generation GPUs
+
+### H200 vs A100
+
+| Metric | A100 | H200 | Multiple | $/TFLOP |
+|--------|------|------|----------|---------|
+| **Price (RunPod)** | $1.19/hr | $3.59/hr | 3x | $0.18 |
+| **VRAM** | 80GB | 141GB | 1.76x | $0.025 per GB/month |
+| **Memory Bandwidth** | 1,935 GB/s | 4,800 GB/s | 2.48x | N/A |
+| **Tensor Throughput (FP8)** | 312 TFLOP | 1,400 TFLOP | 4.5x | $0.026 |
+| **Training Throughput** | ~250 samples/sec (70B model) | ~360 samples/sec (70B model) | 1.44x | ~$0.01 per sample |
+
+H200 is 3x more expensive per hour but delivers 4.5x more tensor throughput. Cost-per-token on inference is actually favorable for H200 due to throughput gains.
+
+**Real-world cost comparison (training Llama 70B):**
+- A100 (RunPod $1.19/hr): 18 hours × $1.19 = $21.42
+- H200 (RunPod $3.59/hr): 12.5 hours × $3.59 = $44.88 (2.1x cost but 30% faster)
+
+For production training workloads where time-to-completion matters, H200 breakeven occurs at ~$0.15 per hour overhead (time saved × engineer hourly rate).
+
+### H200 vs B200
+
+| Metric | H200 | B200 | Difference |
+|--------|------|------|-----------|
+| **RunPod Price** | $3.59/hr | $5.98/hr | +66% |
+| **VRAM** | 141GB | 192GB | +28% (+39GB) |
+| **Memory Bandwidth** | 4,800 GB/s | 5,600 GB/s | +17% |
+| **Tensor Throughput** | 1,400 TFLOP | 2,000 TFLOP | +43% |
+| **Released** | Late 2025 | Early 2026 | B200 newer |
+| **$/GB/month** | $0.025 | $0.033 | -25% (H200 better) |
+
+B200 costs 66% more per hour ($2.39/hr premium) but offers only 28% more VRAM and 43% more throughput.
+
+**Break-even analysis:**
+- For pure VRAM capacity: H200 is better value ($.025 per GB/month vs $.033 for B200)
+- For throughput-optimized workloads: B200 pays for itself if workload is 43% faster
+- Time value: If 1 million token batch trains 43% faster on B200, that's 6 hours saved = $36 value (at $6/hr SWE time)
+
+**Recommendation:** Use H200 for cost-conscious teams. Use B200 for performance-at-all-costs (latest architecture, peak throughput, high-performance research).
+
+---
+
+## Provider Breakdown
+
+### RunPod
+
+Single H200 at $3.59/hr. No multi-GPU cluster pricing listed yet. Fast onboarding, no setup fees, immediate availability. Good for prototyping and small-batch fine-tuning.
+
+RunPod's pricing is competitive on entry-level single-GPU workloads. Containers spin up within 30 seconds. No storage fees; cost is GPU rental only. For continuous availability, reserve GPU capacity (available in beta; 20% discount expected).
+
+### CoreWeave
+
+$6.50/hr single GPU, $50.44/hr for 8-GPU cluster. Purpose-built for multi-GPU ML workloads. Cluster form factor provides NVLink interconnect (essential for distributed training). Higher per-GPU rate but economy of scale at 8+ GPUs.
+
+CoreWeave clusters come preconfigured with NVIDIA drivers, CUDA, and networking. Onboarding is ~15 minutes. Multi-region failover available (workload migrates if a cluster fails).
+
+### Lambda
+
+Offers GH200 (96GB, a different SKU) at $1.99/hr but not native H200. GH200 is a dual-GPU module (limited availability in cloud). Most teams prefer RunPod for H200 availability.
+
+Lambda's cloud service includes 1TB SSD storage per GPU and bandwidth included. Pay only for GPU-hours, not egress. Good for data-heavy workloads (large model files, logs).
+
+---
+
+## H200 vs Alternatives for Specific Workloads
+
+### Long-Context Inference (100K+ tokens)
+
+**Scenario:** RAG application processing 100K-token documents with Llama 2 70B.
+
+**H100 (single, RunPod $1.99/hr):**
+- Fits 70B model in 80GB VRAM
+- KV cache for 100K context: ~50GB
+- Tokens available for batch: 30GB / token size = batch size ~4
+- Throughput: 4 tokens × 850 tok/s = 3,400 tok/s
+
+**H200 (single, RunPod $3.59/hr):**
+- Fits 70B model in 141GB VRAM
+- KV cache for 100K context: ~50GB
+- Tokens available for batch: 91GB / token size = batch size ~10
+- Throughput: 10 tokens × 950 tok/s = 9,500 tok/s
+
+H200 is 2.8x faster for long-context inference due to extra VRAM. Cost-per-task: 2.8x speedup at 1.8x price = better cost-per-token despite higher hourly rate.
+
+### Simultaneous Fine-Tuning Jobs
+
+**Scenario:** Fine-tune 5 separate models in parallel (multi-tenant setup).
+
+**H100 cluster (8x, RunPod $21.52/hr):**
+- Total VRAM: 640GB
+- Per-job allocation: 128GB
+- Max parallel fine-tunes: 5 jobs
+- Cost per job: $21.52 / 5 = $4.30/hr
+
+**H200 cluster (8x, CoreWeave $50.44/hr):**
+- Total VRAM: 1,128GB
+- Per-job allocation: 225GB
+- Max parallel fine-tunes: 5 jobs with room for larger models
+- Cost per job: $50.44 / 5 = $10.09/hr
+
+H100 cluster is 2.3x cheaper. But H200 allows larger models to be fine-tuned simultaneously (140B models vs 70B). Trade: cost vs capability. Choose H200 if model size is constraining.
+
+### Batch Inference Serving
+
+**Scenario:** Process 100M documents daily with a 13B model (summary extraction).
+
+**1x H100 (RunPod $1.99/hr):**
+- Throughput: 850 tok/s
+- Documents per day: 100M
+- Time needed: (100M × 50 tokens) / 850 = ~5,882,353 seconds = 68 days (unviable)
+- Solution: 8x H100 cluster = 6,800 tok/s = 8.5 days
+
+**1x H200 (RunPod $3.59/hr):**
+- Throughput: ~950 tok/s
+- Time: ~6,250 days (unviable)
+- Solution: 12x H200 cluster = 11,400 tok/s = 4.8 days
+
+Cost comparison:
+- 8x H100: $21.52/hr × 8.5 days × 24 = $4,387
+- 12x H200: $3.59/hr × 12 × 4.8 × 24 = $4,145
+
+H200 slightly cheaper due to throughput advantage. But both require clusters; single-GPU doesn't scale to this volume.
+
+---
+
+## Spot Pricing and Reserved Instance Economics
+
+### Current Spot Pricing (March 2026)
+
+H200 spot pricing is unavailable from RunPod and CoreWeave as of March 2026 (GPUs too new for secondary market). Expect spot pricing to emerge 6-12 months post-launch as supply increases.
+
+**Historical pattern (H100 spot):**
+- On-demand: $1.99/hr (H100 PCIe, RunPod)
+- Spot: $0.99-$1.29/hr (50-35% discount)
+- Interruption rate: <5% weekly (acceptable for training, risky for inference)
+
+**H200 projected spot pricing:**
+- On-demand: $3.59/hr (current)
+- Projected spot: $1.79-$2.15/hr (50% discount at launch)
+- Interruption rate: <5% weekly initially, increasing as supply grows
+
+### Reserved Instance Economics
+
+No reserved instances available yet. Historical pattern suggests:
+
+**H100 reserved pricing (from AWS/Lambda):**
+- 1-year commitment: 30-40% discount
+- 3-year commitment: 50-60% discount
+
+**H200 projected reserved pricing:**
+- 1-year commitment: 25-30% discount
+- 3-year commitment: 45-50% discount
+- Expected availability: Q3 2026 (9 months from launch)
+
+**H200 reservations break-even at ~11,000 GPU-hours (18 months continuous operation).**
+
+**Example: Reserve 1x H200 for 1-year**
+- Current on-demand: $3.59/hr × 730 = $2,621/month = $31,452/year
+- 1-year reserved (est. 30% off): $2,202/month = $26,421/year
+- Savings: $5,031/year (16% saving)
+
+Reservations make sense for committed production workloads (training cycles, long-running inference). Not worthwhile for prototyping or one-off experiments.
+
+## Networking and Interconnect Considerations
+
+H200 clusters benefit from high-speed interconnect. CoreWeave's 8-GPU clusters use NVLink (900 GB/s per GPU connection), critical for gradient synchronization during distributed training.
+
+**Effective bandwidth in training (gradient AllReduce operation):**
+- Single-node 8x H200 with NVLink: 7,200 GB/s aggregate, ~2x throughput per GPU vs single-GPU
+- Multi-node setup (8x nodes with 10Gbps Ethernet): ~10 GB/s inter-node, gradient sync bottlenecks
+- Multi-node with 400Gbps InfiniBand: 400 GB/s inter-node, minimal slowdown
+
+**Network cost comparison:**
+- InfiniBand interconnect: adds $500-1,000/month for 8-node cluster
+- Ethernet: included (minimal cost)
+- NVLink (single-node): included
+
+For multi-node training (16+ H200s), InfiniBand costs rival GPU rental costs. Single-node 8-GPU clusters are optimal for H200. Expanding beyond 8 requires either:
+1. Pay for InfiniBand ($500+/month premium)
+2. Accept 50% training slowdown due to network bottleneck
+3. Use different parallelism strategy (pipeline parallelism, less efficient)
+
+**Implication:** H200's sweet spot is single-node 8-GPU. If model exceeds 8-GPU capacity, consider renting H100 clusters instead (more providers, lower multi-node costs).
+
+---
+
+## Storage and Data Transfer Costs
+
+Cloud providers charge for persistent storage (long-lived file systems) and egress (outbound bandwidth).
+
+**Model Storage:**
+- Llama 2 70B (full precision): 140GB
+- Qwen 70B: 140GB
+- Grok 314B: 628GB (requires 2+ GPUs anyway)
+
+RunPod storage (per GB/month): ~$0.10. CoreWeave: varies. For 140GB model storage, expect $15-30/month on top of GPU rental.
+
+**Data Transfer:**
+- Downloading training data: free (inbound)
+- Uploading results: charged by provider
+
+Factor these costs into multi-month training budgets. For a 1-month H200 training job (730 hours × $3.59 = $2,621), add $30-100 for storage and transfer.
+
+---
+
+## Multi-GPU Cluster Cost Analysis
+
+### Cluster Pricing Breakdown (8-GPU configurations)
+
+| Provider | Cluster Size | Total $/hr | Per-GPU $/hr | Total RAM |
+|----------|:---:|:---:|:---:|:---:|
+| CoreWeave 8x H200 | 8 | $50.44 | $6.31 | 1,128GB |
+| RunPod 8x H100 | 8 | $21.52 | $2.69 | 640GB |
+| Lambda 8x A100 | 8 | $11.84 | $1.48 | 320GB |
+
+CoreWeave charges premium for NVLink interconnect and dedicated cluster infrastructure. RunPod's 8x H100 is 2.3x cheaper but with 43% less total VRAM.
+
+### Cost-Per-Token Inference: Cluster vs Single-GPU
+
+**Scenario: Serve Llama 70B inference at high concurrency (100 concurrent users)**
+
+**Single H200 (RunPod $3.59/hr):**
+- Throughput: 800 tokens/sec (limited by single GPU)
+- Daily tokens: 800 × 86,400 = 69M tokens
+- Monthly: 2B tokens
+- Cost: $3.59 × 730 / 2B = $0.00131 per token
+
+**Cluster 4x H200 (CoreWeave $6.31/GPU × 4 = $25.24/hr):**
+- Throughput: 3,000 tokens/sec (4x throughput with slight sync overhead)
+- Daily tokens: 3,000 × 86,400 = 259M tokens
+- Monthly: 7.8B tokens
+- Cost: $25.24 × 730 / 7.8B = $0.00237 per token
+
+**Single GPU is more cost-efficient (0.00131 vs 0.00237 per token).** But single-GPU maxes out at 100-200 concurrent users. For higher concurrency (1,000+ users), clusters are necessary despite higher per-token cost.
+
+### Workload-Specific Cluster Economics
+
+**Long-Context RAG (100K-token context windows):**
+- Single H200: KV cache uses 50GB, leaves 91GB for batch
+- Batch size: ~10 requests (limited by VRAM)
+- 4x H200 cluster: Batch size 40+ (4x increase)
+- Cost delta: 2.3x more expensive for 4x throughput = break-even if latency SLA matters
+
+**Fine-Tuning Jobs (parallel training on same cluster):**
+- Single H200: Train one 70B model
+- 8x H200 cluster: Train five 70B models in parallel (tensor parallelism on each)
+- Cost per model: $50.44 / 5 = $10.09/hr (vs $3.59 single)
+- Value: 5 models trained simultaneously = parallelizes training pipeline
+
+## FAQ
+
+**What's the difference between H200 and GH200?**
+
+GH200 is a dual-GPU module with 2x 96GB memory connected by NVLink. Only Lambda lists it ($1.99/hr for 96GB total). Most cloud providers standardize on single-H200 SKUs. GH200 provides symmetrical memory per module (single-node dual-GPU) but is harder to allocate and less common. GH200 is effectively 2x 48GB (useful for specific workloads needing two smaller GPUs in lockstep).
+
+**Is H200 worth the upgrade from H100 for fine-tuning?**
+
+It depends on model size and VRAM requirements:
+- Fine-tune Llama 70B: H100 is 3x cheaper ($1.99 vs $3.59), similar training time
+- Fine-tune Llama 405B: Only possible on H200 (405B requires 160GB+)
+- Fine-tune with context: H200's 141GB supports longer context (100K+ tokens), H100 limited to 30-50K
+
+**Can I do inference on a single H200?**
+
+Yes. Single-GPU inference is viable. RunPod's $3.59/hr H200 handles LLM inference up to 69M tokens/month at typical batch sizes. For higher volumes (100M+ tokens/month), add GPUs or switch to managed API (Fireworks, Groq).
+
+**What about spot pricing for H200?**
+
+As of March 2026, spot pricing is unavailable (supply too constrained). Expect spot market to emerge Q3-Q4 2026 as supply normalizes. Historical spot discounts for similar GPUs: 40-50%.
+
+**Should I buy H200 hardware instead of renting?**
+
+H200 retail cost: $40,000-$50,000 (direct vendor pricing). At $3.59/hr rental:
+- 11,000 GPU-hours = $39,490 (break-even with direct vendor pricing)
+- 11,000 GPU-hours = 458 days (1.3 years continuous)
+- Buy if utilization >60% for 18+ months
+- Rent for prototyping, one-off experiments, or highly variable workloads
+
+Consider electricity costs for owned hardware (1,000W × $0.10/kWh = $100/month per GPU).
+
+**How does H200 throughput compare to A100?**
+
+H200 is 3-4x faster than A100 on most inference workloads:
+- A100 (RunPod): 200 tokens/sec
+- H200 (RunPod): 800 tokens/sec
+- Cost-per-token: H200 is 1.5-2x cheaper despite 3x higher hourly rate ($1.19 → $3.59)
+
+---
+
+## Workload-Specific Pricing Scenarios
+
+### Scenario 1: Fine-Tune on Domain Data (1-time cost)
+
+**Model:** Llama 70B LoRA fine-tuning
+**Data:** 100K examples, 512 tokens each
+**Schedule:** 1 training run
+
+**H100 (RunPod $1.99/hr):**
+- Training time: 20 hours
+- Cost: $39.80
+
+**H200 (RunPod $3.59/hr):**
+- Training time: 16 hours (faster bandwidth)
+- Cost: $57.44
+
+**Winner:** H100 (29% cheaper, speed difference negligible)
+
+### Scenario 2: Continuous Inference (100M tokens/month, 24/7 operation)
+
+**Model:** Llama 70B
+**Volume:** 100M tokens/month
+**Concurrency:** 50 average users
+
+**Single H100 (RunPod $1.99/hr):**
+- Throughput: 800 tok/sec
+- Daily tokens: 69M
+- Monthly: 2B tokens (exceeds requirement, under-utilized)
+- Cost: $1.99 × 730 = $1,453/month
+
+**Single H200 (RunPod $3.59/hr):**
+- Throughput: 1,000 tok/sec
+- Daily tokens: 86M
+- Monthly: 2.6B tokens (exceeds requirement)
+- Cost: $3.59 × 730 = $2,621/month
+
+**Managed API alternative (Groq, $0.30 input, $0.40 output):**
+- 100M tokens = 67M input + 33M output
+- Cost: (67M × $0.30 + 33M × $0.40) / 1M = $33/month
+
+**Winner:** Managed API (cost is 1% of single-GPU). Only rent GPU if you have proprietary fine-tuned models.
+
+### Scenario 3: High-Throughput Batch Processing (1B tokens, daily)
+
+**Task:** Daily ETL pipeline processing documents
+**Volume:** 1B tokens processed daily (overnight batch window, 12 hours)
+**Deadline:** Complete within 12-hour window (don't overflow into business hours)
+
+**Required throughput:** 1B tokens ÷ 43,200 seconds = 23,000 tokens/sec
+
+**Cluster size required:**
+
+| Hardware | Throughput | Cluster Size | Cost/Month |
+|----------|-----------|:---:|-----------|
+| H100 (RunPod) | 800 tok/sec | 30x | $59,700 (30 × $1.99 × 730) |
+| H200 (CoreWeave) | 1,000 tok/sec | 24x 8-GPU cluster | $888K (3 clusters × $50.44 × 730) |
+| H200 (RunPod single) | 1,000 tok/sec | 24x | $62,544 (24 × $3.59 × 730) |
+
+**Winner:** H100 clusters (cost-optimized for throughput). 30 H100s is cost-equivalent to 17 H200s due to price difference.
+
+### Scenario 4: Research with Variable Utilization (20% uptime)
+
+**Use case:** Academic research, sporadic fine-tuning, periodic experiments
+**Usage:** 4 hours/day, 5 days/week = 87 hours/month
+
+**Reserved instance (if available):**
+- H200 on-demand: 87 × $3.59 = $312/month
+- H200 reserved 1-year (30% discount): 87 × $2.51 = $218/month
+- Savings: $94/month (30%)
+
+**Spot pricing (if available in future):**
+- H200 spot (50% discount): 87 × $1.79 = $156/month
+- Savings vs on-demand: $156/month (50%)
+
+**Recommendation:** Use spot pricing ($156/month) when available. Until then, on-demand ($312/month) is acceptable for research (low cost relative to researcher salary).
+
+### Scenario 5: Inference SLA with Auto-Scaling (peak 500 concurrent requests)
+
+**Model:** Mixtral 8x7B
+**Peak load:** 500 concurrent requests (100 tok/sec per request = 50K tok/sec total)
+**SLA:** <500ms P95 latency
+
+**Single H200 throughput:** ~1,000 tok/sec (insufficient for 50K tok/sec requirement)
+
+**Required cluster:**
+- 50K tok/sec ÷ 1,000 tok/sec per H200 = 50x H200s minimum
+- Account for 2x overhead (parallelism sync, network latency): 100x H200 GPUs needed
+
+**Cost:**
+- RunPod single H200: 100 × $3.59 × 730 = $262,700/month (unviable)
+- Managed API (Fireworks): ~$1.50/1M tokens, 1.5B tokens/month = $2,250/month
+
+**Winner:** Managed API (100x cheaper for consumer-grade SLAs). Build your own only if:
+1. Custom models (fine-tuned, proprietary)
+2. Extreme latency requirements (<100ms P95)
+3. Regulatory requirements (data residency, on-premise)
+
+---
+
+## Related Resources
+
+- [NVIDIA GPU Pricing Comparison](/gpus)
+- [H100 Cloud Pricing](/articles/nvidia-h100-price)
+- [A100 Cloud Pricing](/articles/nvidia-a100-price)
+- [H100 vs A100: Upgrade Decision Framework](/articles/h100-vs-a100)
+- [NVIDIA B200 Price Guide](/articles/nvidia-b200-price)
+
+---
+
+## Sources
+
+- [RunPod GPU Pricing](https://www.runpod.io/pricing)
+- [CoreWeave Pricing Documentation](https://docs.coreweave.com/pricing)
+- [NVIDIA H200 Tensor Core GPU Datasheet](https://resources.nvidia.com/en-us-gpu-resources/h200-datasheet)
+- DeployBase GPU Pricing API (tracked March 21, 2026)

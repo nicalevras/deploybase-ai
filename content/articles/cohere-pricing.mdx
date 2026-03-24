@@ -1,0 +1,435 @@
+---
+title: 'Cohere Pricing Breakdown: Cost Per Token, Model Comparison & Hidden Fees'
+slug: cohere-pricing
+description: >-
+  Complete Cohere pricing breakdown: Command R+, Command R, Embed v3, Rerank
+  model costs as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: LLM Pricing
+keywords:
+  - cohere pricing
+  - cohere command r pricing
+  - cohere api cost
+  - cohere token pricing
+  - cohere models comparison
+---
+
+## Contents
+
+- [Cohere Pricing: Overview](#cohere-pricing-overview)
+- [Cohere Model Lineup](#cohere-model-lineup)
+- [Token Pricing Structure](#token-pricing-structure)
+- [Command R+ Costs](#command-r-costs)
+- [Command R Costs](#command-r-costs-1)
+- [Embed and Rerank Pricing](#embed-and-rerank-pricing)
+- [Trial vs. Production Tiers](#trial-vs-production-tiers)
+- [Batch Processing Discounts](#batch-processing-discounts)
+- [Cost Comparison Framework](#cost-comparison-framework)
+- [Hidden Fees and Gotchas](#hidden-fees-and-gotchas)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Cohere Pricing: Overview
+
+Cohere Pricing is the focus of this guide. Cohere sits between open-source and the big APIs. Four model families: Command R+, Command R, Embed v3, Rerank v3. Pricing starts at $0.15 per million input tokens (Command R).
+
+Token-based billing, simple. No context caching meter surprise bills.
+
+## Cohere Model Lineup
+
+Cohere maintains four distinct model families, each optimized for different tasks. The distinction between Command R and Command R+ matters significantly for cost projections.
+
+### Command R+ (Flagship)
+
+Command R+: Cohere's flagship. 128K context. Good for reasoning, multi-step work, creative writing.
+
+Input: $2.50/M tokens. Output: $10.00/M. Output costs 4x input.
+
+Example: 20K input + 500 output = (20,000 × $2.50 + 500 × $10.00) / 1M = $0.055. At 1,000 daily requests = $55/day.
+
+### Command R (Production Optimized)
+
+Command R: Production version. Faster, cheaper than R+. 128K context. Handles classification, moderation, extraction, customer service well.
+
+Command R pricing (March 2026):
+- Input tokens: $0.15 per million tokens
+- Output tokens: $0.60 per million tokens
+- Cost ratio: output is 4x input
+
+The per-token rates are approximately 16x cheaper than Command R+ on input and 16x cheaper on output. This significantly shifts the cost calculus for high-volume deployments.
+
+Example cost: Same 20K input, 500 output tokens:
+- Input cost: (20,000 / 1,000,000) × $0.15 = $0.003
+- Output cost: (500 / 1,000,000) × $0.60 = $0.0003
+- Total: $0.0033
+
+The same 1,000 daily requests now costs $3.30/day. The catch: Command R+ is required for tasks where reasoning quality matters; Command R is for commodity tasks (classification, moderation, extraction).
+
+### Embed v3 (Vector Generation)
+
+Cohere's embedding model transforms text into 1,024-dimensional vectors optimized for semantic search and retrieval. It's not a generative model; it's a feature extraction tool. Pricing reflects this different use case.
+
+Embed v3 pricing (March 2026):
+- Cost: $0.10 per 1 million tokens (input only)
+
+This is a flat per-input-token rate. No separate output pricing because there's no "output tokens" in the traditional sense. A 1M-token batch (roughly 250K documents at 4 tokens per document) costs $0.10.
+
+Use case example: Building a semantic search index. Embedding 100K documents (300 tokens each = 30M total tokens):
+- Cost: (30,000,000 / 1,000,000) × $0.10 = $3.00
+
+This is a one-time indexing cost. Querying the index against embedded vectors is often free (handled by a vector database like Pinecone or local Milvus).
+
+### Rerank v3 (Cross-Encoder)
+
+Rerank v3 is a cross-encoder model used to re-score search results. It takes a query and a list of candidate documents, scoring each document's relevance to the query. It's faster and cheaper than re-running embedding similarity across millions of vectors.
+
+Rerank v3 pricing (March 2026):
+- Cost: $1.00 per 1,000 queries
+
+This pricing is query-based, not token-based. A "query" is one query string scored against one document. Re-ranking 100 search results per query costs 100 query units.
+
+Example: Building a semantic search system. Each user query retrieves 50 candidates and re-ranks them:
+- 1,000 user queries per day × 50 reranking queries per user query = 50,000 rerank queries
+- Daily cost: (50,000 / 1,000) × $1.00 = $50
+- Monthly cost: $1,500
+- Annual cost: $18,000
+
+This pricing surprises teams accustomed to free or cheap semantic search. The cost is justified: Rerank produces higher-quality results than embedding similarity. For high-volume retrieval, it scales linearly.
+
+## Token Pricing Structure
+
+Cohere prices tokens differently based on context. The "token" definition varies slightly by model family.
+
+### What Counts as a Token
+
+For generative models (Command R, Command R+):
+- Input tokens: every token in the user message, including system prompts, few-shot examples, and prior conversation context
+- Output tokens: every token the model generates
+- Truncation: if input exceeds context window, it's truncated (not billed for the truncated portion, though the request may fail)
+
+For embedding (Embed v3):
+- Tokens only; no distinction between "input" and "output"
+- Tokenization uses the same rule as Command models
+
+For reranking (Rerank v3):
+- No token-based billing; query-based
+
+### Token Counting Accuracy
+
+Cohere's tokenizer uses subword BPE (Byte Pair Encoding) similar to GPT. For English text, estimate 0.75-1.0 tokens per character on average. For code, estimate 1.2-1.4 tokens per character (more whitespace, special characters).
+
+A 4,000-character blog post: roughly 4,000-5,000 tokens.
+A Python function (800 characters): roughly 1,000-1,100 tokens.
+
+The API returns token counts in responses, so precise counting is available post-request. During budget planning, use the character-based estimates with a 1.2x safety margin.
+
+## Command R+ Costs
+
+### Per-Request Cost Variance
+
+Command R+ pricing is straightforward, but real-world costs vary based on task characteristics.
+
+Task A: Chat completion (1K input, 200 output)
+- Input: (1,000 / 1M) × $2.50 = $0.0025
+- Output: (200 / 1M) × $10.00 = $0.002
+- Total: $0.0045 (~0.45 cents)
+
+Task B: Document summarization (50K input, 1K output)
+- Input: (50,000 / 1M) × $2.50 = $0.125
+- Output: (1,000 / 1M) × $10.00 = $0.01
+- Total: $0.135 (~13.5 cents)
+
+Task C: Multi-turn conversation (5 turns, 2K per turn input, 500 output)
+- Total input: 10,000 tokens
+- Total output: 500 tokens
+- Input: (10,000 / 1M) × $2.50 = $0.025
+- Output: (500 / 1M) × $10.00 = $0.005
+- Total: $0.030 per multi-turn session
+
+### Monthly Cost Projections
+
+A customer service chatbot using Command R+:
+- 5,000 conversations per month
+- Average 3K input tokens per conversation (customer messages + context)
+- Average 300 output tokens per conversation (bot response)
+
+Monthly costs:
+- Input: (5,000 × 3,000 / 1M) × $2.50 = $37.50
+- Output: (5,000 × 300 / 1M) × $10.00 = $15.00
+- Total: $52.50/month
+
+For a startup, this is manageable. Scale to 500K conversations/month:
+- Input: $3,750
+- Output: $1,500
+- Total: $5,250/month
+
+Scale to 5M conversations/month:
+- Input: $37,500
+- Output: $15,000
+- Total: $52,500/month
+
+Command R+ scales linearly. There are no surprise discontinuities.
+
+## Command R Costs
+
+### Per-Request Economics
+
+The same tasks on Command R:
+
+Task A: Chat completion (1K input, 200 output)
+- Input: (1,000 / 1M) × $0.15 = $0.00015
+- Output: (200 / 1M) × $0.60 = $0.00012
+- Total: $0.00027 (~0.03 cents)
+
+This is very cost-effective at scale.
+
+Task B: Document summarization (50K input, 1K output)
+- Input: (50,000 / 1M) × $0.15 = $0.0075
+- Output: (1,000 / 1M) × $0.60 = $0.0006
+- Total: $0.0081 (~0.81 cents)
+
+### High-Volume Deployment
+
+The same customer service chatbot on Command R:
+- 5M conversations per month
+- 3K input tokens per conversation
+- 300 output tokens per conversation
+
+Monthly costs:
+- Input: (5M × 3K / 1M) × $0.15 = $2,250
+- Output: (5M × 300 / 1M) × $0.60 = $900
+- Total: $3,150/month
+
+Compared to Command R+ ($52,500/month for the same scale), this represents a 94% cost reduction. The trade-off: Command R is less capable on complex reasoning. For commodity tasks (classification, extraction, moderation), it's the superior choice.
+
+## Embed and Rerank Pricing
+
+### Embed v3 Economics
+
+Embedding is a one-time indexing cost plus negligible query costs.
+
+Building a retrieval system for 1M documents (assuming 500 tokens per document):
+- Total tokens: 1M × 500 = 500M tokens
+- Embedding cost: (500M / 1M) × $0.10 = $50
+
+This is extraordinarily cheap. A vector database with 1M documents costs roughly $50 to index via Cohere.
+
+Compared to deploying an open-source embedding model (MTEB leaderboard top models like e5-large):
+- GPU cost: $0.50/hour for inference (A100 on [RunPod](/gpus))
+- Embedding 500M tokens at 500 tokens/second: 1M seconds = 277 hours
+- Self-hosting cost: 277 × $0.50 = $138.50
+
+Cohere's Embed v3 API is cheaper than self-hosting for one-time indexing jobs under 500M tokens. Beyond that, self-hosting economizes.
+
+### Rerank v3 Economics
+
+Reranking is expensive relative to embedding. The per-query cost ($0.001) is not negligible at scale.
+
+A production system with 100K daily active users, 5 queries per user average:
+- Daily queries: 500K
+- Daily rerank calls: if each query retrieves 20 candidates, that's 10M rerank queries
+- Daily cost: (10M / 1K) × $1.00 = $10,000
+- Monthly cost: $300,000
+- Annual cost: $3.6M
+
+This pricing makes sense for a scaling business; it's not suitable for cost-sensitive deployments. For high-volume use cases, self-hosting a cross-encoder model (MiniLM, JackDau/Cohere-Reranker-MultiLingual) becomes economical around 10M daily rerank queries (~$300K annually via Cohere).
+
+## Trial vs. Production Tiers
+
+Cohere offers two operational tiers: Trial (free) and Production (paid).
+
+### Trial Tier Limits
+
+- Rate limit: 5 API calls per minute (across all models)
+- Cost: $0 (free)
+- Usage limit: 100K API calls per month
+- Model access: All models available
+- Uptime SLA: none
+
+The Trial tier is suitable for prototyping. 100K calls per month is roughly 3,300 calls per day, or 0.04 calls per second. A production service handling 1K requests per minute would exhaust the Trial tier's rate limit immediately.
+
+### Production Tier
+
+- Rate limit: 500 calls per minute (default, can be increased)
+- Cost: depends on usage (per token)
+- Minimum: technically none (pay as developers go)
+- Model access: All models available
+- Uptime SLA: 99.5%
+
+There's no monthly minimum or commitment. Developers pay only for consumed tokens. However, to access Production tier, developers must add a credit card. Most teams "upgrade" from Trial to Production by simply adding payment details.
+
+### Upgrade Path
+
+The transition is straightforward:
+1. Sign up for Trial tier (free)
+2. Build and test the prototype
+3. Add a credit card in billing settings
+4. Rate limits automatically increase to 500 calls/minute
+5. Production tier activates
+
+There's no formal "tier upgrade" dialog; it's automatic upon adding payment info.
+
+## Batch Processing Discounts
+
+Cohere's batch API allows asynchronous processing with 20% discounts on Command R and Command R+ pricing.
+
+### Batch API Economics
+
+Standard Command R+ pricing: $2.50 input / $10.00 output
+Batch Command R+ pricing: $2.00 input / $8.00 output (20% discount)
+
+The trade-off: batch requests are not real-time. Typical latency is 5-60 minutes, depending on queue depth.
+
+A summarization job processing 1M documents overnight:
+- Document corpus: 1M documents, 2K tokens each = 2B total input tokens
+- Output: 500 tokens per summary
+- Standard API cost: (2B / 1M) × $2.50 + (500M / 1M) × $10.00 = $5,000 + $5,000 = $10,000
+- Batch API cost: (2B / 1M) × $2.00 + (500M / 1M) × $8.00 = $4,000 + $4,000 = $8,000
+- Savings: $2,000 (20%)
+
+For one-time batch jobs, the 20% discount justifies the latency trade-off. For interactive applications, batch processing is not viable.
+
+## Cost Comparison Framework
+
+How does Cohere price relative to competitors? The comparison depends on task type.
+
+### Generative Tasks (Command R+ vs. GPT-4.1 and Anthropic Sonnet 4.6)
+
+For a detailed comparison with competitors, see [OpenAI pricing](/articles/openai-pricing) and [Anthropic pricing](/articles/anthropic-pricing).
+
+Cohere Command R+:
+- Input: $2.50 per 1M tokens
+- Output: $10.00 per 1M tokens
+
+OpenAI GPT-4.1:
+- Input: $2 per 1M tokens
+- Output: $8 per 1M tokens
+
+Anthropic Sonnet 4.6:
+- Input: $3 per 1M tokens
+- Output: $15 per 1M tokens
+
+For a task with 10K input tokens and 500 output tokens:
+- Cohere Command R+: (10,000 × $2.50 + 500 × $10.00) / 1M = $0.030
+- OpenAI GPT-4.1: $0.024
+- Anthropic Sonnet 4.6: $0.0345
+
+At this task size, Cohere Command R+ is comparable in price to GPT-4.1. However, Command R (at $0.15/$0.60) is approximately 40x cheaper than these alternatives. If the task tolerates Command R's accuracy, the cost savings are significant.
+
+### Commodity Tasks (Command R vs. GPT-4.1)
+
+For classification, extraction, and moderation where accuracy plateaus early:
+
+Cohere Command R:
+- Input: $0.15 per 1M tokens
+- Output: $0.60 per 1M tokens
+
+OpenAI GPT-4.1:
+- Input: $2 per 1M tokens
+- Output: $8 per 1M tokens
+
+Same 10K input, 500 output:
+- Cohere Command R: (10,000 × $0.15 + 500 × $0.60) / 1M = $0.00180
+- OpenAI GPT-4.1: $0.024
+
+Cohere Command R is approximately 13x cheaper. For commodity tasks at scale, Command R is the obvious choice.
+
+### Embeddings (Cohere Embed v3 vs. OpenAI text-embedding-3-large)
+
+Cohere Embed v3: $0.10 per 1M tokens
+
+OpenAI text-embedding-3-large: $0.13 per 1M tokens
+
+These are nearly identical in price. The choice comes down to embedding quality (both are excellent on MTEB benchmarks) and integration preferences.
+
+### Summary Table
+
+| Task | Cohere | OpenAI | Winner |
+|------|--------|--------|--------|
+| Complex reasoning | Command R+ | GPT-4.1 | OpenAI (better output) |
+| Commodity classification | Command R | GPT-4.1 | Cohere (97% cheaper) |
+| Embeddings | Embed v3 | text-embedding-3 | Tie |
+| Reranking | Rerank v3 | N/A | Cohere |
+
+## Hidden Fees and Gotchas
+
+### Rate Limit Overage
+
+The default Production tier rate limit is 500 calls per minute. Exceeding this limit returns HTTP 429 (Too Many Requests). There's no automatic queue or billing for overage; the request simply fails.
+
+Solution: Request a higher rate limit (up to 10,000 calls/minute) via support. This is typically granted within 24 hours for accounts with consistent usage history.
+
+### Token Counting Mismatch
+
+The token counts returned by the API may differ slightly from the pre-request estimates. Python's tiktoken library tokenizes slightly differently than Cohere's backend tokenizer, especially for non-English text.
+
+If developers estimate 50K tokens but the API counts 52K, the team will be billed for the higher count. Budget with a 5-10% margin.
+
+### Truncated Inputs
+
+If the input exceeds the context window (128K for both Command models), Cohere truncates from the beginning. Teams are still billed for the truncated portion, even though only part of it was processed.
+
+If developers send 150K tokens, Cohere processes the last 128K and charges developers for the full 150K. This is unintuitive and worth catching in the budget planning.
+
+### API Timeouts
+
+Command R+ can take up to 60 seconds to respond on large inputs. Ensure the API client has a timeout > 60 seconds; otherwise, the team will incur the billing for a request that the application ignores.
+
+### Regional Latency
+
+Cohere's API is global but optimized for US-East. Requests from Asia-Pacific regions experience 200-300ms additional latency. For time-sensitive applications, factor this into response time budgets.
+
+### Rerank Query Ambiguity
+
+A "rerank query" is one (query, document) pair. Re-ranking 50 documents against one user query = 50 rerank queries = $0.05. This per-pair pricing scales poorly for large result sets. Budget accordingly.
+
+## FAQ
+
+**Is there a free tier?**
+
+Yes. The Trial tier offers 100K API calls per month at no cost. This accommodates prototyping and small-scale experimentation. For production usage, you must enter the Production tier, which is pay-as-you-go.
+
+**Can I pre-purchase credits?**
+
+Cohere doesn't offer pre-purchase or commitment discounts. Pricing is purely consumption-based. For high-volume deployments, contact sales to discuss custom production agreements.
+
+**What's the best model for my use case?**
+
+Use this decision tree:
+
+- Does the task require complex reasoning or nuance? → Command R+
+- Is the task commodity (classification, extraction, moderation)? → Command R
+- Do you need semantic search? → Embed v3
+- Do you need better search results via re-scoring? → Rerank v3
+
+**How does Cohere compare to open-source models?**
+
+Open-source models are free to download but require GPU hosting. Self-hosting a 70B model (Command R level) costs $0.50-$1.00 per hour on RunPod's A100 GPUs. For a 1M-token daily workload (modest by production standards), self-hosting costs roughly $360-$720 per month. Cohere Command R costs roughly $4.50-$9 per month for the same workload ($0.15 input + $0.60 output per million tokens). Command R+ costs roughly $75-$150/month. For small teams, Cohere Command R is more economical. For large teams (1B+ tokens monthly), self-hosting economizes.
+
+**What's the difference between Command R and Command R+?**
+
+Command R+ is more capable on complex reasoning, creative writing, and nuanced tasks. Command R is faster and cheaper, suitable for commodity tasks. Both have 128K context windows. If you're unsure, start with Command R+ and switch to Command R if performance is acceptable.
+
+**Can I estimate my monthly bill?**
+
+Yes. Count your monthly input and output tokens, then apply the per-million-token rate. For Command R+: (input_tokens / 1M) × $2.50 + (output_tokens / 1M) × $10.00. For Command R: (input_tokens / 1M) × $0.15 + (output_tokens / 1M) × $0.60.
+
+**Does Cohere offer production support?**
+
+Yes. Contact sales for custom SLAs, dedicated support, and potentially volume discounts. There are no public discount tiers.
+
+## Related Resources
+
+- [OpenAI Pricing Guide](/articles/openai-pricing)
+- [Anthropic Pricing Guide](/articles/anthropic-pricing)
+- [Cohere Models Documentation](https://docs.cohere.com/)
+- [Cohere Batch API Guide](https://docs.cohere.com/docs/batch-processing)
+
+## Sources
+
+- Cohere. "Pricing." Accessed March 2026. Retrieved from cohere.com/pricing.
+- Cohere. "Command R+ Model Card." 2024. Retrieved from cohere.com/models.
+- Cohere. "API Reference." Accessed March 2026. Retrieved from docs.cohere.com/reference.
+- DeployBase. "LLM Pricing Database." March 2026. Internal research dataset.

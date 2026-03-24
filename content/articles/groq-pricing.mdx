@@ -1,0 +1,435 @@
+---
+title: 'Groq Pricing Breakdown: Cost Per Token, Model Comparison & Hidden Fees'
+slug: groq-pricing
+description: >-
+  Groq pricing breakdown: LPU inference costs per token, free tier limits, batch
+  processing discounts, speed advantage analysis, and cost comparisons 2026.
+date: '2026-03-22'
+author: DeployBase
+category: Price Guide
+keywords:
+  - groq pricing
+  - groq api pricing
+  - groq cost per token
+  - groq free tier
+  - groq vs openai pricing
+---
+
+## Contents
+
+- [Groq Pricing: Overview](#groq-pricing-overview)
+- [Pricing Table](#pricing-table)
+- [Free Tier & Rate Limits](#free-tier-rate-limits)
+- [Per-Model Costs](#per-model-costs)
+- [Batch Processing](#batch-processing)
+- [API Rate Limits](#api-rate-limits)
+- [Cost Comparison](#cost-comparison)
+- [Speed Advantage Analysis](#speed-advantage-analysis)
+- [Use Case Economics](#use-case-economics)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Groq Pricing: Overview
+
+Groq Pricing is the focus of this guide. Groq's strength: speed. GroqCloud costs $0.05-0.30 input (model-dependent), $0.15-1.50 output. 400-600 tokens/sec vs 50-150 on GPU. Free tier: 1k requests/day, 100K token limit. More expensive per token than DeepSeek, cheaper than Claude. Batch processing cuts 50% (rarely mentioned).
+
+---
+
+## Pricing Table
+
+| Model | Input $/M | Output $/M | Context | Speed (tok/sec) |
+|-------|-----------|-----------|---------|-----------------|
+| Llama 3.1 8B | $0.05 | $0.10 | 128K | 600 |
+| Llama 3.3 70B | $0.59 | $0.79 | 128K | 480 |
+| Llama 3.1 70B | $0.30 | $1.50 | 128K | 450 |
+| Mixtral 8x7B | $0.08 | $0.24 | 32K | 550 |
+| Llama 2 70B | $0.20 | $0.60 | 4K | 400 |
+| Gemma 2 27B | $0.10 | $0.50 | 8K | 480 |
+
+Data as of March 2026 from Groq's official pricing page (docs.groq.com/pricing).
+
+Groq's pricing scales with model size. Llama 3.1 8B is 6x cheaper than Llama 70B on input tokens. Speed is inversely proportional to model size: smaller models run faster (600 tokens/sec vs 450).
+
+---
+
+## Free Tier & Rate Limits
+
+### GroqCloud Free Tier
+
+**Quota:**
+- 1,000 requests per day
+- 100K tokens per day total (input + output)
+- 30 requests per minute
+
+**No credit card required.** Sign up, get API key, start using.
+
+**Implications:**
+- Chat application with 100 requests/day: sustainable on free tier
+- Document processor running 1,000 documents: exceeds limit
+- Experimentation and prototyping: perfect use case
+
+### Practical Limits
+
+100K tokens/day @ 500 tokens average response:
+
+- 200 requests/day maximum
+- 1,000 requests/day (Groq's limit) = 100K tokens at 100 token response size
+
+Free tier is best for:
+- Chatbot prototyping (lightweight, conversational)
+- API testing and evaluation
+- Personal projects
+
+Not suitable for:
+- Production inference for customers
+- Batch processing (document jobs)
+- High-throughput applications
+
+### How Free Tier Compares to Competitors
+
+| Platform | Free Quota | Notes |
+|----------|-----------|-------|
+| Groq | 100K tok/day | Generous for experimentation |
+| OpenAI | $5 credits | ~200K tokens at GPT-4 rates |
+| Anthropic | None | Paid-only |
+| DeepSeek | 1M tokens | Highest free quota |
+
+Groq's free tier is mid-tier. DeepSeek's 1M tokens/day is better for experimentation. OpenAI's $5 credit is harder to estimate.
+
+---
+
+## Per-Model Costs
+
+### Llama 3.1 8B (Cheapest)
+
+**Pricing:**
+- Input: $0.05/M tokens
+- Output: $0.10/M tokens
+- Blended (50/50 input/output): $0.075/M tokens
+
+**Use case:** Summary generation, simple Q&A, classification.
+
+**Cost of 100K requests (1M average tokens):**
+- Input (500K): $0.025
+- Output (500K): $0.050
+- Total: $0.075
+
+### Llama 3.3 70B (Recommended 70B)
+
+**Pricing:**
+- Input: $0.59/M tokens
+- Output: $0.79/M tokens
+- Blended (50/50 input/output): $0.69/M tokens
+
+**Use case:** Reasoning, code generation, long-form writing. Newer generation than 3.1, better quality per dollar.
+
+**Cost of 100K requests (1M average tokens):**
+- Input (500K): $0.295
+- Output (500K): $0.395
+- Total: $0.69
+
+### Llama 3.1 70B (Legacy)
+
+**Pricing:**
+- Input: $0.30/M tokens
+- Output: $1.50/M tokens
+- Blended: $0.90/M tokens
+
+**Use case:** Reasoning, code generation, long-form writing.
+
+**Cost of 100K requests (1M average tokens):**
+- Input (500K): $0.15
+- Output (500K): $0.75
+- Total: $0.90
+
+Same volume, 12x higher cost than 8B. Output token cost is especially high (15x).
+
+### Mixtral 8x7B (Sparse Mixture of Experts)
+
+**Pricing:**
+- Input: $0.08/M tokens
+- Output: $0.24/M tokens
+- Blended: $0.16/M tokens
+
+**Use case:** Balanced reasoning + speed. Middle ground between 8B and 70B.
+
+**Characteristics:** Activates 2 of 8 expert networks per token. Faster than 70B, stronger than 8B.
+
+---
+
+## Batch Processing
+
+### Batch Pricing (Undocumented Feature)
+
+Groq offers batch processing with 50% discount on output tokens. Intended for:
+- Document processing (1,000+ docs)
+- Code analysis (large repos)
+- Overnight batch jobs (latency not critical)
+
+**Example:**
+- Standard Llama 70B: $1.50/M output tokens
+- Batch Llama 70B: $0.75/M output tokens
+
+Not advertised prominently. Contact sales for batch API access.
+
+### Batch Submission
+
+```python
+groq_batch.submit(
+    requests=[{"input": "..."}, ...],  # 1,000+ requests
+    model="llama-3.1-70b",
+    result_format="jsonl",
+    priority="batch"  # 50% discount
+)
+```
+
+Processing time: 4-24 hours. Results delivered as JSON Lines.
+
+### When Batch Pays Off
+
+100K documents, average 200 tokens per doc = 20M tokens.
+
+**Standard pricing:**
+- Output (assume 2:1 output/input ratio): 20M output = $30,000
+
+**Batch pricing:**
+- Output: 20M output = $15,000
+
+Savings: $15,000. Batch is viable at scale (>10M tokens).
+
+---
+
+## API Rate Limits
+
+### Free Tier Limits
+
+- 30 requests/minute
+- 100K tokens/day
+- 1,000 requests/day
+
+### Pro Tier (Paid)
+
+- 10,000 requests/minute
+- Unlimited tokens (per billing)
+- Parallel request support
+
+Rate limits are per API key. Can create multiple keys for different apps (each gets independent quota).
+
+---
+
+## Cost Comparison
+
+Monthly cost for 10M tokens (typical SaaS inference, mixed input/output).
+
+| Model/Platform | $/M Input | $/M Output | Monthly (10M) | Speed (tok/sec) |
+|----------------|-----------|-----------|---------------|-----------------|
+| Groq 8B | $0.05 | $0.10 | $75 | 600 |
+| Groq Llama 3.3 70B | $0.59 | $0.79 | $690 | 480 |
+| Groq Llama 3.1 70B | $0.30 | $1.50 | $900 | 450 |
+| DeepSeek V3.1 | $0.27 | $1.10 | $850 | 35 |
+| Claude Sonnet 4.6 | $3.00 | $15.00 | $9,000 | 37 |
+| GPT-4o | $2.50 | $10.00 | $7,500 | 50 |
+
+Assuming 50/50 input/output ratio (6.67M input, 3.33M output).
+
+**Key insights:**
+
+1. **Groq 8B is cheapest.** Tied with DeepSeek V3.1 for input/output pricing. Groq faster (600 vs 35 tok/sec).
+
+2. **Groq 70B is mid-tier.** More expensive than DeepSeek per token, but inference 100x faster (450 vs 5 tok/sec on GPU batch inference). Speed premium justified for real-time apps.
+
+3. **Claude is premium.** 10x more expensive than Groq 70B. But reasoning quality is higher. Use for frontier reasoning tasks.
+
+---
+
+## Speed Advantage Analysis
+
+Groq's core value: speed.
+
+### Real-Time Inference: Groq vs GPU
+
+Single request, 1000-token response.
+
+**Groq Llama 70B:**
+- Inference time: 1000 tokens / 450 tok/sec = 2.2 seconds
+- Cost: ~$1.50 (output only)
+
+**DeepSeek API:**
+- Inference time: 1000 tokens / 35 tok/sec = 28.6 seconds
+- Cost: ~$1.10 (cheaper but 13x slower)
+
+**H100 on RunPod:**
+- Inference time: 1000 tokens / 850 tok/sec = 1.2 seconds
+- Cost: ~$0.50 (only GPU rental, excludes model serving overhead)
+
+Groq's speed is between DeepSeek (slow) and H100 (fastest). For user-facing applications, Groq's 2-3 second response time is acceptable. DeepSeek's 30 second latency requires batching or async handling.
+
+### Batch Processing: Groq vs DeepSeek
+
+Process 1M documents, 200 tokens each = 200M tokens total.
+
+**DeepSeek (latency irrelevant, minimize cost):**
+- Throughput: 35 tok/sec (GPU limited)
+- Time: 200M / 35 = 5.7M seconds = 66 days
+- Cost: 200M output × $1.10/M = $220
+
+**Groq Llama 70B (batch, 50% discount):**
+- Throughput: 450 tok/sec
+- Time: 200M / 450 = 444K seconds = 5.2 days
+- Cost: 200M output × $0.75/M (batch) = $150
+
+Groq is 13x faster, cheaper ($150 vs $220), and finishes in 5 days (vs 66). Groq wins decisively for batch at scale.
+
+---
+
+## Use Case Economics
+
+### Real-Time Chat API
+
+Process 1M user messages per month, average 2K tokens input + 200 tokens output.
+
+**Groq Llama 70B:**
+- Cost: (1M × 2K × $0.30/M) + (1M × 200 × $1.50/M) = $600 + $300 = $900/month
+- Latency: 200 tokens / 450 tok/sec = 0.44 seconds (acceptable for chat)
+- Server cost (inference): can use shared Groq API (no GPU rental)
+
+**DeepSeek:**
+- Cost: (1M × 2K × $0.27/M) + (1M × 200 × $1.10/M) = $540 + $220 = $760/month
+- Latency: 200 tokens / 35 tok/sec = 5.7 seconds (too slow for chat)
+- Inference latency ruins UX, requires batch queue = engineering overhead
+
+**Claude Opus:**
+- Cost: (1M × 2K × $5/M) + (1M × 200 × $25/M) = $10,000 + $5,000 = $15,000/month
+- Latency: 200 tokens / 35 tok/sec = 5.7 seconds
+- Overkill for chat (premium pricing not justified)
+
+**Winner: Groq.** Best cost/speed trade-off for real-time. DeepSeek cheaper but requires latency workarounds.
+
+### Batch Document Processor
+
+Process 100K documents, 1K tokens each = 100M tokens monthly.
+
+**Groq (batch mode):**
+- Cost: 100M output × $0.75/M = $75/month
+- Time: 100M / 450 = 222K sec = 2.6 days per batch
+- Infrastructure: none (API-based)
+
+**DeepSeek:**
+- Cost: 100M output × $1.10/M = $110/month
+- Time: 100M / 35 = 2.9M sec = 33 days per batch
+- Infrastructure: none (API-based)
+
+**H100 on RunPod (8-GPU cluster):**
+- Cost: $49.24/hr × 24 × 30 = $35,452/month
+- Time: 100M / 2,240 = 44K sec = 12 hours per batch
+- Infrastructure: GPU rental only (inference serving added on top)
+
+**Winner: Groq.** Cheapest, reasonable latency (2.6 days acceptable for batch). H100 overkill unless processing 1B+ tokens/month.
+
+### Code Generation IDE Plugin
+
+Real-time code completions, 100 requests/day per developer, average 500 token request.
+
+**Groq Llama 3.1 8B:**
+- Cost: (100 × 500 × $0.05/M) + (100 × 100 * $0.10/M) = $0.0025 + $0.001 = $0.0035/day
+- Cost per dev: ~$0.10/month (1,000 devs = $100/month)
+- Latency: 100 tokens / 600 tok/sec = 0.17 seconds (acceptable for IDE completion)
+
+**Free tier sufficient.** 100 requests/day = within 1,000/day limit. 500 tokens × 100 = 50K tokens/day = within 100K limit. Free tier can support ~200 active devs with light usage.
+
+**DeepSeek:**
+- Latency: 100 tokens / 35 tok/sec = 2.9 seconds (too slow for IDE plugin, users abandon)
+- Not viable for real-time completion
+- Would require local GPU caching to achieve acceptable latency
+
+**H100 self-hosted:**
+- Infrastructure cost: $2.69/hr × 730 hrs = $1,964/month minimum
+- Engineering overhead: deployment, monitoring, scaling
+- Only viable if 10,000+ developers (cost per dev = $0.20/month)
+
+**Winner: Groq free tier.** Zero cost for prototyping and small-scale IDE usage. Scales cheaply to 1,000s of developers on paid tier.
+
+### Sales Copilot (Real-Time Analysis)
+
+Sales rep on call with customer. Real-time AI suggestions (next question, objection handling, CRM notes).
+
+**Groq Llama 3.1 70B:**
+- Latency requirement: <1 second (human conversation pace)
+- Throughput: 200 requests/day per rep = 10 tokens/request average
+- Cost: (10,000 reps × 200 requests × 10 tokens × $0.30/M input) + (10,000 × 200 × 20 tokens output × $1.50/M) = ~$60 + $600 = ~$660/month
+
+**DeepSeek:**
+- Latency: 20 tokens / 35 tok/sec = 0.57 seconds (acceptable)
+- Cost: same data, same $660/month
+- BUT: inconsistent latency (p99 > 2 seconds) breaks sales experience
+- Error rate higher (70B model weaker than Groq's 70B on instruction following)
+
+**GPT-4o:**
+- Latency: 20 tokens / 50 tok/sec = 0.4 seconds
+- Cost: 10,000 reps × 200 × (10 × $2.50 + 20 × $10.00) / 1M = ~$40,000/month
+- 60x more expensive
+
+**Winner: Groq.** Only solution that's fast AND cheap enough for consumer-facing real-time use case.
+
+---
+
+## FAQ
+
+**What is Groq and why is it so fast?**
+
+Groq is an inference-focused company using proprietary LPU (Language Processing Unit) hardware. Specialized for matrix operations (like GPUs, TPUs) but optimized for token generation throughput (not single-token latency). 400-600 tokens/sec vs 30-150 on standard GPU APIs. Architecture: no memory hierarchy, no cache coherency, just massive matrix multiply units. Trade-off: P99 latency is high (10+ seconds on 128-token request due to queue). Mean latency acceptable (2-3 sec). Suitable for streaming responses, not strict SLA applications.
+
+**How does Groq pricing compare to OpenAI?**
+
+Groq (Llama 70B): $0.30 input, $1.50 output. OpenAI (GPT-4o): $2.50 input, $10.00 output. Groq is 8-7x cheaper per token. But quality (reasoning, coding) favors OpenAI. Use Groq for speed-sensitive, quality-insensitive tasks (summarization, classification).
+
+**Is the free tier actually enough for production?**
+
+No. 1,000 requests/day = 100K tokens/day. A production API typically needs 1M+ tokens/day. Free tier is for experimentation. Move to paid ($0.05-$1.50/M tokens) for production.
+
+**What's Groq's hidden fee?**
+
+No hidden fees. Pricing is transparent: input tokens + output tokens. Batch processing (50% discount) isn't advertised but available on request. No minimum commitment, no setup fees.
+
+**Should I use Groq or DeepSeek?**
+
+Groq if latency matters (real-time inference, <5 seconds). DeepSeek if cost matters (10x cheaper per token, acceptable with batching/async). Use both: Groq for chat, DeepSeek for background batch jobs.
+
+**Can I use Groq for production?**
+
+Yes. API is stable, 99.9% uptime SLA. Models are open-source (Llama, Mixtral) so no vendor lock-in on models (but locked into Groq for inference). Suitable for production if latency requirements are <3 seconds per request.
+
+**How do I get batch processing discounts?**
+
+Contact Groq sales team. Batch API is undocumented. Requires direct outreach, not self-service. Discount: 50% off output tokens. Minimum: typically 10M tokens/month.
+
+**Is Groq better than H100 for inference?**
+
+Groq is faster (450-600 tok/sec vs 200-300 on H100) and cheaper (API-based, no infrastructure). H100 wins if: (1) need custom models (fine-tuned LLMs), (2) require on-premise deployment (privacy), (3) want multi-task hardware (training + inference). For standard model inference, Groq is better.
+
+**What about latency percentiles?**
+
+Groq publishes mean latency (2-3 seconds for 200-token response). P95 latency higher (5-8 seconds due to queue). P99 even worse (10+ seconds). If application requires P99 <2 seconds (strict SLA), neither Groq nor GPU APIs satisfy (only on-premise H100 cluster guarantees).
+
+---
+
+## Related Resources
+
+- [Groq API Documentation](/llms/Groq)
+- [OpenAI Pricing Guide](/articles/openai-pricing)
+- [Anthropic Claude Pricing](/articles/anthropic-pricing)
+- [DeepSeek Pricing Analysis](/articles/deepseek-pricing)
+
+---
+
+## Sources
+
+- [Groq Official Pricing](https://console.groq.com/pricing)
+- [Groq API Documentation](https://console.groq.com/docs)
+- [Groq Speed Benchmarks](https://groq.com/performance/)
+- [Llama 3.1 Model Card](https://huggingface.co/meta-llama/Meta-Llama-3.1-70B)
+- [Mixtral Model Overview](https://mistral.ai/news/mixtral-of-experts/)
+- [DeployBase LLM Pricing Tracker](/llms/Groq)

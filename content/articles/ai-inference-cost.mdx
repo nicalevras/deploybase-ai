@@ -1,0 +1,293 @@
+---
+title: 'What Drives AI Inference Cost: Complete Analysis'
+slug: ai-inference-cost
+description: >-
+  Break down factors affecting LLM inference pricing. Compute, memory, bandwidth
+  costs plus self-hosted vs API trade-offs.
+date: '2026-03-22'
+author: DeployBase
+category: AI Infrastructure
+keywords:
+  - ai inference cost
+  - llm inference pricing
+  - inference cost analysis
+  - model serving costs
+---
+## Contents
+
+- [The Core Computation Cost Formula](#the-core-computation-cost-formula)
+- [Cloud Provider Pricing Models](#cloud-provider-pricing-models)
+- [Hidden Costs in Self-Hosted Inference](#hidden-costs-in-self-hosted-inference)
+- [Cost Comparison Across Deployment Models](#cost-comparison-across-deployment-models)
+- [Optimization Strategies for Both Models](#optimization-strategies-for-both-models)
+- [Bandwidth Costs in Multi-Cloud Setups](#bandwidth-costs-in-multi-cloud-setups)
+- [Inference Cost for Different Model Sizes](#inference-cost-for-different-model-sizes)
+- [Decision Framework for Cost Optimization](#decision-framework-for-cost-optimization)
+- [Advanced Cost Optimization Techniques](#advanced-cost-optimization-techniques)
+- [Inference Cost Monitoring and Alerting](#inference-cost-monitoring-and-alerting)
+- [Comparing API vs Self-Hosted Economics Across Time Horizons](#comparing-api-vs-self-hosted-economics-across-time-horizons)
+- [Inference Workload Heterogeneity](#inference-workload-heterogeneity)
+- [Vendor Economics and Pricing Dynamics](#vendor-economics-and-pricing-dynamics)
+- [Emerging Cost Reduction Technologies](#emerging-cost-reduction-technologies)
+- [Industry Cost Trends](#industry-cost-trends)
+- [Conclusion: Strategic Cost Management](#conclusion-strategic-cost-management)
+
+
+Inference cost: compute per token, model size, concurrency, utilization. Pick right and developers save money. Get wrong and it kills margins.
+
+Inference is the biggest expense. One call: $0.01. Million calls/day: $10K/month. This breaks down the mechanics.
+
+## The Core Computation Cost Formula
+
+Three things: compute for forward passes, memory for weights and KV caches, bandwidth for moving data.
+
+70B parameter model: 140B FLOPs per token. H100: 1.4 petaFLOPs. Theoretical: 10K tokens/sec.
+
+Reality: 30-50% of theoretical. H100 does 5K tokens/sec on 70B.
+
+**Memory Requirements:** Model weights consume VRAM proportional to precision. A 70B parameter model in FP32 requires 280GB (4 bytes per parameter). With BF16 precision, that becomes 140GB. Quantization to INT8 reduces to 70GB, enabling smaller GPUs.
+
+KV caches add substantial memory overhead during inference. Processing 2000 input tokens and generating 500 output tokens creates cache entries for each layer. For a model with 80 layers, 70B parameters, and BF16 precision, the KV cache alone consumes ~40GB for a single batch element.
+
+**Bandwidth Bottlenecks:** Memory bandwidth, not compute, limits inference throughput at production scale. The H100 provides 3.4TB/s bandwidth while performing 1.4 petaFLOPs of compute. Compute-to-bandwidth ratio defines the maximum sustained FLOPs. If a forward pass requires 2 bytes of memory access per FLOP (typical for transformer models), the H100 achieves only 6.8 petaFLOPs, not 1.4. This mismatch means inference becomes bandwidth-limited, not compute-limited.
+
+Bandwidth limitations explain why inference pricing varies less than training between GPU tiers. An A100 and H100 differ 2x in compute but only 15% in bandwidth, so inference costs differ less proportionally.
+
+## Cloud Provider Pricing Models
+
+Cloud providers implement different pricing strategies reflecting underlying hardware economics and service overhead.
+
+**API Provider Pricing:** Claude Sonnet 4.6 costs $3 per million input tokens and $15 per million output tokens. OpenAI's GPT-4.1 costs $2 per million input tokens and $8 per million output tokens. DeepSeek R1 costs $0.55 per million input tokens and $2.19 per million output tokens.
+
+Output tokens cost more than input tokens (typically 3-6x) because:
+- Output generation requires iterative forward passes (one per token)
+- Input tokens process in batched, parallel operations
+- Output token KV caches remain in memory for the full context length
+- Providers absorb infrastructure costs differently across the request lifecycle
+
+For a typical request with 1000 input tokens and 300 output tokens:
+- Claude Sonnet: $0.003 + $0.0045 = $0.0075
+- GPT-4.1: $0.002 + $0.0024 = $0.0044
+- DeepSeek R1: $0.00055 + $0.000657 = $0.001157
+
+DeepSeek's 85% discount reflects aggressive infrastructure cost reduction through open-source foundation models and efficient serving code.
+
+**GPU Provider Pricing:** [RunPod](/articles/runpod-gpu-pricing) charges $1.99-2.69/hour for H100 GPUs in on-demand mode. Reserved contracts drop to $1.50-1.90/hour for annual commitments. RunPod L4 GPUs cost $0.44/hour, suitable only for smaller models. [Lambda](/articles/lambda-labs-gpu-pricing) A100 pricing stands at $1.48/hour. CoreWeave's 8xH100 cluster costs $49.24/hour, requiring significant throughput to justify.
+
+Calculating inference cost for self-hosted deployments requires knowing the GPU hourly cost and tokens processed per hour. An H100 at $2.50/hour processing 5000 tokens/second costs $0.00018 per token ($2.50 / 14,000 tokens per hour), significantly below Claude's $3 per million ($0.000003 per token for input).
+
+The math suggests self-hosting is dramatically cheaper, but hidden costs shift this calculation.
+
+## Hidden Costs in Self-Hosted Inference
+
+Direct GPU hourly costs ignore several multipliers that increase effective inference price for self-hosted deployments.
+
+**Utilization Losses:** Cloud GPUs rarely run at 100% utilization. Traffic varies hourly; during low-traffic periods, paying $2.50/hour while processing 100 tokens/second is wasteful. Average utilization across typical workloads is 30-50% of capacity.
+
+This means the effective cost per token becomes $0.00036-0.0006, approaching Claude's input pricing. During peak traffic, utilization improves and cost per token drops. During idle periods, it approaches infinity.
+
+API providers absorb utilization variance through statistical multiplexing across many customers. One customer's idle capacity serves another's peak traffic.
+
+**Infrastructure Overhead:** Self-hosted deployments require load balancers, monitoring, logging, and redundancy. A production setup serving inference likely runs 3x the minimum compute to maintain 99.9% uptime (primary + two failover nodes). This hidden multiplier is often omitted from naive cost calculations.
+
+**Operational Complexity:** Deploying Vllm or Ollama requires containerization, orchestration, networking, and security hardening. A single engineer spending 5 days on deployment adds $5k labor cost, amortized over years. For startups running inference for 18 months before acquisition or scale, this is a significant per-token cost.
+
+**Cold Start and Batch Size:** API providers optimize for variable load; they batch requests and utilize inference engines like Tensor-RT. Self-hosted deployments must pre-warm hardware and manage batching manually. Smaller batch sizes reduce GPU utilization, increasing per-token cost by 20-40%.
+
+## Cost Comparison Across Deployment Models
+
+**Small Scale (< 100k daily tokens):**
+- API provider: $20-50/month
+- Self-hosted: $2000-3000 setup + $500-1000/month EC2 costs = $2500-4000 first month, $500-1000 monthly thereafter
+- Winner: API provider by 50-100x margin
+
+**Medium Scale (1-10M daily tokens):**
+- API provider: $200-2000/month
+- Self-hosted: RunPod H100 at $2.50/hour × 730 hours = $1825/month (50% utilization assumption)
+- Operational cost: 10 hours/month = $1000/month (staff time)
+- Total self-hosted: $2825/month
+- Winner: API provider is still cheaper for high-quality models; cheaper self-hosted for open models (Llama 2, Mistral)
+
+**Large Scale (100M+ daily tokens):**
+- API provider at DeepSeek pricing: $30k-100k+/month
+- Self-hosted with 8xH100 CoreWeave cluster: $49.24/hour × 730 × 0.7 utilization = $25k/month
+- Operational cost: 40 hours/month = $8k/month
+- Total: $33k/month
+- Winner: Self-hosted breaks even and becomes cheaper; justifies investment in ops infrastructure
+
+The inflection point occurs around 50-100M tokens/month, roughly 1.5-3 billion tokens annually.
+
+## Optimization Strategies for Both Models
+
+**Quantization Reduces Serving Cost:** Converting models to INT8 or INT4 precision reduces memory requirements by 50-75%, enabling smaller GPUs. A 70B model in INT4 fits on an A100 80GB, reducing per-token costs by 40% compared to BF16. Quality degradation for most tasks is minimal (< 5% on benchmarks).
+
+**Batching Improves Utilization:** Processing 64 requests in parallel nearly 4x the throughput versus processing 16 requests. Cloud providers achieve this automatically; self-hosted deployments require application-level work.
+
+For API users, this translates to cost per request reducing at scale. For self-hosted, properly tuned batch sizes cut per-token cost by 40-50%.
+
+**Model Selection:** DeepSeek R1's 85% cost advantage versus Claude Sonnet reflects model size and architecture differences. Choosing Mistral Small ($0.10/$0.30 per million tokens) over Claude ($3/$15) cuts costs by 97% for applications where smaller models suffice.
+
+Small models (7B parameters) cost 5-10x less than large models (70B+) on both API and self-hosted deployments. Quality drops 30-50% on reasoning tasks, acceptable only for summarization, classification, and simple generation.
+
+**Caching and Retrieval:** Prompt caching reduces repeated computation. Anthropic and OpenAI both offer 90% discounts on cached input tokens. A 500-token system prompt processed 1000 times across a month costs $0.0015 with caching versus $0.15 without.
+
+Retrieval-augmented generation (RAG) replaces full model inference with vector similarity search for many queries. Search costs $0.001-0.01 per query versus $0.01-0.10 for full model inference. Hybrid approaches reduce inference cost by 30-60%.
+
+## Bandwidth Costs in Multi-Cloud Setups
+
+Transferring large models between providers or regions incurs egress bandwidth charges. AWS charges $0.02/GB egress to the internet. Transferring a 70B model in BF16 (140GB) costs $2800 per copy. For hourly instance scaling, this overhead can dominate.
+
+Providers like CoreWeave and Lambda keep models local, eliminating bandwidth costs. Lambda H100 pricing includes unlimited inbound/outbound within their network. This advantage justifies premium pricing for distributed deployments.
+
+## Inference Cost for Different Model Sizes
+
+Cost scales super-linearly with model size due to memory and computation requirements:
+
+**7B Models:** Fit on a single A100 with room for batching. Cost per 1k tokens: $0.0001-0.0003 for self-hosted or $0.01-0.10 for APIs.
+
+**13B-70B Models:** Require H100 or multiple A100s. Cost per 1k tokens: $0.0003-0.0006 for self-hosted or $0.10-0.30 for APIs.
+
+**70B-405B Models:** Require multi-GPU clusters (8xH100 minimum). Cost per 1k tokens: $0.0010-0.0050 for self-hosted or $1.00-5.00 for APIs.
+
+**405B+ Models:** Require specialized infrastructure. Cost per 1k tokens approaches $0.01-0.10 minimum.
+
+## Decision Framework for Cost Optimization
+
+Selecting between API and self-hosted requires analysis across multiple dimensions:
+
+**Choose APIs when:** Monthly inference spend is under $5k, model is closed-source (Claude, GPT-4), or team lacks infrastructure expertise.
+
+**Choose Self-Hosted when:** Monthly spend exceeds $20k, custom fine-tuned models are required, or data residency regulations prohibit cloud APIs.
+
+**Choose Hybrid when:** Load is bursty (peak 100M tokens/month, average 10M); maintain baseline capacity on self-hosted, burst overflow to APIs.
+
+Production inference cost optimization combines model selection, quantization, batching, and caching. The cheapest inference is the token that never runs. The second cheapest is the cached token. Only after exhausting those optimizations does hardware cost matter.
+
+Successful cost management treats inference as a first-class optimization target alongside accuracy and latency, with monitoring dashboards tracking cost per token across deployments.
+
+## Advanced Cost Optimization Techniques
+
+Beyond basic model selection, sophisticated teams apply multi-layered optimization targeting specific cost drivers.
+
+**Speculative Decoding:** Sample tokens speculatively using a smaller draft model (3B parameters), then verify with large model (70B). Reduces large model inference by 20-40% when draft model accuracy exceeds 90%. Works particularly well for language tasks with predictable tokens (e.g., JSON output, mathematical proofs).
+
+**Mixture of Experts (MoE) Sparsity:** MoE models activate only 25-50% of parameters per token. A 140B parameter MoE model uses only 35-70B parameters per token, reducing latency and cost by 50%. Quality is 95-99% of dense models. Cost savings justify adoption for inference-heavy workloads.
+
+**Early Exit Layers:** Add classification heads to intermediate transformer layers. Simple queries exit early (100 tokens), complex queries run full model. Reduces average compute by 30-50% for mixed-difficulty workloads. Requires model architecture changes; not compatible with off-the-shelf models.
+
+**Token Pruning:** Remove low-attention tokens from KV cache during generation. Keeping only top 80% of tokens reduces memory by 20%, enabling larger batch sizes. Quality impact is minimal (< 2% for most tasks).
+
+**Layer-Wise Precision:** Use INT8 for early layers (reliable to quantization) and higher precision for later layers (sensitive to quantization). Hybrid precision reduces memory while maintaining quality. Implementation requires custom kernels or framework support.
+
+## Inference Cost Monitoring and Alerting
+
+Production systems require cost visibility comparable to performance monitoring.
+
+**Cost Dashboards:** Track per-request cost, average token cost, total monthly spend, and cost per user. Identify expensive request patterns (certain user cohorts, specific queries).
+
+**Anomaly Detection:** Alert when cost per token increases unexpectedly. Causes: increased input token count (user context growing), lower batch size (cache busting), or inefficient batching. Automatic alerting enables quick diagnosis.
+
+**Cost Attribution:** Assign inference costs to business units or products. If product A uses 60% of inference capacity, it bears 60% of costs. Transparency drives internal pressure to optimize.
+
+**SLA Cost Trade-offs:** Model the cost of latency. If SLA violation is 10x expensive (users churn), paying 2x for lower latency is justified. Quantify SLA costs explicitly to guide optimization priorities.
+
+## Comparing API vs Self-Hosted Economics Across Time Horizons
+
+Time horizon dramatically changes which option is economically optimal.
+
+**1-Month Horizon:**
+API dominates. Setup cost for self-hosting ($5-10k) exceeds API savings on small workloads.
+
+**1-Year Horizon:**
+Break-even is 50-100M tokens/month. Self-hosting becomes cheaper; upfront investment amortizes over 12 months.
+
+**5-Year Horizon:**
+Self-hosting is 70-80% cheaper even for medium workloads (100-500M tokens/month). Vendor lock-in risk also decreases over time as teams build operational expertise.
+
+**Long-term Trajectory:**
+Infrastructure teams optimizing for 3-5 year timescales always choose self-hosting at scale. Smaller teams or those valuing simplicity choose APIs indefinitely.
+
+## Inference Workload Heterogeneity
+
+Real applications have mixed inference workloads, each with different cost-optimal solutions.
+
+**Bursty Inference:** Summarization, translation, report generation. Traffic spikes unpredictably. APIs excel here; pay only for actual usage. Self-hosting requires expensive reserved capacity.
+
+**Constant-Load Inference:** Chatbot, content moderation, classification. Steady 24/7 traffic. Self-hosting dominates; reserved capacity is fully utilized.
+
+**Batch Processing:** Data processing pipelines running nightly. Low latency requirement. APIs with batch discounts (40-50% cheaper) are highly competitive.
+
+**Real-time Personalization:** Recommenders, search ranking. Sub-100ms latency. Requires self-hosted edge deployment; API latency unacceptable.
+
+Mature teams optimize each workload independently. Batch inference on APIs, real-time on self-hosted, bursty on spot instances. This portfolio approach reduces total cost 30-50% versus single-solution strategies.
+
+## Vendor Economics and Pricing Dynamics
+
+LLM provider pricing is under severe pressure. Cost competition is compressing margins.
+
+**DeepSeek's Impact:** OpenAI's GPT-4.1 pricing dropped 90% post-DeepSeek release. Anthropic maintained Claude pricing, gaining reputation boost but losing price-sensitive customers. Mistral Small matching Mistral's position.
+
+**Future Pricing Trajectory:** Commodity models (text generation) will cost $0.01-0.05 per million input tokens by 2026. Premium models (reasoning, code) will cost $1-5 per million.
+
+**Subscription vs Pay-Per-Use:** Emerging models include credits/subscriptions ($99/month = 100M tokens). Appeals to consistent-load customers seeking predictability.
+
+**Open-Source Impact:** Self-hosting open models (DeepSeek, Llama) is now competitive with APIs for large workloads. This commoditization pressure drives API pricing down faster.
+
+Inference cost in 2026 is determined primarily by model selection and workload optimization, secondarily by provider selection. All providers are converging on price; differentiation is increasingly on quality, speed, and ecosystem.
+
+## Emerging Cost Reduction Technologies
+
+Beyond basic architectural choices, new techniques promise significant cost reductions.
+
+**Prefix Caching:** Reusing computation from previous requests with shared system prompts or documents. Prevents recomputation of identical token sequences across requests. Reduces effective input token count by 50-80% for typical workloads. Anthropic and OpenAI both offer prefix caching with 90% discount on cached input tokens.
+
+**Mixture of Experts (MoE):** Only activate necessary model parameters per token. A 140B MoE model activates 25-50% of parameters, reducing per-token compute 2-4x. Cost savings: 50-75% for MoE models versus dense models. Quality: 95-98% of dense models for most tasks.
+
+**Adaptive Inference:** Use small models for simple queries, large models for complex queries. Routing networks classify query difficulty and select appropriate model. Cost reduction: 40-60% by route-weighted average of model costs.
+
+**Knowledge Distillation:** Train smaller student models to mimic larger teacher models. Smaller models cost 5-10x less but achieve 90-95% of teacher quality. Investment: $10-50k training cost. Payoff: Break-even at 50M-100M tokens annually.
+
+These emerging techniques are more impactful on cost than hardware selection or provider choice.
+
+## Industry Cost Trends
+
+Inference cost trajectory is downward, driven by competition and efficiency improvements.
+
+**Historical Price Compression:**
+- 2022: $10-30 per million input tokens (GPT-3)
+- 2023: $1-5 per million tokens (GPT-3.5)
+- 2024: $0.10-2.00 per million tokens (GPT-4, Claude, DeepSeek)
+- 2025: $0.01-0.30 per million tokens (DeepSeek, open models)
+- 2026 projection: $0.001-0.10 per million tokens
+
+Cost has fallen 100-1000x in 3 years. Continuation would reach commodity pricing (< $0.001/M) by 2027.
+
+**Cost Driver Changes:**
+- 2022: Compute dominates cost
+- 2024: Compute + ecosystem maturity balance
+- 2026: Software optimization + model efficiency dominate
+
+Raw GPU cost is becoming secondary to software optimization and workload efficiency.
+
+## Conclusion: Strategic Cost Management
+
+Production inference cost management is multi-dimensional. No single optimization dominates; thoughtful analysis across dimensions yields maximum savings.
+
+**Tier 1 Optimizations (Most Impact):**
+- Model selection: 85% cost impact
+- Quantization: 50-75% cost impact
+- Batching: 30-50% cost impact
+
+**Tier 2 Optimizations (Medium Impact):**
+- Caching: 30-40% cost impact
+- Adaptive inference: 40-60% cost impact
+- Knowledge distillation: 50-90% cost impact
+
+**Tier 3 Optimizations (Lowest Impact):**
+- Provider selection: 10-30% cost impact
+- Hardware selection: 20-40% cost impact (only for self-hosted)
+- Regional optimization: 5-20% cost impact
+
+Successful teams optimize across all tiers. Focusing on provider selection while ignoring model efficiency is backwards approach.
+
+Inference cost management becomes non-negotiable for competitive AI applications. Cost consciousness at deployment time, not reactive optimization, determines long-term product economics.

@@ -1,0 +1,261 @@
+---
+title: GPU Memory Requirements for Every Popular LLM
+slug: gpu-memory-requirements-for-every-popular-llm
+description: >-
+  Complete breakdown of GPU memory needed for Llama, GPT, Claude, and other
+  LLMs. Includes inference and training requirements as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - llm gpu memory requirements
+---
+## Contents
+
+- [LLM GPU Memory Requirements](#llm-gpu-memory-requirements)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+## LLM GPU Memory Requirements
+
+**LLM gpu memory requirements**: Pick the wrong size and the model won't run. Pick too big and developers waste money.
+
+Requirements depend on batch size, precision (FP32, FP16, INT8), and inference.
+
+This guide shows exact memory needs for every major LLM.
+
+### Core Memory Calculation
+
+The fundamental formula for model memory usage:
+
+```
+Model Size = (Parameter Count × Precision Bytes) + (Batch Size × Sequence Length × 2 × Hidden Size × Precision Bytes)
+```
+
+A 7B model in FP16 requires approximately 14GB. This includes model weights. Add another 10-30GB for attention cache during inference depending on sequence length and batch size.
+
+Full precision (FP32) doubles requirements. Quantized models (INT8, INT4) cut requirements by 4-8x but sacrifice some quality.
+
+### Llama Model Family
+
+Meta's Llama models dominate open-source deployment. Memory requirements vary significantly by size.
+
+Llama 2 7B:
+- FP32: 28GB VRAM minimum
+- FP16: 14GB VRAM minimum
+- INT8: 7GB VRAM
+- INT4: 3.5GB VRAM
+
+Llama 2 13B:
+- FP32: 52GB VRAM
+- FP16: 26GB VRAM
+- INT8: 13GB VRAM
+- INT4: 6.5GB VRAM
+
+Llama 2 70B:
+- FP32: 280GB VRAM (requires 4x H100s)
+- FP16: 140GB VRAM (requires 2x H100s)
+- INT8: 70GB VRAM (single A100)
+- INT4: 35GB VRAM (single A100)
+
+Llama 3 introduces 405B parameter variants. These demand latest infrastructure:
+
+Llama 3 405B:
+- FP16: 810GB VRAM (8x H100 or 16x A100)
+- INT8: 405GB VRAM (4x H100)
+- INT4: 202.5GB VRAM (2x H100)
+
+For budget-conscious deployments, Llama 2 7B with INT4 quantization fits on consumer GPUs including RTX 4090.
+
+### Mistral and Mixture-of-Experts Models
+
+Mistral models offer excellent performance-to-memory ratios.
+
+Mistral 7B:
+- FP16: 14GB VRAM
+- INT8: 7GB VRAM
+- INT4: 3.5GB VRAM
+
+Mixture-of-Experts (MoE) models activate only part of parameters, reducing memory during inference:
+
+Mistral 8x7B:
+- FP16: ~30GB VRAM (only 2 experts active)
+- Full activation: 56GB VRAM
+
+The key advantage: inference uses less memory than training. Full weight storage still requires 56GB, but only 30GB gets loaded during forward pass.
+
+### Proprietary Model Comparisons
+
+[OpenAI API pricing](/articles/openai-pricing) makes direct deployment impractical. But understanding GPT memory gives context.
+
+GPT-3.5-turbo equivalent (if open-sourced):
+- Estimated 20B parameters
+- FP16: 40GB VRAM
+
+GPT-4 scale:
+- Estimated 1.7T parameters (mixture-of-experts)
+- Would require 32+ H100s
+
+[Anthropic's Claude](/articles/anthropic-pricing) stays proprietary. For similar performance, Llama 70B or fine-tuned Mistral represent practical alternatives.
+
+### Production Inference Setup
+
+Real-world deployment differs from theoretical minimums. Batching multiple requests together improves throughput.
+
+Batch size 1 (latency-optimized):
+- Llama 7B FP16: 20GB total
+- Llama 70B FP16: 160GB total
+
+Batch size 8 (throughput-optimized):
+- Llama 7B FP16: 28GB total
+- Llama 70B FP16: 220GB total
+
+The overhead is attention cache. Longer sequences (4k tokens vs 256) increase cache size dramatically.
+
+### Fine-Tuning Memory Requirements
+
+Fine-tuning demands more memory than inference since gradients must be stored.
+
+Full fine-tuning Llama 7B:
+- FP32: 120GB VRAM (prohibitive for most)
+- FP16: 60GB VRAM
+
+LoRA fine-tuning (recommended):
+- FP16: 20GB VRAM
+- FP32: 40GB VRAM
+
+With gradient checkpointing:
+- 10GB VRAM for 7B model
+- 24GB VRAM for 70B model
+
+This makes fine-tuning accessible on consumer hardware.
+
+### GPU Selection Guide
+
+Matching model to hardware prevents costly mistakes.
+
+For 7B models:
+- [RTX 4090 ($0.34/hour on RunPod)](/articles/runpod-gpu-pricing): Ideal for experimentation
+- [RTX 3090 ($0.22/hour)](/articles/runpod-gpu-pricing): Sufficient for inference
+- [A100 ($1.39-1.48/hour)](/articles/runpod-gpu-pricing): Production inference
+
+For 13B-30B models:
+- [RTX 3090 (2x)](/articles/runpod-gpu-pricing): Tight fit, works with quantization
+- [A100](/articles/runpod-gpu-pricing): Comfortable for FP16
+- [H100 ($2.69-3.78/hour)](/gpus): Best for throughput
+
+For 70B models:
+- [A100 (2x)](/articles/runpod-gpu-pricing): Minimum for FP16
+- [H100 (2x)](/articles/runpod-gpu-pricing): Recommended for production
+- [CoreWeave 8xH100 ($49.24/hour)](/articles/coreweave-gpu-pricing): Full-service production option
+
+For 405B models:
+- Minimum 8x H100
+- Multi-node setup required
+- Only feasible for well-funded projects
+
+### Quantization Impact on Performance
+
+Reducing precision saves memory but impacts quality. Benchmarks show the tradeoffs.
+
+Llama 70B on MMLU:
+
+- FP16: 64.5% accuracy
+- INT8: 64.2% accuracy
+- INT4: 63.8% accuracy
+- INT3: 61.2% accuracy (significant quality drop)
+
+INT4 quantization loses minimal accuracy for most tasks while cutting memory by 4x. INT3 pushes too far.
+
+For production, INT4 or INT8 outperforms unquantized smaller models on most tasks while using similar memory.
+
+### Sequence Length and Memory Trade-offs
+
+Long context windows demand exponentially more memory.
+
+Llama 7B FP16 with batch size 1:
+
+- 512 token context: 16GB
+- 2048 token context: 20GB
+- 4096 token context: 24GB
+- 8192 token context: 32GB
+
+Longer context enables better reasoning and fact grounding but increases inference cost. 2048-4096 tokens balances capability and cost for most applications.
+
+### Multi-GPU Setup Considerations
+
+Scaling beyond single-GPU requires understanding parallelism strategies.
+
+Tensor parallelism splits model layers across GPUs. A100 with 80GB (2 GPUs):
+- Tensor parallel 2: Llama 70B at near-native speed
+
+Pipeline parallelism splits model depth. Works well for many small GPUs but increases latency.
+
+Sequence parallelism (new in 2026) processes different sequence segments on different GPUs. Reduces per-GPU memory by 50% with minimal latency penalty.
+
+### Memory Optimization Techniques
+
+Several techniques reduce memory without sacrificing too much performance.
+
+Flash attention: Reduces attention memory by 10-20% through algorithmic optimization. Improves speed simultaneously.
+
+Paged attention: Allocates GPU memory in pages like OS virtual memory. Enables up to 10x larger batch sizes on same hardware.
+
+Speculative decoding: Uses smaller model to draft tokens, larger model to verify. Reduces compute 2-3x with minimal quality loss.
+
+### Cost per Million Tokens
+
+Ultimately, money matters most. Memory directly correlates with hardware cost.
+
+Inference cost per million tokens on major platforms (as of March 2026):
+
+[OpenAI GPT-4o: $5-15](/articles/openai-pricing)
+[OpenAI GPT-4: $10-30](/articles/openai-pricing)
+[Anthropic Claude 3.5 Sonnet: $3-15](/articles/anthropic-pricing)
+[Together AI Llama 70B: $0.90](/articles/together-ai-pricing)
+
+Self-hosted Llama 70B on A100:
+- $1.39/hour on RunPod
+- ~2000 requests/hour
+- $0.0007 per request
+- ~$0.70 per million tokens
+
+The math shows self-hosting wins at scale. Proprietary APIs win for occasional use.
+
+## FAQ
+
+**Can I run Llama 70B on a single RTX 3090?**
+Not in FP16. INT4 quantization fits in 24GB, but quality drops noticeably. Recommend 2x RTX 3090 with quantization or single A100.
+
+**What's the practical minimum for production deployment?**
+Depends on model and throughput. Llama 7B needs 20-30GB including buffer. Llama 70B needs 140-160GB.
+
+**Does batch size affect memory linearly?**
+Roughly linear for inference. Batch 8 uses 4x memory of batch 2 due to attention cache growth.
+
+**Should I use INT8 or INT4 quantization?**
+INT4 for memory constraints (mobile, small GPUs). INT8 if quality matters more than memory. FP16 if memory permits.
+
+**How much memory does fine-tuning add over inference?**
+4-10x more memory for full fine-tuning. 1.5-2x with LoRA fine-tuning.
+
+**Can PagedAttention reduce memory on consumer GPUs?**
+Yes. Vllm's PagedAttention cuts memory 30-50% while improving throughput. Works on all GPU types.
+
+## Related Resources
+
+- [Fine-Tune LLM for Chatbot Guide](/articles/fine-tune-llm-for-chatbot-step-by-step-guide)
+- [Self-Hosting LLM Options](/articles/self-hosting-llm-docker-kubernetes-and-bare-metal-options)
+- [Best Model Serving Platforms](/articles/best-model-serving-platforms-in-2026)
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [Lambda GPU Pricing](/articles/lambda-labs-gpu-pricing)
+- [CoreWeave GPU Pricing](/articles/coreweave-gpu-pricing)
+
+## Sources
+
+- Dao et al., "FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness" (arxiv.org)
+- Kwon et al., "Efficient Memory Management for Large Language Model Serving with PagedAttention" (arxiv.org)
+- Meta Llama 2 Model Cards (huggingface.co/meta-llama)
+- NVIDIA GPU Memory Guide (developer.nvidia.com)
+- vLLM Documentation (github.com/vllm-project/vllm)

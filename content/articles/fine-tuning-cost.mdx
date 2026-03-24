@@ -1,0 +1,471 @@
+---
+title: 'Fine-Tuning Cost: GPU Hours, API Pricing & Budget Guide'
+slug: fine-tuning-cost
+description: >-
+  Fine-tuning cost calculator: Compare A100 ($1.19/hr), H100 ($1.99/hr), spot
+  pricing, API-based fine-tuning, and self-hosted options as of March 2026.
+date: '2026-03-21'
+author: DeployBase
+category: AI Cost Guide
+keywords:
+  - fine tuning cost
+  - cost of fine-tuning
+  - fine-tuning pricing
+  - llm fine-tuning cost
+  - fine-tune training cost
+---
+
+## Contents
+
+- [Fine-Tuning Cost: Overview](#fine-tuning-cost-overview)
+- [GPU Rental Costs by Provider](#gpu-rental-costs-by-provider)
+- [Self-Hosted vs API Fine-Tuning](#self-hosted-vs-api-fine-tuning)
+- [Cost Breakdown by Method](#cost-breakdown-by-method)
+- [GPU Hour Estimates for Popular Models](#gpu-hour-estimates-for-popular-models)
+- [API Fine-Tuning Pricing](#api-fine-tuning-pricing)
+- [Real-World Cost Scenarios](#real-world-cost-scenarios)
+- [Cost Optimization Strategies](#cost-optimization-strategies)
+- [Budget Planning Calculator](#budget-planning-calculator)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Fine-Tuning Cost: Overview
+
+Fine-tuning cost splits into two buckets: compute (GPU-hours) and data (tokens processed). The decision is binary: self-host on cloud GPUs or use a managed API.
+
+Self-hosted works like this. Rent an A100 at $1.19/hr for 10 hours of training. Spend $11.90 on hardware. Processing 100M tokens at $0.48/M through Together AI costs $48. Total: $60 before any data preparation overhead.
+
+Managed APIs cost more per token but handle the infrastructure. OpenAI fine-tuning at $100/hr plus token costs scales differently. A 5-hour training job = $500 just for compute. Add token costs on top.
+
+The math favors DIY for small-to-medium models (7B, 13B). API wins when speed matters or models are proprietary (GPT-4o, Claude). Most teams underestimate ops overhead when self-hosting. Managed APIs charge a premium for that ops burden disappearing.
+
+---
+
+## GPU Rental Costs by Provider
+
+### A100 PCIe Pricing (as of March 2026)
+
+| Provider | VRAM | Price/hr | Monthly (730 hrs) | Notes |
+|----------|------|----------|----------|-------|
+| RunPod | 80GB | $1.19 | $869 | Lowest cost option |
+| Lambda | 40GB | $1.48 | $1,081 | Double VRAM, higher price |
+
+A100 PCIe is the entry point for production fine-tuning. 80GB handles most 70B models with int8 quantization. RunPod at $1.19/hr is the budget baseline. Lambda's 40GB variant is half the memory but doesn't scale down in price. For fine-tuning a single 70B model, RunPod wins.
+
+At $1.19/hr, a 100-hour fine-tuning job costs $119 in GPU rental alone. A 7B model trains in 10-20 hours on A100. A 70B model takes 40-80 hours depending on batch size and data volume.
+
+Spot instances on RunPod drop to $0.59-$0.80/hr. Trade interruption risk for 30-35% savings. Fine-tuning with checkpoints (standard in Hugging Face and LLaMA Factory) resumes from interruption. Viable for non-deadline work.
+
+### H100 PCIe and SXM Pricing
+
+| Provider | Variant | VRAM | Price/hr | Monthly (730 hrs) |
+|----------|---------|------|----------|----------|
+| RunPod | PCIe | 80GB | $1.99 | $1,452 |
+| RunPod | SXM | 80GB | $2.69 | $1,964 |
+| Lambda | PCIe | 80GB | $2.86 | $2,088 |
+| Lambda | SXM | 80GB | $2.49 | $1,818 |
+
+H100 trains 30-40% faster than A100 on large models (70B+) due to higher memory bandwidth (3.35 TB/s vs 2.0 TB/s). That speed premium costs 67% more on RunPod ($1.99 vs $1.19).
+
+When does H100 make sense? Break-even is around 300 GPU-hours per month. At 300 hours: A100 costs $357. H100 costs $597. The $240 premium buys 100+ additional hours of training per month. For production fine-tuning pipelines running weekly re-trains, H100 pays for itself.
+
+SXM variants (NVLink-enabled) only matter for multi-GPU setups. Single-GPU fine-tuning uses PCIe. Multi-GPU training (e.g., 8x H100 SXM for a 405B model) needs SXM for 900 GB/s inter-GPU bandwidth. Most fine-tuning doesn't reach that scale.
+
+---
+
+## Self-Hosted vs API Fine-Tuning
+
+### Self-Hosted Decision Tree
+
+Self-hosted = full control, lower cost, high ops burden.
+
+**Cost structure:**
+- GPU rental: (hours × price/hr)
+- Data ingestion: often folded into training time, or additional $0.50-$0.90/M tokens if using managed data pipelines
+- Monitoring and infrastructure: free if DIY, $200-500/month if hiring ops
+
+**When DIY wins:**
+- Model size: 7B-70B (smaller than this, A100 overkill; larger than this, multi-GPU complexity)
+- Frequency: at least 2-3 fine-tune runs per month (ops overhead amortizes)
+- Budget: <$3K/month GPU spend (breakeven point where ops overhead matters)
+
+**When DIY loses:**
+- Single fine-tune job (cold-start ops overhead)
+- Models >405B (requires distributed training, Kubernetes expertise)
+- Teams <5 people with no ML Ops background
+
+### API Fine-Tuning
+
+Managed APIs: expensive, zero ops, predictable.
+
+**Cost structure:**
+- Compute: $100/hr (OpenAI RFT) or token-based (Together AI, Hugging Face)
+- Data: included in token pricing
+- Monitoring: included
+
+**When API wins:**
+- Speed to value matters more than cost
+- Proprietary models (OpenAI, Anthropic, Mistral)
+- Single or infrequent fine-tunes
+- Teams with no GPU infrastructure experience
+
+---
+
+## Cost Breakdown by Method
+
+### Full Fine-Tuning (All Weights Updated)
+
+Standard approach. Trains all model parameters on new data.
+
+**7B Model Example (Together AI):**
+- Data: 50M tokens, 5 epochs = 250M processed tokens
+- Cost per method:
+ - Together AI: (250M / 1M) × $0.90 = **$225**
+ - Alternative: self-hosted on A100 for 5-10 hours = (7.5 × $1.19) = **$8.93**
+
+Difference: $216. Self-hosted wins by 96%. Caveat: $8.93 assumes no data prep overhead and perfect training efficiency.
+
+**70B Model Example (RunPod H100):**
+- Data: 50M tokens, 3 epochs = 150M processed tokens
+- Training time: 40-60 hours on H100
+- GPU cost: (50 × $1.99) = **$99.50**
+- Data prep (separate ingestion): $0 to $50 depending on preprocessing needs
+- Total: **$99.50 to $149.50**
+
+Equivalent on OpenAI (if available): $100/hr × 50 hours + token costs = **$5,000+**. OpenAI is 33-50x more expensive.
+
+### LoRA Fine-Tuning (Parameter-Efficient)
+
+Trains only adapter weights. Memory footprint drops 60-75%.
+
+**7B Model on A100 (LoRA):**
+- Training time: 3-5 hours (2-3x faster than full)
+- GPU cost: (4 × $1.19) = **$4.76**
+- Together AI LoRA: (250M / 1M) × $0.48 = **$120** (vs $225 full)
+
+Self-hosted LoRA on A100 is 25x cheaper than Together AI LoRA. Tradeoff: Teams manage infrastructure and training loop.
+
+**70B Model on A100 80GB (QLoRA):**
+- RTX 4090 has only 24GB. 70B in int4 = 35GB — doesn't fit. Use A100 80GB instead.
+- Base model in int4: 35GB. QLoRA adapters + optimizer states + buffers: ~20GB. Total: ~55GB (fits on A100 80GB).
+- Training time: 20-40 hours on A100 80GB
+- GPU cost: (30 × $1.19) = **$35.70**
+- Data cost: (250M tokens / 1M) × $0.48 = **$120** (if using Together AI)
+- Total DIY: **$155.70**
+
+Equivalent on Together AI (full fine-tuning): ~$450. DIY QLoRA on A100 saves 65%.
+
+For cash-strapped teams, RTX 4090 LoRA is viable. Training is slow, but parallelizable. Spin up 2-3 GPUs and run multiple fine-tunes in parallel.
+
+### QLoRA (Quantized LoRA)
+
+Loads base model in int4, trains adapters in fp16.
+
+Reduces VRAM from 140GB (full fp16) to 35-45GB (int4 + adapters).
+
+**Cost Structure:**
+- Model quantization: one-time, a few minutes on any GPU
+- Training: same as LoRA (hours × $/hr)
+- Quality loss: detectable on some tasks, negligible on others
+
+QLoRA is the sweet spot for budget teams with models 13B-70B. Full fine-tuning on consumer GPUs is impossible. QLoRA makes it possible.
+
+---
+
+## GPU Hour Estimates for Popular Models
+
+### Llama 3 70B
+
+**Full Fine-Tuning:**
+- A100 PCIe: 40-60 GPU-hours
+- H100 PCIe: 30-45 GPU-hours
+- Cost at RunPod: (45 × $1.99) = $89.55
+
+**LoRA:**
+- A100 PCIe: 15-20 GPU-hours = (17.5 × $1.19) = **$20.83**
+- H100 PCIe: 10-15 GPU-hours = (12.5 × $1.99) = **$24.88**
+
+**QLoRA:**
+- A100 PCIe: 20-30 GPU-hours = (25 × $1.19) = **$29.75**
+- RTX 4090: 80-120 GPU-hours = (100 × $0.34) = **$34**
+
+### Llama 3 8B
+
+**Full Fine-Tuning:**
+- A100 PCIe: 5-10 GPU-hours
+- H100 PCIe: 3-7 GPU-hours
+- Cost at RunPod: (5 × $1.99) = **$9.95**
+
+**LoRA:**
+- A100 PCIe: 2-3 GPU-hours = (2.5 × $1.19) = **$2.98**
+- H100 PCIe: 1-2 GPU-hours = (1.5 × $1.99) = **$2.99**
+
+7B models are so cheap to fine-tune that LoRA barely matters. Full fine-tuning on A100 for $9.95 is the baseline.
+
+### Mistral 7B
+
+**Full Fine-Tuning:**
+- A100 PCIe: 4-8 GPU-hours
+- H100 PCIe: 3-6 GPU-hours
+- Cost: (5 × $1.99) = **$9.95**
+
+Mistral 7B trains slightly slower than Llama 3 8B due to architecture differences, but margin is <10%.
+
+### Qwen 72B
+
+**Full Fine-Tuning:**
+- A100 PCIe: 50-70 GPU-hours
+- H100 PCIe: 35-50 GPU-hours
+- Cost: (42.5 × $1.99) = **$84.58**
+
+Qwen's larger (72B) model family shows multi-GPU setups become attractive at this scale.
+
+---
+
+## API Fine-Tuning Pricing
+
+### OpenAI Fine-Tuning
+
+**Supervised Fine-Tuning (SFT):**
+Token-based. Training processes input + output tokens at a rate of $0.008-$0.015 per 1M training tokens (historical, for March 2026 rates).
+
+Example: Fine-tune GPT-4o on 50M training tokens, 3 epochs, 10M validation tokens.
+- Total tokens processed: (50M × 3) + 10M = 160M
+- Cost estimate: (160M / 1M) × $0.01 = **$1,600**
+
+**Reinforcement Fine-Tuning (RFT):**
+Hourly compute: $100/hr of wall-clock training time.
+
+Example: 5-hour RFT job.
+- Compute: 5 × $100 = **$500**
+- Token costs for evaluation: additional $200-500 depending on evaluation data size
+- Total: **$700-1,000**
+
+OpenAI's RFT is priced aggressively for production use. For a startup fine-tuning daily, that's $3K+/month in compute alone. Self-hosted alternatives are 10-50x cheaper.
+
+### Together AI Fine-Tuning
+
+Token-based, granular by model size.
+
+**7B Models:**
+- LoRA: $0.48/M tokens
+- Full: $0.90/M tokens
+
+**13B Models:**
+- LoRA: $0.70/M tokens
+- Full: $1.30/M tokens
+
+**70B Models:**
+- LoRA: estimated $2-3/M
+- Full: estimated $4-5/M
+
+Example: Qwen 7B with 50M tokens, 5 epochs, LoRA.
+- Processing: 50M × 5 = 250M
+- Cost: (250M / 1M) × $0.48 = **$120**
+- Plus Together handles all infrastructure
+
+Together AI pricing is transparent. No surprises. Ideal for teams that want managed fine-tuning without OpenAI's premium.
+
+### Hugging Face AutoTrain
+
+Historically, compute-hour based: $3-10/hr depending on GPU tier.
+
+Example: Fine-tune Mistral 7B for 10 hours on Hugging Face mid-tier GPU.
+- Compute: 10 × $5 = $50
+- Data handling: included
+
+Hugging Face is cheaper than Together AI for small runs but lacks transparency on current rates. Verify on huggingface.co/autotrain before committing.
+
+---
+
+## Real-World Cost Scenarios
+
+### Scenario 1: Startup Domain Adaptation (Under $50)
+
+Fine-tune a 7B open-source model on custom customer support data. 10M training tokens. 3 epochs. LoRA through Together AI.
+
+- Data processing: 10M × 3 × $0.48/1M = **$14.40**
+- Infrastructure: Together handles it
+- Total: **$14.40**
+
+Timeline: 1-2 hours. Use case: domain-specific Q&A classifier, customer support chatbot, internal FAQ assistant.
+
+This scenario shows the economics of managed APIs for small teams.
+
+### Scenario 2: Mid-Scale Production Fine-Tune ($200-300)
+
+Fine-tune GPT-4o on 100M tokens of proprietary code examples. 2 epochs. Supervised fine-tuning (SFT).
+
+Using OpenAI API:
+- Token processing: 200M tokens at $0.01/M = **$2,000** (estimate)
+- Alternative through Together (if GPT-4o were available): N/A (proprietary)
+- Total: **~$2,000**
+
+This is why teams running proprietary model fine-tunes pay premium prices. No competition.
+
+Self-hosting alternative: open-source model (Llama 3 70B) on cloud GPU.
+- Training time: 50 hours on H100
+- GPU cost: 50 × $1.99 = **$99.50**
+- Data preparation: $100 (human review/formatting)
+- Total: **$199.50**
+
+10x cheaper than OpenAI. Tradeoff: Llama 3 70B is stronger at code than GPT-4o at size parity, but teams may need proprietary models for legal/compliance reasons.
+
+### Scenario 3: Research-Scale (Monthly $400-600)
+
+Weekly fine-tune runs for 3 months. Llama 3 70B with 500M tokens of research papers. H100 spot instances.
+
+- GPU hours per run: 50 hours
+- Cost per run: 50 × $1.70 (spot avg) = **$85/run**
+- Weekly: $85 × 4 = **$340/month**
+- Total for 3 months: **$1,020**
+
+Spot instance interruptions add 2-3 extra runs (missed batches + reruns). Budget ceiling: $1,200 for 3 months.
+
+This scenario shows cost scaling of continuous fine-tuning programs.
+
+---
+
+## Cost Optimization Strategies
+
+### Use Spot Instances
+
+Spot GPUs cost 40-60% less than on-demand. A100 spot: $0.59-$0.80/hr vs $1.19 on-demand.
+
+Fine-tuning is resumable with checkpointing (LLaMA Factory saves every 500 steps by default). Interruption = lost work since last checkpoint, not lost job.
+
+Savings on 100-hour job: 100 × ($1.19 - $0.70) = **$49 saved** (41% reduction).
+
+Risk: unavailable in demand spikes. For non-deadline work, spot is unbeatable.
+
+### LoRA Reduces Memory and Time
+
+LoRA trains only adapter weights. Memory footprint drops by 60-75%. Training time drops 2-3x.
+
+Example: Llama 3 70B full fine-tuning = 60 GPU-hours on A100. LoRA = 20 GPU-hours.
+- Cost difference: (60 - 20) × $1.19 = **$47.60 saved**
+- Quality difference: 1-3% accuracy loss on most benchmarks (task-dependent)
+
+For iterative development, LoRA is strict win. Train 10 LoRA variants in the time one full fine-tune takes. Merge the best one when ready for production.
+
+### Batch Small Models, Not Large
+
+7B models train in 5-10 hours on A100. 70B models train in 40-80 hours. Per-hour cost is same, but total job cost scales linearly.
+
+Early development: start with 7B. Iterate fast on data and training recipes. Once confident, scale to 70B for production.
+
+Cost savings: develop on 7B (50 hours × $1.19) = $59.50, then production on 70B (60 hours × $1.99) = $119.40. Total: $178.90 instead of jumping to 70B from day one ($119.40 × 5 iterations) = $597.
+
+### Reduce Epochs Intelligently
+
+5 epochs is standard. 3 epochs often sufficient. Fewer epochs = fewer tokens processed = lower data costs.
+
+Llama 3 70B on Together AI:
+- 5 epochs on 50M data: 250M × $0.90/M = **$225**
+- 3 epochs on 50M data: 150M × $0.90/M = **$135**
+- Savings: $90 (40% reduction)
+
+Benchmark on the data. Find minimum epochs needed for acceptable performance. Most models converge by epoch 3.
+
+### Use Synthetic Data Sparingly
+
+Generating 100M synthetic tokens with GPT-4o: 100M × $2.50/M = **$250** just to generate data.
+
+Then fine-tune on it: another $200-500 in GPU or API costs.
+
+Total: $450-750 to create synthetic data + train.
+
+Original data (real examples) is often cheaper. Synthetic data makes sense when base model cannot handle task at all. For most domains, real examples are more cost-efficient.
+
+### Distributed Fine-Tuning at Scale
+
+For 405B models or 1T+ tokens, single-GPU training is impossible. Multi-GPU distributed training is mandatory.
+
+Cost structure:
+- 8x H100 for 100 hours = 800 GPU-hours × $1.99 = **$1,592**
+- Alternative: hire ML engineer to optimize training = $15K/month
+- Break-even: 10 distributed fine-tune runs per month
+
+For research teams running continuous large-scale training, distributed setup pays for itself immediately.
+
+---
+
+## Budget Planning Calculator
+
+Fill in the blanks to estimate the fine-tuning cost:
+
+**1. Model and Method**
+- Model size: 7B / 13B / 70B / 405B?
+- Method: Full fine-tuning / LoRA / QLoRA?
+- Training data size: ___ million tokens
+- Number of epochs: ___ (default 3-5)
+
+**2. Estimated GPU Hours** (use values above as reference)
+- For the model + method: ___ GPU-hours
+
+**3. Self-Hosted on Cloud GPU**
+- GPU choice: A100 ($1.19/hr) / H100 ($1.99/hr) / RTX 4090 ($0.34/hr)?
+- Spot or on-demand?
+- Total GPU cost: (hours × rate/hr) = $_________
+- Data ingestion cost (if separate): $_________ or $0 if included
+- **Total self-hosted: $_________**
+
+**4. Managed API**
+- Service: OpenAI / Together AI / Hugging Face?
+- Method: SFT / RFT / LoRA?
+- Tokens processed: (data size × epochs)
+- API rate: $/1M tokens
+- **Total API: $_________**
+
+**5. Decision**
+- Self-hosted cost < API cost? **Use self-hosted.**
+- API cost < self-hosted + 20% ops overhead? **Use API.**
+- Unsure on training time? **Start with API, measure, migrate to self-hosted for next run.**
+
+---
+
+## FAQ
+
+**How long does fine-tuning actually take?**
+7B model on A100: 5-10 hours for 50M tokens, 3 epochs. 70B on H100: 40-60 hours for same data. Timeline is dominated by batch size (if increasing batch, time stays flat but requires more VRAM). Larger epochs extend time linearly.
+
+**Can I resume training if interrupted?**
+Yes, with checkpointing. LLaMA Factory, Hugging Face Transformers, and vLLM all support gradient checkpointing. Save state every 500-1000 steps. Interruption = lose work since last checkpoint, not entire job. Spot instances interrupt frequently; ensure checkpointing is enabled.
+
+**Is spot instance fine-tuning reliable?**
+Reliable if your infrastructure supports resumption. Training job restarts from last checkpoint after interruption. Wall-clock time increases, but actual cost is only for GPU-hours used. Use spot for non-deadline work (development, research). Avoid spot for time-critical production fine-tunes.
+
+**Should we fine-tune or use RAG instead?**
+Fine-tuning: permanent model adaptation, behavior change, style transfer. RAG: dynamic retrieval, up-to-date external data. Combined approaches are common. Fine-tune the model for tone/domain, use RAG for retrieval. Cost: fine-tuning is one-time ($100-500). RAG is per-query ($0.001-0.01 per embedding + retrieval). At scale, RAG is cheaper but less accurate.
+
+**How much training data do we really need?**
+Quality over quantity. 1,000 high-quality examples beat 100K noisy examples. Start with 1,000-5,000 examples. Measure validation loss. If loss plateaus, add more data. If still improving, stop when quality matches target.
+
+**Is OpenAI fine-tuning cheaper than self-hosting?**
+No, rarely. OpenAI RFT at $100/hr + token costs adds up fast for production use. Self-hosted on spot A100 is typically 5-10x cheaper for 7B-70B models. OpenAI wins on speed (faster iterations) and simplicity (no infrastructure). Cost is secondary.
+
+**Can we fine-tune open-source models on proprietary data?**
+Yes. Together AI, RunPod, and Hugging Face all support fine-tuning open-source models (Llama, Mistral, Qwen, others) with proprietary data. Data stays yours. No upstream model licensing restrictions. Cost is lower than proprietary APIs due to licensing overhead absence.
+
+---
+
+## Related Resources
+
+- [GPU Cloud Pricing](/gpus)
+- [Best GPU for Fine-Tuning](/articles/best-gpu-for-fine-tuning)
+- [Fine-Tune Llama 4](/articles/fine-tune-llama-4)
+- [Fine-Tune DeepSeek](/articles/fine-tune-deepseek)
+
+---
+
+## Sources
+
+- [RunPod GPU Pricing](https://www.runpod.io/)
+- [Lambda Labs GPU Pricing](https://www.lambda.com/)
+- [Together AI Fine-Tuning Documentation](https://docs.together.ai/docs/fine-tuning-pricing)
+- [OpenAI Fine-Tuning API Guide](https://platform.openai.com/docs/guides/fine-tuning)
+- [Hugging Face AutoTrain](https://huggingface.co/autotrain)
+- [DeployBase GPU Pricing Tracker](/gpus) (data observed March 21, 2026)

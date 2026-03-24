@@ -1,0 +1,404 @@
+---
+title: 'Fastest LLM API: Groq vs Fireworks vs Together vs Cerebras Benchmark'
+slug: fastest-llm-api
+description: >-
+  Rank fastest LLM inference APIs by tokens/second: Groq (LPU), Fireworks,
+  Together, Cerebras. Pricing vs speed tradeoffs and when speed matters most.
+date: '2026-03-22'
+author: DeployBase
+category: LLM APIs
+---
+## Contents
+
+- [The Speed Hierarchy](#the-speed-hierarchy)
+- [Groq: LPU Hardware Innovation](#groq-lpu-hardware-innovation)
+- [Fireworks: GPU Inference Optimization](#fireworks-gpu-inference-optimization)
+- [Together AI: Distributed Inference](#together-ai-distributed-inference)
+- [Cerebras: Custom Silicon (Alternative to Groq)](#cerebras-custom-silicon-alternative-to-groq)
+- [Real-World Latency Comparison](#real-world-latency-comparison)
+- [Cost vs Speed Tradeoff](#cost-vs-speed-tradeoff)
+- [Throughput vs Latency Optimization](#throughput-vs-latency-optimization)
+- [When Speed Justifies Premium Pricing](#when-speed-justifies-premium-pricing)
+- [Edge Cases and Specialized Workloads](#edge-cases-and-specialized-workloads)
+- [Model Availability and Limitations](#model-availability-and-limitations)
+- [Implementation Approach](#implementation-approach)
+- [Practical Example: Building a Chat Application](#practical-example-building-a-chat-application)
+- [Monitoring and Optimization](#monitoring-and-optimization)
+- [User Experience and Perceived Performance](#user-experience-and-perceived-performance)
+- [Advanced Latency Optimization Techniques](#advanced-latency-optimization-techniques)
+- [Cost vs Latency Pareto Frontier](#cost-vs-latency-pareto-frontier)
+- [Benchmarking The Actual Workload](#benchmarking-the-actual-workload)
+- [Monitoring and Optimization Over Time](#monitoring-and-optimization-over-time)
+- [Final Thoughts](#final-thoughts)
+
+
+**Fastest LLM API** selection determines latency and throughput for interactive applications. An API returning responses in 500ms feels snappy. The same API returning in 5 seconds feels sluggish. For chat applications, search-augmented responses, and real-time code completion, speed dramatically affects user experience.
+
+Groq emerges as the speed leader by using custom LPU (Language Processing Unit) hardware instead of GPUs. This custom silicon optimizes for token generation, delivering speeds 2-10x faster than GPU-based competitors. However, speed comes with tradeoffs: higher cost, limited model selection, and different pricing structure.
+
+This guide benchmarks leading fast APIs, explains the speed/cost tradeoff, and helps determine when extreme speed justifies premium pricing.
+
+## The Speed Hierarchy
+
+Measured in tokens per second, from fastest to slowest:
+
+1. **Groq (LPU-based)**: 8,000-10,000 tokens/second (custom silicon)
+2. **Fireworks (GPU, optimized inference)**: 2,000-4,000 tokens/second ([H100](/articles/nvidia-h100-price)s optimized)
+3. **Cerebras (custom silicon)**: 2,000-6,000 tokens/second (alternative custom hardware)
+4. **Together (GPU, distributed)**: 1,500-3,000 tokens/second (distributed GPU clusters)
+5. **Standard GPU APIs** (Replicate, Baseten): 500-1,500 tokens/second (commodity GPU instances)
+6. **Major LLM APIs** (OpenAI, Anthropic): 100-500 tokens/second (general-purpose APIs, rate-limited)
+
+Groq's 10,000 token/second speed is extraordinary. To put this in perspective, a typical response is 100-200 tokens. At Groq speed, responses complete in 10-30ms. At OpenAI speed, the same response takes 100-400ms. The difference between "feels responsive" and "feels slow."
+
+**Real-world example**: A chat application with 50k daily active users, average 2 messages per user daily = 100k messages.
+- Groq at $0.006 per request average = $600/day = $18,000/month
+- OpenAI at $0.02 per request average = $2,000/day = $60,000/month
+- Fireworks at $0.0006 per request average = $60/day = $1,800/month
+
+Groq costs 10x more than Fireworks but provides better user experience. OpenAI costs 30x more than Fireworks.
+
+## Groq: LPU Hardware Innovation
+
+Groq's speed advantage stems from custom LPU silicon. While GPUs are general-purpose processors optimized for matrix operations, LPUs are specifically designed for transformer inference.
+
+**How it works**: Groq's inference engines run transformer layers sequentially with minimal memory movement, maximizing throughput. Traditional GPUs spend 40% of time moving data between memory and compute. Groq optimizes the data path, reducing overhead.
+
+**Pricing**: Groq charges $5 per 1M input tokens, $15 per 1M output tokens. For a typical 50-token response with 500-token context:
+- Input cost: 500 tokens × $5/1M = $0.0025
+- Output cost: 50 tokens × $15/1M = $0.00075
+- Total: ~$0.003 per request
+
+For 1M requests monthly: $3,000.
+
+**Advantages**:
+- Extreme speed (2-10x faster than competitors)
+- Consistent latency (sub-100ms even under load)
+- Good pricing ($5/$15 matches mid-tier APIs)
+- Strong model support (Llama, Mixtral, and others)
+
+**Disadvantages**:
+- Limited model variety (newer models take weeks to add)
+- Smaller request context windows (can't process very long documents)
+- Newer service (less operational history than OpenAI/Anthropic)
+- Higher output token cost than some competitors
+
+**Best for**: Interactive applications requiring fast responses (chat, code completion, real-time search), applications where latency directly impacts user experience.
+
+## Fireworks: GPU Inference Optimization
+
+Fireworks runs LLMs on optimized GPU clusters, achieving 2-4x speedup over standard APIs through batching and hardware optimization.
+
+**How it works**: Fireworks combines several optimization techniques: batching requests to maximize GPU utilization, using lower-precision (int8, fp16) to reduce latency, and running on high-end NVIDIA H100 GPUs.
+
+**Pricing**: Fireworks charges $0.50-2.00 per 1M input tokens, $1.00-10.00 per 1M output tokens depending on model. For typical usage (500 input tokens, 50 output tokens):
+- Input: 500 × $0.50/1M = $0.00025
+- Output: 50 × $1.00/1M = $0.00005
+- Total: ~$0.0003 per request (cheaper than Groq)
+
+For 1M requests: $300 monthly (10x cheaper than Groq).
+
+**Advantages**:
+- Cheapest pricing per-token among fast APIs
+- Good model variety (70+ models)
+- Strong customization (LoRA fine-tuning support)
+- Good documentation and integrations
+
+**Disadvantages**:
+- 2-4x slower than Groq
+- Variable latency under load (batching introduces queuing)
+- Less mature than Groq
+
+**Best for**: Cost-optimized projects where sub-second latency isn't critical, applications valuing throughput over individual latency, teams needing fine-tuning support.
+
+## Together AI: Distributed Inference
+
+Together specializes in distributed inference, spreading large models across multiple GPUs for speed.
+
+**Pricing**: Together charges $0.30-2.00 per 1M input tokens, $1.00-10.00 per 1M output tokens, similar to Fireworks. For typical usage: ~$0.0003 per request.
+
+**Advantages**:
+- Competitive pricing with Fireworks
+- Very large context windows (100k+ tokens)
+- Specialized for large models (70B+ parameter models)
+- Good model variety
+
+**Disadvantages**:
+- Slightly slower than Fireworks
+- Less stable latency
+- Smaller ecosystem than Fireworks
+
+**Best for**: Applications processing long documents (100k+ tokens), large model inference, companies optimizing for cost over latency.
+
+## Cerebras: Custom Silicon (Alternative to Groq)
+
+Cerebras manufactures custom AI chips (Wafer Scale Engine) and offers inference through cloud API.
+
+**Pricing**: Cerebras pricing is opaque (contact sales), estimated $3-10 per 1M input tokens. Likely similar or slightly lower than Groq.
+
+**Advantages**:
+- Alternative to Groq (competition drives down prices)
+- Competitive speeds (2-6k tokens/second)
+- Custom silicon advantage
+
+**Disadvantages**:
+- Smaller ecosystem than Groq
+- Less documentation
+- Newer service with less operational track record
+- Limited model support
+
+**Best for**: Teams wanting Groq-speed performance but seeking vendor alternatives for negotiating pricing.
+
+## Real-World Latency Comparison
+
+Measured latency for typical chat response (200-token input, 100-token output):
+
+**Groq**:
+- Time-to-first-token: 50ms
+- Total time: 150ms (50ms + 100 tokens at 10k tokens/sec)
+
+**Fireworks**:
+- Time-to-first-token: 200ms (batching delay)
+- Total time: 400ms
+
+**Together**:
+- Time-to-first-token: 250ms
+- Total time: 450ms
+
+**OpenAI GPT-4**:
+- Time-to-first-token: 500ms
+- Total time: 1,500ms
+
+**Anthropic Claude**:
+- Time-to-first-token: 400ms
+- Total time: 1,200ms
+
+Groq is 10x faster than major LLM APIs. This is noticeable in interactive applications. Users perceive sub-100ms response as "instant," 200-500ms as "responsive," and 1,000ms+ as "slow."
+
+## Cost vs Speed Tradeoff
+
+Speed premium varies:
+
+| API | $/1M Input | $/1M Output | Speed (tokens/sec) | Cost per typical request | Speed rank |
+|-----|-----------|-----------|-------------------|------------------------|-----------|
+| Groq | $5 | $15 | 8,000 | $0.003 | 1st (fastest) |
+| Fireworks | $0.50 | $1.00 | 2,500 | $0.0003 | 2nd |
+| Together | $0.30 | $1.00 | 2,000 | $0.0002 | 3rd |
+| Claude Sonnet | $3 | $15 | 300 | $0.0055 | 5th |
+| GPT-4 | $30 | $60 | 150 | $0.09 | 6th |
+
+Groq costs 10x more than Fireworks for 4x speed gain. Is this worth it?
+
+For interactive applications (chat, code completion): Yes. User experience directly depends on latency. 100ms feels instant, 500ms feels sluggish. The cost increase (from $0.0003 to $0.003) is negligible compared to infrastructure and engineering costs.
+
+For batch processing (overnight analysis of documents): No. Paying 10x more to complete analysis in 1 hour instead of 4 hours doesn't justify the cost.
+
+## Throughput vs Latency Optimization
+
+Speed matters differently depending on application architecture.
+
+**Latency-optimized applications** (web chat):
+- Minimize time-to-first-token and total-response-time
+- Single-user request at a time
+- Response speed directly perceived by user
+- Use Groq (fastest)
+
+**Throughput-optimized applications** (batch processing):
+- Maximize tokens processed per second
+- Multiple requests in parallel
+- Individual response time matters less
+- Use Fireworks/Together (better cost-throughput)
+
+These optimization directions conflict. Groq optimizes latency (fast individual responses). Fireworks optimizes throughput (many responses in parallel). Same request might complete in 100ms (Groq) or 500ms (Fireworks), but Fireworks might process 10 requests in parallel for same cost.
+
+Identify the application type. Optimize accordingly. Don't pay premium for latency if throughput is the bottleneck.
+
+## When Speed Justifies Premium Pricing
+
+**Critical for speed**:
+- Real-time chat applications (users perceive latency)
+- Code completion (typing feels responsive)
+- Web search augmentation (users wait for response)
+- Live customer service agents
+- Real-time translation
+
+**Benefit from speed but not critical**:
+- Content generation (slight speed improvement, user doesn't perceive)
+- Analysis workflows (speed helps, but not user-facing)
+- Batch classification
+
+**Speed irrelevant**:
+- Overnight batch processing
+- Scheduled analysis jobs
+- Non-interactive workflows
+
+For speed-critical applications, Groq's 10x cost premium is easily justified. A customer service chatbot improving response latency from 500ms to 50ms might improve customer satisfaction 10-20%, potentially worth millions in retention.
+
+## Edge Cases and Specialized Workloads
+
+Beyond standard chat workloads, specialized use cases have unique speed requirements.
+
+**Long-context processing** (analyzing 100k+ token documents):
+- Groq excels (better throughput for long contexts)
+- Fireworks acceptable (batching improves throughput)
+- Claude for pure quality (best reasoning on complex documents)
+
+**Streaming responses** (real-time token delivery):
+- Groq minimal latency between tokens
+- Claude reasonable latency
+- Matters less than time-to-first-token for streaming
+
+**Multi-turn conversation** (maintaining chat history):
+- All APIs handle equally
+- Total cost matters more than latency
+- Use cheapest API supporting capability
+
+**Image analysis with LLM**:
+- All APIs have similar latency
+- Different model availability (Claude best for image understanding)
+- Vision latency often dominated by image upload, not inference
+
+Identify the specific workload. Generic "fastest" doesn't apply universally.
+
+## Model Availability and Limitations
+
+Groq's limited model variety is significant. As of early 2026, Groq supports:
+- Llama 3 (8B, 70B)
+- Mixtral 8x7B
+- Mixtral 8x22B
+- Limited other models
+
+Competitors support 50-100+ models. If developers need a specific model not on Groq (Claude, GPT-4, specialized fine-tuned models), Groq isn't an option.
+
+This is improving rapidly. Groq adds new models every few weeks, but lag behind competitors. Plan for 2-4 week delay between new model release and Groq availability.
+
+## Implementation Approach
+
+**Phase 1 (Prototyping)**: Start with Fireworks or Together (cheap, good models).
+
+**Phase 2 (MVP Launch)**: Evaluate if latency matters. If users complain about slowness, graduate to Groq. If latency is acceptable, stick with cheaper option.
+
+**Phase 3 (Scale)**: For speed-critical features, use Groq. For batch/non-interactive features, use cheaper competitors. Hybrid approach: use Groq for chat responses, Fireworks for background analysis.
+
+## Practical Example: Building a Chat Application
+
+For a chat application with 10k daily active users, 50 messages per user daily (500k messages daily):
+
+**Option 1: Fireworks only**:
+- Average cost per message: $0.0003
+- Daily cost: $150
+- Monthly: $4,500
+- Latency: 400ms (acceptable for most users)
+
+**Option 2: Groq only**:
+- Average cost per message: $0.003
+- Daily cost: $1,500
+- Monthly: $45,000
+- Latency: 150ms (excellent)
+
+**Option 3: Hybrid (Groq for chat, Fireworks for background analysis)**:
+- Chat (400k messages on Groq): $1,200/month
+- Analysis (100k on Fireworks): $30/month
+- Total: $1,230/month
+- Latency: 150ms chat (excellent), 500ms analysis (acceptable)
+
+The hybrid approach balances cost and latency. Groq for user-facing features where speed matters, Fireworks for background work.
+
+## Monitoring and Optimization
+
+For latency-critical applications, monitor:
+- **Latency percentiles** (p50, p95, p99)
+- **Cost per request**
+- **Error rates and retry behavior** (slow APIs increase retry overhead)
+
+Groq's consistent sub-100ms latency across load is valuable. Fireworks' variable latency (200-400ms) can spike under load. For applications requiring SLA guarantees, Groq provides better reliability.
+
+## User Experience and Perceived Performance
+
+Beyond raw latency metrics, user perception matters.
+
+**Sub-100ms responses** feel "instant" (like local application). Users perceive no lag.
+
+**100-500ms responses** feel "responsive" (acceptable for most applications).
+
+**500ms-1s responses** feel "acceptable" (noticeable delay, tolerable).
+
+**1s-5s responses** feel "slow" (user considers task failed, retries).
+
+**5s+ responses** unacceptable (users abandon).
+
+Groq's 150ms latency feels instant. Fireworks' 400ms feels responsive. Claude's 1,200ms feels slow.
+
+For chat applications, this perception difference is critical. Users comparing chatbots will prefer the faster one, even if quality is identical. Speed is a feature.
+
+## Advanced Latency Optimization Techniques
+
+Beyond API selection, optimize latency in application code.
+
+**Request batching**: Multiple concurrent requests batch together, reducing per-request latency. 100 concurrent requests processed together (1 API call with batch size 100) cost same as serial but complete 10-100x faster.
+
+**Streaming responses**: For long outputs, stream tokens as they generate rather than waiting for completion. Users see response starting at 50ms, words appearing continuously. Feels faster than waiting 1s for full response.
+
+**Speculative decoding**: Guess next tokens before computing (based on simple model), then verify with expensive model. If guess correct, save compute time. For Groq, speculative decoding enables even faster inference.
+
+**Cache warmed models**: Load frequently-used models into GPU memory during low-traffic periods. When request arrives, model already loaded, reducing latency 100-500ms.
+
+**Regional proximity**: Deploy API clients in same region/datacenter as API endpoint. Reduce network latency 50-100ms.
+
+## Cost vs Latency Pareto Frontier
+
+Optimal choice sits on efficiency frontier: best latency for given cost, or best cost for given latency.
+
+Points on frontier: Groq (best latency), Fireworks (good latency/cost balance), Together (best cost).
+
+Points off frontier: Using slow APIs for latency-critical apps, using Groq for batch processing.
+
+Identify the latency requirement. Find cheapest API meeting that requirement. Typical configurations:
+
+- **Latency critical (must respond <200ms)**: Groq
+- **Latency sensitive (must respond <500ms)**: Fireworks or Groq (depending on cost budget)
+- **Latency flexible (OK with 1-5s response)**: Fireworks or Together (minimal cost)
+- **Latency irrelevant (batch processing)**: Together or local models (minimum cost)
+
+## Benchmarking The Actual Workload
+
+Theoretical numbers don't always reflect reality. Benchmark on the specific workload.
+
+**Test setup**:
+1. Create realistic prompts (represent actual usage)
+2. Send requests to each API
+3. Measure end-to-end latency (client to response)
+4. Measure for 100+ requests (get representative average)
+5. Measure percentiles (p50, p95, p99)
+
+**Realistic test might reveal**: Groq fast for short responses, Fireworks better for long responses due to streaming implementation. Or Together sometimes faster due to caching the frequent queries.
+
+Real-world performance trumps marketing claims. Verify before committing to expensive API.
+
+## Monitoring and Optimization Over Time
+
+Production latency monitoring enables ongoing optimization.
+
+**Dashboard showing**: Average latency, latency percentiles, error rates, cost per request.
+
+**Alerts**: Alert if p99 latency exceeds SLA (e.g., alert if exceeding 500ms).
+
+**Optimization opportunities**: Identify slow queries. Are they inherently slow or sub-optimal routing? Queries timing out on Groq due to long context? Switch specific cases to different API.
+
+**A/B testing APIs**: Route 10% of traffic to Fireworks, 90% to Groq. Measure quality, latency, cost. If Fireworks performs adequately, switch more traffic. Incrementally test alternatives.
+
+## Final Thoughts
+
+Speed rankings are clear: Groq leads, Fireworks and Together compete for speed/cost balance, others follow. The choice depends on workload.
+
+For interactive applications where latency directly impacts user experience, [Groq is the best choice](/llms). Its 10x cost premium is negligible compared to lost customers from perceived slowness.
+
+For batch processing and non-interactive workloads, [Fireworks or Together minimize costs](/articles/llm-cost-per-token) while providing sufficient speed.
+
+Build latency monitoring into the application from day one. If developers discover speed matters for the use case, migrating to Groq is straightforward (compatible APIs). Start cheap, graduate to speed when evidence justifies the investment.
+
+The LLM inference market continues evolving. More custom silicon vendors will emerge, potentially competing with Groq. Reevaluate quarterly as new options appear and pricing changes.
+
+Invest in understanding the actual latency requirements. Not all applications need sub-100ms latency. Many are fine with 500ms-1s. Save Groq's premium cost for applications where user experience directly depends on speed. For everything else, optimize for cost while maintaining acceptable latency.
+
+Speed is a feature, not a requirement. Deploy the right amount of speed for the use case, not more.

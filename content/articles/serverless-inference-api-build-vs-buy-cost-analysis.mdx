@@ -1,0 +1,144 @@
+---
+title: 'Serverless Inference API: Build vs Buy Cost Analysis'
+slug: serverless-inference-api-build-vs-buy-cost-analysis
+description: >-
+  Compare building serverless inference vs buying API access. Analyze costs for
+  LLM inference, container orchestration, scaling, and management overhead.
+date: '2026-03-22'
+author: DeployBase
+---
+
+## Contents
+
+- [Introduction](#introduction)
+- [Serverless Inference API Options](#serverless-inference-api-options)
+- [Build Path Analysis](#build-path-analysis)
+- [Buy Path Analysis](#buy-path-analysis)
+- [Cost Comparison](#cost-comparison)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Introduction
+
+Build the own inference API or buy from someone else. Both work. Both cost different amounts for different traffic patterns. This analysis shows which makes sense when.
+
+Building means managing GPUs, containers, orchestration, monitoring. Buying means paying a premium and dealing with vendor lock-in. The choice hinges on scale and complexity tolerance.
+
+## Serverless Inference API Options
+
+### Managed API Services
+
+OpenAI, Claude, others charge per-token. Input: $0.001-0.010 each. Output: $0.002-0.030. Scales automatically with traffic.
+
+SageMaker Serverless adds auto-scaling: $0.06/hour base + per-request charges ($0.0001-0.0004 per invocation). Hybrid model suits bursty loads.
+
+Replicate: per-second billing. Text: $0.001/sec. Vision: $0.004-0.008/sec. Pure pay-for-use, no idle waste.
+
+### Self-Hosted Serverless
+
+Kubernetes + autoscaling for custom models. GPU costs dominate. RTX 4090 from RunPod runs $0.22-0.35/hr = $1,900-3,000/year, 24/7.
+
+Container startup: 5-30 seconds depending on model. Cold start matters for latency apps. Warm instances cost more.
+
+K8s needs expertise. Load balancing, orchestration, monitoring, alerting - this all eats engineering time.
+
+## Build Path Analysis
+
+### Infrastructure Costs
+
+GPUs are the big cost. 125M params (GPT-2 size) needs one RTX 4090: $0.22/hr = $1,900/yr. 7B params? A100: $1.19/hr = $10,400/yr.
+
+Scale to 100 requests/min? Need 4-8 GPUs. Now developers're at $40k-80k annually.
+
+Add storage (10-15% overhead): $100-500/mo. Add bandwidth (CDN): $200-1,000/mo for medium traffic.
+
+### Operational Costs
+
+DevOps time is huge. K8s setup, monitoring, autoscaling, DR: 2-4 weeks initially. Then 1-2 weeks annually for maintenance.
+
+At $200/hour loaded rate: $16k-32k initial, $8k-16k yearly. That's real money.
+
+Monitoring tooling (GPU utilization, latency, errors): $2k-5k/yr. Alerting keeps production from exploding but costs too.
+
+## Buy Path Analysis
+
+### API Pricing Models
+
+Token-based pricing: 1B tokens/month at $0.005 = $5k/mo. Works for unpredictable traffic.
+
+Per-invocation billing: SageMaker at $0.0001 × 100k requests = $10/mo. Good for low volume.
+
+Hybrid: base + variable. SageMaker $0.06/hr base + per-request charges. Guarantees capacity with scaling.
+
+### Operational Overhead
+
+APIs kill infrastructure complexity. No K8s. No GPU shopping. No capacity planning. Teams build products instead.
+
+Integration: authentication, retries, error handling. Usually 1-2 days. SageMaker needs containers but kills scaling headaches.
+
+Vendor lock-in: switching costs engineering time and code rewrites. Multi-cloud adds complexity. Single vendor is a risk.
+
+## Cost Comparison
+
+### Small Inference Load (100k monthly requests)
+
+Build: $1,900 GPU + $4,000 engineering = $5,900/yr. One RTX 4090.
+
+Buy (token): 100k requests × 200 tokens × $0.005 = $100/mo = $1,200/yr.
+
+Buy (SageMaker): $0.06/hr ($525/yr) + $0.0001/request ($10/yr) = $535/yr.
+
+APIs win big at small scale. 75-80% savings. For the economics of specific platforms, see [RunPod pricing](/articles/runpod-gpu-pricing).
+
+### Medium Inference Load (10M monthly requests)
+
+Build: 4 A100s ($41,600) + engineering ($20,000) = $61,600/yr.
+
+Buy (token): 10M requests × 200 tokens × $0.005 = $120,000/yr. Ouch.
+
+Buy (SageMaker): 4 instances ($2,100/yr) + requests ($1,000) = $3,100/yr. Killer economics.
+
+Building becomes competitive here. SageMaker crushes token-based APIs by 40x.
+
+### Large Inference Load (1B monthly requests)
+
+Build: 50 H100s ($135,000/yr) + engineering ($50,000) = $185,000/yr.
+
+Buy (token): 1B requests × 200 tokens × $0.005 = $12M/yr. Crazy.
+
+Buy (custom contract): $0.001-0.002/token = $2.4M-4.8M/yr. Still nuts.
+
+Building wins by a landslide. 90%+ cheaper than token-based. Contracts help but building still dominates. Learn more about [inference optimization](/articles/what-is-llm-inference).
+
+## FAQ
+
+**Should a startup use managed APIs or build serverless inference?**
+Startups should buy APIs initially. The time-to-market advantage and zero operational overhead outweigh costs. Building becomes attractive once monthly spending exceeds $10,000 on APIs.
+
+**What's the break-even point between building and buying?**
+Build and buy costs equalize around $5,000-10,000 monthly spending, depending on model size and request patterns. Beyond this, building becomes cost-effective.
+
+**Can a team build serverless inference without Kubernetes?**
+Yes, containerized functions on AWS Lambda work for smaller models under 1GB. Models larger than 2GB require more powerful hardware. See [sagemaker-serverless-inference-gpu](/articles/sagemaker-serverless-inference-gpu) for managed alternatives.
+
+**What's the typical cold start latency for serverless inference?**
+Container startup adds 5-15 seconds cold start time. Keeping replicas warm costs money but eliminates this penalty. Most production systems maintain minimum replica counts.
+
+**How does multi-region deployment affect build vs buy?**
+Building multi-region systems adds geographic complexity and cost. APIs automatically provide global coverage. This advantage grows as global presence becomes important. See [compare-aws-lambda-gpu-serverless](/articles/compare-aws-lambda-gpu-serverless) for more detail.
+
+## Related Resources
+
+- [SageMaker Serverless Inference GPU](/articles/sagemaker-serverless-inference-gpu)
+- [Compare AWS Lambda GPU Serverless](/articles/compare-aws-lambda-gpu-serverless)
+- [Serverless GPU Deployment](/articles/serverless-gpu)
+- [Inference Optimization Guide](/articles/what-is-llm-inference)
+- [GPU Pricing Guide](/gpus)
+
+## Sources
+
+- [AWS SageMaker Serverless Inference](https://docs.aws.amazon.com/sagemaker/latest/dg/serverless-endpoints.html)
+- [OpenAI Pricing](https://openai.com/pricing)
+- [Anthropic Pricing](https://www.anthropic.com/pricing)
+- [Replicate Pricing](https://replicate.com/pricing)

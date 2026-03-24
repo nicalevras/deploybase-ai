@@ -1,0 +1,188 @@
+---
+title: 'When to Upgrade from H100 to B200: ROI Guide'
+slug: when-to-upgrade-from-h100-to-b200-roi-guide
+description: >-
+  Should teams upgrade to NVIDIA B200? Compare H100 vs B200 performance, cost,
+  and ROI calculations for LLM production systems.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - h100 vs b200 roi
+---
+
+## Contents
+
+- [H100 vs B200 ROI: Evaluating B200 Upgrades from H100](#h100-vs-b200-roi-evaluating-b200-upgrades-from-h100)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## H100 vs B200 ROI: Evaluating B200 Upgrades from H100
+
+H100 vs B200 ROI is the focus of this guide. The NVIDIA B200 represents a major generational leap over the H100 with significantly higher memory capacity and bandwidth. As of March 2026, cost-benefit analysis determines whether upgrades make financial sense for production systems.
+
+### Hardware Comparison
+
+**H100 Specifications**
+H100 SXM GPUs deliver 989 TFLOPS BF16, 3.35 TB/s memory bandwidth. 80GB HBM3 memory. Tensor cores optimized for matrix operations in LLMs.
+
+Widely available from [RunPod ($2.69/hr)](/gpus), [Lambda ($2.49/hr)](/articles/lambda-labs-gpu-pricing), and [CoreWeave ($49.24 for 8x)](/articles/coreweave-gpu-pricing). Mature ecosystem with proven production deployments.
+
+**B200 Specifications**
+B200 delivers approximately 4.6 PFLOPS BF16 (roughly 4.6x H100's 989 TFLOPS) and ~9 PFLOPS FP8 peak. 192GB HBM3e memory compared to H100's 80GB HBM3. ~8 TB/s memory bandwidth, more than double H100 SXM's 3.35 TB/s. Substantial bandwidth improvements reduce memory bottlenecks significantly.
+
+[RunPod B200 pricing: $5.98/hr](/gpus). [Lambda B200: $6.08/hr](/articles/lambda-labs-gpu-pricing). Approximately 2x H100 hourly costs. Availability remains limited as of March 2026 compared to mature H100 supply.
+
+### Actual Performance Gains
+
+**Inference Throughput**
+LLM inference performance depends heavily on batch size and sequence length. The B200's massive memory bandwidth (~8 TB/s vs H100's 3.35 TB/s) directly benefits memory-bound inference. Small batch sizes (1-4) can see 2-3x throughput improvements. Large batches (32+) benefit from both the bandwidth and compute gains.
+
+Most production LLM workloads see 2-4x throughput improvements depending on model size and batch configuration. Larger models benefit more from the expanded 192GB memory capacity.
+
+**Fine-Tuning Speed**
+Training performance benefits from both the higher compute (~4.6x BF16 theoretical) and the larger memory pool. Fine-tuning a 7B model shows 2-3x speedup. Fine-tuning 70B models can fit in a single B200 (192GB) that previously required multi-GPU H100 setups (80GB each), potentially reducing communication overhead.
+
+Trading H100 for B200 can reduce training time by 2-4x for compute-bound workloads. For teams doing frequent retraining, this is a meaningful advantage.
+
+**Latency Improvements**
+Token generation latency (time per output token) improves substantially. B200's higher memory bandwidth (~8 TB/s vs 3.35 TB/s) reduces per-token latency significantly for memory-bound workloads. A workload taking 50ms/token on H100 could drop to 15-25ms/token on B200. This is meaningful for latency-sensitive applications.
+
+### Cost Per Inference Analysis
+
+**Hourly Rates**
+H100 on RunPod: $2.69/hr
+B200 on RunPod: $5.98/hr (2.2x cost)
+
+For continuous operation, B200 costs about 2.2x more per hour. Whether this is justified depends on whether workloads achieve 2x or better throughput gains, which many compute-bound or large-batch workloads do.
+
+**Cost Per Request Calculation**
+H100 handles roughly 100 requests/second at modest batch sizes. B200 handles roughly 250-300 requests/second (2.5-3x improvement) at similar configurations.
+
+Cost per request on H100: $2.69/3600 / 100 = $0.0000747 per request
+Cost per request on B200: $5.98/3600 / 275 = $0.0000604 per request
+
+At 2.75x throughput, B200 costs about 19% less per request despite being 2.2x the hourly price. The economics improve further as batch sizes scale.
+
+**Exception: If Latency or Capacity Constraints Exist**
+Applications requiring the lowest possible response times or needing to fit very large models (70B+) in a single GPU justify B200 upgrade. The 192GB HBM3e capacity is a unique advantage for large model serving that H100 simply cannot match in a single card.
+
+### Training Economics
+
+**Fine-Tuning Cost Comparison**
+Training a 7B model on 10,000 examples:
+- H100: 6 hours of GPU time = $2.69 * 6 = $16.14
+- B200: 2.5 hours of GPU time (roughly 2.4x faster) = $5.98 * 2.5 = $14.95
+
+B200 costs slightly less in compute dollars for this task while finishing in less than half the time. For cost-equivalent or faster results, B200 is increasingly justified for fine-tuning.
+
+**High-Frequency Retraining**
+Teams retraining models daily benefit substantially from B200 speedups. Daily 6-hour training run costs $16.14 on H100 vs $14.95 on B200 (at 2.4x speedup). Monthly difference: $484 vs $449 — B200 is both faster and cheaper for daily training. At higher speedup ratios, the savings compound further.
+
+### Production Workload Analysis
+
+**Batch Inference Workloads**
+Process 1,000,000 tokens daily through LLMs (roughly 10,000 requests at 100 tokens each).
+
+H100 costs: ~12.5 GPU hours = $33.63 daily or $1,000 monthly
+B200 costs: ~5 GPU hours (at 2.5x throughput) = $29.90 daily or $897 monthly
+
+For batch processing, B200 can be more economical than H100 when throughput gains exceed the cost premium. The higher memory capacity also allows larger batch sizes, improving utilization further.
+
+**Real-Time API Workloads**
+Supporting 10 concurrent users (peak), each generating 2 requests/minute with 500 token responses.
+
+H100 allocation: Single H100 handles this easily, 2% utilization. Cost negligible.
+B200 allocation: Same utilization, cost still negligible.
+
+Scale to 1,000 concurrent users:
+H100: 3 GPUs = $1,200 monthly
+B200: 1-2 GPUs = $717-$1,434 monthly (2-3x higher throughput per GPU)
+
+With 2-3x throughput gains, B200 can serve the same load with fewer GPUs, potentially at lower total cost. The exact savings depend on workload characteristics.
+
+### ROI Framework
+
+**Calculate The Breakeven Point**
+1. Measure current GPU hours needed for production workload
+2. Calculate cost of those GPU hours on H100 vs B200
+3. Measure performance gain percentage from B200
+4. Calculate monthly cost delta
+
+Cost delta that justifies upgrade depends on business value of performance improvements.
+
+Example:
+- Current: 500 H100 GPU hours/month at $2.69 = $1,345
+- B200 equivalent: ~200 hours (2.5x faster) at $5.98 = $1,196
+- Monthly cost decrease: ~$149
+
+At 2.5x throughput, B200 can reduce total cost. The economics depend heavily on your actual workload's speedup factor (which ranges 2-4x depending on batch size and model type).
+
+**Quantifying Business Value**
+- Latency improvement: Value depends on user experience impact. Hard to quantify.
+- Throughput improvement: Value is cost savings from fewer concurrent GPUs needed.
+- Training speedup: Value is developer time saved or feature rollout acceleration.
+
+For many workloads, the 2-4x throughput improvement through B200 can offset or exceed the 2x hourly cost increase. The key variables are your actual speedup factor and how much you can leverage the 192GB memory capacity.
+
+### Deprecation and Upgrade Timing
+
+**H100 Resale Value**
+Used H100 GPUs trade at ~70% of new price. Depreciation is 30% per year for production systems. This favors delaying upgrades.
+
+H100 GPUs will remain viable for 3-5 years. Waiting for H200/B200 to drop in price (usually takes 18+ months) often yields better ROI than immediate upgrades.
+
+**Stock and Availability**
+H100 supply is abundant. B200 supply is constrained as of March 2026. Availability premiums add 10-15% to B200 costs on spot markets.
+
+When B200 becomes commodity (late 2026 or 2027), costs will drop closer to H100 relative pricing.
+
+### Upgrade Decision Tree
+
+**Upgrade to B200 if:**
+- Latency requirements force continuous operation (real-time inference)
+- Training frequency is high (daily fine-tuning pipelines)
+- Batch sizes are large (>256) where compute becomes bottleneck
+- Cost is immaterial relative to revenue
+
+**Stay with H100 if:**
+- Workloads are batch-processing (can run overnight)
+- Latency margins are adequate (sub-second is fine)
+- Cost is a primary constraint
+- Supply and availability favor H100
+
+**Wait if:**
+- Current H100 infrastructure is recent
+- B200 price premium is >1.8x (wait for discounts)
+- Workload patterns are unpredictable
+- Organization prioritizes operational simplicity
+
+## FAQ
+
+**Does B200 have more memory than H100?**
+Yes. B200 has 192GB HBM3e vs H100 SXM's 80GB HBM3. The extra 112GB memory is a major advantage for larger batch sizes, longer context windows, and fitting larger models in a single GPU.
+
+**Is B200 supply improving in 2026?**
+As of March 2026, B200 supply remains constrained but improving. Expect better availability in Q3 2026. Spot market availability varies.
+
+**Should we upgrade partially (keep some H100s, add B200s)?**
+Mixed fleets complicate operations but reduce risk. Keep H100s for baseline load, add B200s for latency-critical services. Operational overhead often outweighs benefits.
+
+**What about H200 vs B200?**
+H200 has 141GB HBM3e and 4.8 TB/s bandwidth — same compute as H100 but significantly more memory and bandwidth. B200 offers both more memory (192GB HBM3e) and dramatically higher compute (~4.6x BF16 vs H100). H200 makes sense for memory-constrained workloads where compute is not the bottleneck. B200 is the choice for maximum compute throughput and memory capacity.
+
+## Related Resources
+
+- [NVIDIA H100 pricing comparison](/articles/nvidia-h100-price)
+- [NVIDIA B200 pricing information](/articles/nvidia-b200-price)
+- [RunPod GPU pricing](/gpus)
+- [Lambda GPU pricing](/articles/lambda-labs-gpu-pricing)
+- [CoreWeave GPU pricing](/articles/coreweave-gpu-pricing)
+
+## Sources
+
+- NVIDIA H100 and B200 specifications (March 2026)
+- RunPod, Lambda, CoreWeave pricing data
+- 2026 LLM inference and training benchmarks
+- Production GPU utilization case studies
+- Cloud GPU cost analysis reports

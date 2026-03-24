@@ -1,0 +1,157 @@
+---
+title: 'H100 on Google Cloud: Pricing, Specs & How to Rent'
+slug: h100-on-google-cloud-pricing-specs-how-to-rent
+description: >-
+  Google Cloud doesn't offer H100s directly (as of March 2026). Use A100
+  instead, or rent H100s from RunPod/Lambda and pipe data from Cloud Storage.
+date: '2026-03-22'
+author: DeployBase
+---
+
+## Contents
+
+- [H100 on Google Cloud](#h100-on-google-cloud)
+- [H100 Specs](#h100-specs)
+- [Alternative H100 Providers](#alternative-h100-providers)
+- [H100 Rental Cost Comparison](#h100-rental-cost-comparison)
+- [When to Choose H100 vs. Google Cloud Alternatives](#when-to-choose-h100-vs-google-cloud-alternatives)
+- [How to Rent H100s Through Alternative Providers](#how-to-rent-h100s-through-alternative-providers)
+- [Integrating H100 Workloads with Google Cloud Data](#integrating-h100-workloads-with-google-cloud-data)
+- [H100 Performance Benchmarks](#h100-performance-benchmarks)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## H100 on Google Cloud
+
+Google Cloud doesn't offer H100s directly (as of March 2026). Use A100 instead, or rent H100s from RunPod/Lambda and pipe data from Cloud Storage.
+
+## H100 Specs
+
+- 80GB HBM3 memory
+- 3.35 TB/s memory bandwidth
+- FP8: 3,958 TFLOPS
+- FP32: 67 TFLOPS
+- 700W power
+
+## Alternative H100 Providers
+
+Since Google Cloud doesn't offer H100s directly, teams should consider these established providers:
+
+[RunPod](/articles/runpod-gpu-pricing) offers H100 PCIe at $1.99/hour and H100 SXM at $2.69/hour. These competitive rates make RunPod attractive for projects spanning days to weeks.
+
+[Lambda Labs](/articles/lambda-labs-gpu-pricing) provides H100 PCIe at $2.86/hour and H100 SXM at $2.49/hour. Lambda includes professional support and guaranteed availability for research teams.
+
+[CoreWeave](/articles/coreweave-gpu-pricing) bundles H100s in 8-GPU configurations at $49.24/hour for H100 and $50.44/hour for H200. This arrangement suits large-scale training runs requiring consistent multi-GPU performance.
+
+## H100 Rental Cost Comparison
+
+RunPod H100 options represent the most cost-effective approach:
+- H100 PCIe: $1.99/hour ($47.76/day, $1,430/month)
+- H100 SXM: $2.69/hour ($64.56/day, $1,937/month)
+
+Lambda Labs charges a premium for guaranteed availability:
+- H100 PCIe: $2.86/hour ($68.64/day, $2,059/month)
+- H100 SXM: $2.49/hour ($59.76/day, $1,818/month)
+
+CoreWeave 8xH100 bundles cost $49.24/hour, translating to $6.16/hour per GPU when divided by eight units, but require committing to the full cluster.
+
+## When to Choose H100 vs. Google Cloud Alternatives
+
+Google Cloud customers should assess whether H100 access justifies switching providers. The service operates global data center locations with integrated networking, identity management, and logging through Cloud Console.
+
+For moderate-scale projects, Google Cloud's [A100 GPUs](/articles/nvidia-a100-price) deliver 40 GB of memory at lower cost. The A100 reaches 312 teraflops in FP8 precision, suitable for most transformer fine-tuning work.
+
+Projects requiring immediate H100 access should provision on RunPod or Lambda, then stream training data from Google Cloud Storage using standard REST APIs. This hybrid approach maintains cost efficiency while accessing required hardware.
+
+Research teams with sustained H100 needs benefit from commitment discounts on alternative platforms. CoreWeave and RunPod both offer monthly rate reductions for multi-month reservations.
+
+## How to Rent H100s Through Alternative Providers
+
+**RunPod Setup Process:**
+- Create account at runpod.io
+- handle to GPU Cloud section
+- Search for "H100" in the catalog
+- Select desired configuration (PCIe or SXM)
+- Launch a container template or bring custom Docker image
+- Monitor costs in the dashboard
+
+**Lambda Labs Approach:**
+- Register at lambdalabs.com
+- Request access (production users may need approval)
+- Browse available instances
+- Book dedicated or on-demand H100 capacity
+- SSH connect immediately after provisioning
+- Track usage through billing portal
+
+**CoreWeave Workflow:**
+- Access CoreWeave console
+- Configure 8xH100 cluster requirements
+- Specify region preference
+- Provision Kubernetes cluster or raw VMs
+- Deploy containerized workloads across nodes
+- Scale cluster size as needed
+
+## Integrating H100 Workloads with Google Cloud Data
+
+Once H100 resources are provisioned elsewhere, teams should establish efficient data pipelines:
+
+Transfer training data from Cloud Storage to the H100 provider using `gsutil` CLI tools. Batched downloads reduce API call overhead compared to file-by-file operations.
+
+Configure service accounts with minimal permissions. Restrict Cloud Storage bucket access to training IP ranges when possible.
+
+Store model checkpoints on Google Cloud Persistent Disks or Cloud Storage for disaster recovery. H100 instances typically don't persist long-term.
+
+Use BigQuery for experiment tracking and result logging. Many training frameworks export metrics to BigQuery via standard connectors.
+
+## H100 Performance Benchmarks
+
+Large language model training on H100 hardware shows measurable throughput gains. A 7-billion parameter model achieves approximately 140,000 tokens per second during training on a single H100 SXM GPU with batch size 32.
+
+Inference performance varies by quantization. Running Llama 2 70B at int8 quantization delivers 45 tokens/second on H100 with batched requests.
+
+Fine-tuning a 13-billion parameter model completes in under 3 hours on a single H100 using standard LoRA adapters with rank 64.
+
+Multi-GPU scaling on H100 clusters shows near-linear improvements up to 8 GPUs when using NVIDIA NCCL collective communications.
+
+## FAQ
+
+**Q: Can I use Google Cloud's TPU v5e as an alternative to H100?**
+
+TPUs operate with different tensor dimensions and software stacks. TPU v5e excels at specific workloads but doesn't provide direct H100 compatibility.
+
+**Q: What's the minimum contract length for H100 rentals?**
+
+RunPod and Lambda Labs offer hourly billing with no minimum. CoreWeave typically requires monthly commitments for best pricing.
+
+**Q: How quickly can I access an H100?**
+
+RunPod provisions instances in under 2 minutes. Lambda Labs typically delivers within 5 minutes. CoreWeave Kubernetes clusters may take 10-15 minutes.
+
+**Q: Does Google Cloud offer any H100 alternatives within their platform?**
+
+Google Cloud provides [L4 GPUs](/gpus) and A100s. Neither matches H100 memory bandwidth or compute density, but both cost significantly less.
+
+**Q: What's the best H100 provider for month-long training runs?**
+
+RunPod provides the lowest hourly rates. For month-long jobs, CoreWeave's monthly commitment pricing may be competitive after volume discounts.
+
+## Related Resources
+
+[GPU Pricing Guide](/gpus) - Compare all major providers
+
+[RunPod GPU Pricing](/articles/runpod-gpu-pricing) - Detailed RunPod rates
+
+[Lambda GPU Pricing](/articles/lambda-labs-gpu-pricing) - Lambda Labs specifications
+
+[CoreWeave GPU Pricing](/articles/coreweave-gpu-pricing) - production GPU solutions
+
+[H100 Specs Guide](/articles/nvidia-h100-price) - Complete technical specifications
+
+## Sources
+
+- NVIDIA H100 Tensor GPU Technical Brief
+- RunPod GPU Cloud Pricing Documentation
+- Lambda Labs GPU Instance Offerings
+- CoreWeave GPU Cloud Services Documentation
+- Google Cloud Computing Engine Documentation

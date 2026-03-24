@@ -1,0 +1,193 @@
+---
+title: 'Open-Source LLM Inference: Cheapest Hosting Options'
+slug: open-source-llm-inference-cheapest-hosting-options
+description: >-
+  Compare the most affordable ways to host open-source LLM inference. Provider
+  pricing, optimization techniques, and cost analysis.
+date: '2026-03-22'
+author: DeployBase
+---
+
+## Contents
+
+- [Minimizing Costs for Open-Source Language Model Inference](#minimizing-costs-for-open-source-language-model-inference)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Minimizing Costs for Open-Source Language Model Inference
+
+Open-source language model inference costs depend on model size, quantization approach, request volume, and infrastructure choices. Deploying intelligently reduces expenses by 70-90% compared to naive configurations. This guide examines pricing strategies, provider comparison, and optimization techniques for cost-effective inference at scale.
+
+### Spot Instance Economics
+
+Spot instances cost 70-90% less than on-demand pricing. AWS, GCP, and Azure all offer spot capacity at steep discounts. Trade-off involves occasional interruption risk, acceptable for non-critical inference workloads.
+
+Compare pricing across providers as of March 2026:
+
+AWS EC2 p3.2xlarge (1x V100): $3.06/hour on-demand, $0.92/hour spot (70% savings)
+GCP n1-standard-8 with K80 GPU: $0.35/hour on-demand, $0.10/hour spot (71% savings)
+Azure NC6 with Tesla K80: $0.90/hour on-demand, $0.27/hour spot (70% savings)
+
+Spot pricing fluctuates hourly based on supply and demand. Set price alerts and monitor trends. Reserve commitment when prices drop to historic lows. Handle interruptions gracefully with request queuing and checkpoint restoration.
+
+### Quantization's Impact on Operating Costs
+
+Model quantization reduces GPU VRAM requirements, enabling smaller, cheaper instances.
+
+7B parameter model costs:
+
+Full precision (32-bit): Requires 28GB VRAM. Needs A100-80GB or H100. $2.69/hour on [H100 instances](/articles/nvidia-h100-price)
+16-bit (half precision): Requires 14GB VRAM. Fits on V100 or A100-40GB. $1.39/hour on [A100 instances](/articles/nvidia-a100-price)
+8-bit: Requires 7GB VRAM. Fits on RTX 4090 or older V100. $0.34/hour on [RTX 4090](/articles/runpod-gpu-pricing)
+4-bit: Requires 3.5GB VRAM. Runs on entry-level GPUs. $0.34/hour on [RTX 4090](/articles/vast-ai-pricing)
+
+Moving from full-precision to 4-bit quantization reduces infrastructure costs by 88%. Quality degradation remains minimal for most applications. 4-bit quantization represents optimal cost-per-quality ratio for production deployments.
+
+### Provider Pricing Comparison
+
+AWS Lambda custom runtimes allow containerized inference. Pay per invocation plus compute time. Ideal for occasional queries. Not cost-effective for sustained traffic.
+
+Google Cloud Run scales containers to zero when idle. Pay only for active requests. Excellent for bursty workloads. Minimum startup time of 1-2 seconds acceptable for most use cases.
+
+[RunPod provides focused GPU rental](/articles/runpod-gpu-pricing) with competitive pricing. RTX 4090: $0.34/hour. A100 SXM: $1.39/hour. H100 SXM: $2.69/hour. [Lambda GPU pricing](/articles/lambda-labs-gpu-pricing) offers A100 at $1.48/hour and H100 SXM at $2.49/hour (PCIe at $2.86/hour). Both support reserved instances for 30-50% additional savings.
+
+[AWS GPU pricing](/articles/aws-vs-azure-gpu-pricing) varies widely. Standard on-demand instances cost more than specialized providers. But integrated services and existing ecosystem integration may justify premium. [CoreWeave GPU pricing](/articles/coreweave-gpu-pricing) targets AI workloads with optimized networking and storage. [Vast.ai GPU pricing](/articles/vast-ai-pricing) aggregates excess capacity from individuals, offering 60-75% discounts versus traditional cloud.
+
+### Container-Based Inference Services
+
+vLLM framework provides the most efficient inference server. Batches requests, caches prompts, and optimizes memory. Throughput per GPU 2-3x higher than naive implementations.
+
+Deploy vLLM in Docker:
+
+```dockerfile
+FROM nvidia/cuda:12.1.1-runtime-ubuntu22.04
+
+RUN pip install vllm
+
+ENTRYPOINT ["python", "-m", "vllm.entrypoints.api_server"]
+```
+
+Run on any GPU instance:
+
+```bash
+docker run --gpus all -p 8000:8000 vllm-server \
+  --model mistralai/Mistral-7B-v0.1 \
+  --tensor-parallel-size 1 \
+  --gpu-memory-utilization 0.9
+```
+
+vLLM handles scaling, batching, and optimization internally. Serves multiple concurrent requests efficiently. One GPU with vLLM handles traffic of 3-4 GPUs with naive serving.
+
+Text Generation WebUI provides browser interface and API. Suitable for development and testing. Less optimized for production throughput but simpler to deploy.
+
+Ollama prioritizes ease-of-use. Runs models in seconds with minimal configuration. Trade-off involves less optimization. Sufficient for small-scale deployments under 100 requests/day.
+
+### Batch Processing Cost Reduction
+
+Process multiple prompts together to reduce per-request overhead. Batch size of 8 reduces per-token cost by 60-70% compared to processing individually.
+
+Implement request queuing:
+
+```python
+import asyncio
+from collections import deque
+
+class BatchProcessor:
+    def __init__(self, batch_size=8, timeout=5):
+        self.queue = deque()
+        self.batch_size = batch_size
+        self.timeout = timeout
+
+    async def add_request(self, prompt):
+        self.queue.append(prompt)
+        if len(self.queue) >= self.batch_size:
+            return await self.process_batch()
+        return await asyncio.sleep(self.timeout)
+
+    async def process_batch(self):
+        batch = [self.queue.popleft()
+                 for _ in range(min(len(self.queue), self.batch_size))]
+        # Process batch through model
+        return results
+```
+
+Accept slight latency increase (seconds) for significant cost reduction. Suitable for asynchronous workloads like email processing, log analysis, or batch reporting.
+
+### Throughput Optimization
+
+Measure tokens generated per second per GPU. This metric determines cost per token.
+
+Mistral-7B on RTX 4090 generates 60 tokens/second. At $0.34/hour, cost per million tokens: $5.67.
+
+Same model on H100 generates 200 tokens/second. At $2.69/hour, cost per million tokens: $13.45.
+
+Counter-intuitively, cheaper GPUs offer better cost-efficiency for this model. Diminishing returns exist when scaling beyond RTX 4090. Only upgrade GPU size when single GPU cannot handle sustained traffic.
+
+Reduce context length to improve throughput. 8k token context achieves 1.5x higher tokens/second than 32k context. Trade accuracy for speed when appropriate.
+
+### Multi-GPU Scaling Strategies
+
+Tensor parallelism splits model across multiple GPUs. Useful for 70B models requiring 2 GPUs minimum. Reduces latency by 50% compared to sequential generation.
+
+Pipeline parallelism stacks layers across GPUs. More complex to implement but enables 100+ billion parameter models. Overhead increases with more GPUs, making 4+ GPU setups less efficient.
+
+Replica serving runs multiple instances of same model. Useful for high concurrency. Distributes traffic across instances. Each instance costs full price, but throughput scales linearly.
+
+Choose replica serving for bursty traffic. Choose tensor parallelism for throughput requirements. Mix both for complex workloads.
+
+### Regional Pricing Variations
+
+US regions offer most competitive pricing. European regions 20-30% more expensive. Asian regions most expensive due to lower competition.
+
+Route traffic to US regions when possible. Accept 100-200ms latency increase for 30% cost reduction. Acceptable for most applications. Only use local regions when sub-100ms latency critical.
+
+### Cost Monitoring and Optimization
+
+Set daily spend budgets and monitor actual usage. Many providers offer cost tracking dashboards. Enable alerts at 80% of daily budget.
+
+Review logs monthly. Identify unnecessary requests, failed queries, or inefficient patterns. Optimize high-volume request types.
+
+Compare competing models. Smaller models (3B-7B) sometimes perform comparably to larger models (70B). Switching to smaller model reduces costs proportionally.
+
+A/B test quantization levels. Measure quality degradation at each level. Identify minimum quantization that maintains acceptable quality.
+
+## FAQ
+
+**What's the cheapest way to run Mistral inference?**
+[Vast.ai GPU pricing](/articles/vast-ai-pricing) with 4-bit quantization on RTX 4090. Spot instances on AWS or GCP provide another option. Cost roughly $0.30/hour with good quality.
+
+**Should I use spot instances for production?**
+Yes, if application tolerates occasional downtime. Implement request queuing and graceful degradation. Monitor interruption rates. Most spots experience <5% interruption rate.
+
+**How much cheaper is 4-bit quantization?**
+Infrastructure costs drop 60-75% moving to 4-bit. Model quality drops roughly 2-5% depending on task. Almost always worthwhile trade-off.
+
+**What batch size optimizes cost per request?**
+Batch size 8-16 provides sweet spot. Additional overhead per request negligible. Diminishing returns beyond batch 32.
+
+**Can I mix spot and on-demand instances?**
+Yes. Use on-demand as fallback when spot unavailable. This provides reliability with spot cost savings. Fallback handles 5-10% of requests, keeps infrastructure responsive.
+
+**What's the minimum profitable request volume?**
+Break-even occurs around 100 requests/day on cheapest options. Below that, API services like [Mistral API](/articles/mistral-api-pricing) offer simplicity advantage despite higher unit costs.
+
+**How often does spot pricing change?**
+Hourly. Monitor trends for your region and GPU type. Prices typically lowest 2-5am UTC and highest 8am-2pm UTC.
+
+## Related Resources
+
+[GPU Cloud Pricing Trends:Are GPUs Getting Cheaper?](/articles/gpu-cloud-pricing-trends-are-gpus-getting-cheaper)
+[Best GPU Cloud for LLM Training:Provider and Pricing](/articles/best-gpu-cloud-for-llm-training-provider-and-pricing)
+[How to Fine-Tune Mistral on a Custom Dataset](/articles/how-to-fine-tune-mistral-on-your-own-dataset)
+
+## Sources
+
+AWS EC2 pricing documentation
+Google Cloud Platform pricing calculator
+GCP Compute Engine pricing documentation
+RunPod pricing documentation
+Lambda Labs pricing documentation
+CoreWeave pricing information
+vLLM GitHub repository and documentation
+Vast.AI platform pricing

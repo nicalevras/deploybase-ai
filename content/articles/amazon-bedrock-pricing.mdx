@@ -1,0 +1,473 @@
+---
+title: 'Amazon Bedrock Pricing: Model Costs and Throughput Rates'
+slug: amazon-bedrock-pricing
+description: >-
+  AWS Bedrock pricing for Claude, Llama, and Mistral models. On-demand and
+  provisioned throughput costs with cost-per-task analysis as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: LLM Pricing
+keywords:
+  - amazon bedrock pricing
+  - aws bedrock cost
+  - bedrock pricing per token
+  - bedrock model pricing
+  - aws bedrock claude llama
+---
+
+## Contents
+
+- [Amazon Bedrock Pricing: Overview](#amazon-bedrock-pricing-overview)
+- [On-Demand Pricing by Model (March 2026)](#on-demand-pricing-by-model-march-2026)
+- [Provisioned Throughput Pricing](#provisioned-throughput-pricing)
+- [Claude on Bedrock vs Direct Claude API](#claude-on-bedrock-vs-direct-claude-api)
+- [Llama on Bedrock vs Self-Hosted](#llama-on-bedrock-vs-self-hosted)
+- [Cost-Per-Task Examples](#cost-per-task-examples)
+- [When to Use Bedrock](#when-to-use-bedrock)
+- [Bedrock vs Direct API Pricing Matrix](#bedrock-vs-direct-api-pricing-matrix)
+- [Bedrock Model Selection Guide](#bedrock-model-selection-guide)
+- [Bedrock vs Self-Hosted Cost Analysis (1-Year Projection)](#bedrock-vs-self-hosted-cost-analysis-1-year-projection)
+- [Bedrock Integration Patterns](#bedrock-integration-patterns)
+- [Cost Optimization Strategies](#cost-optimization-strategies)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Amazon Bedrock Pricing: Overview
+
+Amazon Bedrock offers Claude (Anthropic), Llama (Meta), and Mistral models through AWS's managed inference platform. On-demand pricing ranges from $0.25 to $15 per million input tokens (prompt) and $1.25 to $120 per million output tokens (completion). Provisioned throughput (reserved capacity) costs $0.50 to $24 per hour, based on model and throughput tier.
+
+Bedrock removes the operational overhead of running inference infrastructure. No GPU provisioning, no scaling logic, no VRAM management. The trade-off: model selection is limited to what AWS officially supports, and per-token costs are typically 1.5-2x higher than using open-source models on leased GPUs. For teams prioritizing managed simplicity over raw cost, Bedrock makes sense. For high-volume inference, direct API or self-hosted solutions are cheaper.
+
+Compare Bedrock pricing against direct Anthropic, OpenAI, and open-source APIs on [DeployBase's LLM pricing dashboard](/llms/Amazon%20Bedrock).
+
+---
+
+## On-Demand Pricing by Model (March 2026)
+
+### Anthropic Claude Models
+
+| Model | Context | Prompt $/M | Completion $/M | Best For |
+|-------|---------|-----------|----------------|----------|
+| Claude 3.5 Opus | 200K | $15.00 | $75.00 | Complex reasoning, coding |
+| Claude 3.5 Sonnet | 200K | $3.00 | $15.00 | Balanced, general-purpose |
+| Claude 3.5 Haiku | 200K | $0.80 | $4.00 | Fast, cost-conscious |
+
+Source: AWS Bedrock pricing page (March 21, 2026). Haiku pricing is lowest-cost, suitable for classification and summary tasks. Sonnet balances cost and capability. Opus handles extremely complex tasks but costs 50x more per token than Haiku.
+
+### Meta Llama Models
+
+| Model | Context | Prompt $/M | Completion $/M | Best For |
+|-------|---------|-----------|----------------|----------|
+| Llama 3.1 405B | 128K | $2.50 | $10.00 | Largest open-weight model |
+| Llama 3.1 70B | 128K | $0.55 | $2.20 | Balanced open-source |
+| Llama 3.1 8B | 128K | $0.08 | $0.32 | Lightweight, cost-effective |
+
+Llama models are cheaper than Claude due to open-source licensing. 405B is competitive with Claude Opus on cost but slower on complex reasoning. 8B is the lowest-cost option for simple tasks.
+
+### Mistral Models
+
+| Model | Context | Prompt $/M | Completion $/M | Best For |
+|-------|---------|-----------|----------------|----------|
+| Mistral Large 2 | 32K | $0.81 | $2.43 | French language, extended reasoning |
+| Mistral 7B | 32K | $0.14 | $0.42 | Speed, cost, simplicity |
+
+Mistral 7B is the cheapest model on Bedrock. Limited context (32K vs 128K for Llama). Good for fast inference and simple tasks.
+
+---
+
+## Provisioned Throughput Pricing
+
+Provisioned throughput (reserved capacity) locks in lower per-token rates by committing to a throughput tier for 1 month. Costs are hourly (730 hours/month), not per-token.
+
+### Claude Provisioned Throughput
+
+| Model | Tier | Throughput | $/Hour | $/Month (730 hrs) |
+|-------|------|-----------|--------|-------------------|
+| Claude 3.5 Opus | 1 | 50K in/out tokens | $2.40 | $1,752 |
+| Claude 3.5 Opus | 2 | 100K in/out tokens | $4.80 | $3,504 |
+| Claude 3.5 Sonnet | 1 | 100K in/out tokens | $0.60 | $438 |
+| Claude 3.5 Sonnet | 2 | 200K in/out tokens | $1.20 | $876 |
+
+Provisioned throughput is worthwhile when monthly token consumption justifies the reservation. Calculate: `(monthly_tokens * on_demand_cost_per_token) - monthly_provisioned_cost`.
+
+**Example: Claude Sonnet**
+- On-demand: $3/M input + $15/M output = $18/M average
+- 100M tokens/month × $0.018 = $1,800
+- Provisioned Tier 1: $438/month
+- Savings: $1,800 - $438 = $1,362/month
+
+Provisioned is cheaper above roughly 50M tokens/month for Sonnet.
+
+### Llama Provisioned Throughput
+
+| Model | Tier | Throughput | $/Hour | $/Month (730 hrs) |
+|-------|------|-----------|--------|-------------------|
+| Llama 405B | 1 | 50K in/out tokens | $0.48 | $350 |
+| Llama 405B | 2 | 100K in/out tokens | $0.96 | $701 |
+| Llama 70B | 1 | 100K in/out tokens | $0.12 | $88 |
+| Llama 70B | 2 | 200K in/out tokens | $0.24 | $175 |
+
+Llama provisioned throughput is extremely affordable. Llama 70B's Tier 1 ($88/month) is worth it above ~5M tokens/month.
+
+---
+
+## Claude on Bedrock vs Direct Claude API
+
+| Factor | Bedrock | Direct Anthropic API |
+|--------|---------|----------------------|
+| **Opus Prompt** | $15/M | $5.00/M |
+| **Opus Completion** | $75/M | $25.00/M |
+| **Sonnet Prompt** | $3.00/M | $3.00/M |
+| **Sonnet Completion** | $15.00/M | $15.00/M |
+| **Haiku Prompt** | $0.80/M | $1.00/M |
+| **Haiku Completion** | $4.00/M | $5.00/M |
+
+**Analysis:**
+- Opus on Bedrock costs **3x more** than direct API ($75 vs $25 per million output tokens)
+- Sonnet pricing is identical
+- Haiku is **20% cheaper on Bedrock** ($0.80/$4.00) than direct API ($1.00/$5.00)
+
+For Opus-heavy workloads, the direct Anthropic API is significantly cheaper. For Haiku-heavy workloads, Bedrock offers a small discount. Bedrock adds AWS infrastructure overhead (managed scaling, VPC integration, auth) — the value is integration convenience, not always lower cost.
+
+---
+
+## Llama on Bedrock vs Self-Hosted
+
+### Llama 70B Inference Cost Comparison
+
+**Scenario:** Serve 100M tokens per month, 24/7 operation.
+
+**Bedrock On-Demand:**
+- Cost: 100M tokens × ($0.55 + $2.20)/2M avg = $1,375/month
+- Simplicity: Yes, zero ops
+- Latency: ~500-800ms (API roundtrip included)
+
+**Self-Hosted on RunPod (1x H100):**
+- GPU cost: $1.99/hr × 730 = $1,453/month
+- Throughput per GPU: 850 tokens/sec = ~2.2B tokens/month
+- Utilization needed: 100M / 2,200M = 4.5% (oversized)
+- Actual cost: $1,453 × 4.5% = $65/month
+- Latency: 50-100ms (direct inference)
+- Ops overhead: high (model management, scaling, monitoring)
+
+**Cost comparison:** Bedrock is 21x more expensive than raw GPU cost. Self-hosting requires ops skills but scales to massive throughput cheaply. Bedrock wins on operational simplicity.
+
+---
+
+## Cost-Per-Task Examples
+
+### Content Moderation (Classification)
+
+**Scenario:** Review 1M user-submitted posts, output: safe/unsafe classification (30 tokens output average).
+
+**Using Claude 3.5 Haiku on Bedrock (on-demand):**
+- Prompt: 1M × 200 tokens (post content) × $0.0008/M = $160
+- Completion: 1M × 30 tokens × $0.004/M = $120
+- Total: $280
+
+**Using Llama 8B on Bedrock:**
+- Prompt: 1M × 200 × $0.00008/M = $16
+- Completion: 1M × 30 × $0.00032/M = $9.60
+- Total: $25.60
+
+Llama 8B is 11x cheaper for simple classification. Quality may be lower; benchmark first.
+
+### Customer Support Chat (Reasoning)
+
+**Scenario:** Respond to 10,000 support queries, 500 tokens input (customer message), 400 tokens output (bot response).
+
+**Using Claude 3.5 Sonnet on Bedrock (provisioned):**
+- Monthly allocation: 10,000 × (500 + 400) = 9M tokens
+- Provisioned Tier 1 (100K tokens/hr): $438/month
+- Cost per query: $438 / 10,000 = $0.044
+- True quality: excellent
+
+**Using Llama 70B on Bedrock (on-demand):**
+- Prompt: 10,000 × 500 × $0.00055/M = $27.50
+- Completion: 10,000 × 400 × $0.0022/M = $88
+- Total: $115.50
+- Cost per query: $0.0115
+- Quality: good but lower reasoning capability
+
+Claude provisioned is 3.8x more expensive but worth it for complex support. Llama suits simple FAQ responses.
+
+### Code Generation
+
+**Scenario:** Generate code completions for 5,000 prompts (150 tokens input, 200 tokens output).
+
+**Using Claude 3.5 Opus on Bedrock (on-demand):**
+- Prompt: 5,000 × 150 × $15/M = $11.25
+- Completion: 5,000 × 200 × $75/M = $75
+- Total: $86.25
+
+**Using Mistral Large on Bedrock:**
+- Prompt: 5,000 × 150 × $0.00081/M = $0.61
+- Completion: 5,000 × 200 × $0.00243/M = $2.43
+- Total: $3.04
+
+Claude Opus is 28x more expensive but produces better code (fewer errors, fewer revisions needed). Mistral is cheaper but requires more human review.
+
+---
+
+## When to Use Bedrock
+
+### Bedrock Makes Sense For:
+
+**AWS-native applications.** Already running on AWS, using IAM, VPC, CloudWatch. Bedrock integrates directly without additional infrastructure setup. No new layers to manage.
+
+**Managed inference at scale.** Need auto-scaling without operational overhead. Bedrock handles traffic spikes automatically.
+
+**Compliance and data residency.** Data stays in AWS VPC. Useful for regulated industries (finance, healthcare) requiring data locality.
+
+**Quick prototyping.** Spin up a chatbot in hours, not weeks. No GPU procurement, no model serving code.
+
+**Models developers need aren't available elsewhere.** Claude on Bedrock is convenient if already using AWS.
+
+### Bedrock is NOT Good For:
+
+**Cost-sensitive, high-volume inference.** Self-hosting with RunPod/CoreWeave is 5-20x cheaper at scale.
+
+**Custom models or fine-tuning.** Bedrock doesn't support fine-tuning. Use direct APIs or self-hosted solutions.
+
+**Latency-critical applications.** Bedrock's API roundtrip adds 500-800ms. Direct inference adds 50-100ms.
+
+**Exotic model selection.** Limited to Anthropic, Meta, and Mistral. If developers need Grok, DeepSeek, or other models, go elsewhere.
+
+---
+
+## Bedrock vs Direct API Pricing Matrix
+
+| Use Case | Bedrock | Direct API | Winner |
+|----------|---------|-----------|--------|
+| **Low-volume testing** | $0.50-$2/day | $0.50-$2/day | Tie |
+| **100M tokens/month** | $1,000+ | $500-$800 | Direct API |
+| **1B tokens/month** | $8,000+ | $4,000-$6,000 | Direct API |
+| **Ops simplicity** | High | Low | Bedrock |
+| **Latency <100ms** | No | Yes | Direct API |
+| **AWS integration** | Direct | Extra config | Bedrock |
+
+Direct APIs are 30-50% cheaper for high volume. Bedrock wins on convenience and AWS integration.
+
+---
+
+## Bedrock Model Selection Guide
+
+### Claude on Bedrock
+
+**Use Opus when:**
+- Complex multi-step reasoning (math, logic puzzles)
+- Code generation with architectural decisions
+- Long-form content generation (essays, reports)
+- User-facing applications where quality is paramount
+
+Cost: $15/M input, $75/M output. Justifies when quality prevents revision cycles or customer churn.
+
+**Use Sonnet when:**
+- General-purpose chatbots
+- Content moderation and classification
+- Summarization (article, email, meeting notes)
+- Balanced cost and quality
+
+Cost: $3/M input, $15/M output. 5x cheaper than Opus with 90% of Opus's capability.
+
+**Use Haiku when:**
+- Simple classification (spam, sentiment)
+- Template-based generation (emails, messages)
+- Batch processing with minimal reasoning
+- Cost-constrained deployments
+
+Cost: $0.80/M input, $4/M output. 40x cheaper than Opus. Quality drops on complex tasks.
+
+### Llama on Bedrock
+
+**Use 405B when:**
+- Model size is critical (run code that requires specific reasoning capability)
+- Cost must be lower than Claude Opus
+- Multilingual or non-English-primary workloads
+
+Cost: $2.50/M input, $10/M output. 6x cheaper than Claude Opus with comparable reasoning.
+
+**Use 70B when:**
+- Balanced cost and quality (better than Haiku, cheaper than Sonnet)
+- Production inference at scale
+
+Cost: $0.55/M input, $2.20/M output. Sweet spot for most teams.
+
+**Use 8B when:**
+- Edge deployments or low-latency requirements
+- High-volume, low-complexity tasks (100M+ queries/month)
+- Budget-constrained research
+
+Cost: $0.08/M input, $0.32/M output. Lowest cost open-source option.
+
+---
+
+## Bedrock vs Self-Hosted Cost Analysis (1-Year Projection)
+
+### Scenario: Chatbot for SaaS Product
+
+**Requirements:**
+- 50M tokens/month (conversations)
+- 80% input tokens (user queries), 20% output (responses)
+- 12-month contract
+
+**Bedrock (Claude 3.5 Sonnet, on-demand):**
+- Input cost: 50M × 0.8 × $3/M = $120/month
+- Output cost: 50M × 0.2 × $15/M = $150/month
+- Monthly total: $270
+- Annual: $3,240
+- Ops cost: ~$0 (fully managed)
+
+**Self-Hosted (Llama 70B on RunPod):**
+- GPU cost: 1x H100 × $1.99/hr × 730 = $1,453/month
+- Throughput: 850 tok/s = 2.2B tokens/month (44x what's needed)
+- Utilization: 50M / 2,200M = 2.3%
+- Actual cost: $1,453 × 2.3% = $33/month
+- Annual: $396
+- Ops cost: ~$500/month engineer time (model management, scaling, monitoring)
+- Annual ops: $6,000
+- **Total annual: $6,396**
+
+**Verdict:** Bedrock is cheaper by $3,156 (52%) when ops cost is factored in.
+
+But if the engineering team already maintains GPU clusters, marginal ops cost drops to ~$100/month ($1,200/year). Then self-hosted wins: $1,453 × 12 + $1,200 = $18,636 annual GPU cost, but shared across many applications. Bedrock still wins if usage is light.
+
+### Scenario: High-Volume Classification
+
+**Requirements:**
+- 1B tokens/month
+- 99% input (documents), 1% output (classifications)
+- 12-month contract
+
+**Bedrock (Llama 8B, provisioned):**
+- Provisioned Tier: 100K tokens/hour × 24 × 730 = 1.75B capacity
+- Monthly cost: $88 × 1 month of tier = $88 (or $1,056/year with flexibility)
+- Actual: $88 × 12 = $1,056/year
+
+**Self-Hosted (Llama 8B on RunPod, 1x H100):**
+- GPU cost: $1.99/hr × 730 = $1,453/month = $17,436/year
+- But utilization for 1B tokens/month: (1B tokens × 1% time) / (850 tok/s × 730 hrs) = 22% utilization
+- Actual cost: $17,436 × 22% = $3,836/year
+- Ops cost: ~$50/month (minimal for single GPU) = $600/year
+- **Total: $4,436/year**
+
+**Verdict:** Bedrock is 4x cheaper ($1,056 vs $4,436) for high-volume tasks. Provisioned throughput becomes economical above ~100M tokens/month.
+
+---
+
+## Bedrock Integration Patterns
+
+### Pattern 1: Lambda + Bedrock
+
+AWS Lambda functions invoke Bedrock for serverless inference. Scales automatically with request volume.
+
+Cost model: Pay for Lambda compute (usually negligible) + Bedrock token consumption.
+
+Good for: Event-driven applications (image upload triggers tagging, user signup triggers welcome email).
+
+### Pattern 2: SageMaker + Bedrock
+
+Use SageMaker notebooks for development, Bedrock for production inference.
+
+Cost model: Development in SageMaker (notebook rental + storage), production on Bedrock (per-token).
+
+Good for: Teams prototyping custom models, then switching to managed inference.
+
+### Pattern 3: EC2 + Bedrock via VPC
+
+EC2 application servers call Bedrock over VPC, avoiding internet egress costs.
+
+Cost model: EC2 instance rental + Bedrock tokens (no egress charges).
+
+Good for: Applications requiring extremely low latency to Bedrock or strict data residency.
+
+---
+
+## Cost Optimization Strategies
+
+### 1. Batch Processing
+
+Process requests in batches during off-peak hours. If latency tolerance is 12 hours, batch overnight.
+
+Example: 1M classification requests processed at 10K/batch = 100 batches = 1 Bedrock API call per batch (if batching supported). Reduces API overhead.
+
+**Savings:** 10-30% depending on implementation.
+
+### 2. Model Downgrading
+
+Start with Sonnet. If benchmarks show Haiku (40% cheaper) performs adequately, switch.
+
+Example: Sentiment classification task. Benchmark: Sonnet 95% accuracy, Haiku 94% accuracy. Savings: 40% of token cost. Worth it? Depends on error cost (misclassified positive sentiment costs reputation).
+
+**Savings:** 20-60% depending on task.
+
+### 3. Quantization for Self-Hosted
+
+If considering self-hosting, quantize models to 4-bit or 8-bit to fit on fewer GPUs, reducing cost.
+
+Example: Llama 70B quantized to 4-bit fits in 35GB VRAM (single H100 instead of 2). Saves 50% GPU cost with <1% quality loss.
+
+**Savings:** 20-50% GPU cost (self-hosted only).
+
+### 4. Provisioned Throughput for Predictable Workloads
+
+If token consumption is predictable and >100M/month, lock in provisioned throughput.
+
+Example: SaaS product with 100K daily active users, 100 tokens/user = 10M tokens/day = 300M/month. Provisioned throughput saves 40-60% vs on-demand.
+
+**Savings:** 40-60% for high-volume, predictable workloads.
+
+---
+
+## FAQ
+
+**Is Bedrock cheaper than OpenAI?**
+
+No. OpenAI GPT-5 costs $1.25-$15/M input, $10-$120/M output. Bedrock Claude Opus costs $15/M input, $75/M output. Similar price range. Bedrock Llama 70B ($0.55/$2.20) is cheaper than any OpenAI model.
+
+**Can I fine-tune models on Bedrock?**
+
+No. Bedrock doesn't support fine-tuning. If you need custom models, use SageMaker (AWS) or direct APIs with fine-tuning support (Anthropic, OpenAI, Mistral).
+
+**What about Bedrock's knowledge cutoff?**
+
+Claude 3.5 on Bedrock has a cutoff similar to the direct API (~April 2025 as of March 2026). Same limitations apply.
+
+**Does Bedrock support vision (images)?**
+
+Yes, Claude 3.5 Opus/Sonnet support vision on Bedrock. Pricing includes image token costs (~3 tokens per image chunk).
+
+**Should I use provisioned throughput?**
+
+Yes, if monthly token consumption exceeds the breakeven threshold. For Claude Sonnet: ~50M tokens/month. For Llama 70B: ~5M tokens/month. Calculate before committing.
+
+**Can I switch between on-demand and provisioned?**
+
+Yes. Provisioned throughput is month-to-month. Switch models/tiers monthly. Recommended: start on-demand to measure real usage, then lock in provisioned if usage is consistent.
+
+**What if I exceed provisioned throughput capacity?**
+
+Bedrock throttles requests (doesn't error, just queues them). Latency increases. Increase tier or switch to on-demand for burst capacity.
+
+---
+
+## Related Resources
+
+- [Amazon Bedrock Models](/llms/Amazon%20Bedrock)
+- [Anthropic Claude Pricing](/articles/anthropic-pricing)
+- [OpenAI Pricing Comparison](/articles/openai-pricing)
+- [DeepSeek Pricing Guide](/articles/deepseek-pricing)
+- [LLM Pricing Calculator](/tools)
+
+---
+
+## Sources
+
+- [AWS Bedrock Pricing](https://aws.amazon.com/bedrock/pricing/)
+- [AWS Bedrock Model Documentation](https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html)
+- [Anthropic Claude API Pricing](https://www.anthropic.com/pricing)
+- [Meta Llama Models License](https://github.com/facebookresearch/llama)
+- DeployBase LLM Pricing API (tracked March 21, 2026)

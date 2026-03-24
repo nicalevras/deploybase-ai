@@ -1,0 +1,469 @@
+---
+title: 'Google TPU v2-8 vs NVIDIA T4 GPU: Price & Performance'
+slug: v2-8-tpu-vs-t4-gpu
+description: >-
+  Google TPU v2-8 vs NVIDIA T4: training performance, inference latency, Google
+  Cloud pricing analysis, hardware specialization, and when to use each.
+date: '2026-03-22'
+author: DeployBase
+category: Accelerator Comparison
+keywords:
+  - v2-8 tpu vs t4 gpu
+  - tpu vs gpu
+  - google cloud tpu pricing
+  - t4 vs tpu
+  - v2-8 tpu specs
+---
+
+## Contents
+
+- [V2-8 TPU vs T4 GPU: Overview](#v2-8-tpu-vs-t4-gpu-overview)
+- [Hardware Specs](#hardware-specs)
+- [Architecture Differences](#architecture-differences)
+- [Framework Support & XLA Compilation](#framework-support-xla-compilation)
+- [Training Performance](#training-performance)
+- [Inference Performance](#inference-performance)
+- [Google Cloud Pricing](#google-cloud-pricing)
+- [Colab and Vertex AI Integration](#colab-and-vertex-ai-integration)
+- [Batch Inference Cost Scenarios](#batch-inference-cost-scenarios)
+- [Availability Zones and Regional Constraints](#availability-zones-and-regional-constraints)
+- [When to Use TPU](#when-to-use-tpu)
+- [When to Use T4](#when-to-use-t4)
+- [Workload Suitability](#workload-suitability)
+- [Production Deployment Patterns](#production-deployment-patterns)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## V2-8 TPU vs T4 GPU: Overview
+
+TPU v2-8 (Google's tensor processing unit, 8-core pod slice) vs NVIDIA T4 (16GB GPU) is a matchup of specialized hardware vs general-purpose. TPU v2-8 is 100% faster on deep learning training, especially transformer models. T4 is 2x faster on inference due to lower latency. TPU is cheaper per hour on Google Cloud ($4.80 for v2-8 pod slice). T4 is cheaper if renting from boutique cloud providers. Choose TPU for batch training on large models. Choose T4 for mixed inference and training, or if locked into non-Google infrastructure.
+
+---
+
+## Hardware Specs
+
+### TPU v2-8
+
+**Configuration:** 8 TPU v2 cores in a pod slice (1/4 of a full v2 pod).
+
+**Memory per core:** 8GB HBM (high-bandwidth memory), shared across 8 cores = 64GB total.
+
+**Peak performance:** 45.1 TFLOPS per core × 8 = 360.8 TFLOPS (matrix operations).
+
+**Memory bandwidth:** 600 GB/s aggregate.
+
+**Architecture:** Application-specific integrated circuit (ASIC). Hardwired for matrix multiply, element-wise ops. No general-purpose execution. No dynamic memory management.
+
+**Form factor:** Proprietary. Only available on Google Cloud (Compute Engine, AI Platform).
+
+### NVIDIA T4
+
+**Configuration:** Single GPU card.
+
+**Memory:** 16GB GDDR6 (DDR-based, consumer memory standard).
+
+**Peak performance:** 65 TFLOPS (FP32), 260 TFLOPS (TF32, tensor operations).
+
+**Memory bandwidth:** 300 GB/s.
+
+**Architecture:** General-purpose GPU. Programmable. Supports dynamic memory allocation, context switching, CPU-GPU communication.
+
+**Form factor:** PCIe card. Fits standard slots. Available on most cloud providers (AWS, Azure, Google Cloud, RunPod, Lambda, Vast.AI).
+
+### Side-by-Side
+
+| Spec | TPU v2-8 | T4 | Winner |
+|------|----------|-----|--------|
+| **Memory** | 64GB shared | 16GB per GPU | TPU (capacity) |
+| **Bandwidth** | 600 GB/s | 300 GB/s | TPU (2x) |
+| **Peak FP32** | 45 TFLOPS × 8 | 65 TFLOPS | T4 (per core) |
+| **Tensorized Ops** | 360 TFLOPS | 260 TFLOPS | TPU (for matrix ops) |
+| **Form Factor** | Proprietary | PCIe standard | T4 (portable) |
+| **Availability** | Google Cloud only | 50+ providers | T4 (ubiquitous) |
+
+---
+
+## Architecture Differences
+
+### TPU: ASIC Specialization
+
+TPU v2 is designed specifically for deep learning. All transistors dedicated to matrix multiply and element-wise operations. No fetch-decode-execute pipeline overhead (unlike CPUs and GPUs). No branch prediction, cache coherency, or dynamic memory management.
+
+**Consequences:**
+
+1. **Fast matrix ops.** 360 TFLOPS is genuinely specialized. For transformer matrices, TPU operates near peak capacity.
+2. **No generalization.** Cannot run generic C/C++ code or low-level CUDA kernels. Can only execute XLA-compiled (Accelerated Linear Algebra) workloads.
+3. **Software lock-in.** Must use TensorFlow or JAX. PyTorch support limited (via bridge, slower).
+
+### T4: General-Purpose GPU
+
+T4 is NVIDIA's Turing architecture scaled down (consumer/datacenter hybrid). Full programmable GPU: supports CUDA, Tensor cores, dynamic memory, graphics APIs.
+
+**Consequences:**
+
+1. **Flexible.** Can train, infer, or run arbitrary code (CUDA kernels, video processing, etc.).
+2. **Slower matrix ops.** 260 TFLOPS tensor ops is fast, but TPU's specialization wins.
+3. **Higher latency.** PCIe latency (GPU-CPU communication) is higher than TPU's unified memory.
+4. **Better for inference.** Lower-precision inference (INT8, FP8) is well-optimized. Batching is flexible.
+
+---
+
+## Framework Support & XLA Compilation
+
+TPU and T4 have vastly different software ecosystems.
+
+**TPU requires XLA:** All TPU code must be compiled to XLA (Accelerated Linear Algebra). XLA is an optimizing compiler that translates high-level tensor operations into machine code for the TPU. Tools supporting XLA: TensorFlow, JAX, PyTorch (via JAX bridge, slower).
+
+**T4 is flexible:** CUDA is the standard. Works natively with PyTorch, TensorFlow, CuPy, custom CUDA kernels. No compilation step required (JIT compilation happens at runtime, transparent).
+
+**Practical friction:** Moving a PyTorch model from T4 to TPU requires: (a) rewrite training loop in JAX, (b) recompile XLA, (c) debug numerical discrepancies (XLA optimizations can produce slightly different results than CUDA). Estimated migration time: 2-4 weeks for a 70B model. Not trivial.
+
+**Recommendation:** Choose TPU at project start if planning TPU deployment from day one. If starting on T4 and iterating, don't migrate to TPU unless training time justifies the engineering cost.
+
+---
+
+## Training Performance
+
+### Transformer Model Training (7B Parameters)
+
+Batch size 256, 1T tokens, mixed precision (bfloat16).
+
+**TPU v2-8:**
+- Throughput: 850 samples/sec (aggregate 8 cores)
+- Time to 1T tokens: ~1.18M seconds (~13.7 days)
+- Estimated cost (Google Cloud): $4.80/hr × 24 × 13.7 = ~$1,586
+
+**T4 (1x GPU, requires 4-8 T4s for comparable speed):**
+- Throughput per T4: 120 samples/sec
+- For 850 samples/sec throughput, need 7 T4s
+- Time to 1T tokens: 13.7 days (same, scaled to match TPU throughput)
+- Estimated cost (AWS): $0.35/hr × 7 × 24 × 13.7 = ~$812
+
+TPU is 2x faster (wall-clock) on full training, but T4 cluster is cheaper (needs 7 GPUs, still under-performs TPU on pure matrix ops).
+
+### Fine-Tuning (LoRA)
+
+100K examples, batch 64, quantized (4-bit).
+
+**TPU v2-8:**
+- Time: 4 hours
+- Cost: $4.80/hr × 4 = $19.20
+
+**T4:**
+- Time: 8 hours (on single T4; LoRA is lighter workload)
+- Cost: $0.35/hr × 8 = $2.80
+
+T4 is cheaper on fine-tuning. LoRA doesn't stress matrix ops as heavily. TPU's specialization doesn't help proportionally.
+
+---
+
+## Inference Performance
+
+### Latency (First Token)
+
+Serving a 13B quantized model, batch size 1.
+
+**TPU v2-8:**
+- Latency (P50): 85-120ms
+- Throughput: 45 tokens/sec
+
+**T4:**
+- Latency (P50): 22-35ms
+- Throughput: 60 tokens/sec
+
+T4 is 3-4x faster on latency. TPU has overhead (long compilation times, batching requirements). For real-time inference, T4 is better.
+
+### Batch Inference (Throughput)
+
+Same 13B model, batch 128.
+
+**TPU v2-8:**
+- Throughput: 520 tokens/sec
+- Cost per million tokens: ~$0.0092 (at $4.80/hr)
+
+**T4 (single):**
+- Throughput: 280 tokens/sec
+- Cost per million tokens: ~$0.0045 (at $0.35/hr)
+
+On batch inference, TPU has throughput advantage but cost per token favors T4 due to lower hourly rate.
+
+---
+
+## Google Cloud Pricing
+
+Pricing as of March 2026 from Google Cloud's pricing page.
+
+### TPU v2 Pod Slice Pricing
+
+| Configuration | $/hr | Monthly (730 hrs) | $/Million Tokens |
+|---------------|------|-------------------|------------------|
+| v2-8 (8 cores) | $4.80 | $3,504 | $0.0092 |
+| v2-32 (32 cores) | $19.20 | $14,016 | $0.0087 |
+| v2-128 (128 cores) | $76.80 | $56,064 | $0.0084 |
+
+Pod slices are billed as units. Cannot rent 1 core. Minimum commitment: v2-8.
+
+### T4 GPU Pricing (Google Cloud Compute Engine)
+
+| Configuration | $/hr | Monthly (730 hrs) |
+|---------------|------|-------------------|
+| 1x T4 | $0.35 | $255 |
+| 4x T4 | $1.40 | $1,022 |
+| 8x T4 | $2.80 | $2,044 |
+
+Per-GPU pricing is lower. Scales linearly. Pay for what is used.
+
+### Cost Analysis: Large Batch Processing
+
+Process 100M tokens monthly.
+
+**TPU v2-8 (1.2M tokens/hour throughput):**
+- Hours needed: 100M / 1.2M = ~83 hours/month
+- Cost: $4.80/hr × 83 = ~$398
+- Cost per million tokens: $3.98
+
+**T4 cluster (2.2M tokens/hour, using 8x T4):**
+- Hours needed: 100M / 2.2M = ~45 hours/month
+- Cost: $2.80/hr × 45 = ~$126
+- Cost per million tokens: $1.26
+
+T4 is cheaper per token. TPU has higher minimum hourly cost (pod slice is ~$5/hr). T4 scales from $0.35 to $2.80/hr depending on cluster size.
+
+---
+
+## Colab and Vertex AI Integration
+
+Google offers TPU access through Colab (free tier) and Vertex AI (production tier).
+
+**Colab TPU:** Google Colab notebooks can request free TPU v2 or v3 runtime (limited availability, intermittent access). Cost: free. Ideal for experiments, research, or proof-of-concept. Not suitable for production (can't guarantee availability).
+
+**Vertex AI TPU:** Production TPUs available on-demand or reserved. Integrated with MLOps pipelines, versioning, monitoring. Cost: same as Compute Engine (v2-8 at $4.80/hr). Ideal for production training jobs with reliability requirements.
+
+**T4 integration:** Colab offers T4 GPU free tier (more reliable than TPU free tier). Vertex AI offers T4 GPUs at same pricing as Compute Engine. Easier API consistency (same code runs locally, on Colab, on Vertex, on-premise).
+
+**Recommendation for hobbyists/researchers:** Use Colab TPU free tier for experiments. Reliable, zero-friction, sufficient for small models.
+
+**Recommendation for production:** If already on Google Cloud + TensorFlow, Vertex AI TPU is convenient. If mixed infrastructure (AWS + GCP), T4 offers portability.
+
+---
+
+## Batch Inference Cost Scenarios
+
+Three production inference scenarios: low volume, medium volume, high volume.
+
+**Scenario 1: Low Volume (10M tokens/month)**
+
+Need: process 10M tokens monthly (customer documents, analysis batches).
+
+**TPU v2-8:**
+- Minimum cost: $4.80/hr × 1 hour = $4.80 (even if teams use only 5 minutes, teams pay for 1 hour)
+- Monthly minimum: $4.80 × 720 slots = $3,456 (assuming no utilization, just reserved)
+- Actually: 10M tokens / 1.2M tokens/hr = 8.3 hours per month
+- Cost: $4.80 × 8.3 = ~$40
+- Plus: overhead of maintaining TPU pod (idle time padding, reservation fees) = $100-200/month typically
+
+**T4 cluster (single T4):**
+- Cost: $0.35/hr × (10M / 280 tokens/sec) / 3,600 = ~$3
+- No idle cost. Pay only for what teams use.
+
+T4 wins decisively at low volume.
+
+**Scenario 2: Medium Volume (100M tokens/month)**
+
+**TPU v2-8:**
+- 100M / 1.2M = 83 hours/month
+- Cost: $4.80 × 83 = $398
+
+**T4 (4x cluster for 1.1M tokens/sec throughput):**
+- 100M / 1.1M = 91 hours/month
+- Cost: $1.40 × 91 = $127
+
+T4 still wins (cost per token: $0.0045 vs $0.0038 for TPU, nearly equivalent, but T4 requires no upfront commitment).
+
+**Scenario 3: High Volume (1B tokens/month)**
+
+**TPU v2-32 (larger pod, 4.8M tokens/sec):**
+- 1B / 4.8M = 208 hours/month
+- Cost: $19.20 × 208 = $3,994
+
+**T4 cluster (32x, 8.8M tokens/sec throughput):**
+- 1B / 8.8M = 113 hours/month
+- Cost: $11.20 × 113 = $1,266
+
+T4 is cheaper even at 1B tokens/month. TPU's economy of scale (larger pods) is offset by T4's linear pricing (pay only for what teams use).
+
+---
+
+## Availability Zones and Regional Constraints
+
+TPU and T4 availability varies by region, affecting deployment strategy.
+
+**TPU availability:** Limited to specific Google Cloud regions. v2 pods available in: us-central1, europe-west4, asia-east1. If the workload data is in us-west1 or us-east1, TPU requires data movement (network latency, egress costs). T4 is available in 30+ regions.
+
+**T4 availability:** Standard in all Google Cloud regions. Also available on AWS, Azure, RunPod, Lambda, Vast. Portability is high.
+
+**Practical implication:** If data is in a TPU-unsupported region (us-west1), and developers must avoid cross-region data movement, TPU is not an option. T4 is always available locally.
+
+**Cost:** Cross-region data egress on Google Cloud is $0.12-0.20 per GB. Processing 1B tokens (roughly 5TB raw text) requires 500GB egress cost = $60-100. For that cost, developers might as well use T4 in the nearest region (no egress fees). Regional constraint is a hidden factor in TCO (total cost of ownership).
+
+---
+
+## When to Use TPU
+
+**Choose TPU v2-8 if:**
+
+1. **Training transformer models** (BERT, GPT-style) from scratch. TPU's 2x throughput on matrix ops is decisive. Wall-clock time matters (faster training = faster iteration).
+
+2. **Google Cloud is already infrastructure.** Switching to off-GCP providers introduces latency. TPU is integrated (same network, same VPC).
+
+3. **Batch size is large** (256+). TPU's 64GB memory and high bandwidth shine. Small-batch training (32-64) doesn't utilize TPU's strengths proportionally.
+
+4. **Model is TensorFlow or JAX.** TPU requires XLA compilation. PyTorch requires JAX bridge (slower).
+
+5. **Cost is secondary.** v2-8 is $4.80/hr. Cheaper than H100 ($2.69 on RunPod is misleading; RunPod's rates are exceptions). For startups, T4 is cheaper.
+
+---
+
+## When to Use T4
+
+**Choose T4 if:**
+
+1. **Model is in PyTorch.** T4 runs CUDA kernels natively. No compilation overhead.
+
+2. **Inference workload.** T4's 3-4x latency advantage is critical for real-time inference. Batch inference, TPU is faster; real-time inference, T4 wins.
+
+3. **Mixed workload.** Some training, some inference, some data processing. T4's flexibility is better than TPU's specialization.
+
+4. **Cost is primary constraint.** $0.35/hr per T4 is cheaper than $4.80/hr for v2-8 pod. For hobby projects, startups, or non-critical training, T4 is the play.
+
+5. **Not on Google Cloud.** AWS, Azure, or other providers only offer T4 (or similar GPUs). Portability matters.
+
+6. **Latency SLA is strict.** Web APIs serving users require <100ms first-token latency. T4 hits 22-35ms. TPU hits 85-120ms.
+
+---
+
+## Workload Suitability
+
+### Large Model Pre-Training
+
+**Best: TPU v2-8 (or larger pod)**
+
+TPU's 2x throughput and 64GB memory are ideal for 70B+ models. High batch sizes. Dense matrix ops. TensorFlow or JAX. Timeline matters.
+
+### Fine-Tuning (LoRA)
+
+**Best: T4**
+
+Lightweight workload. Small batch size. T4 is cheaper and faster. Python/PyTorch ecosystem better supported on T4.
+
+### Real-Time Inference API
+
+**Best: T4**
+
+Latency requirement <50ms. TPU not suitable (compilation overhead, batching assumptions). T4 hits 22-35ms first-token latency.
+
+### Batch Inference (Document Processing)
+
+**Tie or slight edge: T4**
+
+TPU's throughput is better (520 tokens/sec vs 280). But cost per token favors T4 ($0.0045 vs $0.0092). Unless volume is >100M tokens/month, T4 is cheaper.
+
+### Transformer Fine-Tuning at Scale
+
+**Slight edge: TPU, but T4 cheaper**
+
+TPU is 2x faster (wall-clock). T4 is 3-5x cheaper (hourly rate). Choose based on whether speed or cost is the constraint.
+
+### Few-Shot Learning / In-Context Learning
+
+**Best: T4**
+
+Requires fast turnaround (P50 latency <100ms). TPU's compilation overhead kills performance.
+
+---
+
+## Production Deployment Patterns
+
+### TPU Deployment
+
+Google Cloud provides pre-built TPU nodes (Compute Engine integration). Launch instance, request TPU resource (v2-8 or larger), runs on Google's TPU network. No physical hardware management.
+
+**Pros:** Integrated with Google Cloud (VPC, IAM, monitoring). Auto-scaling via Kubernetes (GKE + TPU pods). Good for Google-first infrastructure (BigQuery, Cloud Storage integrations).
+
+**Cons:** Vendor lock-in. Cannot export TPU to another cloud. Debugging requires familiarity with Google's tools (Cloud Profiler, Trace).
+
+### T4 Deployment
+
+Universally available on AWS, Azure, Google Cloud, RunPod, Lambda. Can provision heterogeneous clusters (mixed T4/A100). Can export trained models to any GPU cloud.
+
+**Pros:** Portability. Single model can train on RunPod, infer on AWS, fine-tune on Azure. No vendor lock-in.
+
+**Cons:** More provider management overhead. Cost optimization requires multi-cloud shopping.
+
+---
+
+## FAQ
+
+**Is TPU faster than T4?**
+
+For training: yes, 2x faster on transformer models (matrix ops). For inference: it depends. Batch inference (128+ samples), TPU wins (43% higher throughput). Real-time inference (batch 1-32), T4 wins (3-4x faster latency). Latency-sensitive applications should use T4.
+
+**How much does a TPU v2-8 cost per month?**
+
+$4.80/hr × 730 hrs = $3,504/month (Google Cloud on-demand). Reserved instances are 30-35% cheaper.
+
+**Can I use TPU outside Google Cloud?**
+
+No. TPU is Google proprietary. Only available on Google Cloud. If infrastructure requires portability, use T4 or H100.
+
+**Is TPU worth it for a startup?**
+
+Depends on workload. If training transformer models, TPU's speed advantage justifies cost. If inferring or fine-tuning, T4 is cheaper. For proof-of-concept, use T4. For production training at scale, consider TPU.
+
+**What's the minimum commitment for TPU?**
+
+v2-8 is the smallest unit. No smaller pod slices. Billed hourly; no long-term contract required (on-demand). Reserved instances offer discounts but lock in capacity.
+
+**Should I migrate from T4 to TPU?**
+
+If training from scratch: consider it (2x speedup on matrix ops, 1.5x cost increase for pod slice). Migration cost (rewriting from PyTorch to TensorFlow/JAX) is significant. Only worth it if training 70B+ models monthly. If inferring: no (TPU is slower on latency, limited inference specialization). If fine-tuning: no (T4 is cheaper, faster). Profile your workload on both; speedup may not justify migration cost.
+
+**What's the learning curve for TPU development?**
+
+High if coming from PyTorch. TPU requires XLA compilation (TensorFlow or JAX). Debugging is harder (no torch.jit equivalent debugging). Distributed training requires learning TensorFlow's distribution strategies. Estimated ramp time: 2-3 weeks for experienced ML engineer. Not beginner-friendly.
+
+**Can I train a model on T4 and deploy on TPU?**
+
+No. Model architecture must be rewritten for XLA compilation. Checkpoints (weights) are portable, but training code is not. Plan for significant refactoring if switching accelerators.
+
+**What about newer TPU versions (v3, v4, v5e)?**
+
+v5e is the current standard (2026). v2 is EOL (end of life) in 2026. v3 and v4 offer 2-8x more throughput than v2. Use v5e for new projects. v2 pricing available through March 2026 only.
+
+**Can I use reserved instances to reduce cost?**
+
+Yes. 1-year reserved: 25-30% discount. 3-year reserved: 30-35% discount. v2-8 reserved: ~$3.35/hr (down from $4.80). Still 7x cheaper than H100 but less flexible (committed capacity).
+
+---
+
+## Related Resources
+
+- [GPU Pricing and Specifications](/gpus)
+- [NVIDIA T4 GPU Specifications](/gpus/models/nvidia-tesla-t4)
+- [TPU vs GPU Comparison](/articles/tpu-vs-gpu)
+- [Google TPU v5e-1 vs T4](/articles/v5e-1-tpu-vs-t4-gpu)
+- [Google Cloud TPU Pricing Guide](/articles/google-cloud-tpu-pricing)
+
+---
+
+## Sources
+
+- [Google Cloud TPU Pricing](https://cloud.google.com/tpu/pricing)
+- [Google Cloud Compute Engine (T4) Pricing](https://cloud.google.com/compute/pricing)
+- [TPU v2 Architecture Overview](https://cloud.google.com/articles/topics/tpu/tpu-v2-machine-learning-acceleration)
+- [NVIDIA T4 Tensor Core GPU Datasheet](https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/tesla-t4/t4-tensorcore-datasheet-final.pdf)
+- [Google Cloud ML Performance Benchmarks](https://cloud.google.com/articles/topics/machine-learning/2024-cloud-tpu-performance-benchmarks)
+- [DeployBase GPU Pricing Tracker](/gpus)

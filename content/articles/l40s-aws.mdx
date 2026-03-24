@@ -1,0 +1,425 @@
+---
+title: 'AWS L40S Pricing on g6e Instances: Enterprise-Grade GPU Infrastructure'
+slug: l40s-aws
+description: >-
+  AWS g6e instances with L40S deliver production GPU infrastructure at
+  $1.50-2.00 per GPU per hour.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Pricing
+keywords:
+  - l40s aws
+  - AWS g6e pricing
+  - L40S cost
+  - production GPU infrastructure
+---
+
+## Contents
+
+- [L40s AWS: AWS g6e Instance Architecture](#l40s-aws-aws-g6e-instance-architecture)
+- [g6e Instance Specifications](#g6e-instance-specifications)
+- [Pricing Structure and Cost Analysis](#pricing-structure-and-cost-analysis)
+- [Workload Suitability and Performance](#workload-suitability-and-performance)
+- [Deployment and Integration Strategies](#deployment-and-integration-strategies)
+- [Scaling and Cost Optimization](#scaling-and-cost-optimization)
+- [Migration Strategies](#migration-strategies)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+AWS g6e instances represent the primary AWS offering for L40S GPU workloads, delivering production-grade infrastructure within the broader AWS cloud ecosystem. Understanding g6e pricing, architecture, and integration helps teams make informed GPU acceleration decisions. As of March 2026, g6e instances provide competitive L40S access with strong AWS ecosystem integration benefits.
+
+## L40s AWS: AWS g6e Instance Architecture
+
+L40s AWS is the focus of this guide. The g6e family includes multiple instance sizes, each providing different quantities of L40S GPUs. The base g6e.xlarge provides a single L40S GPU, while larger configurations offer multiple units. Instance sizing aligns with common workload patterns, enabling teams to match hardware allocation precisely to requirements.
+
+AWS positions g6e instances as general-purpose GPU infrastructure suitable for inference, training, and batch processing. The instances run on dedicated hardware, eliminating the noisy neighbor problems present in virtualized environments while maintaining AWS's standard reliability guarantees.
+
+Network connectivity on g6e instances reaches up to 25 Gbps, adequate for data-intensive workloads. Storage options include EBS volumes with throughput scaling to match compute capabilities, enabling balanced system architectures.
+
+## g6e Instance Specifications
+
+### Instance Family Sizing Options
+
+The g6e family includes multiple configurations serving different workload scales:
+
+| Instance Type | L40S GPUs | vCPUs | Memory | Network | Typical Use |
+|---|---|---|---|---|---|
+| g6e.xlarge | 1 | 4 | 32GB | 10 Gbps | Single-GPU dev/inference |
+| g6e.2xlarge | 2 | 8 | 64GB | 25 Gbps | Dual-GPU training, multi-model serving |
+| g6e.4xlarge | 4 | 16 | 128GB | 50 Gbps | 4-GPU clusters, batch processing |
+| g6e.8xlarge | 8 | 32 | 256GB | 100 Gbps | Full cluster training |
+| g6e.12xlarge | 12 | 48 | 384GB | 150 Gbps | Large-scale production |
+
+The xlarge through 8xlarge range covers most workload requirements. Larger instances enable better per-GPU cost efficiency through reduced per-unit overhead.
+
+### L40S GPU Specifications
+
+Each L40S GPU features:
+- VRAM: 48GB GDDR6
+- Memory Bandwidth: 960GB/s
+- Tensor Performance: 362 TFLOPS (FP32), 724 TFLOPS (TF32), 1457 TFLOPS (FP8)
+- Architecture: Ada Lovelace
+- Maximum Power: 350W
+
+Compared to older generations like V100 (32GB, 900GB/s) or A100 (40GB, 2TB/s when using HBM2), L40S provides excellent throughput per watt and per dollar.
+
+## Pricing Structure and Cost Analysis
+
+### Hourly Pricing Breakdown
+
+L40S pricing on g6e instances ranges from $1.50 to $2.00 per GPU per hour, varying by instance size and region:
+
+| Instance Type | Per GPU Cost/hr | Multi-GPU Total | Notes |
+|---|---|---|---|
+| g6e.xlarge (1 GPU) | $1.85 | $1.85 | Premium for single-GPU |
+| g6e.2xlarge (2 GPU) | $1.75 | $3.50 | Volume discount begins |
+| g6e.4xlarge (4 GPU) | $1.65 | $6.60 | Better per-GPU efficiency |
+| g6e.8xlarge (8 GPU) | $1.60 | $12.80 | Optimal per-GPU pricing |
+| g6e.12xlarge (12 GPU) | $1.55 | $18.60 | production volume pricing |
+
+Larger instances offer per-GPU cost advantages of 15-25% compared to single-GPU instances.
+
+### Cost Comparison with Alternatives
+
+[RunPod L40S pricing](/articles/runpod-gpu-pricing): $0.79/hour
+AWS g6e L40S pricing: $1.50-2.00/hour
+
+AWS commands a ~2x premium over specialized GPU providers like RunPod. However:
+
+1. **Integration savings**: AWS unified billing, VPC networking, existing data storage integration (S3, RDS) eliminate data transfer costs
+2. **Reliability**: AWS SLAs and support infrastructure justify premiums for production workloads
+3. **Scale advantages**: Reserved instances and Savings Plans reduce effective costs significantly
+
+[CoreWeave's L40S pricing](/articles/l40s-on-coreweave-pricing-specs-how-to-rent) at $2.25/hour falls between RunPod and AWS, reflecting their position as managed GPU specialist.
+
+### Reserved Instance Economics
+
+AWS reserved instances provide substantial savings:
+
+**One-year reserved instances:**
+- On-demand: $1.60/GPU/hour
+- Reserved (30% discount): $1.12/GPU/hour
+- Annual savings on 8xL40S (8,760 hours): $35,520
+
+**Three-year reserved instances:**
+- Reserved (40% discount): $0.96/GPU/hour
+- Annual savings on 8xL40S: $50,160
+
+Teams confident in sustained workloads benefit enormously from reserved purchasing. The payoff period is typically <3 months for production inference.
+
+### Savings Plans and Flexible Purchasing
+
+AWS Savings Plans offer flexibility across instance families:
+- Compute Savings Plans: 20-25% discount, works across instance types
+- Instance Savings Plans: 25-35% discount, locked to instance family
+
+Savings Plans suit teams:
+- Transitioning between GPU models
+- Uncertain about long-term GPU demand
+- Requiring flexibility across instance families
+
+### Spot Instance Strategy
+
+Spot instances on g6e reduce costs by 60-70% compared on-demand:
+- g6e.8xlarge spot: ~$5-7/hour vs $12.80 on-demand
+- Interruption risk: ~2-5% (varies by region/zone)
+- Best for: training with checkpoints, batch processing
+
+Spot economics for training:
+- Training run expected on-demand cost: $2,560 (16 hours at $1.60/GPU/hour)
+- Spot cost: $640-1,024
+- Savings: 60-75%
+- Risk: Potential interruption requiring checkpoint resumption
+
+## Workload Suitability and Performance
+
+### Large Language Model Inference
+
+L40S on g6e excels at LLM inference at production scales:
+
+**Single-GPU instance (g6e.xlarge):**
+- Model: Llama 3.1 13B
+- Inference: 1,000+ tokens/second
+- Cost: $0.000185 per token (at $1.85/hr, 1K toks/sec)
+- Typical requests: 50-100 concurrent
+
+**8-GPU instance (g6e.8xlarge):**
+- Model: Llama 3.1 70B (tensor parallel across 2 GPUs)
+- Inference: 4,000-6,000 tokens/second aggregate
+- Cost: $0.000064 per token (at $12.80/hr, 5K toks/sec aggregate)
+- Typical requests: 500+ concurrent
+
+Memory efficiency: L40S's 48GB VRAM enables serving 70B-parameter models without quantization, simplifying deployment versus GPUs with less memory.
+
+### Model Training and Fine-Tuning
+
+L40S suits fine-tuning and medium-scale training:
+
+**Fine-tuning example (g6e.4xlarge, 4 GPUs):**
+- Model: Llama 3.1 7B
+- Batch size: 128 (per GPU)
+- Training speed: 300-400 tokens/second aggregate
+- Fine-tuning 500K instructions: 5-8 hours
+- Cost: $33-52 in compute
+
+L40S lacks the memory for efficient 405B training (requires 8+ GPUs minimum), but handles 7B-70B model training well. Teams training larger models benefit from [B200 instances](/articles/nvidia-b200-price) or [Lambda H100 clusters](/articles/nvidia-h100-price).
+
+### Computer Vision and Image Processing
+
+L40S performs well on vision tasks:
+- Image classification: 1,000+ FPS on ResNet-50
+- Object detection: 100+ FPS on YOLOv8
+- Image generation: 2-5 images/second for Stable Diffusion
+- Video processing: 30-60 FPS for moderate resolution
+
+The 48GB VRAM enables processing high-resolution images without tiling, simplifying pipelines.
+
+### Batch Processing and Scientific Computing
+
+L40S suits batch-oriented workloads:
+- Large-scale transcoding jobs
+- Scientific simulations with GPU acceleration
+- Data transformation pipelines
+- Graphics rendering and processing
+
+Cost-per-unit of work matters more than raw throughput for batch workloads. L40S pricing enables competitive batch processing economics versus dedicated on-premises hardware.
+
+## Deployment and Integration Strategies
+
+### Infrastructure as Code and Automation
+
+Infrastructure automation tools integrate g6e instances:
+
+**Terraform example:**
+```hcl
+resource "aws_instance" "gpu_inference" {
+  ami           = data.aws_ami.deep_learning_ami.id
+  instance_type = "g6e.8xlarge"
+  gpu_count     = 8
+
+  tags = {
+    Name = "llm-inference-prod"
+    Environment = "production"
+  }
+}
+```
+
+**CloudFormation templates** enable repeatable deployments with parameterized GPU counts, storage, and networking. Version control of infrastructure definitions prevents configuration drift.
+
+### SageMaker Integration
+
+AWS SageMaker provides managed training and inference:
+- **Training**: Auto-provisioned GPU instances with job monitoring
+- **Inference**: Model deployment with auto-scaling
+- **Notebooks**: JupyterLab environments with instant GPU access
+- **Pipelines**: Orchestration of training, evaluation, and deployment
+
+SageMaker abstracts infrastructure management but requires accepting some service-specific patterns. Teams prioritizing operational simplicity benefit; teams requiring complete customization use EC2 directly.
+
+### Data Transfer and Storage Economics
+
+Data movement within AWS varies significantly:
+
+**No-cost transfers:**
+- EC2 to S3 within same region
+- EC2 to RDS within same region
+- EC2 within same VPC/availability zone
+
+**Charged transfers:**
+- Cross-region EC2 to S3: $0.02/GB
+- Outbound to internet: $0.09-0.12/GB (varies by region)
+- VPN endpoint usage: $36/month
+
+**Optimization:**
+- Keep datasets in S3 within same region as GPU instances
+- Use EBS volumes instead of S3 for frequent access (no per-GB charges)
+- Consolidate batch jobs to minimize data movement
+
+Example: Training on 100GB dataset
+- S3 (same region): Free ingestion
+- S3 (cross-region): $2 data transfer cost
+- EBS-backed dataset: Free access, $0.10/GB/month storage
+
+Most teams find same-region S3 placement with streaming data loading optimal.
+
+## Scaling and Cost Optimization
+
+### Horizontal Scaling with Auto Scaling Groups
+
+Auto Scaling groups manage dynamic capacity:
+
+**Target tracking policies:**
+- Scale based on GPU utilization (target 85-90%)
+- Automatically launch instances when queued jobs exist
+- Terminate instances when idle for >30 minutes
+- Account for warm-up time (60-120 seconds per instance)
+
+**Example policy:**
+- Min instances: 2 (baseline capacity)
+- Max instances: 16 (peak demand limit)
+- Target GPU utilization: 85%
+- Scale-up threshold: 90% utilization maintained >2 min
+- Scale-down threshold: <50% utilization for 10 min
+
+Expected cost impact: 20-30% reduction through right-sizing compared to static allocation.
+
+### Vertical Scaling Strategy
+
+Vertical scaling (larger instances) suits:
+- Predictable baseline workloads
+- Workloads sensitive to node count (reduced cross-node communication)
+- Teams preferring simplicity over cost optimization
+
+Vertical scaling example:
+- Development: g6e.xlarge (1 GPU)
+- Production: g6e.8xlarge (8 GPUs, better per-GPU pricing)
+- Peak: Add additional g6e.8xlarge instances horizontally
+
+### Reserved Instance Planning
+
+Establish capacity reserves early:
+
+1. **Baseline analysis**: Track minimum concurrent GPU count over 12 weeks
+2. **Reserve conservatively**: Purchase reserved capacity for 70% of baseline
+3. **Burst with on-demand/spot**: Use spot instances for additional 30%
+
+Example 3-month analysis:
+- Minimum concurrent: 4 GPUs
+- Average: 6 GPUs
+- Peak: 12 GPUs
+
+Reserve 4 GPUs (3 single g6e.xlarge instances) at 40% discount = $0.96/GPU/hour
+Burst to 12 GPUs using on-demand ($1.60/GPU/hour) or spot ($0.48-0.80/GPU/hour)
+
+Average cost: [(4 × $0.96) + (6 × $0.80) + (2 × $1.60)] / 12 = $0.93/GPU/hour
+vs full on-demand: $1.60/GPU/hour
+Savings: 42%
+
+### Spot Fleet Management
+
+Spot instance strategy for batch workloads:
+
+**Fleet configuration:**
+- Diversify across instance types (g6e.4xlarge, g6e.8xlarge, g6e.12xlarge)
+- Request multiple availability zones
+- Target 60-80% cost reduction vs on-demand
+
+**Example spot fleet:**
+```yaml
+targets:
+  - instance_type: g6e.4xlarge
+    weight: 2
+  - instance_type: g6e.8xlarge
+    weight: 1
+  - instance_type: g6e.12xlarge
+    weight: 1
+target_capacity: 4
+spot_price_percentage: 70%
+```
+
+This balances placement success (multiple instance types) with cost efficiency.
+
+### Monitoring and Cost Tracking
+
+CloudWatch metrics for cost optimization:
+- GPU utilization %
+- GPU memory usage GB
+- Network bandwidth utilization
+- Cost per model inference
+- Cost per hour of training
+
+**Dashboard example:**
+Track cost per 1B tokens processed:
+- GPU hours: G6e.8xlarge (8 GPU × $1.60) = $12.80/hour
+- Throughput: 20K tokens/second × 3,600 = 72M tokens/hour
+- Cost per 1B tokens: $0.178
+
+This metric enables comparing costs across providers and instance sizes.
+
+## Migration Strategies
+
+### Assessing Current Workloads
+
+Evaluate readiness for g6e migration:
+
+1. **Framework compatibility**: PyTorch, TensorFlow, JAX all run unchanged
+2. **Memory requirements**: L40S's 48GB suits most workloads
+3. **Performance validation**: Run benchmarks on g6e before committing
+4. **Integration testing**: Validate AWS services integration (S3, RDS, etc.)
+
+### Phased Migration Approach
+
+Minimize risk through staged deployment:
+
+**Phase 1 - Development (Week 1-2):**
+- Launch single g6e.xlarge instance
+- Test existing model code
+- Validate data pipeline with S3/EBS
+- Estimate per-GPU costs
+
+**Phase 2 - Testing (Week 3-4):**
+- Deploy to g6e.4xlarge with 4 GPUs
+- Run production-like workload (training or inference)
+- Validate monitoring and cost tracking
+- Measure throughput and latency
+
+**Phase 3 - Production (Week 5+):**
+- Full g6e.8xlarge deployment
+- Configure auto-scaling and spot instances
+- Migrate existing traffic gradually
+- Monitor SLAs and cost metrics
+
+### Framework and Code Changes
+
+Minimal code changes required:
+
+```python
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model = MyModel().to(device)
+```
+
+For multi-GPU training:
+
+```bash
+python -m torch.distributed.launch --nproc_per_node=8 train.py
+```
+
+L40S's Ada architecture requires no code changes from older NVIDIA GPUs.
+
+## FAQ
+
+**Q: How does AWS g6e L40S pricing compare to other providers?**
+A: AWS charges $1.50-2.00 per GPU/hour vs RunPod's $0.79/hour. AWS's premium reflects ecosystem integration benefits (unified billing, S3 data locality, compliance certifications). For sustained workloads, AWS reserved instances at $0.96-1.12/hour become competitive.
+
+**Q: Can I save money by using spot instances?**
+A: Yes, significantly. Spot reduces costs 60-70% but risks interruption every 2-5 hours (varies by region). Use spot for training with checkpoints every 1-2 hours. Most teams save 40-50% averaging on-demand baseline + spot bursting.
+
+**Q: What's the right instance size for my workload?**
+A: Single-GPU models benefit from g6e.xlarge. Most training uses g6e.4xlarge or g6e.8xlarge. Very large clusters use multiple g6e.12xlarge instances. Test on target instance size before committing to reserved instances.
+
+**Q: Will my existing CUDA code run on g6e without changes?**
+A: Yes. L40S (Ada architecture) runs all CUDA code targeting NVIDIA GPUs. Only old Kepler-era code might require updates. Test on a single instance before scaling.
+
+**Q: How long until instances provision and are ready?**
+A: Typically 2-5 minutes from request to bootable. AMI startup adds another 1-2 minutes depending on software initialization. Plan for 5-10 minute total provisioning when scaling up.
+
+**Q: Should I use EBS or S3 for training data storage?**
+A: Use S3 for inexpensive storage ($0.023/GB/month), stream data to GPU instances. Use EBS ($0.10/GB/month) only for very frequent access where per-GB charges are minor vs throughput benefits. Most teams use S3 with local caching.
+
+## Related Resources
+
+- [AWS g6e Instances Documentation](https://aws.amazon.com/ec2/instance-types/g6e/)
+- [NVIDIA L40S Specifications](https://www.nvidia.com/en-us/data-center/l40s/)
+- [AWS Deep Learning AMI](https://aws.amazon.com/machine-learning/amis/deep-learning-ami/)
+- [vLLM Inference Framework](https://github.com/vllm-project/vllm)
+- [PyTorch Distributed Training Guide](https://pytorch.org/tutorials/intermediate/ddp_tutorial.html)
+- [AWS EC2 Pricing Calculator](https://aws.amazon.com/ec2/pricing/on-demand/)
+- [GPU Provider Comparison](/gpus)
+
+## Sources
+
+- AWS EC2 g6e instance documentation (March 2026)
+- NVIDIA L40S GPU datasheet (2024)
+- DeployBase GPU pricing analysis (March 2026)
+- AWS cost optimization best practices (2026)

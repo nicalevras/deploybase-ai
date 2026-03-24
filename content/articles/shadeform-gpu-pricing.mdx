@@ -1,0 +1,400 @@
+---
+title: 'Shadeform GPU Pricing 2026: GPU Aggregator Costs'
+slug: shadeform-gpu-pricing
+description: >-
+  Shadeform GPU pricing aggregator platform: unified API, provider comparison,
+  cost savings as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: Pricing Guides
+keywords:
+  - shadeform gpu pricing
+  - shadeform cost
+  - gpu aggregator
+  - shadeform vs direct
+---
+
+## Contents
+
+- [Shadeform GPU Pricing: Overview](#shadeform-gpu-pricing-overview)
+- [What Is Shadeform?](#what-is-shadeform)
+- [Shadeform Pricing Model](#shadeform-pricing-model)
+- [Supported GPU Providers](#supported-gpu-providers)
+- [Markup & Fee Structure](#markup-fee-structure)
+- [Pricing Comparison: Shadeform vs Direct](#pricing-comparison-shadeform-vs-direct)
+- [Real-World Cost Examples](#real-world-cost-examples)
+- [Pros & Cons of Aggregation](#pros-cons-of-aggregation)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## Shadeform GPU Pricing: Overview
+
+Shadeform is Kayak for GPUs. One API, multiple providers. Tell it what GPU developers need, it finds the cheapest one available. No account management, no switching providers manually.
+
+---
+
+## What Is Shadeform?
+
+The problem: 10+ GPU providers, different pricing, different API. Shadeform solves it. Request a GPU, it provisions from the cheapest provider with available capacity.
+
+How: Request RTX 4090 via API → Shadeform queries all providers → Selects cheapest → Provisions → Returns SSH details → Bills developers one invoice.
+
+RunPod out of stock? Switches to Lambda transparently.
+
+Good for: prototype training, bursty workloads, fallover reliability, small teams without DevOps.
+
+### What Shadeform Is Not
+
+Shadeform does not own hardware. It doesn't run data centers. It doesn't offer long-term pricing discounts. Shadeform is a software layer on top of existing supply.
+
+This matters for long-term commitments. If a team commits to 3 years of H100 usage, negotiating directly with a provider offers better rates than Shadeform's per-hour model.
+
+---
+
+## Shadeform Pricing Model
+
+### Base Pricing
+
+Shadeform prices GPUs at the provider's cost plus a markup. The base rate is whatever the underlying provider charges, passed through transparently.
+
+**Example:** RunPod charges $0.22/hour for RTX 3090. Shadeform offers RTX 3090 at provider cost plus approximately 7-12% markup, placing the effective rate around $0.24-0.25/hour.
+
+No hidden fees. No setup charges. No minimum commitment. Pure hourly billing.
+
+### Markup Structure
+
+As of March 2026, Shadeform's markup varies by GPU tier:
+
+| GPU Tier | Typical Provider Cost | Shadeform Markup | Effective Cost |
+|---|---|---|---|
+| Entry (RTX 3090, L4) | $0.22-0.44 | 8-12% | $0.24-0.49 |
+| Mid (RTX 4090, L40) | $0.34-0.79 | 7-10% | $0.36-0.87 |
+| Professional (A100, H100) | $1.19-2.86 | 6-9% | $1.26-3.12 |
+| Ultra (H200, B200) | $3.59+ | 5-8% | $3.77-3.87 |
+
+The markup decreases for expensive GPUs because absolute dollar savings are larger. Shadeform's infrastructure cost (billing, API, support) is roughly fixed, so percentage markups decline at higher tiers.
+
+### Billing & Invoicing
+
+All usage aggregates into a single monthly invoice. Shadeform provides detailed breakdowns by GPU type, provider, duration, and cost. Team API key usage rolls up into one line item per account.
+
+**Billing Granularity:** 1-minute increments. Most providers bill in 1-hour minimum increments. Shadeform offers granular billing. Rent 37 minutes of GPU time, pay for 37 minutes (no forced rounding).
+
+**Payment Methods:**
+- Credit/debit card
+- Wire transfer (volume customers)
+- Crypto (Bitcoin, Ethereum) for select accounts
+
+**Discounts:**
+- Prepaid credits available at 5-10% discount (pay $10k, receive $10.5k credit)
+- Volume discounts for teams exceeding $50k/month in GPU spend
+
+### Provider Selection Algorithm
+
+Shadeform's matching algorithm considers multiple factors beyond price:
+
+- **Availability:** Providers with confirmed GPU capacity take priority over those with limited stock
+- **Latency:** Geographic proximity to user reduces API response time and SSH connection latency
+- **Reliability:** Providers with higher historical uptime scores are weighted higher
+- **Cost:** Among similar-quality providers, cheapest is selected
+- **Context duration:** Long-running jobs (>24 hours) favor stable providers over spot-prone ones
+
+For example, if RunPod and Lambda both have RTX 4090 available, Shadeform might select Lambda despite 5% higher cost if RunPod has had recent outages or if the user's workload is sensitive to interruptions.
+
+### API Rate Limits & Quotas
+
+Shadeform API has reasonable limits for exploration:
+
+- **Free tier:** 10 API requests/day, 1 GPU instance max, 5-day max duration
+- **Paid tier:** Unlimited API requests, 100 concurrent instances, no duration limit
+
+Rate limiting applies per API key, not per account. Multiple keys can parallelize requests.
+
+### Advanced Pricing Features
+
+**Burst Provisioning:** If a workload suddenly requires 50 GPUs, Shadeform can provision across multiple providers in parallel. Cost scales linearly (no penalty for multi-provider), but latency increases from 2-3 minutes to 5-10 minutes for full provisioning.
+
+**Spot Detection:** Shadeform tracks which providers offer spot/preemptible pricing and intelligently chooses them for fault-tolerant workloads. Example: A batch job that can tolerate 2-hour interruptions can reduce cost by 50-70% by targeting spot inventory.
+
+**Scheduled Provisioning:** Reserve GPUs for future time slots (e.g., "1 week from now") to guarantee availability and lock in current pricing.
+
+---
+
+## Supported GPU Providers
+
+Shadeform integrates with the major GPU cloud providers and specialty shops. As of March 2026, supported providers include:
+
+### Tier-1 Hyperscalers
+
+**AWS, Google Cloud, Azure**
+- Limited integration (GCP and Azure only; AWS integration pending)
+- Pricing typically matches public on-demand rates
+- Good for multi-cloud strategies but rarely cheapest
+
+### Specialty GPU Clouds
+
+**RunPod**
+- Full integration with live pricing sync
+- RTX 3090: $0.22/hour
+- RTX 4090: $0.34/hour
+- H100 SXM: $2.69/hour
+- Frequently the cheapest option in Shadeform selection
+
+**Lambda**
+- Full integration
+- A100 PCIe: $1.48/hour
+- H100 SXM: $2.49/hour
+- Typically priced between RunPod and other managed providers
+
+**CoreWeave**
+- Full integration
+- Focus on bulk GPU systems (8x A100, 8x H100)
+- Not available for single-GPU workloads through Shadeform
+
+**Vast.AI**
+- Full integration
+- Peer-to-peer GPU marketplace
+- Lowest pricing but variable reliability
+- Shadeform handles failover if host goes offline
+
+**Crusoe Energy**
+- Limited integration (geo-restricted)
+- Competitive pricing in US West regions
+- Focus on inference workloads
+
+**TensorDock**
+- Full integration
+- Community-sourced GPUs
+- Lower reliability than managed providers
+- Lowest costs for risk-tolerant teams
+
+---
+
+## Markup & Fee Structure
+
+### How Shadeform Extracts Value
+
+Shadeform's margin comes from three sources:
+
+**1. Provider Markup**
+The largest component. Shadeform buys in bulk from providers at discounted rates, then marks up to public pricing. If RunPod offers volume discounts at 10% below public rates, Shadeform captures that spread.
+
+**2. Aggregation Efficiency**
+Shadeform's API matches supply and demand more efficiently than teams making manual selections. Reduced idle time = more consistent revenue from providers = better bulk rates = higher margins.
+
+**3. Infrastructure & Support**
+Billing, API hosting, customer support, and payment processing cost Shadeform money. These costs scale sublinearly with usage (fixed overhead), so the 6-12% markup covers marginal cost plus some profit.
+
+### Fee Transparency
+
+Shadeform doesn't hide fees. Every invoice itemizes the provider cost (what the provider would have charged) vs. the Shadeform cost (what the team pays). This transparency builds trust but also makes the markup visible, which some teams resent.
+
+**Example Invoice:**
+
+```
+RTX 4090 on RunPod: 100 hours
+  Provider Cost: 100 × $0.34 = $34.00
+  Shadeform Markup: $34.00 × 10% = $3.40
+  Total: $37.40
+
+H100 SXM on Lambda: 50 hours
+  Provider Cost: 50 × $2.49 = $124.50
+  Shadeform Markup: $124.50 × 7% = $8.72
+  Total: $133.22
+
+Monthly Total: $170.62
+```
+
+---
+
+## Pricing Comparison: Shadeform vs Direct
+
+### RTX 4090 (Popular for PyTorch training)
+
+**Direct Rental (March 2026):**
+- RunPod: $0.34/hour (cheapest available)
+- Lambda: $0.58/hour
+- Vast.AI: $0.25-0.30/hour (variable, unreliable)
+
+**Shadeform Rate:**
+- $0.36/hour (assumes RunPod selected + 8% markup)
+
+**Cost Comparison for 100 hours:**
+- RunPod direct: $34
+- Shadeform (RunPod backend): $36
+- Difference: +$2 (5.9% overhead)
+
+At this tier, the markup is noticeable but small in absolute dollars. For exploration phase, $2 is negligible vs. the time saved managing provider accounts.
+
+### A100 PCIe (Data parallel training)
+
+**Direct Rental:**
+- CoreWeave: $21.60/8-GPU-hour (on single A100: $2.70/hour)
+- Lambda: $1.48/hour
+- RunPod: $1.19/hour (cheap but less reliable)
+
+**Shadeform Rate:**
+- $1.27/hour (assumes RunPod selected + 7% markup)
+
+**Cost for 500 hours (typical weekly research project):**
+- RunPod direct: $595
+- Shadeform: $635
+- Difference: +$40 (6.7% overhead)
+
+### H100 SXM (Serious research)
+
+**Direct Rental:**
+- Lambda: $2.49/hour (most reliable; H100 SXM)
+- RunPod: $2.69/hour (spot; preemptible)
+- CoreWeave: ~$6.16/GPU/hr for bulk 8x systems
+
+**Shadeform Rate:**
+- $2.85/hour (assumes Lambda selected + 6% markup; cheaper than RunPod spot)
+
+**Cost for 1,000 hours (major training project):**
+- Lambda direct: $2,490
+- Shadeform (Lambda backend): $2,640
+- Difference: +$150 (6% overhead)
+
+### When Shadeform Markup Is Worth It
+
+1. **Exploration phase:** Teams evaluating multiple GPUs without firm commitment.
+2. **Bursty workloads:** Sudden demand for GPU capacity where provisioning speed matters more than per-unit cost.
+3. **Hands-off operations:** Teams without DevOps resources to manage multi-provider accounts.
+4. **Failover resilience:** Applications requiring automatic provider switching without manual intervention.
+
+### When Direct Rental Is Cheaper
+
+1. **Committed bulk usage:** Renting 1,000+ hours of a single GPU type deserves direct negotiation.
+2. **Long-term projects:** Reservations and multi-year commitments offer 30-50% discounts direct, negating Shadeform savings.
+3. **Exotic hardware:** Rare GPUs (H200, B200 prototypes) aren't yet aggregated; direct provider contact is mandatory.
+4. **Cost-sensitive production:** Inference workloads with tight margins demand lowest cost; aggregate markups unacceptable.
+
+---
+
+## Real-World Cost Examples
+
+### Example 1: Startup Fine-Tuning LLAMA 2
+
+**Workload:** Fine-tune LLAMA 2 7B on 100k curated examples. Requires ~500 hours of RTX 4090 or equivalent.
+
+**Via Shadeform:**
+- RTX 4090: 500 hours × $0.36/hour = $180
+
+**Via RunPod direct:**
+- RTX 4090: 500 hours × $0.34/hour = $170
+- Setup: ~30 min (create account, handle UI, launch instance)
+
+**Verdict:** Shadeform saves 30 minutes of setup for +$10 cost. Worth it for one-off experiments.
+
+### Example 2: Research Lab Distributed Training
+
+**Workload:** Train custom vision model on 2,000 hours of H100 time across 3 months.
+
+**Via Shadeform:**
+- H100 SXM: 2,000 hours × $2.87/hour = $5,740
+
+**Via Lambda direct:**
+- H100 SXM: 2,000 hours × $2.49/hour = $4,980
+- Alternative (mixed providers): $4,200-5,500 depending on negotiated rates
+- Setup: ~2-4 hours (account, invoicing setup, monitoring)
+
+**Verdict:** Shadeform costs $5,740 vs. $4,200-4,980 direct via Lambda. Direct Lambda is cheaper at scale for committed projects. Shadeform saves negotiation effort but adds ~15% cost over Lambda direct.
+
+### Example 3: Production Inference Service
+
+**Workload:** Serve 1M inference requests/month, averaging 10 seconds per request on RTX 4090. Requires ~27.8 hours RTX 4090 daily = 834 hours/month.
+
+**Via Shadeform:**
+- RTX 4090: 834 hours × $0.36/hour = $300.24/month = $3,603/year
+
+**Via RunPod direct (bulk rate negotiation):**
+- RTX 4090: 834 hours × $0.22/hour = $183.48/month = $2,202/year
+- Negotiated discount: Possible 20-30% at this volume
+
+**Verdict:** Direct wins. Production workloads justify dedicated accounts and bulk negotiations.
+
+---
+
+## Pros & Cons of Aggregation
+
+### Advantages of Shadeform
+
+**Simplicity:** One API call replaces 10 provider accounts. No invoicing reconciliation. Single bill. Instant setup.
+
+**Automatic Cost Optimization:** Shadeform's algorithm continuously finds cheapest available GPU. Human procurement can't match dynamic pricing updates.
+
+**Failover Resilience:** If RunPod capacity expires, Shadeform transparently spins instance on Lambda. Critical for reliability-dependent applications.
+
+**Billing Transparency:** Provider costs clearly separated from Shadeform markup. No surprise fees.
+
+**Multi-provider Testing:** Evaluate different providers (RunPod, Lambda, Vast) without maintaining separate accounts.
+
+### Disadvantages of Aggregation
+
+**Markup Overhead:** 6-12% per-hour cost premium accumulates. On $100k/month spend, that's $6-12k/month in aggregation fees.
+
+**No Long-term Discounts:** Shadeform's per-hour model doesn't qualify for 1-year or 3-year reserved instance pricing. Teams committing to single providers get 30-50% discounts unavailable via Shadeform.
+
+**Limited Customization:** Providers offer unique features (RunPod community nodes, Lambda custom kernels, CoreWeave bare metal). Shadeform abstracts these away.
+
+**Support Complexity:** Issues require troubleshooting through Shadeform instead of direct provider support. Extra layer adds latency.
+
+**No Bulk Negotiation:** Shadeform can't negotiate rates for individual customer needs. High-volume customers need direct relationships.
+
+**Data Residency Constraints:** International teams need GPUs in specific regions (EU, APAC). Not all providers available in all regions through Shadeform.
+
+---
+
+## FAQ
+
+**Q: Is Shadeform cheaper than buying directly from providers?**
+Rarely. Shadeform's 6-12% markup means direct procurement is cheaper at scale. Shadeform's value is convenience and failover, not cost minimization.
+
+**Q: What happens if a provider goes offline during my workload?**
+Shadeform detects provider issues and migrates your workload to another provider automatically. The process takes 5-15 minutes depending on system state and new provider queue depth.
+
+**Q: Can I reserve GPUs through Shadeform?**
+Not yet. Shadeform focuses on spot/on-demand pricing. Reserved instances (1-year, 3-year) are only available via direct provider contracts.
+
+**Q: Does Shadeform work with spot instances?**
+Yes. Shadeform can select among spot and on-demand GPUs based on cost. Spot GPUs are cheaper but carry termination risk. Shadeform flags this in API responses.
+
+**Q: How does Shadeform compare to AWS/GCP/Azure?**
+Hyperscaler GPUs (p4d, a2, ND series) are typically 2-3x more expensive than specialty providers. Shadeform rarely selects hyperscaler GPUs unless specialty capacity is exhausted.
+
+**Q: Can I use Shadeform for inference workloads?**
+Yes, but direct rental is usually more cost-effective at production scale. Shadeform suits variable-load inference where failover and dynamic scaling matter more than per-unit cost.
+
+**Q: Does Shadeform support GPU clusters for distributed training?**
+Limited support. Shadeform can provision multiple GPUs from the same provider, but multi-provider GPU clusters require manual configuration. The API can reserve, say, 8 GPUs on RunPod and 8 on Lambda, but networking between them is the user's responsibility. Most teams use single-provider clusters and switch providers between jobs.
+
+**Q: What's Shadeform's API latency for provisioning?**
+API response time: 50-200ms. Provisioning latency (request to instance ready for SSH): 2-5 minutes on average. Cold starts may take 10+ minutes if provider needs to boot new hardware.
+
+**Q: Does Shadeform offer free tier pricing?**
+No. Billing starts immediately when instance launches. Minimum charge is 1 minute of GPU time. Most providers offer free trials separately (RunPod $10 free credit, etc.).
+
+---
+
+## Related Resources
+
+- [RunPod GPU Pricing Guide](/articles/runpod-gpu-pricing)
+- [Lambda Labs GPU Pricing 2026](/articles/lambda-labs-gpu-pricing)
+- GPU Aggregators: Comparison & Tradeoffs
+- Cost Optimization for ML Workloads
+- How to Negotiate GPU Provider Contracts
+
+---
+
+## Sources
+
+- Shadeform. "GPU Pricing & Provider Integration." shadeform.ai/pricing/
+- Shadeform API Documentation. api.shadeform.ai/docs/
+- RunPod Pricing (March 2026). runpod.io/pricing/
+- Lambda Labs Pricing (March 2026). lambda.ai/pricing
+- CoreWeave Pricing (March 2026). coreweave.com/pricing/

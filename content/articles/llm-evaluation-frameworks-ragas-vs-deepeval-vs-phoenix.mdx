@@ -1,0 +1,131 @@
+---
+title: 'LLM Evaluation Frameworks: RAGAS vs DeepEval vs Phoenix in 2026'
+slug: llm-evaluation-frameworks-ragas-vs-deepeval-vs-phoenix
+description: >-
+  Comprehensive comparison of RAGAS, DeepEval, and Phoenix for LLM evaluation,
+  covering metrics, speed, integration, and production readiness.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - llm evaluation frameworks
+---
+
+## Contents
+
+- [LLM Evaluation Frameworks: Framework Architecture](#llm-evaluation-frameworks-framework-architecture)
+- [RAGAS Metrics in Detail](#ragas-metrics-in-detail)
+- [DeepEval Metrics and Approach](#deepeval-metrics-and-approach)
+- [Phoenix for Production Monitoring](#phoenix-for-production-monitoring)
+- [Performance and Speed Characteristics](#performance-and-speed-characteristics)
+- [Integration Patterns](#integration-patterns)
+- [Production Considerations](#production-considerations)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## LLM Evaluation Frameworks: Framework Architecture
+
+Three LLM evaluation frameworks dominate the space. RAGAS: RAG-specific. Evaluates retrieval, generation, each step.
+
+DeepEval: General-purpose. Assess any LLM output. Factuality, coherence, toxicity, custom metrics.
+
+Phoenix: Production monitoring. Collects traces, detects drift, evaluates retroactively. Works with LangChain, LlamaIndex.
+
+## RAGAS Metrics in Detail
+
+RAGAS defines four core metrics for RAG evaluation:
+
+**Faithfulness** measures whether generated answers rely only on retrieved documents. Score range: 0-1, higher is better. A generated answer referencing information not in retrieved documents scores low on faithfulness. Evaluated through LLM-as-judge: Does the model's output require external knowledge?
+
+**Answer Relevance** quantifies whether outputs answer the input query. Computed as cosine similarity between query and answer embeddings. Simple but effective. Limitations: ignores semantic relevance mismatches. A factually correct answer to the wrong question scores high despite being wrong.
+
+**Context Precision** measures retrieval quality. How many retrieved documents are actually relevant to the query? Evaluated by checking if retrieved document content supports the final answer. High precision means retrieved results contained necessary information early in the ranking.
+
+**Context Recall** complements precision. Did retrieval capture all necessary information to answer the question? Requires ground truth about which documents contain relevant information. Low recall means critical documents were filtered out during retrieval.
+
+These metrics flow from standard information retrieval practices. Together they diagnose RAG problems: low faithfulness suggests hallucination, low answer relevance suggests misunderstanding, low context precision suggests ranking issues, low context recall suggests retrieval failure.
+
+## DeepEval Metrics and Approach
+
+DeepEval's metric library spans LLM-specific concerns. Toxicity detection catches harmful outputs. Bias evaluation identifies stereotyping. Correctness checks factual accuracy against ground truth. Relevance measures alignment with queries.
+
+LLM-as-judge metrics dominate DeepEval's approach. Prompt an LLM to evaluate whether another LLM's output meets criteria. This works surprisingly well. Claude or GPT-4 judges achieve 85-95% correlation with human evaluation. Specific prompts guide judges: "Does this output contain factually accurate information?"
+
+Custom metrics allow domain-specific evaluation. Finance applications might check regulatory compliance. Medical systems verify safety warnings. Creative applications assess originality. Python functions define custom evaluation: accept input/output/context, return score 0-1.
+
+Batch evaluation supports testing thousands of outputs quickly. DeepEval provides CLI tools and Python API for systematic assessment. Results export to CSV or JSON. Integration with CI/CD pipelines enables continuous evaluation.
+
+## Phoenix for Production Monitoring
+
+Phoenix transcends evaluation frameworks by providing production instrumentation. Install Phoenix SDKs in LLM applications. Traces capture every API call, token count, latency, and output. Phoenix collects this data, analyzes patterns, and flags anomalies.
+
+Evaluation functions run on historical traces. Detect when outputs drift from expected quality. Monitor token efficiency: Is generation speed degrading? Check for increased token consumption (possible efficiency regression). Alert on error rates exceeding thresholds.
+
+The observability-first approach catches production issues others miss. RAGAS and DeepEval assess pre-production test sets. Phoenix monitors live traffic. A model update might pass offline evaluation but fail in production due to distribution shift. Phoenix surfaces this immediately.
+
+Integration depth favors teams using LLM frameworks. LangChain and LlamaIndex users get automatic tracing through Phoenix SDKs. Minimal code changes required. Trace data flows to Phoenix's cloud or on-prem deployments. Dashboards show application health in real time.
+
+## Performance and Speed Characteristics
+
+RAGAS evaluation speed depends on LLM-as-judge cost. Evaluating 1,000 outputs requires 4,000 LLM API calls (4 metrics per output). At standard API pricing, this costs $1-$5 and takes 5-30 minutes depending on concurrency. Caching reduces redundant evaluations.
+
+DeepEval evaluation speed matches RAGAS for LLM-based metrics. Non-LLM metrics (embedding similarity, token overlap) evaluate in milliseconds. Mixed workloads combining fast and slow metrics complete in minutes for reasonable batch sizes.
+
+Phoenix throughput exceeds others significantly. Tracing adds minimal overhead (2-5% application latency). Data ingestion scales to millions of traces monthly. Evaluation runs on stored traces asynchronously. Real-time alerting responds within seconds.
+
+Latency-sensitive applications should evaluate carefully. RAGAS and DeepEval add seconds per evaluation (LLM call latency). Batch evaluation works fine for offline validation. Production serving cannot wait for these evaluations. Phoenix's asynchronous model suits production better.
+
+## Integration Patterns
+
+RAGAS integrates naturally with RAG frameworks. LlamaIndex applications use RAGAS natively. LangChain chains emit traces suitable for RAGAS analysis. Integration typically requires 10-20 lines of code.
+
+DeepEval supports decorator patterns in Python. Wrap LLM calls with `@eval` decorators. Specify evaluation metrics inline. Results capture automatically. This pattern fits custom applications without framework dependencies.
+
+Phoenix integration varies by maturity. LangChain support is excellent. LlamaIndex support is complete. Custom application instrumentation requires OpenTelemetry-compatible code. Effort: minimal for frameworks, moderate for custom code.
+
+All three support OpenTelemetry export. Applications emitting OpenTelemetry traces can integrate with any framework. This enables framework-agnostic evaluation pipelines. Cost: some overhead for trace generation.
+
+## Production Considerations
+
+Offline evaluation (RAGAS, DeepEval) requires test data. Create representative datasets matching production distribution. Imbalanced test sets miss important failure modes. Stratified sampling ensures coverage across query types, domains, and complexity levels.
+
+Online evaluation (Phoenix) requires threshold definition. What constitutes acceptable quality? Set alerts for outputs below thresholds. Too-sensitive thresholds create false positives. Too-loose thresholds miss real issues. Start conservative, tighten based on false positive rates.
+
+Cost scales with usage. RAGAS evaluation cost is predictable: fixed rate per output. DeepEval matches. Phoenix charges based on trace volume and retention. 100M monthly traces might cost $2K-$10K depending on retention period.
+
+Data retention and compliance matter. RAGAS and DeepEval store evaluation results only. Phoenix stores full traces. Compliance requirements may limit what can be stored. HIPAA applications should check retention policies carefully.
+
+## FAQ
+
+**Q: Which framework should I choose?**
+A: RAG-specific workloads prefer RAGAS. General LLM evaluation favors DeepEval. Production systems benefit from Phoenix. Many teams use multiple frameworks: DeepEval for offline validation, Phoenix for online monitoring.
+
+**Q: Can I use cheaper LLMs as judges?**
+A: Yes, but with caveats. Claude Haiku and Llama 2 judges cost less but achieve 75-85% correlation with human evaluation versus 90%+ for GPT-4 judges. Domain-specific evaluation might work better with specialized smaller models.
+
+**Q: How do I validate my test set is representative?**
+A: Compare test set distribution to production distribution. Use stratified sampling across key dimensions (query length, domain, complexity). Monitor drift over time. If production accuracy drops while test accuracy holds, test set mismatches are likely.
+
+**Q: What about multilingual evaluation?**
+A: RAGAS works across languages with multilingual embeddings. DeepEval's LLM judges handle most languages well. Phoenix tracing works language-agnostic. Test carefully in target languages; performance may vary.
+
+**Q: How do I detect model degradation?**
+A: Track evaluation metrics over time. Use statistical process control to detect drift. Phoenix dashboards enable this natively. For offline metrics, run periodic re-evaluation on fixed test sets.
+
+**Q: Can these frameworks evaluate fine-tuned models?**
+A: Yes. Fine-tuned models are opaque to evaluation frameworks; they measure outputs, not models. A fine-tuned model producing lower-quality outputs scores accordingly.
+
+## Related Resources
+
+[RAG Pipeline Architecture](/articles/build-rag-application)
+[LLM API Pricing](/llms)
+[LLM Inference Providers](/articles/best-llm-inference-providers-speed-and-cost-benchmarks)
+Production ML Monitoring
+
+## Sources
+
+RAGAS Documentation and Papers
+DeepEval Framework Documentation
+Phoenix Observable Documentation
+LLM-as-Judge Evaluation Studies
+Production ML Evaluation Case Studies

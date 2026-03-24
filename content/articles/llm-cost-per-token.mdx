@@ -1,0 +1,417 @@
+---
+title: 'LLM Cost Per Token: Complete Pricing Comparison and Optimization Guide'
+slug: llm-cost-per-token
+description: >-
+  Complete LLM token pricing comparison across OpenAI, Anthropic, xAI, and
+  others. Cost-per-task analysis and strategies to reduce LLM expenses. March
+  2026 rates.
+date: '2026-03-22'
+author: DeployBase
+category: LLM Pricing
+keywords:
+  - llm cost per token
+  - ai cost calculator
+  - token pricing
+  - llm pricing comparison
+  - cheapest llm api
+---
+
+## Contents
+
+- [LLM Cost per Token: Overview](#llm-cost-per-token-overview)
+- [Token Pricing by Provider](#token-pricing-by-provider)
+- [Token Pricing Metrics Explained](#token-pricing-metrics-explained)
+- [Cost Per Task Analysis](#cost-per-task-analysis)
+- [Hidden Costs Beyond Token Rate](#hidden-costs-beyond-token-rate)
+- [Optimization Strategies](#optimization-strategies)
+- [Cost Reduction Tactics](#cost-reduction-tactics)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## LLM Cost per Token: Overview
+
+LLM Cost per Token is the focus of this guide. Token cost is the main thing. Input: $0.02-$15/M. Output: $0.40-$120/M. Gap: 300x. Most teams waste 40-60% on overkill models. Secret: match model to task, not task to budget.
+
+---
+
+## Token Pricing by Provider
+
+### OpenAI (as of March 2026)
+
+| Model | Input ($/M) | Output ($/M) | Output:Input | Use Case |
+|-------|------------|------------|-------------|----------|
+| **GPT-5 Nano** | $0.05 | $0.40 | 8:1 | Ultra-cheap filters |
+| **GPT-5 Mini** | $0.25 | $2.00 | 8:1 | High-volume tasks |
+| **GPT-4o Mini** | $0.15 | $0.60 | 4:1 | Fast general purpose |
+| **GPT-4o** | $2.50 | $10.00 | 4:1 | Standard inference |
+| **GPT-5** | $1.25 | $10.00 | 8:1 | Complex reasoning |
+| **GPT-5.1** | $1.25 | $10.00 | 8:1 | Extended context |
+| **GPT-5 Pro** | $15.00 | $120.00 | 8:1 | Advanced reasoning |
+| **o3 Mini** | $1.10 | $4.40 | 4:1 | Light reasoning |
+| **o3** | $2.00 | $8.00 | 4:1 | Heavy reasoning (slow) |
+
+GPT-5 Nano is the cheapest frontier model. GPT-5 Pro is 300x more expensive on input and output combined.
+
+### Anthropic (Claude)
+
+| Model | Input ($/M) | Output ($/M) | Output:Input | Notes |
+|-------|------------|------------|-------------|-------|
+| **Haiku 4.5** | $1.00 | $5.00 | 5:1 | Fastest, cheapest Claude |
+| **Sonnet 4.6** | $3.00 | $15.00 | 5:1 | Balanced performance |
+| **Opus 4.6** | $5.00 | $25.00 | 5:1 | Most capable, expensive |
+| **Opus 4.5** | $5.00 | $25.00 | 5:1 | Older, same price |
+
+Claude's pricing is consistent: 5:1 output-to-input ratio across all models. Opus is 25% cheaper on input than GPT-5 Pro but still 5x more than Haiku.
+
+### xAI (Grok)
+
+| Model | Input ($/M) | Output ($/M) | Special Feature |
+|-------|------------|------------|-----------------|
+| **Grok 3** | $1.25 | $10.00 | Real-time X data |
+| **Grok 2** | $0.50 | $5.00 | Legacy, cheaper |
+
+Grok 3 pricing matches GPT-5 on token rates. The differentiation: live data access.
+
+### Mistral and Others
+
+| Provider | Cheapest Model | Input | Output | Availability |
+|----------|----------------|-------|--------|--------------|
+| **Mistral** | Mistral 7B | $0.14 | $0.42 | Via Azure, API |
+| **DeepSeek** | DeepSeek-V3 | $0.27 | $1.10 | Limited API |
+| **Meta/Together** | Llama 3 70B | $0.70 | $0.90 | Via Lambda, RunPod |
+| **Groq** | Mixtral 8x7B | ~$0.50 | ~$0.50 | Groq API |
+
+Open-source models on third-party APIs are competitive. DeepSeek-V3 at $0.27/$1.10 undercuts OpenAI and Anthropic on most tasks.
+
+---
+
+## Token Pricing Metrics Explained
+
+### Input vs Output Cost
+
+Input tokens are cheaper because they're processed once at request time. Output tokens are generated sequentially, requiring more GPU time. Most models price output 4-8x higher than input.
+
+**Why this matters:** A task that generates lots of output (summarization, code generation) is expensive. A task that takes long input (RAG with large context) is cheap.
+
+### Throughput (Tokens Per Second)
+
+Throughput affects wall-clock time, not token cost. Claude Haiku outputs 44 tokens/sec; Claude Opus outputs 29 tokens/sec. Both cost the same per token. Haiku finishes faster.
+
+For batch processing, throughput is irrelevant. For real-time chat, throughput determines latency.
+
+### Context Window Cost
+
+Most providers charge the same per token regardless of context position (first token, last token, same price). Exception: some offer "context caching" where tokens in a cached context cost 90% less after the first request.
+
+---
+
+## Cost Per Task Analysis
+
+### Task 1: Spam Detection Filter
+
+Input: 500-word customer email.
+Output: "spam" or "not spam" (2 tokens).
+
+**Model Selection Logic:**
+This is a classification task with minimal output. Smaller models generalize better than larger ones on narrow tasks. GPT-5 Nano is optimal.
+
+**Cost Calculation:**
+- Input tokens: 500 words × 1.5 tokens/word = 750 tokens
+- Output tokens: 2 (simple binary choice)
+- Cost per task: (750 × $0.05 + 2 × $0.40) / 1,000,000 = $0.0000375 + $0.0000008 = ~$0.00004
+
+At $0.04 per 1000 tasks, processing 10M emails/month costs $400. Negligible.
+
+**Cost Comparison (Wrong Model Choice):**
+Using Claude Opus instead of Nano:
+- Cost: (750 × $5.00 + 2 × $25.00) / 1,000,000 = $0.00375
+
+**Impact of wrong model:**
+Opus is 100x more expensive ($0.00375 vs $0.00004). At 10M emails/month, this is $37,500/month vs $400/month. The difference is $37,100/month or $445,000/year.
+
+This is the hidden cost most teams don't track: model selection without cost awareness. A 1-minute engineering decision to use Nano instead of Opus saves $445k annually at scale.
+
+### Task 2: Customer Support Chat
+
+Input: 10-turn conversation, 2,000 total input tokens.
+Output: 150 tokens per turn (1,500 total).
+
+**Model Selection Criteria:**
+Chat requires moderate reasoning and domain knowledge (product features, policies). Speed matters for user experience. Cost matters at 1000+ conversations/month scale.
+
+**GPT-4o Mini Analysis:**
+- Tokens: 2,000 input + 1,500 output
+- Cost per conversation: (2,000 × $0.15 + 1,500 × $0.60) / 1,000,000 = $0.00135
+- Monthly cost at 1,000 conversations: $1.35
+- Latency: ~2 seconds end-to-end (acceptable)
+
+**Claude Haiku Analysis:**
+- Tokens: 2,000 input + 1,500 output
+- Cost per conversation: (2,000 × $1.00 + 1,500 × $5.00) / 1,000,000 = $0.00950
+- Monthly cost at 1,000 conversations: $9.50
+- Latency: ~1 second (faster)
+
+**Cost Multiplier:** Haiku is 7x more expensive on this task ($9.50 vs $1.35). At 100,000 conversations/month scale, this is $1,350 (Mini) vs $9,500 (Haiku) = $8,150/month difference.
+
+**Recommendation:** GPT-4o Mini wins on cost. Haiku wins on speed. For most support teams, the monthly savings ($8k) justify 1-second latency trade-off. Use Haiku only if support SLA requires <500ms response time.
+
+### Task 3: Code Generation
+
+Input: Prompt + 500 lines of context = 2,000 tokens.
+Output: 200 lines of code = 1,000 tokens.
+
+**Model Selection Criteria:**
+Code generation has correctness requirements. A function that doesn't compile is worthless. But code quality varies wildly by model. This is where cheaper models can fail.
+
+**GPT-5 Mini (Cheapest):**
+- Cost: (2,000 × $0.25 + 1,000 × $2.00) / 1,000,000 = $0.00250 per request
+- Compilation success rate: ~85%
+- Semantic correctness: ~70% (code runs but may be inefficient)
+
+**GPT-4o (Balanced):**
+- Cost: (2,000 × $2.50 + 1,000 × $10.00) / 1,000,000 = $0.0120 per request
+- Compilation success rate: ~92%
+- Semantic correctness: ~82%
+
+**Claude Sonnet (Quality-focused):**
+- Cost: (2,000 × $3.00 + 1,000 × $15.00) / 1,000,000 = $0.0180 per request
+- Compilation success rate: ~94%
+- Semantic correctness: ~85%
+
+**Cost-Quality Analysis:**
+100 code generation requests/month:
+- Mini: $0.25 + 15 failures = 15 manual fixes (1 hour = $50 engineer cost) = $50.25 total
+- GPT-4o: $1.20 + 8 failures = 8 manual fixes (0.5 hours = $25) = $26.20 total
+- Sonnet: $1.80 + 6 failures = 6 manual fixes (0.4 hours = $20) = $21.80 total
+
+**True cost-benefit:** GPT-4o is cheapest when accounting for human debugging time. The monthly API cost is $1.20, but operational cost is $26.20. Mini's API cost of $0.25 balloons to $50.25 when debugging costs are included.
+
+Engineers often ignore this. "The API is cheap!" masks the human cost multiplier.
+
+### Task 4: Long-Context RAG (Retrieval-Augmented Generation)
+
+Input: Query (100 tokens) + 20 documents (50K tokens of context).
+Output: Answer (500 tokens).
+
+**Model Choice:** GPT-5.1 (400K context).
+
+Cost: (50,100 × $1.25 + 500 × $10.00) / 1,000,000 = $0.0751 per query.
+
+1,000 queries/month = $75.10.
+
+**Optimization:** Use context caching. After first request, cached tokens cost 90% less (future requests with same documents).
+
+- First request: $0.0751 (full cost)
+- Subsequent requests (same 20 docs, cached context at 10%):
+  - Cached 50,000 tokens: 50,000 × $1.25 × 10% / 1,000,000 = $0.00625
+  - New query 100 tokens: 100 × $1.25 / 1,000,000 = $0.000125
+  - Output 500 tokens: 500 × $10.00 / 1,000,000 = $0.005
+  - Total per cached request: ~$0.0114
+
+10 queries to same document set:
+- Without caching: $0.751
+- With caching: $0.0751 + (9 × $0.0114) = $0.1777
+
+Caching saves 76% on repeated context with same document set.
+
+---
+
+## Hidden Costs Beyond Token Rate
+
+### 1. Latency and Throughput
+
+A model that outputs at 10 tok/sec vs 50 tok/sec means the same cost per token but very different wall-clock times. If developers're paying for GPU rental while waiting for inference, latency is a hidden cost.
+
+Claude Opus (slow) vs Claude Haiku (fast) on the same task:
+
+Task: 2,000 token output.
+Haiku: 2,000 / 44 tok/s = 45 seconds (token cost identical).
+Opus: 2,000 / 29 tok/s = 69 seconds.
+
+If developers're renting a $2/hr GPU while waiting, the 24-second difference costs an extra $0.013. Negligible. But at 10,000 queries/day, that's $130/month in wasted GPU time. Throughput matters for latency-sensitive batch jobs.
+
+### 2. API Errors and Retries
+
+Some models fail more often (hallucinate, refuse, timeout). Retries are hidden token costs.
+
+GPT-4o Mini has higher refusal rate on edge cases than GPT-5. An extra 5% error rate = 5% more API calls = 5% higher bill. Not tracked separately.
+
+**Mitigation:** Test model error rates on the workload before committing.
+
+### 3. Context Caching Setup
+
+Context caching requires tokens to be repeated verbatim. If the system randomly shuffles context, caching is useless. Engineering cost to enable caching can exceed token savings for small-volume tasks.
+
+### 4. Rate Limits and Queueing
+
+Hit OpenAI's rate limit? Requests queue and retry, adding latency and potentially more tokens (longer timeouts = more retry overhead).
+
+---
+
+## Optimization Strategies
+
+### Strategy 1: Model Tiering
+
+Assign models by task complexity, not uniformly.
+
+- **Tier 1 (ultra-cheap):** GPT-5 Nano or Mistral 7B for classification, filtering, routing. Cost: ~$0.0001 per task.
+- **Tier 2 (balanced):** GPT-4o Mini or Claude Haiku for chat, summarization, simple generation. Cost: ~$0.001 per task.
+- **Tier 3 (capable):** GPT-5 or Claude Sonnet for reasoning, complex analysis. Cost: ~$0.01 per task.
+- **Tier 4 (frontier):** GPT-5 Pro or Claude Opus for edge cases only. Cost: $0.10-$1.00 per task.
+
+Most applications never hit Tier 4. If 90% of traffic is Tier 1-2 and 10% is Tier 3, average cost drops 80%.
+
+### Strategy 2: Prompt Optimization
+
+Shorter prompts = fewer input tokens = lower cost.
+
+Instead of:
+
+"You are a customer support specialist. Your job is to help customers with their orders. Please read the following customer message and respond in a helpful, friendly tone."
+
+Write:
+
+"Respond to this customer support request."
+
+Same output quality, 60% fewer input tokens.
+
+### Strategy 3: Output Constraints
+
+Limit output token count. Instead of asking for 1,000-token essay, ask for 100-token summary.
+
+Output tokens are 4-8x more expensive than input. Cutting output is the highest-impact cost optimization.
+
+### Strategy 4: Caching
+
+Use context caching for:
+- Repeated system prompts
+- Static documents (product catalogs, guidelines, code repositories)
+- Multi-turn conversations with shared context
+
+One cached 10K-token document accessed 100 times/month:
+
+- Without caching: 10,000 × $1.25 / 1,000,000 × 100 = $1.25
+- With caching: 10,000 × $1.25 / 1,000,000 + 99 × (10,000 × $0.125 / 1,000,000) = $0.1375
+
+Saves $1.11/month per cached document. At 10 documents, save $11/month.
+
+---
+
+## Cost Reduction Tactics
+
+### Tactic 1: Streaming
+
+Streaming doesn't reduce token cost but allows early stopping. If user closes chat mid-response, stop sending tokens immediately. Non-streaming APIs bill for full response even if user never reads it.
+
+### Tactic 2: Batch APIs
+
+OpenAI's Batch API processes requests overnight at 50% discount. If latency tolerance is hours (not minutes), batch saves money.
+
+Standard API: (2,000 × $0.15 + 500 × $0.60) / 1,000,000 = $0.0006 per request.
+Batch API (50% discount): $0.0003 per request.
+
+At 100,000 requests/month, save $30.
+
+### Tactic 3: Fine-Tuning
+
+Fine-tune a model on the domain-specific data, then use the cheaper model for production.
+
+Fine-tune GPT-4o Mini to handle customer support. Cost: $1,000 upfront (one-time). After: use fine-tuned Mini at normal token rates instead of GPT-5 for better output.
+
+ROI: break-even at ~500K tokens saved (vs full-price Sonnet).
+
+### Tactic 4: Local Inference
+
+Run smaller models locally (Mistral 7B, Llama 3 8B).
+
+Token cost: $0. Infrastructure cost: pay-once for server or GPU rental. For 10M+ tokens/month, local inference is cheaper.
+
+Trade-off: local models are less capable. Test on the tasks first.
+
+### Tactic 5: Rate Negotiation
+
+At $100k+/month spend, contact providers for volume discounts. Anthropic offers 50% discount at $1M+/month. OpenAI and xAI have custom pricing for large customers.
+
+---
+
+## FAQ
+
+**What's the cheapest LLM API?**
+
+GPT-5 Nano at $0.05/M input, $0.40/M output. But "cheapest" depends on quality and speed. For most tasks, GPT-4o Mini or Claude Haiku is a better cost-quality trade-off than Nano.
+
+**How much does 1M tokens cost in real money?**
+
+1M input tokens at $1/M costs $1. 1M output tokens at $10/M costs $10. For context: 1M tokens ~= 750,000 words.
+
+A 50,000-word document ≈ 67,000 tokens. At Anthropic's Sonnet rates ($3/M input): $0.20 to process once. Processing the same document 1,000 times = $200.
+
+**Should I switch to open-source models to save money?**
+
+Open-source models cost ~$0/tokens if self-hosted, but infrastructure (GPU rental, servers) costs add up. Break-even is ~10M tokens/month. Below that, API is cheaper. Above that, self-hosting may be cheaper.
+
+Open-source models are also less capable. Test them on your tasks; the cost savings are worthless if quality drops.
+
+**How much will my bill be per month?**
+
+Depends entirely on task volume and model choice. Assuming a 3:1 input-to-output ratio:
+
+- 10M tokens/month with GPT-5 Nano (750K input + 250K output): ~$0.14
+- 100M tokens/month with GPT-4o (75M input + 25M output): ~$437
+- 100M tokens/month with Claude Sonnet 4.6 (75M input + 25M output): ~$600
+- 1B tokens/month with GPT-5 Mini (750M input + 250M output): ~$2,375
+
+Volume matters more than model choice at small scale. At 1B+ tokens/month, model selection becomes significant.
+
+**Does context caching apply to all models?**
+
+No. As of March 2026, caching is available on:
+- OpenAI: GPT-4o, GPT-5, GPT-5 Pro
+- Anthropic: Claude 3 Opus, Sonnet, Haiku
+
+Not available on xAI Grok or most open-source APIs.
+
+**Are there quantity discounts?**
+
+OpenAI: no public discounts under $100k+/month.
+Anthropic: 50% discount at $1M+/month.
+DeepSeek: no public discounts.
+
+For high volume, negotiate directly with providers.
+
+**What's the most cost-effective model for my application?**
+
+Model it out:
+
+1. Estimate monthly token volume (input + output).
+2. Pick 2-3 candidate models.
+3. Calculate monthly cost for each.
+4. Test on your workload (accuracy, latency, error rate).
+5. Pick the cheapest model that meets quality threshold.
+
+Cost optimization without quality loss is the goal. Saving $1,000/month while accuracy drops 5% is a bad trade-off.
+
+---
+
+## Related Resources
+
+- [AI Cost Calculator](/articles/ai-cost-calculator)
+- [OpenAI Pricing Guide](/articles/openai-pricing)
+- [Anthropic Pricing Guide](/articles/anthropic-pricing)
+- [DeepSeek Pricing and Availability](/articles/deepseek-pricing)
+- [LLM Models API Reference](/llms)
+
+---
+
+## Sources
+
+- [OpenAI API Pricing](https://openai.com/pricing)
+- [Anthropic Claude API Pricing](https://www.anthropic.com/pricing)
+- [xAI Grok API Pricing](https://docs.x.ai/api/pricing)
+- [Mistral AI Pricing](https://mistral.ai/pricing)
+- [DeepSeek API Documentation](https://platform.deepseek.com)
+- [OpenAI Context Caching Documentation](https://platform.openai.com/docs/guides/cache)
+- [DeployBase LLM Pricing Tracker](/llms) (data observed March 22, 2026)

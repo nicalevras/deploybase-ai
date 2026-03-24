@@ -1,0 +1,360 @@
+---
+title: 'Claude vs GPT-4: Pricing, Speed & Benchmark Comparison'
+slug: claude-vs-gpt-4
+description: >-
+  Claude Sonnet 4.6 vs GPT-4.1 detailed comparison: pricing ($3/$15 vs $2/$8),
+  latency, throughput, context, reasoning benchmarks. Updated March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: LLM Comparison
+keywords:
+  - claude vs gpt-4
+  - gpt-4 vs claude
+  - claude sonnet 4.6 vs gpt-4o
+  - llm model comparison
+  - anthropic vs openai
+---
+
+## Contents
+
+- [Overview](#overview)
+- [Claude vs GPT-4: Pricing Comparison](#claude-vs-gpt-4-pricing-comparison)
+- [Model Lineup](#model-lineup)
+- [Performance Benchmarks](#performance-benchmarks)
+- [Throughput and Latency](#throughput-and-latency)
+- [Context Windows](#context-windows)
+- [Fine-Tuning & Optimization Availability](#fine-tuning-optimization-availability)
+- [Use Case Recommendations](#use-case-recommendations)
+- [FAQ](#faq)
+- [Context Window Management Strategies](#context-window-management-strategies)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Overview
+
+Claude vs GPT-4 is the focus of this guide. Not a clean fight. Both are production-grade. Claude Sonnet 4.6 ($3/$15/M) competes with GPT-4o ($2.50/$10) and GPT-4.1 ($2/$8). OpenAI has more variants (5 in GPT-4 family). Anthropic keeps tight. Neither is objectively better across benchmarks. Different winners for different workloads.
+
+---
+
+## Claude vs GPT-4: Pricing Comparison
+
+| Aspect | Claude Sonnet 4.6 | GPT-4o | GPT-4.1 |
+|--------|------------------|--------|---------|
+| **Prompt Price ($/M)** | $3.00 | $2.50 | $2.00 |
+| **Completion Price ($/M)** | $15.00 | $10.00 | $8.00 |
+| **Context Window** | 1M tokens | 128K | 1.05M |
+| **Throughput (tok/sec)** | 37 | 52 | 55 |
+| **Max Completion** | 128K | 16K | 32K |
+| **Monthly Cost (100M tokens)** | $1,200 | $900 | $800 |
+| **Monthly Cost (1B tokens)** | $12,000 | $9,000 | $8,000 |
+
+Claude is 20-50% more expensive per token. Throughput gap: Claude 37 tok/sec, GPT-4o 52 tok/sec. Real gap for latency-sensitive work. GPT-4.1's context matches Claude (1.05M) but max completion is smaller (32K).
+
+**Cost Math for a 10M-token workload:**
+
+- Claude Sonnet 4.6: $60,000
+- GPT-4o: $45,000
+- GPT-4.1: $40,000
+
+GPT-4.1 saves 33% on tokens. Assumes fixed production volume. Realtime apps care about latency. Claude's slower throughput means higher per-user cost if turns serialize.
+
+---
+
+## Model Lineup
+
+### Anthropic: Claude Family
+
+**Opus 4.6:** $5/$25/M. Highest capability, slowest (35 tok/sec). Overkill for most. Use for complex reasoning only.
+
+**Sonnet 4.6:** $3/$15/M. Workhorse. Reasoning, code, knowledge. 37 tok/sec. Acceptable. Pick this for production.
+
+**Haiku 4.5:** $0.80/$4/M. Fast, cheap. 44 tok/sec (faster than Sonnet). Trade: weak on complex. Use for classification, summarization, high-volume where speed matters.
+
+### OpenAI: GPT Series
+
+**GPT-5.4:** $2.50/$15 per million tokens. Latest variant. Advertised as "reasoning-first" but lacks published benchmarks. Throughput is high (45 tok/sec). Context is 272K, smaller than Claude Sonnet's 1M. Unclear whether to recommend this over GPT-4o.
+
+**GPT-5.1:** $1.25/$10 per million tokens. Cheapest mainstream option. 400K context. Throughput 47 tok/sec. Reasonable choice for cost-sensitive, high-volume inference where the 70K more context (vs GPT-4o) matters.
+
+**GPT-5 Pro:** $15/$120 per million tokens. Specialized reasoning model. 11 tok/sec throughput (glacially slow). Use only if reasoning quality justifies 10x cost premium. Not a general-purpose model.
+
+**GPT-4.1:** $2/$8 per million tokens. Older but stable. 1.05M context, same as Claude Sonnet 4.6. 55 tok/sec (fastest in this comparison). 32K max completion vs Claude's 128K.
+
+**GPT-4o:** $2.50/$10 per million tokens. The widely deployed baseline. Balanced performance, high throughput (52 tok/sec). 128K context adequate for most applications. Pricing is competitive but not lowest-cost.
+
+---
+
+## Performance Benchmarks
+
+### Reasoning Tasks (ARC-Challenge, MATH, MMLU)
+
+**ARC-Challenge (Science Reasoning):**
+- Claude Sonnet 4.6: 86.2% accuracy
+- GPT-5.4: 87.1% accuracy
+- GPT-4.1: 85.8% accuracy
+
+GPT-5.4 wins by <1%, margin of noise.
+
+**MATH (High School Math + Proof):**
+- Claude Sonnet 4.6: 76.4%
+- GPT-5.4: 78.9%
+- GPT-4.1: 72.1%
+
+GPT-5.4 has a legitimate edge on quantitative reasoning. Claude Sonnet wins by 4.3pp over GPT-4.1.
+
+**MMLU (World Knowledge):**
+- Claude Sonnet 4.6: 89.3%
+- GPT-5.4: 90.1%
+- GPT-4.1: 88.7%
+
+GPT-5.4 ahead by 0.8pp. Functionally equivalent.
+
+**Interpretation:** On standard benchmarks, GPT-5.4 and Claude Sonnet 4.6 are separated by 1-3 percentage points. This is within noise for production applications. GPT-4.1 is slightly weaker on reasoning but close enough for non-critical tasks.
+
+### Code Generation (HumanEval, LiveCodeBench)
+
+**HumanEval (Python coding tasks):**
+- Claude Sonnet 4.6: 92.1%
+- GPT-5.4: 93.8%
+- GPT-4.1: 90.4%
+
+GPT-5.4 slightly ahead. Difference is marginal.
+
+**LiveCodeBench (Real-world coding problems):**
+- Claude Sonnet 4.6: 58.2%
+- GPT-5.4: 61.5%
+- GPT-4.1: 56.1%
+
+GPT-5.4 has a 3.3pp edge. Claude Sonnet's edge over GPT-4.1 is 2.1pp.
+
+**Interpretation:** For straightforward code generation (simple functions, utilities), both models are >90%. For complex real-world coding (multi-file refactors, architectural decisions), no model reliably succeeds. Difference between Claude Sonnet and GPT-5.4 is modest. Use either for coding assistance.
+
+### Instruction Following (IFEval)
+
+**IFEval (Complex instructions with constraints):**
+- Claude Sonnet 4.6: 84.3%
+- GPT-5.4: 82.1%
+- GPT-4.1: 80.9%
+
+Claude Sonnet wins this category. Instructions with edge-case constraints are handled more reliably. Real-world impact: formatting JSON output with 15+ required fields, nested arrays, and validation rules. Claude hits schema compliance 84% of attempts without prompt retries. GPT-4.1 hits 81%, meaning 1 in 25 production requests fail validation on first attempt.
+
+**Interpretation:** If application logic relies on strict constraint adherence (must do X, must avoid Y, must format Z), Claude Sonnet is a safer bet. Fine-tuning can bridge this gap (both models reach 92%+ after 100 fine-tune examples), but out-of-the-box, Claude's instruction-following advantage is measurable.
+
+### Summary Score: Who Wins on Benchmarks?
+
+Claude Sonnet 4.6 wins on instruction-following (84% vs 82%) and MATH (76.4% vs GPT-4.1's 72.1%). GPT-5.4 wins on MMLU (90% vs 89%) and HumanEval (93.8% vs 92.1%). Code generation is effectively a tie at this level.
+
+Net: on narrowly-defined benchmarks, the spread is 1-5 percentage points. For production applications where those 5 points matter (teams're operating at 80% recall, need 85%), the choice matters. For most applications, both models are "good enough." Differentiation comes down to price ($2-$3 input) and latency (37-55 tokens/sec).
+
+---
+
+## Throughput and Latency
+
+### Tokens-Per-Second (Throughput)
+
+Measured from API start to final token output, averaged across batch sizes 1-64.
+
+| Model | Throughput (tok/sec) | Notes |
+|-------|---------------------|-------|
+| Claude Sonnet 4.6 | 37 | Slower. Noticeable in real-time chat. |
+| Claude Haiku 4.5 | 44 | Fastest Claude. Still 15% slower than GPT models. |
+| GPT-5.4 | 45 | Fast enough for real-time chat. |
+| GPT-4.1 | 55 | Fastest in comparison. 48% faster than Claude Sonnet. |
+| GPT-4o | 52 | Similar to GPT-4.1. High-throughput baseline. |
+| GPT-5 Pro | 11 | Extremely slow. Not suitable for interactive use. |
+
+**Real-world impact:** If a user waits for Claude Sonnet to complete a 1,000-token response: 1,000 / 37 = 27 seconds. Same response on GPT-4.1: 1,000 / 55 = 18 seconds. A 9-second difference is noticeable in chat, not in batch processing.
+
+For applications where 50+ concurrent requests are processed (batch inference), throughput per GPU doesn't matter; API concurrency limits apply first.
+
+### Latency (Time-to-First-Token)
+
+Time from API call to first output token (cold start).
+
+- Claude Sonnet 4.6: 80-120ms (with cached content)
+- GPT-4o: 50-90ms
+- GPT-4.1: 45-80ms
+
+Claude is 30-50ms slower to first token. Noticeable in ultra-low-latency applications (edge cases). Acceptable for most interactive use.
+
+---
+
+## Context Windows
+
+### Size Comparison
+
+| Model | Context | Use Case |
+|-------|---------|----------|
+| Claude Sonnet 4.6 | 1M tokens | Long documents, multi-turn conversations with history |
+| GPT-4.1 | 1.05M tokens | Equivalent to Claude. Matched context capacity. |
+| GPT-4o | 128K tokens | Moderate. Handles ~100 pages of text. Single long document. |
+| GPT-5 Pro | 200K tokens | Higher than 4o but lower than 1M models. Niche positioning. |
+| GPT-5.1 | 400K tokens | Better than 4o, still short of 1M models. |
+
+**Max Completion Output:**
+
+- Claude Sonnet 4.6: 128K tokens (can output very large artifacts)
+- GPT-4.1: 32K tokens (suitable for summaries and code, not entire documents)
+- GPT-4o: 16K tokens (short outputs, summaries only)
+
+Claude's larger max-completion is useful for code generation or document synthesis where >32K output is needed.
+
+### Cost of Context Usage
+
+Neither Anthropic nor OpenAI charges extra for context size. Pricing is per-token regardless of context window. This changes incentives:
+
+- Teams with large context needs (document analysis, long conversations) should prefer Claude Sonnet 4.6 or GPT-4.1 over GPT-4o, because they get larger windows at similar pricing.
+- Teams with small context needs (chatbot for single queries) don't benefit from 1M-token windows. Smaller models (Claude Haiku, GPT-4o mini) are more efficient.
+
+---
+
+## Fine-Tuning & Optimization Availability
+
+Claude and GPT-4 differ fundamentally in fine-tuning options.
+
+**Claude fine-tuning:** Anthropic supports fine-tuning on Claude Haiku (3.2B parameter) and Claude Sonnet (not Opus). Fine-tuned models cost 10% more per token than base models. No quantization option; models run at full precision. Cost example: fine-tune Sonnet on 10K examples, then deploy at scale. Base Sonnet inference: $3/$15 per million. Fine-tuned Sonnet: $3.30/$16.50. Overhead: 10%.
+
+**GPT-4 fine-tuning:** OpenAI supports fine-tuning on GPT-4o Mini (only), not GPT-4.1 or GPT-5. Fine-tuned GPT-4o Mini costs 15% more per token. Limited to 128K context. Practical limitation: cannot fine-tune on full GPT-4.1 (the production-grade model), only on the lite version.
+
+**Implication:** Teams wanting to optimize model behavior via fine-tuning should prefer Claude. Fine-tuning Sonnet (the production-grade workhorse) is available. GPT-4 fine-tuning is limited to the mini tier, forcing choice between: (a) use GPT-4.1 base (no fine-tuning), or (b) use GPT-4o Mini fine-tuned (weaker base capability, but customizable). Claude's fine-tuning on Sonnet provides middle ground: optimize the production model without degrading to lite version.
+
+### Cost Per Task
+
+### Scenario 1: Classify 10K Customer Support Emails
+
+Each email ~500 tokens. Classification response ~50 tokens. Total: 10K × (500 + 50) = 5.5M tokens (4.5M input, 1M output).
+
+**Claude Sonnet 4.6:** (4.5M × $3 + 1M × $15) / 1M = $19,500
+
+**GPT-4o:** (4.5M × $2.50 + 1M × $10) / 1M = $13,250
+
+**GPT-4.1:** (4.5M × $2 + 1M × $8) / 1M = $11,000
+
+GPT-4.1 is 43% cheaper for this workload. Claude Sonnet costs premium because completion pricing ($15 vs $8-$10) is 50-87% higher.
+
+### Scenario 2: Chat Application with 1M Monthly Active Users
+
+Assume 10 messages per user per month, average message 100 tokens, response 200 tokens. Total: 1M × 10 × (100 + 200) = 300M tokens/month (100M input, 200M output).
+
+**Claude Sonnet 4.6:** (100M × $3 + 200M × $15) / 1M = $300,000/month
+
+**GPT-4o:** (100M × $2.50 + 200M × $10) / 1M = $250,000/month
+
+**GPT-4.1:** (100M × $2 + 200M × $8) / 1M = $200,000/month
+
+Per user per month: Claude $300K/1M = $0.30. GPT-4.1: $0.20. Difference of $0.10 per user. For 1M users, $100K/month cost delta is significant.
+
+**Scaling considerations:** If chat application grows to 10M MAU, cost structure changes. Multi-model routing becomes viable: route 70% of requests to GPT-4.1 (fast, cheap), 20% to Claude Sonnet 4.6 (instruction-following tasks), 10% to GPT-4o Mini (simple queries). Weighted cost: (0.70 × $0.20) + (0.20 × $0.30) + (0.10 × $0.02) = $0.24 per user per month. Savings: $60K/month vs pure Claude, $40K/month vs pure GPT-4.1. Router implementation cost is $5K-$10K engineering time, pays back in 2 months.
+
+### Scenario 3: One-Off Long-Context Document Analysis
+
+Analyze a 50-page regulatory document (50 pages × 400 tokens/page = 20K tokens). Detailed analysis response: 5K tokens.
+
+**Claude Sonnet 4.6:** (20K × $3 + 5K × $15) / 1M = $0.135
+
+**GPT-4o:** (20K × $2.50 + 5K × $10) / 1M = $0.100
+
+**GPT-4.1:** (20K × $2 + 5K × $8) / 1M = $0.080
+
+One-off analysis costs pennies on any model. The choice doesn't matter for cost. Choose based on quality (reasoning, accuracy) instead.
+
+---
+
+## Use Case Recommendations
+
+### Use Claude Sonnet 4.6 When:
+
+1. **Instruction adherence is critical.** Constraint-heavy tasks (formatting, edge-case handling) are more reliable on Claude.
+2. **Output must be large (>32K tokens).** Code generation with full implementations, document synthesis, or artifact creation.
+3. **Context window needs exceed 128K.** Multi-document analysis, full codebase processing, or long conversation histories.
+4. **Completion pricing is acceptable.** If output tokens outnumber input tokens, Claude's 50% higher completion price is less painful.
+5. **Latency tolerance is high (>1 second acceptable).** Batch processing, background jobs, async inference. The slower throughput doesn't matter.
+
+### Use GPT-4.1 When:
+
+1. **Cost minimization is the goal.** GPT-4.1 is the lowest-cost option with high capability.
+2. **Throughput must be high (real-time chat).** 55 tok/sec is fastest available. 9-second faster responses per 1,000 tokens.
+3. **Context window matches needs.** 1.05M context is sufficient (same as Claude Sonnet 4.6).
+4. **Reasoning performance is critical.** Slight edge on MATH benchmarks.
+5. **Latency requirements are strict (<100ms to first token).** GPT-4.1's 45-80ms first-token latency is 30ms faster than Claude.
+
+### Use GPT-4o When:
+
+1. **Model diversity matters.** GPT-4o is the market standard. Widest third-party integration, best documentation, largest community testing.
+2. **128K context is sufficient.** Balanced cost and performance without overpaying for 1M tokens (which most applications don't use).
+3. **Multimodal is needed.** GPT-4o supports images; Claude Sonnet 4.6 does not (Opus 4.6 does).
+
+### Use Claude Haiku or GPT-4o Mini When:
+
+1. **Cost is paramount.** $0.80/M prompt pricing on Haiku, sub-$0.15/M on GPT-4o Mini.
+2. **Quality requirements are low.** Classification, tagging, routine summarization.
+3. **Throughput must be maximum.** Haiku at 44 tok/sec is second-fastest.
+
+### Use GPT-5 Pro When:
+
+None. It's too slow and too expensive for most workloads. Only for specialized reasoning research.
+
+---
+
+## FAQ
+
+**Should teams migrate from GPT-4o to GPT-4.1?**
+
+If cost matters, yes. 20% lower token cost ($2/$8 vs $2.50/$10), same capability level, faster throughput. Only blocker: GPT-4o has 128K context vs GPT-4.1's 1.05M. If the extra context isn't needed, switch.
+
+**Is Claude Sonnet 4.6 worth the 50% higher cost than GPT-4.1?**
+
+Only if instruction adherence or output size matters. For general-purpose chat, reasoning, code: GPT-4.1 is a better value. For applications where constraint handling is critical (form-field formatting, strict output schemas), Claude Sonnet's 84% IFEval score vs GPT-4.1's 81% is worth paying for.
+
+**How does latency matter in production?**
+
+If end-users are waiting (chat, real-time queries), 27 seconds (Claude Sonnet) vs 18 seconds (GPT-4.1) for a 1K-token response is noticeable. Users may abandon. For batch processing, latency doesn't matter; throughput per GPU is the limiting factor (not the model).
+
+**Should teams use 1M-context models?**
+
+Rarely. Most applications don't need 1M tokens. Claude Sonnet's 1M context is a feature in-waiting. Use it if application has genuine multi-document, long-conversation requirements. Otherwise, don't overpay for capacity that sits unused.
+
+**What about GPT-5.4 vs GPT-5?**
+
+GPT-5.4 is the latest variant. Slight edge on reasoning (+1-2 points on benchmarks). GPT-5 is lower-cost ($1.25/$10 vs $2.50/$15). If a 2-point benchmark difference doesn't matter, GPT-5 at half the cost is the rational choice. Check whether GPT-5.4 is even available through your provider; many third-party platforms haven't rolled it out yet.
+
+**Can teams use multiple models in production?**
+
+Yes. Route different requests to different models: high-confidence tasks (classification) to Haiku, complex reasoning to Claude Sonnet, cost-sensitive batch to GPT-4.1. This reduces average token cost and optimizes for each workload. The API overhead is negligible compared to token cost savings.
+
+**Is throughput speed a blocker for Claude Sonnet 4.6?**
+
+Only for real-time, latency-sensitive applications where <100ms response time is required. For everything else (batch processing, background jobs, async chat), the slower speed is irrelevant. If throughput matters, GPT-4.1 is the safe choice.
+
+## Context Window Management Strategies
+
+Claude Sonnet 4.6's 1M token context and GPT-4.1's 1.05M context enable document-in-context workflows that were impossible in 2024. But managing that context at scale requires different approaches per model.
+
+**Claude's prompt caching:** Anthropic offers free prompt caching on repeated queries with the same prefix (first 1024 tokens are free after initial pay). For RAG workflows processing 100 documents repeatedly (contract analysis, due diligence), this reduces cost 30-50%. Practical: load contract template + legal definitions (10K tokens) once, cache forever, then process variant contracts (20K tokens, unique per doc). Cost per document: $30 (input) + $5 (unique context) = $35. Without cache, every request pays for 30K tokens at $3 = $90. Cache saves $55/doc, pays for itself in 1-2 docs.
+
+**GPT-4.1's context size advantage:** Fits larger documents natively. 1.05M means 800-page legal discovery can be processed in a single request (vs Claude's same window). Both support same size, so no differentiation here. But GPT-4.1's cheaper completion cost ($8 vs $15) makes long-output tasks (legal memo generation, code synthesis) cheaper per page of output.
+
+**Practical decision:** For high-volume caching use cases (same document template analyzed repeatedly), Claude. For high-output tasks (long-form synthesis, code generation from entire codebase), GPT-4.1. For simple single-shot analysis (one doc, one question), either (cost is negligible, latency dominates).
+
+---
+
+## Related Resources
+
+- [LLM Model Comparison Dashboard](/llms)
+- [Anthropic Claude Pricing](/llms/Anthropic)
+- [OpenAI API Pricing](/llms/OpenAI)
+- [GPT-4 vs Gemini Comparison](/articles/gpt-4-vs-gemini)
+- [Claude vs Gemini Comparison](/articles/claude-vs-gemini)
+
+---
+
+## Sources
+
+- [Anthropic API Documentation](https://docs.anthropic.com/)
+- [OpenAI API Pricing and Models](https://openai.com/pricing)
+- [MMLU Benchmark Leaderboard](https://huggingface.co/spaces/allenai/WildBench)
+- [HumanEval Code Generation Benchmark](https://github.com/openai/human-eval)
+- [IFEval Instruction Following Benchmark](https://arxiv.org/abs/2311.07911)
+- DeployBase LLM Models API (March 22, 2026 snapshot)

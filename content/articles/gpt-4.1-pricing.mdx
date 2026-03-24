@@ -1,0 +1,428 @@
+---
+title: 'GPT-4.1 Pricing: Complete API Cost Breakdown for 2026'
+slug: gpt-4.1-pricing
+description: >-
+  GPT-4.1 API pricing guide: $2/$8 input/output, mini at $0.40/$1.60, nano at
+  $0.10/$0.40, batch 50% off. Cost analysis as of March 2026. Updated March
+  2026.
+date: '2026-03-22'
+author: DeployBase
+category: Pricing Guide
+keywords:
+  - gpt 4.1 pricing
+  - gpt-4.1 api cost
+  - gpt-4.1 pricing per token
+  - gpt-4.1 batch pricing
+  - openai gpt-4.1 cost
+---
+## Contents
+
+- [GPT-4.1 Pricing: Overview](#gpt-41-pricing-overview)
+- [Pricing Summary Table](#pricing-summary-table)
+- [Standard API Rates](#standard-api-rates)
+- [Batch Processing Discount](#batch-processing-discount)
+- [Model Variants Explained](#model-variants-explained)
+- [Cost Comparison with Alternatives](#cost-comparison-with-alternatives)
+- [GPT-4.1 Model Family Comparison Table](#gpt-41-model-family-comparison-table)
+- [Prompt Caching Deep-Dive](#prompt-caching-deep-dive)
+- [Batch API Economics (Detailed)](#batch-api-economics-detailed)
+- [Fine-Tuning Costs (Advanced)](#fine-tuning-costs-advanced)
+- [Cost Optimization Strategies](#cost-optimization-strategies)
+- [Advanced Cost Optimization](#advanced-cost-optimization)
+- [Monthly Cost Projections](#monthly-cost-projections)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+## GPT-4.1 Pricing: Overview
+
+**GPT-4.1 pricing**: $2/$8 per million tokens input/output. Mini is $0.40/$1.60. Nano is $0.10/$0.40. Batch API cuts both by 50%. Context: 1.05M tokens (biggest in OpenAI's lineup).
+
+Three tiers for different budgets.
+
+## Pricing Summary Table
+
+| Model | Input $/1M | Output $/1M | Batch Input | Batch Output | Context |
+|-------|-----------|-----------|-------------|--------------|---------|
+| GPT-4.1 | $2.00 | $8.00 | $1.00 | $4.00 | 1.05M |
+| GPT-4.1 Mini | $0.40 | $1.60 | $0.20 | $0.80 | 1.05M |
+| GPT-4.1 Nano | $0.10 | $0.40 | $0.05 | $0.20 | 1.05M |
+
+Data from OpenAI API pricing (March 2026).
+
+---
+
+## Standard API Rates
+
+### Full GPT-4.1
+
+The flagship model costs $2 per million input tokens. Output tokens run $8 per million. Pricing reflects GPT-4.1's 1.05M context window and performance advantage over earlier versions. For details on how this compares to other models, see the [complete LLM pricing comparison](/llms).
+
+A typical API call that sends 1,000 input tokens and receives 500 output tokens costs: (1,000 × $2 / 1M) + (500 × $8 / 1M) = $0.0020 + $0.0040 = $0.006 per request.
+
+Most production systems run hundreds to thousands of requests daily. At 1,000 daily requests with same token distribution, monthly cost hits $180. Scale to 10,000 daily requests and the bill reaches $1,800 monthly.
+
+### GPT-4.1 Mini
+
+Mini is the sweet spot for cost-conscious teams. $0.40 input, $1.60 output. That's 80% cheaper than full GPT-4.1. Performance is roughly equivalent to GPT-4o on most tasks: instruction-following, coding, reasoning. The gap widens on frontier benchmarks where full GPT-4.1 pulls ahead.
+
+Same 1,000-token input, 500-token output example: (1,000 × $0.40 / 1M) + (500 × $1.60 / 1M) = $0.0004 + $0.0008 = $0.0012 per request.
+
+10,000 daily requests cost $360/month with Mini vs $1,800 with full GPT-4.1. That $1,440 monthly difference justifies extensive testing to confirm Mini handles the workload.
+
+### GPT-4.1 Nano
+
+Nano is purpose-built for throughput and cost minimization. $0.10 input, $0.40 output. This is OpenAI's cheapest tier after embeddings.
+
+Nano sacrifices accuracy compared to Mini and GPT-4.1. Classification tasks, simple extraction, short-form content generation: Nano works. Anything requiring reasoning, long outputs, or high accuracy should avoid Nano.
+
+The same request costs: $0.00010 + $0.00008 = $0.00018 per call. 100,000 daily requests cost about $540 monthly. Useful for high-frequency, low-stakes operations.
+
+---
+
+## Batch Processing Discount
+
+The Batch API halves all rates. GPT-4.1 batch costs $1.00 input, $4.00 output. Mini batch is $0.20/$0.80. Nano batch drops to $0.05/$0.20.
+
+The tradeoff: batch jobs are not real-time. OpenAI processes them within 24 hours. Any system needing immediate responses cannot use batch rates.
+
+Real use cases where batch works:
+- Nightly data processing pipelines (customer documents, logs, analysis)
+- Content generation in bulk (product descriptions, email drafts)
+- Model evaluation and testing (comparing outputs, collecting ground truth)
+- Log analysis and feature extraction (classification, entity detection)
+
+Cost delta is substantial. Processing 1M input tokens and 500K output tokens:
+- Standard: (1M × $2) + (500K × $8) = $2,000 + $4,000 = $6,000
+- Batch: (1M × $1.00) + (500K × $4.00) = $1,000 + $2,000 = $3,000
+
+Batch saves $3,000. For teams processing terabytes of data weekly, batch is mandatory.
+
+---
+
+## Model Variants Explained
+
+### When to Use GPT-4.1
+
+Complex reasoning, long context, frontier benchmarks. If the task requires 70K+ input tokens (leveraging the 1.05M window), GPT-4.1 pays for itself in accuracy. Use cases:
+- Analyzing long documents (contracts, academic papers, codebases)
+- Multi-turn conversations with extensive history
+- Code review and debugging with full repo context
+- Tasks where accuracy directly impacts revenue
+
+### When to Use GPT-4.1 Mini
+
+The default choice for most APIs. Instruction-following, chat, coding, analysis. Mini is competitive with Claude Sonnet 3.5 on many benchmarks. Cost is 80% lower than GPT-4.1.
+
+Use cases:
+- Chat and conversational AI
+- Content generation (blogs, emails, social media)
+- Code generation and debugging
+- Data extraction and basic classification
+- Anything that doesn't need frontier reasoning
+
+### When to Use GPT-4.1 Nano
+
+High-frequency, cost-critical workloads where accuracy is secondary. Nano is equivalent to GPT-4o Mini in capability.
+
+Use cases:
+- Classifying customer feedback
+- Categorizing products or documents
+- Simple text extraction (names, dates, amounts)
+- Routing requests to different systems
+- A/B testing and experimentation
+
+---
+
+## Cost Comparison with Alternatives
+
+### GPT-4.1 vs Claude 3.5 Sonnet
+
+Claude Sonnet 3.5 costs $3/$15 per million tokens. Standard rates are higher than GPT-4.1 Mini ($0.40/$1.60) but lower than GPT-4.1 ($2/$8). Sonnet has a 200K context window vs GPT-4.1's 1.05M. See the [detailed comparison between GPT-4.1 and Claude Sonnet](/articles/claude-sonnet-3.5-vs-gpt-4.1) for capability analysis.
+
+For short-context tasks (under 100K tokens input), the pricing gap is small. Both are viable. For long-context retrieval-augmented generation or document analysis, GPT-4.1's 1.05M context becomes valuable despite higher per-token cost.
+
+### GPT-4.1 vs GPT-5 Mini
+
+GPT-5 Mini costs $0.25/$2.00. That's 38% cheaper input, 25% cheaper output than GPT-4.1 Mini. GPT-5 Mini also offers better reasoning and newer training data. For new projects, GPT-5 Mini is the better choice unless locked into GPT-4.1 for compatibility.
+
+### GPT-4.1 vs Self-Hosted (Llama 4)
+
+Llama 4 is free to download. Cost is in hosting. Running Llama 4 70B on RunPod with an H100 costs $1.99/hr. Processing 1M tokens at ~300 tokens/second throughput takes ~3,300 seconds = 0.92 hours. Llama cost: ~$1.83.
+
+GPT-4.1 cost for 1M input, 100K output: $2 + $0.80 = $2.80.
+
+Self-hosting is cheaper at scale, but infrastructure overhead (deployment, monitoring, caching) often outweighs per-token savings for most teams. Llama shines for dedicated, high-volume inference (>100K daily requests). Teams interested in comparing GPT-4.1 vs its newer competitors should check [GPT-4.1 vs GPT-4o pricing](/articles/gpt-4.1-vs-4o).
+
+The breakeven point is around 300-500M tokens monthly. Below that, GPT-4.1 API wins on simplicity. Above that, Llama 4 self-hosted wins on cost. Factor in operational burden: monitoring GPU health, managing autoscaling, handling failures, optimizing batching. These aren't free. Many teams settle on hybrid approach: use GPT-4.1 Mini for interactive APIs (low latency, unpredictable load), self-host Llama 4 for batch processing (predictable, cost-sensitive).
+
+---
+
+## GPT-4.1 Model Family Comparison Table
+
+### Full LLM Pricing Matrix (March 2026)
+
+| Model | Context | Input $/1M | Output $/1M | Batch Input | Batch Output | Throughput | Best For |
+|-------|---------|-----------|-----------|-------------|--------------|-----------|----------|
+| GPT-4.1 | 1.05M | $2.00 | $8.00 | $1.00 | $4.00 | 55 | Long context, reasoning |
+| GPT-4.1 Mini | 1.05M | $0.40 | $1.60 | $0.20 | $0.80 | 75 | Default choice |
+| GPT-4.1 Nano | 1.05M | $0.10 | $0.40 | $0.05 | $0.20 | 82 | High volume, low stakes |
+| GPT-5.1 | 400K | $1.25 | $10.00 | $0.63 | $5.00 | 47 | Newer, capable |
+| GPT-4o | 128K | $2.50 | $10.00 | N/A | N/A | 52 | Vision support |
+| Claude Opus 4.6 | 1M | $5.00 | $25.00 | N/A | N/A | 35 | Complex reasoning |
+
+Data from official pricing pages (March 2026). Throughput in requests/min estimated from API documentation.
+
+### Cost-Per-Task Scenarios
+
+**Scenario A: Classify 100K customer reviews**
+
+Input: 500 tokens/review (classification prompt + example)
+Output: 10 tokens/review (category label)
+
+Total: 50M input + 1M output tokens
+
+| Model | Cost | Per-Review Cost |
+|-------|------|-----------------|
+| GPT-4.1 | $100 + $8 = **$108** | $0.00108 |
+| GPT-4.1 Mini | $20 + $1.60 = **$21.60** | $0.000216 |
+| GPT-4.1 Nano | $5 + $0.40 = **$5.40** | $0.000054 |
+| Claude Opus | $250 + $25 = **$275** | $0.00275 |
+
+Nano is 20x cheaper than Opus for this task. Mini hits the sweet spot: 5x cheaper than full GPT-4.1 with comparable quality.
+
+**Scenario B: Generate product descriptions for 10K products**
+
+Input: 300 tokens/product (product attributes + style guide)
+Output: 200 tokens/product (description text)
+
+Total: 3M input + 2M output tokens
+
+| Model | Cost | Per-Product Cost |
+|-------|------|-----------------|
+| GPT-4.1 | $6 + $16 = **$22** | $0.0022 |
+| GPT-4.1 Mini | $1.20 + $3.20 = **$4.40** | $0.00044 |
+| GPT-5 Mini | $0.50 + $2 = **$2.50** | $0.00025 |
+
+Mini is still 4.4x cheaper than full GPT-4.1. GPT-5 Mini undercuts by another 40% if performance acceptable.
+
+---
+
+## Prompt Caching Deep-Dive
+
+### How Prompt Caching Works
+
+OpenAI's prompt caching feature stores the first 1,024 tokens of a message (typically the system prompt) and charges 10% of the normal rate for re-use within a 5-minute window.
+
+Cost structure:
+- First invocation: normal rate (e.g., $2.00/M tokens for GPT-4.1 input)
+- Cached re-use (within 5 min): 90% discount ($0.20/M tokens)
+
+Example: static 2,000-token system prompt repeated 10 times in 5 minutes
+
+- Without caching: 2,000 × 10 × $2.00 / 1M = $0.04
+- With caching: (2,000 × $2.00) + (2,000 × 9 × $0.20) / 1M = $0.004 + $0.0036 = $0.0076
+
+Savings: $0.0324 per batch of 10 requests. At 1,000 daily requests, saves ~$1,000/month.
+
+### When Caching Helps Most
+
+Chatbots with static system prompts. RAG systems with fixed retrieval instructions. Batch classification with consistent schema. Content generation with style guidelines.
+
+When caching doesn't help: unique system prompts per request (no re-use window). Streaming responses (cache doesn't apply). One-off API calls (no time for re-use).
+
+---
+
+## Batch API Economics (Detailed)
+
+### How Batch API Works
+
+Submit a jsonl file with requests. OpenAI processes within 24 hours. Results delivered via callback URL or polling. Cost: 50% discount on all tokens.
+
+Trade-off: latency. No good for real-time chat. Ideal for nightly pipelines.
+
+### Cost Breakdown Example: Content Analysis Pipeline
+
+A publishing company analyzing 5M articles overnight (once daily).
+
+Per article: 1,000 token prompt (article + instructions), 500 token output (summary + sentiment).
+
+Total daily tokens: 5M × (1,000 + 500) = 7.5B tokens
+
+Standard API (real-time):
+- Prompts: 5M × $2.00 / 1M = $10,000
+- Completions: 5M × $8.00 / 1M = $40,000
+- Daily: $50,000
+- Monthly: $1.5M
+
+Batch API (24-hour latency):
+- Prompts: 5M × $1.00 / 1M = $5,000
+- Completions: 5M × $4.00 / 1M = $20,000
+- Daily: $25,000
+- Monthly: $750K
+
+Savings: $750K/month. Difference is material enough to justify batch processing infrastructure.
+
+### Batch Implementation Challenges
+
+Format: JSONL only. Each line is a request object with specific schema. Incorrect format = failed requests.
+
+Error handling: failed requests get retry once, then dropped. 99% success rate is typical. Script to retry failures is prudent.
+
+Callback management: webhook URL required for results. Ensure webhook is publicly accessible and logged properly.
+
+---
+
+## Fine-Tuning Costs (Advanced)
+
+GPT-4.1 supports fine-tuning, but only on Mini and Nano variants (full model not yet available).
+
+Fine-tuning a custom version of GPT-4.1 Mini:
+
+Training data: 10,000 examples (2 GB), $100 data preparation
+Training compute: processed at ~2x the cost of standard API usage
+Training tokens: 10K examples × 200 tokens = 2M tokens
+Training cost: 2M × $0.40 × 2x markup = $1,600
+Inference: custom model costs same as base model ($0.40/$1.60)
+
+Break-even: fine-tuning pays off if >100K inference requests (improvement in quality offsets training cost).
+
+Use fine-tuning for high-volume, domain-specific tasks. Skip for one-off projects.
+
+---
+
+## Cost Optimization Strategies
+
+### 1. Choose the Right Model Tier
+
+Default to Mini. Test Nano for non-critical workloads. Only upgrade to full GPT-4.1 for tasks that actually need it (long context, complex reasoning, proven accuracy gap).
+
+### 2. Use Batch API for Non-Real-Time Work
+
+If the task can wait 24 hours, batch is mandatory. 50% discount adds up: 100 million daily input tokens via batch saves $100 daily ($3,000/month).
+
+### 3. Implement Prompt Caching
+
+OpenAI offers prompt caching: the first 1,024 input tokens in a system message cache at the standard rate. Subsequent uses of the same system message (within 5 minutes) cost 90% less.
+
+For chatbots with static system prompts, this is free money. A 2,000-token system prompt that is reused 1,000 times monthly saves ~$0.30. Doesn't sound like much until caching across 100 API endpoints.
+
+### 4. Reduce Output Tokens
+
+GPT-4.1 output tokens cost 4x input tokens. Request structured output, summaries, or concise formats. Reducing average output from 500 tokens to 200 tokens cuts costs 24%.
+
+Implement max_tokens constraints: `max_tokens=200` for classification, `max_tokens=1000` for content generation.
+
+### 5. Implement Fallback Logic
+
+For tasks where Mini works 95% of the time, set up fallback to GPT-4.1 only when Mini's output fails validation. Cost: Mini's cheap rate most of the time, full power when needed. Most API gateways support conditional routing.
+
+### 6. Monitor and Alert
+
+Set up billing alerts. At $1,000/month, OpenAI allows alerts. Know the daily cost baseline and flag anomalies immediately (runaway processes, unexpected scaling, inefficient prompts).
+
+---
+
+## Advanced Cost Optimization
+
+### Implement Conditional Fallbacks
+
+Set up a cost optimization layer that routes requests intelligently. High-priority requests (paying customers) go to GPT-4.1. Lower-priority requests (internal tools, experiments) go to Mini. This avoids overpaying for capacity that doesn't need it.
+
+Implementation: OpenAI routing logic using `model` parameter in batch requests. Fallback via try-catch: if Mini fails validation (confidence score <0.8), retry with GPT-4.1.
+
+Estimated savings: 60% of requests route to Mini, 40% to GPT-4.1. Weighted cost drops from $1.60 per request to $0.64.
+
+### Use Vision Models for Hybrid Workflows
+
+GPT-4.1 has no vision variant. GPT-4o with vision costs $2.50 input, $10 output, but does document image analysis that GPT-4.1 text-only can't do. Combine: text analysis via GPT-4.1 Mini, image analysis via GPT-4o (only when needed).
+
+Rare image processing tasks reduce effective cost vs GPT-4.1.
+
+### Pre-Process with Smaller Models
+
+Classify incoming requests with Nano ($0.10/$0.40). 90% of requests route to Mini based on classification. Top-tier complex requests route to GPT-4.1. This three-tier cascade cuts average cost by 50%.
+
+---
+
+## Monthly Cost Projections
+
+### Scenario 1: SaaS Chatbot
+
+- 10,000 daily requests
+- 800 avg input tokens/request
+- 300 avg output tokens/request
+- Using GPT-4.1 Mini (no batch)
+
+Daily cost: (10K × 800 × $0.40/1M) + (10K × 300 × $1.60/1M) = $3.20 + $4.80 = $8.00
+
+Monthly: $8.00 × 30 = $240
+
+### Scenario 2: Large-Scale Document Processing
+
+- 5,000 documents daily
+- 50,000 avg input tokens/document (long context required)
+- 2,000 avg output tokens/document
+- Using GPT-4.1 standard rates (real-time)
+
+Daily cost: (5K × 50K × $2/1B) + (5K × 2K × $8/1B) = $500 + $80 = $580
+
+Monthly: $580 × 30 = $17,400
+
+### Scenario 3: Batch Data Labeling
+
+- 1M documents monthly
+- 5,000 avg input tokens/document
+- 50 avg output tokens/document (classification labels)
+- Using GPT-4.1 Nano batch (50% discount)
+
+Total input tokens: 5B
+Total output tokens: 50M
+
+Cost: (5B × $0.05/1M) + (50M × $0.20/1M) = $250 + $10 = $260 monthly
+
+---
+
+## FAQ
+
+**How does GPT-4.1 pricing compare to GPT-4o?**
+
+GPT-4o costs $2.50 input, $10 output. GPT-4.1 is $2/$8. GPT-4o has a 128K context window vs GPT-4.1's 1.05M. If context is critical, GPT-4.1 is cheaper. If context doesn't matter, both are similarly priced.
+
+**What is prompt caching and does it save money?**
+
+Prompt caching stores the first 1,024 input tokens (usually the system prompt) and charges 90% less for subsequent reuses within 5 minutes. A 2,000-token system prompt costs $0.004 on first call, then $0.00004 on cache hits. Useful for chatbots with static instructions.
+
+**Is batch API worth the latency tradeoff?**
+
+Yes, if tasks can wait 24 hours. 50% discount accumulates fast: 100M tokens batch saves $100 daily. For real-time APIs, no. For nightly pipelines or bulk processing, batch is mandatory.
+
+**Can I switch models mid-project?**
+
+Yes. Switch Mini to GPT-4.1 only for requests that fail Mini's validation. Use OpenAI's fallback routing to automatically retry with a better model. This optimizes for cost while ensuring quality.
+
+**Does output length affect price?**
+
+Directly. Shorter outputs are cheaper. A 100-token response costs 1/5 of a 500-token response. Implement max_tokens constraints and ask for structured output (JSON, bullets, concise formats).
+
+**What's the cheapest way to run AI at scale?**
+
+Self-hosting Llama 4 with batch processing. Cost is compute (RunPod H100 at ~$2/hr) plus token throughput. For >100K daily requests, break-even vs GPT-4.1 Mini happens within weeks. Below that volume, GPT-4.1 Mini's $240-500/month subscription beats infrastructure overhead.
+
+---
+
+## Related Resources
+
+- [OpenAI LLM Models](/llms/OpenAI)
+- [LLM Pricing Comparison](/llms)
+- [GPT-4.1 vs GPT-4o Comparison](/articles/gpt-4.1-vs-4o)
+
+---
+
+## Sources
+
+- [OpenAI API Pricing Documentation](https://openai.com/pricing)
+- [OpenAI Models Overview](https://platform.openai.com/docs/models)
+- [OpenAI Batch API Guide](https://platform.openai.com/docs/guides/batch)
+- [DeployBase LLM API Data](/llms) (as of March 2026)

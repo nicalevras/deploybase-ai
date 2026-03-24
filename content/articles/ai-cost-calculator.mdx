@@ -1,0 +1,451 @@
+---
+title: 'AI Cost Calculator: Estimate LLM and GPU Costs for Your Workload'
+slug: ai-cost-calculator
+description: >-
+  Calculate LLM API costs and GPU rental expenses. Training vs inference cost
+  models, budget planning tools, and cost estimation formulas. March 2026
+  pricing.
+date: '2026-03-22'
+author: DeployBase
+category: AI Cost Guide
+keywords:
+  - ai cost calculator
+  - ai pricing calculator
+  - llm cost estimator
+  - gpu cost calculator
+  - training cost calculator
+---
+
+## Contents
+
+- [AI Cost Calculator: Overview](#ai-cost-calculator-overview)
+- [LLM API Cost Formula](#llm-api-cost-formula)
+- [GPU Rental Cost Formula](#gpu-rental-cost-formula)
+- [Training Cost Estimation](#training-cost-estimation)
+- [Inference Cost Estimation](#inference-cost-estimation)
+- [Cost Optimization Examples](#cost-optimization-examples)
+- [Budget Planning Worksheet](#budget-planning-worksheet)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## AI Cost Calculator: Overview
+
+Use an AI cost calculator to estimate real spending. Most teams nail LLM API costs but miss GPU infrastructure entirely-30-50% budget shortfalls. Two buckets: LLM APIs (ChatGPT, Claude) and GPU rental (training, inference, batch). Input tokens, output tokens, GPU-hours-multiply them by pricing, add it up.
+
+---
+
+## LLM API Cost Formula
+
+### Basic Calculation
+
+Cost = (Input Tokens × Input Rate + Output Tokens × Output Rate) / 1,000,000
+
+Pull input and output rates from the provider's pricing page.
+
+### Example: ChatGPT API
+
+Using GPT-4o Mini on a customer support task.
+
+Inputs:
+- Customer message: 200 tokens
+- System prompt: 150 tokens
+- Context (past messages): 100 tokens
+- Total input: 450 tokens
+
+Outputs:
+- Response: 200 tokens
+
+Pricing (as of March 2026):
+- Input: $0.15 per 1M tokens
+- Output: $0.60 per 1M tokens
+
+Cost = (450 × $0.15 + 200 × $0.60) / 1,000,000 = $0.000195
+
+Per interaction: ~$0.0002 (one-fifth of a cent).
+
+Monthly at 1,000 interactions: $0.195 (negligible).
+Monthly at 1M interactions: $195.
+
+### Scaling: Multi-Step Workloads
+
+Not all tasks are single-turn. A reasoning workflow might involve:
+
+1. Classify query (200 input + 50 output tokens)
+2. Retrieve context (500 input + 100 output)
+3. Generate answer (600 input + 400 output)
+
+Total: 1,300 input + 550 output tokens per workflow.
+
+Cost = (1,300 × $0.15 + 550 × $0.60) / 1,000,000 = $0.000525
+
+At 100,000 workflows/month: $52.50.
+
+---
+
+## GPU Rental Cost Formula
+
+### Hourly Cost Calculation
+
+Cost = GPU Price/Hour × Hours Rented
+
+GPU prices vary significantly by provider, model, and form factor (on-demand vs spot).
+
+**On-Demand Pricing (as of March 2026):**
+- RunPod A100 PCIe: $1.19/hour
+- RunPod H100 SXM: $2.69/hour
+- Lambda H100 SXM: $2.49/hour
+- CoreWeave H200 8x cluster: $50.44/hour (=$6.31 per GPU)
+
+**Spot Pricing (50-65% discounts):**
+- RunPod A100 spot: $0.42/hour
+- RunPod H100 spot: $1.29/hour
+
+### Example 1: Fine-Tuning on RunPod (On-Demand)
+
+Task: Fine-tune Mistral 7B on 100K customer examples.
+
+Hardware: 1x RunPod A100 PCIe
+- Estimated time: 8 hours
+- Hourly cost: $1.19
+- Total cost: 8 × $1.19 = $9.52
+
+Scaling to 10 fine-tuning jobs/month: $95.20/month
+
+**Optimization:** Use spot instances instead.
+- Spot cost: 8 × $0.42 = $3.36 (65% savings)
+- Account for 1 interruption: assume job restarts once, add 4 hours = 12 total hours
+- New cost: 12 × $0.42 = $5.04
+
+**Monthly savings with spot:** $95.20 (on-demand) vs $50.40 (spot + interruption overhead) = $44.80 saved per month (47% reduction).
+
+### Example 2: Cluster Costs (Multi-GPU)
+
+Task: Pre-train a 70B model from scratch.
+
+**Hardware: 16x H100 SXM cluster (RunPod, on-demand)**
+- Per-GPU cost: $2.69/hour
+- Cluster cost: 16 × $2.69/hour = $43.04/hour
+- Estimated training time: 14 days (336 hours, continuous)
+- Total compute cost: 336 × $43.04 = $14,461
+
+**Total AI Cost Breakdown:**
+- GPU rental: $14,461
+- Data storage (egress): ~$200 (1TB downloaded, $0.02/GB)
+- Monitoring and logging: ~$50 (CloudWatch, custom dashboards)
+- Software licenses: $0 (open-source toolchain)
+- **Total: ~$14,711**
+
+**Cost Optimization:**
+Use on-demand for first 100 hours (get bugs out), then spot for remaining 236 hours.
+
+- First 100 hours on-demand: 100 × $43.04 = $4,304
+- Remaining 236 hours on spot at $1.29/GPU = 236 × (16 × $1.29) = $48,806
+- **Oops: spot is more expensive due to high demand for H100s during training season**
+
+**Better optimization: Use A100 cluster**
+- 32x A100 SXM on-demand: 32 × $1.39/hour = $44.48/hour
+- Training time: 21 days (504 hours) at 2/3 the throughput
+- Total cost: 504 × $44.48 = $22,417
+
+**Paradox:** A100 cluster is more expensive in total ($22k vs $14.5k) because it needs 2x the GPUs for longer training time. H100's higher hourly cost is offset by faster throughput. Choose H100 if time-to-training matters (product deadline). Choose A100 if cost is the constraint.
+
+---
+
+## Training Cost Estimation
+
+### Parameter Count to Training Time Estimate
+
+Scaling law: 1B parameter model takes 1-2 GPU-days to pre-train on 100B tokens. This is a useful heuristic for cost planning.
+
+**70B parameters on 1T tokens:**
+- Estimated compute: 70 GPU-days per cluster GPU
+- On 8x A100 SXM cluster: 70 / 8 = 8.75 days of training
+- Hourly cost: 8 × $1.39 = $11.12/hour
+- Total: 8.75 × 24 × $11.12 = $2,338
+
+**Validation against public benchmarks:**
+- DeepSeek-V3 (671B parameters) reported 16.4M GPU-hours total compute
+- Extrapolating to 70B: (70B / 671B) × 16.4M = 1.71M GPU-hours
+- On-demand cost at $1.39/hour: 1.71M × $1.39 = $2.38M
+
+Industry reference: Large language model training costs have ranged from $100k (13B models) to $50M+ (500B+ models) since 2023. A 70B model typically costs $1-5M in cloud GPU rental. The exact cost depends on hardware choices (A100 vs H100 vs H200), cluster size, and optimization.
+
+### Fine-Tuning Cost (Lower Bound)
+
+Fine-tuning a 7B model on 100K examples:
+
+Time estimate: 8-12 hours on single A100.
+Cost: 10 hours × $1.19 = $11.90
+
+Scaling to 50 models/month: $595.
+
+### Mixed Precision Training (Cost Reduction Strategy)
+
+Using FP8 or INT8 precision instead of FP32 reduces memory usage and training time. This is critical for cost optimization at scale.
+
+**Precision Trade-offs:**
+- FP32 (full precision): 4 bytes/parameter, slowest, best accuracy
+- TF32 (Tensor Float): 4 bytes/parameter, faster, negligible accuracy loss
+- FP16 (half precision): 2 bytes/parameter, 2x faster, 1-2% accuracy loss
+- FP8 (8-bit): 1 byte/parameter, 4x faster, 2-5% accuracy loss (requires calibration)
+- INT8 (8-bit integer): 1 byte/parameter, 4x faster, requires post-training quantization
+
+**Cost-Accuracy Frontier:**
+
+Training a 13B model on 100B tokens:
+
+| Precision | Time | Cost @ H100 | Accuracy | Choice |
+|-----------|------|------------|----------|--------|
+| FP32 | 10 hours | $19.90 | 100% | Baseline |
+| TF32 | 8 hours | $15.92 | 99.8% | Recommended (no trade-off) |
+| FP16 | 5 hours | $9.95 | 98.5% | Good for cost-sensitive |
+| FP8 | 2.5 hours | $4.98 | 96.5% | Risky for accuracy-critical |
+
+**Real-world impact:**
+Training a 70B model 1T tokens with TF32 instead of FP32:
+- Savings: 20% compute time = 20% cost reduction
+- Cost reduction: $2,338 → $1,870
+- Accuracy: negligible difference (<0.2%)
+
+TF32 is the sweet spot. FP8 is only acceptable for inference or when fine-tuning (not pre-training).
+
+---
+
+## Inference Cost Estimation
+
+### Example 1: Batch Inference (High Throughput)
+
+Task: Process 1M customer reviews with sentiment labels (positive/negative).
+
+**Setup A: Self-hosted on RunPod L40S**
+Hardware: RunPod L40S (48GB VRAM, $0.79/hour)
+- Model: Mistral 7B quantized (fits in 48GB easily)
+- Batch size: 32 reviews at a time
+- Throughput: ~1,000 samples/hour (30ms per review)
+- Total time: 1,000 hours
+- GPU cost: 1,000 × $0.79 = $790
+- Additional costs:
+  - Data storage (1M reviews @ 500 bytes each): $250 one-time (S3)
+  - Monitoring and logging: $20
+  - **Total: $1,060**
+
+**Setup B: LLM API (Claude Haiku)**
+- Input: 1M reviews at ~200 tokens each = 200M input tokens
+- Output: 1 token per review (sentiment label) = 1M output tokens
+- Cost: (200M × $1 + 1M × $5) / 1,000,000 = $200 + $5 = $205
+- Latency: 100-200ms per review (acceptable for batch)
+- **Total: $205**
+
+**LLM API Advantage:**
+LLM API is 5x cheaper ($205 vs $1,060). No infrastructure management, immediate results. Break-even is at 4-5 batches/month. If processing reviews is a recurring task >1x/month, LLM API wins decisively.
+
+**Self-hosted Advantage:**
+If processing 20+ datasets/month, the GPU becomes economical ($790 per dataset vs $205, but reused across all datasets).
+
+### Example 2: Real-Time Inference (Low Latency Chat API)
+
+Task: Serve a chat API to 100 concurrent users in production.
+
+Requirement: <1 second response latency (P95), 99.9% uptime.
+
+**Setup A: Self-hosted on RunPod GPUs**
+Hardware: 2x RunPod H100 PCIe ($1.99/hour each)
+- Cost per hour: 2 × $1.99 = $3.98
+- Monthly cost (24/7 operation): $3.98 × 730 = $2,904
+- Additional costs:
+  - Data egress: 100 users × 500 requests/day × 500 bytes = 25GB/month = $0.50
+  - Monitoring + alert system: $50/month
+  - **Total monthly: $2,954.50**
+
+**Setup B: LLM API alternative (GPT-4o Mini)**
+- Assume 500 messages/user/month = 50,000 messages
+- Average 250 input + 150 output tokens per message
+- Token cost: (50,000 × (250 × $0.15 + 150 × $0.60)) / 1,000,000 = $8.25
+- Latency: 200-500ms (meets requirement)
+- Uptime: 99.99% (OpenAI SLA)
+- **Total monthly: $8.25**
+
+**Comparison:**
+LLM API is 358x cheaper than self-hosted GPU ($8.25 vs $2,954). The break-even point is 10M+ tokens/month. Below that, LLM API wins decisively. Above that, self-hosted becomes economical but operationally complex.
+
+**Real-world decision:** Most teams under 1000 concurrent users use LLM APIs. The operational overhead of self-hosting (on-call engineering, infrastructure scaling, compliance) outweighs the cost savings.
+
+---
+
+## Cost Optimization Examples
+
+### Example 1: Classification Pipeline
+
+Task: Classify 10M customer emails weekly (10M per week = 1.43M/day).
+
+**Option A: Fine-tuned GPT-4o Mini (LLM API)**
+
+Fine-tuning cost: $2,000 (one-time).
+Inference cost: Per email, 500 input tokens + 10 output tokens.
+
+Cost: (10M × (500 × $0.15 + 10 × $0.60)) / 1,000,000 = $7,500/week
+
+Annual: $390,000
+
+**Option B: Local Mistral 7B on GPU rental**
+
+Fine-tuning: 20 hours on A100 = $23.80.
+Inference: RunPod L40S, process 10M at 1K samples/hour = 10,000 hours/week.
+
+Cost: 10,000 × $0.79 = $7,900/week
+
+Annual: $411,000
+
+**Option C: Batch API (50% discount)**
+
+Same as Option A but use OpenAI's Batch API for 50% discount.
+
+Cost: $7,500 × 0.5 = $3,750/week
+
+Annual: $195,000 (50% cheaper than A, cheaper than B)
+
+**Recommendation:** Batch API if latency tolerance is 12-24 hours. Otherwise, fine-tuned LLM API.
+
+### Example 2: Multi-Stage RAG System
+
+Task: 100,000 document queries/month with context retrieval.
+
+Stage 1: Embedding + retrieval (1 embedding, 10 documents retrieved).
+Stage 2: Summarization of retrieved docs.
+Stage 3: Answer generation.
+
+**Token Count Per Query:**
+- Stage 1 (embedding): 2,000 tokens input, 1,500 output (summaries).
+- Stage 2 (summarization): 5,000 tokens input, 300 output.
+- Stage 3 (generation): 6,000 tokens input, 400 output.
+- Total: 13,000 input + 2,200 output tokens/query.
+
+**Cost Calculation (Claude Haiku at $1/$5):**
+
+Cost per query: (13,000 × $1 + 2,200 × $5) / 1,000,000 = $0.02310
+
+100,000 queries: 100,000 × $0.02310 = $2,310/month
+
+**Optimization: Caching**
+
+Assume 20% of queries share the same 5,000 tokens of context. Cached tokens cost 90% less.
+
+Savings per cached query: 5,000 × $1 × 0.9 / 1,000,000 = $0.0045
+
+At 20% of 100,000 = 20,000 cached queries: 20,000 × $0.0045 = $90 savings.
+
+New monthly cost: $2,310 - $90 = $2,220 (3.9% savings).
+
+**Second optimization: Output length**
+
+Reduce answer length from 400 to 100 tokens. Saves 75% on Stage 3 output tokens.
+
+Original Stage 3 cost: (6,000 × $1 + 400 × $5) / 1,000,000 = $0.008
+New Stage 3 cost: (6,000 × $1 + 100 × $5) / 1,000,000 = $0.0065
+
+Per query savings: $0.0025
+
+At 100,000 queries: $250 savings.
+
+New monthly cost: $2,220 - $250 = $1,970 (14.7% total reduction).
+
+---
+
+## Budget Planning Worksheet
+
+### Step 1: Estimate Monthly Workload
+
+| Task | Volume | Input Tokens/Task | Output Tokens/Task |
+|------|--------|-------------------|-------------------|
+| Chat | 50,000 | 500 | 200 |
+| Classification | 1,000,000 | 300 | 20 |
+| Summarization | 100,000 | 2,000 | 500 |
+| Code Generation | 10,000 | 1,500 | 800 |
+
+### Step 2: Calculate Total Tokens
+
+Chat: 50,000 × (500 input + 200 output) = 35M input, 10M output
+Classification: 1,000,000 × (300 + 20) = 300M input, 20M output
+Summarization: 100,000 × (2,000 + 500) = 200M input, 50M output
+Code Gen: 10,000 × (1,500 + 800) = 15M input, 8M output
+
+**Total: 550M input tokens, 88M output tokens**
+
+### Step 3: Select Models by Task Tier
+
+- Chat: GPT-4o Mini ($0.15/$0.60)
+- Classification: Gemini 1.5 Flash ($0.075/$0.30)
+- Summarization: Claude Sonnet 3.5 ($3/$15)
+- Code Gen: GPT-4o ($2.50/$10)
+
+### Step 4: Calculate Cost Per Task
+
+Chat: (35M × $0.15 + 10M × $0.60) = $11,250
+Classification: (300M × $0.075 + 20M × $0.30) = $28,500
+Summarization: (200M × $3 + 50M × $15) = $1,350,000
+Code Gen: (15M × $2.50 + 8M × $10) = $117,500
+
+**Total Monthly: $1,507,250**
+
+This is high because summarization uses expensive Sonnet. Downgrade to Claude Haiku ($1/$5):
+
+Summarization: (200M × $1 + 50M × $5) = $450,000
+
+**Revised Total: $607,250/month**
+
+---
+
+## FAQ
+
+**How accurate is a cost estimate?**
+
+Within 20% if you have real data (actual token counts). If guessing, expect 30-50% variance. Token count is the biggest unknown. Real-world input varies by task (short emails vs long documents).
+
+**Should I account for errors and retries?**
+
+Yes. If a model fails 5% of the time and you retry, budget 5% extra. If context lengths vary, budget worst-case (longest documents).
+
+**What about GPU overhead costs (storage, networking)?**
+
+GPU rental typically includes storage. Network ingress is usually free; egress costs $0.02-0.10 per GB. For a 70B model output at 100 tokens/sec for 1 hour: ~10MB, negligible cost.
+
+Add 5-10% for monitoring, logging, and operational overhead.
+
+**Is buying GPUs cheaper than renting?**
+
+For continuous workloads, yes. A100 80GB costs $10,000-15,000 new; at $1.19/hr rental, break-even is 8,400-12,600 hours (11-16 months of continuous use). If running 24/7 for 18+ months, buy. If sporadic or under 18 months, rent.
+
+**How do I forecast cost growth as volume scales?**
+
+Cost is linear with volume. If 100k queries cost $2,310, then 1M queries cost $23,100. The only exception: volume discounts (Anthropic at $1M+/month) break linearity.
+
+Model 10x volume growth, then negotiate discounts at 3x and 8x volume targets.
+
+**What if models change pricing?**
+
+Impossible to predict. OpenAI has dropped prices 10x since GPT-3. Build cost estimates with a 20% variance buffer. Review quarterly.
+
+---
+
+## Related Resources
+
+- [GPU Pricing Comparison](/gpus)
+- [Spot GPU Pricing Guide](/articles/spot-gpu-pricing)
+- [GPU Cloud Cost Comparison](/articles/gpu-cloud-cost-comparison)
+- [LLM Token Cost Comparison](/articles/llm-cost-per-token)
+- [OpenAI API Pricing](/articles/openai-pricing)
+
+---
+
+## Sources
+
+- [OpenAI API Pricing](https://openai.com/pricing)
+- [Anthropic Claude Pricing](https://www.anthropic.com/pricing)
+- [RunPod GPU Pricing](https://www.runpod.io/pricing)
+- [Lambda Cloud Pricing](https://lambda.ai/pricing)
+- [CoreWeave GPU Pricing](https://docs.coreweave.com/pricing)
+- [OpenAI Batch API Documentation](https://platform.openai.com/docs/guides/batch)
+- [DeployBase GPU Pricing Tracker](/gpus) (data observed March 22, 2026)

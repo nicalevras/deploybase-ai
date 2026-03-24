@@ -1,0 +1,313 @@
+---
+title: 'Embedding Model Pricing: Cost-Per-Token Across All Providers in 2026'
+slug: embedding-model-pricing-cost-per-token-across-all-providers
+description: >-
+  Comprehensive comparison of embedding model costs across OpenAI, Cohere,
+  Voyage, and Anthropic, including cost-per-token analysis and optimization
+  strategies.
+date: '2026-03-22'
+author: DeployBase
+category: API Pricing
+keywords:
+  - embedding model pricing
+---
+
+## Contents
+
+- [Understanding Embedding Model Pricing](#understanding-embedding-model-pricing)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Understanding Embedding Model Pricing
+
+Embedding models convert text into vector representations used in RAG systems, semantic search, similarity detection, and recommendation engines. Unlike large language model APIs charging per output token, embedding pricing primarily reflects input token consumption plus overhead. Understanding this cost structure is critical for applications processing large text volumes.
+
+### API Provider Pricing Models
+
+**OpenAI Embeddings:**
+
+OpenAI offers three embedding models with different cost structures. The text-embedding-3-small model costs $0.02 per 1 million input tokens. The text-embedding-3-large model costs $0.13 per 1 million tokens.
+
+For context: 1 million tokens represents roughly 750,000-800,000 words of typical English text, or approximately 3,000-4,000 full research papers.
+
+The small model produces 1,536-dimensional vectors while the large model generates 3,072 dimensions. Larger dimensions provide better semantic capture but consume more storage and compute in downstream operations. For most applications, the small model suffices, costing $0.02 per million tokens.
+
+Batch processing doesn't receive a discount, but API integration is straightforward. OpenAI bills monthly with no minimum commitments. Their API has reliable availability and strong documentation.
+
+**Cohere Embeddings:**
+
+Cohere's embed-english-v3.0 model costs $0.10 per 1 million input tokens. Their embed-english-light-v3.0 costs $0.01 per 1 million tokens:lower cost than OpenAI's small model and with competitive quality.
+
+Cohere emphasizes semantic search optimization and multi-lingual support. Their API includes optional parameters for truncating inputs and specifying input type (search_document vs. search_query), optimizing embeddings for specific use cases.
+
+Batch processing through their API offers no formal discounts, but Cohere provides consulting and custom arrangements for very large volume customers (>10 billion tokens monthly).
+
+**Voyage AI Embeddings:**
+
+Voyage offers multiple models targeting different quality-cost tradeoffs. Their voyage-lite-02 model costs $0.01 per 1 million tokens. voyage-2 costs $0.12 per 1 million tokens for better quality.
+
+Voyage emphasizes that their models are optimized specifically for retrieval tasks in RAG applications, potentially requiring fewer embeddings to achieve comparable search quality. This efficiency can offset higher per-token costs if fewer embeddings solve the problem.
+
+Their pricing includes batch processing discounts for usage above 50 million tokens monthly (roughly 10% savings). Annual commitments can reach 20-25% discounts.
+
+**Anthropic Embeddings:**
+
+As of March 2026, Anthropic's embedding capabilities operate through Claude with tool use and analysis rather than dedicated embedding endpoints. Integration with embedding models involves API calls through Claude's primary interface.
+
+For dedicated embedding workloads, Anthropic recommends using OpenAI or Cohere APIs in tandem with Claude for semantic analysis tasks. This creates a multi-vendor architecture but reflects current market positioning.
+
+### Cost-Per-Token Comparison Table
+
+| Provider | Model | Cost/1M Tokens | Vector Dims | Quality Rank | Use Case |
+|----------|-------|----------------|------------|--------------|----------|
+| OpenAI | text-embedding-3-small | $0.02 | 1,536 | High | General purpose |
+| OpenAI | text-embedding-3-large | $0.13 | 3,072 | Highest | Quality-critical search |
+| Cohere | embed-english-light-v3.0 | $0.01 | 1,024 | Medium | Cost-optimized |
+| Cohere | embed-english-v3.0 | $0.10 | 1,024 | High | Semantic optimization |
+| Voyage | voyage-lite-02 | $0.01 | 512 | Medium | Lean deployments |
+| Voyage | voyage-2 | $0.12 | 1,472 | High | Quality-critical RAG |
+
+### Real-World Cost Analysis
+
+**Scenario 1: RAG System with 1M Documents (Average 500 words each)**
+
+Assume initial indexing plus monthly updates of 5% of corpus.
+
+Initial embedding cost:
+- 1M documents × 500 words ÷ token ratio (1 token per 4 words) = 125M tokens
+- OpenAI small: 125M × $0.02 / 1M = $2,500
+- Cohere light: 125M × $0.01 / 1M = $1,250
+- Voyage lite: 125M × $0.01 / 1M = $1,250
+
+Monthly re-indexing (5% new/updated):
+- 62.5M tokens monthly
+- OpenAI small: ~$1,250/month
+- Cohere light: ~$625/month
+- Voyage lite: ~$625/month
+
+For cost optimization, Cohere light or Voyage lite yield 50% savings versus OpenAI small without quality degradation on standard semantic search tasks.
+
+**Scenario 2: Real-Time Chat with Semantic Context (100K Daily Queries)**
+
+Each query embeds user input plus retrieves context, averaging 2,000 tokens per interaction.
+
+Daily embedding volume: 100K × 2,000 = 200M tokens
+Monthly: 6B tokens
+
+Costs:
+- OpenAI small: 6,000M × $0.02 / 1M = $120/month
+- Cohere light: 6,000M × $0.01 / 1M = $60/month
+- Voyage lite: 6,000M × $0.01 / 1M = $60/month
+
+At this scale, per-token pricing dominates total infrastructure cost. Choosing the cheapest option saves $60/month, which doesn't justify quality degradation if search accuracy impacts user satisfaction.
+
+### Self-Hosted vs. API Embedding Economics
+
+**Self-Hosted Embedding Models:**
+
+Running sentence-transformers or similar open models on cloud infrastructure eliminates per-token charges but introduces compute costs.
+
+A small embedding model (110M parameters) on a RunPod RTX 4090 ($0.34/hour) processes roughly 5,000-10,000 embeddings per second depending on batch size. Assuming 7,500 embeddings/second at 500 tokens each = 3.75M tokens/second.
+
+Monthly cost: $0.34 × 730 hours = $248/month for essentially unlimited token processing.
+
+Compared to API providers:
+- Under 12.4M tokens monthly: API cheaper
+- Above 12.4M tokens monthly: Self-hosted cheaper
+
+**Self-Hosted Optimization:**
+
+For extremely high volume (100M+ tokens monthly), deploying on multiple GPUs and adding load balancing improves efficiency. A cluster of 3 L40S GPUs ($0.79/hour each) costs $1,740/month but provides 10-15x higher throughput.
+
+At that scale, cost drops to $0.000017 per million tokens:150x cheaper than API providers. However, operational overhead, model updates, and infrastructure management require engineering resources.
+
+### Quality-Cost Tradeoffs
+
+Not all tokens are equal. OpenAI's large model at $0.13/1M tokens outperforms Cohere light at $0.01/1M tokens in semantic understanding tasks. The question is whether 13x price difference justifies the quality gap.
+
+Empirical testing matters. Benchmark the specific use case with multiple models:
+
+1. Index the same corpus with each model
+2. Run 100 representative queries
+3. Measure recall@10 (how many relevant documents appear in top 10 results)
+4. Calculate cost per 1% recall improvement
+
+If OpenAI large achieves 92% recall and Cohere light achieves 88% recall at 13x lower cost, the Cohere model might be optimal. If the gap is 95% vs. 60%, OpenAI's quality justifies the premium.
+
+### Batch Processing and Volume Discounts
+
+Most providers offer implicit volume discounts through lower per-token costs at scale, but few publish explicit volume pricing.
+
+Voyage AI explicitly provides 10% discounts above 50M tokens monthly and 20% above 500M. OpenAI and Cohere reserve volume discounts for production contracts (typically 10-20% at $100K+ annual volumes).
+
+For smaller teams, negotiating is typically ineffective. However, consolidating embedding workloads onto a single provider sometimes qualifies for better terms.
+
+### Comparing Against LLM API Alternatives
+
+For context on broader AI API costs, check [OpenAI API pricing](/articles/openai-pricing) to understand how embedding costs compare to language model costs. For inference workloads, review [LLM API pricing comparison](/llms) showing cost-per-token across generations of models.
+
+For self-hosted alternatives, review [GPU pricing](/gpus) to understand the underlying infrastructure costs these APIs abstract away.
+
+### Hybrid Approach: When to Use Each
+
+**Use OpenAI embeddings when:**
+- Quality is paramount and cost is secondary
+- Developers have modest volume (under 20M tokens monthly)
+- Simplicity and integration ease matter
+- The application benefits from OpenAI's specific semantic optimizations
+
+**Use Cohere embeddings when:**
+- Semantic search optimization aligns with the use case
+- Developers want quality competitive with OpenAI at lower cost
+- Multi-lingual support is important
+- Developers expect to scale and want to negotiate volume discounts
+
+**Use Voyage embeddings when:**
+- RAG-specific optimization is valuable
+- Developers plan scaling with multi-tier volume discounts
+- Vector dimension choices matter for the vector store
+- Developers want optimization specifically for retrieval tasks
+
+**Self-host embeddings when:**
+- Volume exceeds 12.4M tokens monthly
+- Embedding model customization for domain-specific tasks helps
+- Privacy requirements prohibit sending data to third parties
+- Operational overhead is acceptable given cost savings
+
+### Monitoring and Optimization
+
+Track embedding API costs monthly alongside token volumes. Calculate cost per document indexed and cost per search query. If costs increase faster than utility increases, re-evaluate model choices.
+
+Monitor new model releases. Better models at lower costs emerge regularly. Quarterly reviews of provider options ensure developers're not overpaying for capabilities developers don't need.
+
+**Cost Tracking Metrics:**
+
+Monthly embedding volume: Track tokens embedded and API costs. Calculate cost-per-million tokens and compare to provider list pricing to catch unexpected increases.
+
+Cost per unique document: (Monthly API cost) / (Number of new documents embedded). Helps understand scaling economics as corpus grows.
+
+Cost per search: (Monthly query embedding cost) / (Number of searches). Helps understand user-facing cost structure.
+
+Quality metrics: Alongside cost tracking, measure search recall and user satisfaction. Cost optimization only matters if quality remains acceptable.
+
+### Embedding Model Lifecycle Management
+
+**Initial Selection Phase:**
+
+1. Identify top 2-3 models for the use case
+2. Index small representative corpus (1,000-5,000 documents)
+3. Run 50-100 representative queries
+4. Measure quality (recall@10) and cost
+5. Choose winner based on cost-adjusted quality
+
+Timeline: 1-2 weeks. Cost: $5-50 in API charges.
+
+**Production Phase:**
+
+1. Index full production corpus
+2. Monitor quality and cost metrics
+3. Set cost alerts (alert if monthly cost exceeds expected range by 20%+)
+4. Track API usage patterns (identify peak times, query types with highest costs)
+
+**Optimization Phase (every 6-12 months):**
+
+1. Re-run quality benchmarks with new models
+2. Calculate if switching models saves money while maintaining quality
+3. Evaluate self-hosting if volumes justify infrastructure
+
+### Embedding Quality Metrics Beyond Recall
+
+**MRR (Mean Reciprocal Rank):**
+
+Measures ranking quality, not just presence in top 10. Penalizes models where relevant documents appear late in results.
+
+Example: Document at position 1 scores 1.0, position 2 scores 0.5, position 10 scores 0.1.
+
+MRR 0.85 indicates very good ranking. 0.70 is acceptable. Below 0.60 indicates issues.
+
+**NDCG@10 (Normalized Discounted Cumulative Gain):**
+
+Advanced ranking metric considering all top 10 results weighted by relevance. Better than recall@10 for production systems.
+
+Scores 0-1 where 1.0 is perfect.
+
+**Latency Metrics:**
+
+Embedding API latency affects search response time. OpenAI and Cohere typically 200-500ms. Voyage similar. Self-hosted varies 50-2000ms depending on hardware.
+
+For interactive search, <100ms embedding latency is critical. This sometimes justifies choosing simpler models on optimized infrastructure over complex models on slow infrastructure.
+
+### Vector Store Interactions
+
+Embedding cost analysis must include vector store costs:
+
+**Pinecone:**
+- $0.40 per 100,000 vectors monthly (storage)
+- Query costs: $0.40 per 1M queries
+
+For 1M documents with OpenAI small embeddings:
+- Embedding cost: $20 (one-time + incremental)
+- Pinecone storage: $4/month ongoing
+- Pinecone queries (1M monthly): $0.40/month
+
+Total: ~$25 initial + $4.40/month. Embedding dominates initial costs but vector store dominates ongoing.
+
+**Weaviate (Self-Hosted):**
+- Infrastructure cost on cloud GPU: $50-500/month (depending on scale)
+- No per-query fees
+
+For same workload, 1M documents:
+- Embedding cost: $20 (one-time)
+- Weaviate infrastructure: $50-500/month depending on infrastructure
+
+Self-hosting is cheaper at scale but requires operational overhead.
+
+### Hybrid Embedding Strategies
+
+Some teams use multiple models for different purposes:
+
+1. **Cohere light** for initial retrieval (cheap, fast, sufficient for ranking documents)
+2. **Voyage-2 or OpenAI large** for semantic re-ranking (more expensive but higher quality for final ranking)
+
+Two-stage approach reduces overall embedding costs while maintaining quality. First stage filters to top-100 candidates (cheap filtering), second stage re-ranks top-100 (more expensive but low volume).
+
+Cost reduction: Often 60-70% versus using expensive model everywhere.
+
+## FAQ
+
+**Which embedding model should I start with?**
+
+For most applications, OpenAI's text-embedding-3-small at $0.02/1M tokens is the safe choice. Quality is excellent, integration is straightforward, and cost is reasonable. If cost optimization is critical from day one, start with Cohere light at $0.01/1M and measure quality degradation.
+
+**How do I know if my embedding model quality is sufficient?**
+
+Run retrieval benchmarks specific to your data. Index 1,000 documents, run 50 representative queries, and manually evaluate whether correct results appear in the top 10. If accuracy exceeds 90%, your model is likely sufficient.
+
+**Can I use different embedding models for different parts of my system?**
+
+Yes, but it complicates vector store management. You can use cheaper models for less critical searches (suggestions, recommendations) and higher-quality models for critical semantic search. Keep embeddings separate by model to avoid mixing vector spaces.
+
+**How do embedding costs scale with document growth?**
+
+Linearly with total tokens embedded. Embedding 2x the documents costs 2x the API fees. However, vector store queries don't have API costs:only indexing does. Once documents are indexed, retrieval is essentially free (except for vector database storage).
+
+**Should I commit to annual contracts for volume discounts?**
+
+Only after 3-4 months of usage establish your baseline volume. Committing before understanding seasonal variations risks overpaying. For verified stable volumes, annual commitments typically save 15-25%.
+
+## Related Resources
+
+- [OpenAI Embeddings vs. Cohere](/articles/openai-vs-cohere-vs-voyage-embeddings-api-pricing-and) - Direct provider comparison
+- [LLM API Pricing Comparison](/llms) - Broader context on API pricing
+- [OpenAI API Pricing](/articles/openai-pricing) - Detailed OpenAI costs
+- [Anthropic API Pricing](/articles/anthropic-pricing) - Alternative vendor pricing
+- [GPU Pricing Guide](/gpus) - Self-hosted infrastructure costs
+
+## Sources
+
+- OpenAI, Cohere, and Voyage official pricing pages (as of March 2026)
+- DeployBase.AI embedding cost benchmarks (as of March 2026)
+- RAG system deployment case studies from 2026
+- Community benchmarking reports on embedding quality
+- Vector database and semantic search best practices documentation

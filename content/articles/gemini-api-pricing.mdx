@@ -1,0 +1,561 @@
+---
+title: >-
+  Gemini API Pricing 2026: Free Tier, 2.5 Pro Costs, and Context Caching
+  Discounts
+slug: gemini-api-pricing
+description: >-
+  Google Gemini API pricing guide: free tier, 2.5 Pro/Flash rates, context
+  caching discounts, and cost optimization strategies as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: LLM Pricing
+keywords:
+  - gemini api pricing
+  - google gemini 2.5 pricing
+  - gemini pro cost
+  - gemini api free tier
+  - context caching discount
+  - gemini vs openai pricing
+---
+
+## Contents
+
+- [Gemini API Pricing: Overview](#gemini-api-pricing-overview)
+- [Pricing Summary Table](#pricing-summary-table)
+- [Free Tier Details](#free-tier-details)
+- [Gemini 2.5 Pro Pricing](#gemini-25-pro-pricing)
+- [Gemini 2.5 Flash Pricing](#gemini-25-flash-pricing)
+- [Context Caching and Discounts](#context-caching-and-discounts)
+- [Use Cases and Cost Scenarios](#use-cases-and-cost-scenarios)
+- [Cost Comparison with Competitors](#cost-comparison-with-competitors)
+- [Budget Optimization Strategies](#budget-optimization-strategies)
+- [FAQ](#faq)
+- [Advanced Optimization Techniques](#advanced-optimization-techniques)
+- [Cost Comparison: Gemini vs OpenAI vs Anthropic](#cost-comparison-gemini-vs-openai-vs-anthropic)
+- [Implementation Patterns in Production](#implementation-patterns-in-production)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Gemini API Pricing: Overview
+
+Gemini API Pricing is the focus of this guide. Free tier: 50 requests/minute, 1M tokens/day. Gemini 1.5 Flash (not 2.5).
+
+Pro ($1.50 input, $6 output per 1M) for reasoning.
+
+Flash ($0.075 input, $0.30 output) for speed.
+
+Context caching discounts reused context 90%. Use it if developers're feeding the same docs repeatedly.
+
+---
+
+## Pricing Summary Table
+
+| Model | Prompt $/M | Completion $/M | Context Caching | Best For |
+|-------|-----------|----------------|-----------------|----------|
+| **Free Tier** | Free (50 req/min) | Free (50 req/min) | None | Prototyping |
+| **Gemini 2.5 Pro** | $1.50 | $6.00 | 90% discount | Complex reasoning |
+| **Gemini 2.5 Flash** | $0.075 | $0.30 | 90% discount | Speed-focused, cost-sensitive |
+
+Data from Google's official pricing page (March 2026).
+
+---
+
+## Free Tier Details
+
+Google's free tier lets teams experiment with Gemini without authentication keys or billing setup. Developers get Gemini 1.5 Flash (the older version, not 2.5) with 50 requests per minute and daily quotas.
+
+Limits: 1,500 requests per day. No batch processing. No file uploads beyond 20MB. EXIF metadata only from images, no video. Rate limiting kicks in aggressively once the daily quota is exceeded.
+
+Practical use: prototyping, small research projects, learning the API. Not viable for production services or iterative fine-tuning. Most free-tier users hit daily limits within hours of heavy testing.
+
+---
+
+## Gemini 2.5 Pro Pricing
+
+Pro is the flagship model. Handles reasoning, code generation, multimodal analysis (text, image, video, audio). Supports 200K context window.
+
+**Per-million-token costs (standard):**
+- Prompt tokens: $1.50/M (0.15¢ per 100 tokens)
+- Completion tokens: $6.00/M (0.60¢ per 100 tokens)
+- Batch processing: same rates, asynchronous
+
+Completion tokens cost 4x prompt tokens, creating incentive to optimize output length.
+
+**Monthly cost estimate (example):**
+
+A team processing 100M prompt tokens + 25M completion tokens per month:
+- Prompts: 100M × $1.50/M = $150
+- Completions: 25M × $6.00/M = $150
+- Total: $300/month
+
+**Tier-down strategy:** If 80% of requests could use Flash (cheaper model), mix:
+- 80M prompt tokens on Flash: 80M × $0.075/M = $6
+- 20M prompt tokens on Pro: 20M × $1.50/M = $30
+- 5M completion tokens on Flash: 5M × $0.30/M = $1.50
+- 20M completion tokens on Pro: 20M × $6.00/M = $120
+- Total: ~$157 (vs $300, 48% savings)
+
+### Context Caching with Pro
+
+With context caching, cached prompt tokens drop to $0.15/M (10% of standard rate). For agents with system prompts, knowledge bases, or few-shot examples exceeding 10K tokens, caching saves 10-40% on total monthly costs.
+
+**Example: 50K-token cached system prompt + knowledge base**
+- Cached tokens: 50K × $0.15/M = $0.0075
+- Uncached tokens: 10K × $1.50/M = $0.015
+- Total per request: $0.0225 (vs $0.090 without caching, 75% savings)
+
+Cache lifespan is 5 minutes (free tier) to 24 hours (paid). For production systems processing 10K+ requests/day with identical context, cache hit rate exceeds 80-90%, justifying setup overhead.
+
+### Multi-Modal Pricing
+
+No surcharge for images, video, or audio. Token counts include vision encoding. A typical image encodes to 200-600 tokens depending on resolution. A 10-second video encodes to 1,000-2,000 tokens.
+
+**Example: Process 1,000 product images for cataloging**
+- Image tokens: 1,000 × 400 tokens = 400K tokens
+- Prompt per image: 50 tokens = 50K tokens
+- Output (product description): 100 tokens × 1,000 = 100K tokens
+- Total input: 450K tokens × $1.50/M = $0.68
+- Total output: 100K tokens × $6.00/M = $0.60
+- Total: $1.28 for 1,000 images = $0.00128 per image
+
+Multimodal cost-per-image is competitive with dedicated vision APIs.
+
+---
+
+## Gemini 2.5 Flash Pricing
+
+Flash is the lightweight model. Optimized for speed and cost, not reasoning. Typical latency: 200-400ms (vs Pro's 500-800ms). Supports same 200K context window as Pro.
+
+**Per-million-token costs:**
+- Prompt tokens: $0.075/M (0.0075¢ per 100 tokens)
+- Completion tokens: $0.30/M (0.03¢ per 100 tokens)
+- 20x cheaper than Pro on both prompts and completions.
+
+**Monthly cost comparison (same 100M + 25M volume as Pro):**
+- Prompts: 100M × $0.075/M = $7.50
+- Completions: 25M × $0.30/M = $7.50
+- Total: $15/month (vs $300 for Pro, 95% savings)
+
+**Break-even analysis:**
+- Cost difference: $285/month
+- Latency difference: ~400ms per request
+- QPS impact: If 10 requests/second, Pro adds 4 seconds of latency total per second (acceptable for most batch workloads)
+- For 50,000 requests/month: Flash saves $285/month with acceptable latency tradeoff
+
+Flash is the default choice for cost-conscious teams. Use Pro only when reasoning quality directly impacts revenue (legal analysis, medical diagnosis, financial decisions).
+
+### Flash with Context Caching
+
+Flash with caching: prompt cost drops to $0.0075/M (90% discount on cached tokens). For high-volume workloads with repeated context:
+
+**Example: Support ticket classification (cached response templates)**
+- Cached templates (5K tokens): 5K × $0.0075/M = $0.0000375
+- Uncached ticket text (500 tokens): 500 × $0.075/M = $0.0000375
+- Output (classification + suggestion): 100 tokens × $0.30/M = $0.00003
+- Total per ticket: $0.000076
+- For 100K tickets/month: $7.60/month
+
+Cost is negligible. Flash is ideal for bulk processing.
+
+---
+
+## Context Caching and Discounts
+
+Context caching stores the embedding of a static prompt prefix. Repeated prompts reuse the cached embedding, avoiding recomputation.
+
+**How it works:**
+1. Upload a system prompt or few-shot context (e.g., 8K-token jailbreak examples)
+2. Mark with `cache_control` = "ephemeral" in the API request
+3. Google caches the embedding for 5 minutes (free tier) to 24 hours (paid)
+4. Subsequent requests reuse the cache without re-encoding the prefix
+
+**Cost reduction:**
+- Cached tokens: 90% discount (pay only 10% of the prompt token cost)
+- Uncached tokens: standard rate
+- Example: 10K cached tokens + 500 new tokens in Pro
+  - Cached: 10K × $1.50/M × 0.10 = $0.015
+  - Uncached: 500 × $1.50/M = $0.00075
+  - Total: $0.016 (vs. $0.015 without caching, marginal savings on small prompts)
+
+**Where caching breaks even:**
+- Batch processing with repeated system prompts (>100 requests/batch)
+- Multi-turn conversations with static knowledge bases
+- Inference serving where the same model card or context applies across requests
+
+For single-request use cases, caching overhead (API setup) exceeds savings.
+
+---
+
+## Use Cases and Cost Scenarios
+
+### Customer Support Chatbot
+
+Scenario: Support team uses Gemini to draft responses to 100 customer emails per day.
+
+**Setup:** System prompt (500 tokens): "You are a knowledgeable support agent. Follow the brand voice guidelines. If unsure, escalate."
+
+**Daily volume:**
+- 100 emails × 300 tokens (email text) = 30K prompt tokens
+- 100 responses × 150 tokens (draft response) = 15K completion tokens
+
+**Daily cost (without caching):**
+- Prompts: 30K × $0.075/M (using Flash) = $0.002
+- Completions: 15K × $0.30/M = $0.005
+- Total: $0.007/day, ~$2.10/month
+
+**Daily cost (with 5-minute cache):**
+- Cached system prompt: 500 × $0.0075/M = $0.000004
+- Uncached email text: 30K × $0.075/M = $0.002
+- Completions: 15K × $0.30/M = $0.005
+- Total: $0.007/day (negligible savings at this scale)
+
+**Recommendation:** Flash without caching is sufficient. Caching ROI appears after 1,000+ daily requests.
+
+### Content Moderation at Scale
+
+Scenario: Platform reviews 50,000 user-submitted comments daily.
+
+**Setup:** System prompt (300 tokens): "Classify as safe/unsafe. Flag for human review if borderline."
+
+**Daily volume:**
+- 50K comments × 200 tokens = 10M prompt tokens
+- 50K classifications × 20 tokens = 1M completion tokens
+
+**Daily cost (Flash without caching):**
+- Prompts: 10M × $0.075/M = $750
+- Completions: 1M × $0.30/M = $300
+- Total: $1,050/day, ~$31.5K/month
+
+**Daily cost (Flash with caching):**
+- Cached system prompt: 300 × $0.0075/M × 50K requests = $11.25
+- Uncached comment text: 10M × $0.075/M = $750
+- Completions: 1M × $0.30/M = $300
+- Total: ~$1,061/day (caching adds negligible savings due to unique comment text)
+
+**Alternative: Use classification endpoint (100x cheaper)**
+Google's text classification API (separate from Gemini) costs $1-2 per 1,000 items. For pure classification, use that instead of Gemini.
+
+**Recommendation:** For complex content policies, use Gemini Flash. For simple binary classification, use Google's dedicated classification API.
+
+### Research Agent with Long Contexts
+
+Scenario: Research tool uses Gemini Pro to synthesize information from 50 sources.
+
+**Setup:** System prompt (500 tokens): "You are a research synthesis agent. Integrate information from sources. Cite specifically."
+
+**Per-request volume:**
+- System prompt: 500 tokens
+- User query: 200 tokens
+- Source documents (summaries): 40K tokens (50 sources × 800 tokens each)
+- Total prompt tokens: 40.7K
+
+**Cost per request (Pro without caching):**
+- Prompts: 40.7K × $1.50/M = $0.061
+- Completion: 500 tokens × $6.00/M = $0.003
+- Total: $0.064 per research synthesis
+
+**Cost per request (Pro with 24-hour cache):**
+- Cached system prompt: 500 × $0.15/M = $0.00008
+- Cached source documents (reused across requests): 40K × $0.15/M = $0.006
+- Uncached user query: 200 × $1.50/M = $0.0003
+- Completion: 500 × $6.00/M = $0.003
+- Total: ~$0.009 per research synthesis (86% savings if sources are reused)
+
+**Recommendation:** Use Gemini Pro with caching. Cache source documents for 24 hours. ROI is strong when synthesizing multiple queries against the same source corpus.
+
+---
+
+## Cost Comparison with Competitors
+
+| Provider | Prompt $/M | Completion $/M | Caching | Best Value For |
+|----------|-----------|----------------|--------|----------------|
+| **Gemini Pro** | $1.50 | $6.00 | 90% off | Reasoning, multimodal |
+| **OpenAI GPT-4o** | $2.50 | $10.00 | None | Production, safety |
+| **Claude Opus** | $5.00 | $25.00 | 90% off | Complex analysis |
+| **Gemini Flash** | $0.075 | $0.30 | 90% off | Cost-first, speed-first |
+| **OpenAI GPT-4o Mini** | $0.15 | $0.60 | None | Fast, affordable |
+
+Gemini Flash undercuts GPT-4o Mini by 2x. Gemini Pro is 40% cheaper than GPT-4o while matching capability. Caching is Gemini's structural advantage; competitors have no equivalent discount mechanism.
+
+Link to [Anthropic's pricing for detailed comparison](/articles/anthropic-pricing) or [OpenAI's current rates](/articles/openai-pricing).
+
+---
+
+## Budget Optimization Strategies
+
+**1. Tier Selection by Workload**
+
+- Complex reasoning (planning, debugging, legal analysis): Pro
+- Classification, summarization, simple generation: Flash
+- Latency-sensitive (sub-500ms required): Flash
+- Quality-first (reasoning chains matter): Pro
+
+**2. Context Caching for Batch Processing**
+
+Cache system prompts when processing >500 items with identical context. ROI: 30-50% savings on prompt costs at scale.
+
+Example: Processing 10K customer support tickets with a static "support agent" system prompt (2K tokens).
+- Without caching: 10K × 2K × $1.50/M = $30
+- With caching: 10K × (2K × $1.50/M × 0.10 + overhead) = ~$3-5
+- Savings: ~$25-27
+
+**3. Fallback to Flash for Filters**
+
+Use Flash as a first-pass filter. If the request fails classification or requires reasoning, escalate to Pro. Reduces Pro throughput by 60-70%.
+
+**4. Batch API for Off-Peak Processing**
+
+Google's batch API (same token costs, processed within 24 hours, lower priority) has no direct discount. But avoiding real-time processing lets teams consolidate requests and reduce API calls. Reduces overhead costs.
+
+**5. Image Encoding Optimization**
+
+Vision tokens cost the same as text tokens. Compress images before upload (JPEG quality 70-80 is imperceptible to models). Reduces image token count by 15-40%.
+
+**6. Multi-Modal Cost Analysis**
+
+Gemini's pricing doesn't distinguish between text and image tokens (unlike OpenAI's GPT-4o, which charges per image). This means image-heavy applications are proportionally cheaper on Gemini.
+
+Example: Process 1,000 receipts (image + text extraction).
+
+Gemini Pro per receipt:
+- Image: 500 tokens
+- Query: 50 tokens
+- Response: 200 tokens
+- Cost per receipt: (550 × $1.50 + 200 × $6.00) / 1M = $0.0013
+
+GPT-4o per receipt:
+- Image upload charge: $0.04 per image (flat)
+- Tokens: (550 × $0.01 + 200 × $0.03) / 1K = $0.0065
+- Cost per receipt: $0.0465
+
+Gemini is 36x cheaper for this workload because images are tokenized (not separately metered).
+
+**7. Real-Time vs Batch Trade-offs**
+
+Gemini API offers synchronous requests (real-time, sub-second latency) and batch processing (same token costs, 24-hour processing). Batch is not cheaper per token, but enables consolidation:
+
+- Real-time: Process 100 requests → make 100 API calls → 100 × overhead
+- Batch: Combine 100 requests → 1 batch job → 1 overhead
+
+Real-time is necessary for user-facing features. Batch is for background jobs (daily report generation, data enrichment, archive processing).
+
+---
+
+## FAQ
+
+**How does Gemini 2.5 Pro compare to GPT-4?**
+
+Pro is comparable to GPT-4o on reasoning and code. Pro is $2.50/M cheaper on prompts. GPT-4 is still used for highest-stakes decisions (legal review, medical diagnosis) because of OpenAI's liability insurance and auditing trails.
+
+**Does context caching work with multi-turn conversations?**
+
+Yes, if the conversation history (system prompt + earlier turns) remains identical across batches. For streaming conversations, caching only benefits the first request in a session.
+
+**What's the difference between Gemini 1.5 Flash and 2.5 Flash?**
+
+Version 2.5 is 10-15% faster and has better reasoning on code. Token pricing is identical ($0.075/$0.30). If using free tier, you get 1.5 Flash (older). Paid users should default to 2.5.
+
+**Is there a volume discount for high throughput?**
+
+No. Pricing is flat per token at all volumes. But teams processing 10B+ tokens/month should contact sales for potential negotiation.
+
+**Can I mix Gemini with other providers in a fallback pattern?**
+
+Yes. Route complex requests to Pro, simple requests to Flash, and fail back to Anthropic or OpenAI if needed. This works in production and optimizes cost-per-quality.
+
+---
+
+## Advanced Optimization Techniques
+
+### Token Budget Strategy
+
+Before sending a request, estimate token count:
+- Text: ~4 characters per token average
+- Images: 200-600 tokens depending on resolution
+- Video: 1-2 tokens per frame (10-second video = 240-480 tokens at 24fps)
+
+**Token budget calculation:**
+```
+Estimated tokens = prompt_tokens + cached_tokens + input_tokens + output_tokens
+Estimated cost = (prompt × input_rate + cached × cache_rate) + (output × output_rate)
+```
+
+**Example: Email classification with system prompt**
+- System prompt (cached): 1K tokens × $0.0075/M = $0.0000075
+- Email content: 200 tokens × $0.075/M = $0.000015
+- Classification output: 20 tokens × $0.30/M = $0.000006
+- Total per email: $0.0000285
+- For 100K emails/month: $2.85/month
+
+Bulk processing systems benefit from caching system prompts and reusing them.
+
+### Quality vs Cost Trade-offs
+
+**High-accuracy tier (Pro):** Use for 10-20% of requests where confidence is required.
+**Low-latency tier (Flash):** Use for 80-90% of requests where speed matters.
+
+**Decision tree at inference time:**
+```
+if (request_complexity == "high" or user_is_premium):
+  use Gemini Pro (higher cost, better quality)
+else:
+  use Gemini Flash (lower cost, acceptable quality)
+```
+
+This hybrid approach reduces average cost by 40-60% while maintaining quality.
+
+### Batch Processing Windows
+
+**Real-time API:** Submit individually as requests arrive. Pay full per-token cost. Response within 1-5 seconds.
+
+**Batch API:** Collect 100+ requests. Submit batch job. Process within 24 hours. Same per-token cost.
+
+**Hybrid:** Real-time for user-facing requests (chat, search), batch for background jobs (daily reports, data enrichment).
+
+Cost is identical. Choice is about latency requirements, not cost.
+
+### Caching Strategy at Scale
+
+Cache effectiveness depends on cache hit rate:
+
+**Cache hit rate formula:**
+```
+hit_rate = (requests_hitting_cache / total_requests) × 100%
+hit_ratio = (cached_tokens_per_request / total_tokens_per_request) × 100%
+savings = hit_rate × hit_ratio × 0.90 (90% discount on cached tokens)
+```
+
+**Example: Customer support agent with static knowledge base**
+- System prompt (5K tokens, cached): reused 10K times/month
+- Customer ticket (500 tokens, uncached): unique each time
+- System tokens hit cache 10,000 times
+- Savings: (5K × 10K × 0.90) / (5.5K × 10K) = 81.8%
+
+Setup caching if total cached tokens > 10K and cache hit rate > 50%.
+
+### Rate Limiting Strategy
+
+Gemini API rate limits:
+- Free tier: 50 requests/minute
+- Paid tier (no explicit limit): practical limit is ~100 requests/second per API key
+
+**Scaling beyond one API key:**
+- Distribute requests across multiple API keys
+- Use exponential backoff on 429 (rate limit) errors
+- Batch requests (100 reqs/batch) to reduce API call frequency
+
+For production systems handling 1M+ requests/month, use 2-3 API keys with round-robin load balancing.
+
+---
+
+## Related Resources
+
+- [Google AI Studio Documentation](/llms/Google%20AI%20Studio)
+- [OpenAI Pricing Guide](/articles/openai-pricing)
+- [Anthropic Pricing Comparison](/articles/anthropic-pricing)
+- [DeepSeek Pricing Analysis](/articles/deepseek-pricing)
+
+---
+
+## Cost Comparison: Gemini vs OpenAI vs Anthropic
+
+### Per-Token Pricing Comparison (March 2026)
+
+| Model | Input $/M | Output $/M | Ratio (Out:In) | Best For |
+|-------|-----------|-----------|----------------|----------|
+| **Gemini 2.5 Flash** | $0.075 | $0.30 | 4:1 | Speed, cost |
+| **Gemini 2.5 Pro** | $1.50 | $6.00 | 4:1 | Reasoning |
+| **GPT-4o Mini** | $0.15 | $0.60 | 4:1 | Balanced |
+| **GPT-4o** | $2.50 | $10.00 | 4:1 | Quality |
+| **Claude Haiku** | $1.00 | $5.00 | 5:1 | Fast, cheap |
+| **Claude Opus** | $5.00 | $25.00 | 5:1 | Complex analysis |
+
+**Gemini Flash is 2x cheaper than GPT-4o Mini and 13x cheaper than Claude Opus.** For cost-optimized inference at scale, Flash dominates.
+
+### Real-World Cost Comparison: 1B Monthly Tokens
+
+**Scenario:** Process 1B tokens/month (500M input, 500M output).
+
+**Gemini Flash:**
+- Input: 500M × $0.075/M = $37.50
+- Output: 500M × $0.30/M = $150
+- Total: $187.50/month
+
+**GPT-4o Mini:**
+- Input: 500M × $0.15/M = $75
+- Output: 500M × $0.60/M = $300
+- Total: $375/month
+
+**Claude Haiku:**
+- Input: 500M × $1.00/M = $500
+- Output: 500M × $5.00/M = $2,500
+- Total: $3,000/month
+
+Gemini Flash is **2x cheaper than GPT-4o Mini** and **16x cheaper than Claude Haiku** at this scale. Savings of $187.50/month compound to $2,250/year.
+
+### When to Upgrade from Flash
+
+Upgrade from Flash to Pro if:
+1. Output quality directly impacts revenue (customer satisfaction, conversion rate, retention)
+2. Complex reasoning required (debugging, planning, multi-step problem solving)
+3. Error rate from Flash exceeds acceptable threshold
+4. Reasoning chains matter (user sees Claude's thinking)
+
+**Cost of upgrading:** Extra 20x per-token cost ($25 × 4 ratio). If Flash costs $200/month, Pro costs $4,000/month. Break-even is 0.5% improvement in downstream task success rate on high-value workloads.
+
+## Implementation Patterns in Production
+
+### Pattern 1: Gateway Model (Quality First)
+
+Route all requests to Gemini Pro. Pay the premium for reasoning quality. No conditional logic.
+
+**Use case:** Customer-facing chatbots where accuracy matters. Legal document analysis. Medical diagnosis support.
+
+**Cost:** $1.50-6.00 per request (depending on volume).
+
+**Trade-off:** Simplest to implement. No fallback logic. Maximum quality, maximum cost.
+
+### Pattern 2: Dual-Tier Routing (Cost Optimization)
+
+Send each request to Flash first. If the response confidence is low or the task is complex, escalate to Pro.
+
+**Use case:** General-purpose assistants, content generation, Q&A systems.
+
+**Implementation:**
+1. Use Flash for all requests (default)
+2. Inspect response confidence (e.g., if the model says "I'm not sure")
+3. Retry with Pro if confidence is low
+
+**Cost:** ~$0.075-0.30 per request on average (30-40% Flash, 10% Pro escalation, 60% Flash-only).
+
+**Trade-off:** 10-15% latency overhead (some requests are retried). Significant cost savings.
+
+### Pattern 3: Batch Processing (Throughput Focus)
+
+Collect requests over 24 hours. Send batch job to Google's batch API. Same token costs, slower processing, reduced overhead.
+
+**Use case:** Daily report generation, data enrichment jobs, archive processing.
+
+**Cost:** Same per-token ($1.50/$6.00 for Pro) but amortized overhead.
+
+**Trade-off:** 24-hour latency. Not suitable for real-time applications.
+
+### Pattern 4: Caching for Agents
+
+Build a system prompt or knowledge base (static, reused across requests). Cache it with Gemini's caching feature.
+
+**Use case:** Knowledge base QA, customer support, technical documentation search.
+
+**Cost savings:** 90% discount on cached tokens. 10-40% total cost reduction depending on cache hit rate.
+
+**Implementation complexity:** Medium (requires stable static context, API changes to support cache_control).
+
+---
+
+## Sources
+
+- [Google AI Studio Pricing Page](https://ai.google.dev/pricing)
+- [Gemini API Documentation](https://ai.google.dev/docs)
+- [Google Gemini Models Overview](https://ai.google.dev/models)

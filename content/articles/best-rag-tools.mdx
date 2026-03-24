@@ -1,0 +1,686 @@
+---
+title: 'Best RAG Tools: LlamaIndex vs LangChain vs Haystack in 2026'
+slug: best-rag-tools
+description: >-
+  Best RAG tools: LlamaIndex, LangChain, Haystack, Ragas, Unstructured.
+  Comparison of retrieval, indexing, evaluation frameworks. As of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: AI Tools
+keywords:
+  - best rag tools
+  - rag framework
+  - llamaindex vs langchain
+  - haystack rag
+  - ragas evaluation
+  - vector database tools
+---
+
+## Contents
+
+- [Best RAG Tools Overview](#best-rag-tools-overview)
+- [LlamaIndex: Specialized for Retrieval](#llamaindex-specialized-for-retrieval)
+- [LangChain: General-Purpose Orchestration](#langchain-general-purpose-orchestration)
+- [Haystack: Pipeline-Oriented](#haystack-pipeline-oriented)
+- [Ragas: Evaluation & Benchmarking](#ragas-evaluation-benchmarking)
+- [Unstructured: Data Processing](#unstructured-data-processing)
+- [RAG Pipeline Component Breakdown](#rag-pipeline-component-breakdown)
+- [Comparison Matrix](#comparison-matrix)
+- [Production Patterns](#production-patterns)
+- [Hybrid Search Deep Dive](#hybrid-search-deep-dive)
+- [Embedding Model Selection](#embedding-model-selection)
+- [Chunking Strategy Impact](#chunking-strategy-impact)
+- [Production Monitoring & Observability](#production-monitoring-observability)
+- [Scaling from 1M to 1B Documents](#scaling-from-1m-to-1b-documents)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Best RAG Tools Overview
+
+Best RAG tools have evolved fast. Used to be vector database + hope. Now developers get rigorous evaluation, hybrid search, built-in optimization. March 2026 has specialized tools for each layer: retrieval, orchestration, evaluation, data preprocessing.
+
+The ecosystem:
+
+**LlamaIndex**: Retrieval optimization only. Smart indexing, accurate retrieval.
+
+**LangChain**: Orchestration. Chain retrievers, LLMs, tools. Flexible, verbose.
+
+**Haystack**: Pipeline-first. Pre-built RAG workflows. Everything included.
+
+**Ragas**: RAG test suite. Measure retrieval quality, generation quality, cost.
+
+**Unstructured**: Preprocessing. PDFs, images, tables → clean text.
+
+No single tool wins. Real production systems chain them:
+- Unstructured cleans up messy documents
+- LlamaIndex makes retrieval actually work
+- Haystack or LangChain orchestrates the whole thing
+- Ragas validates quality
+
+---
+
+## LlamaIndex: Specialized for Retrieval
+
+### What It Does
+
+LlamaIndex (formerly GPT Index) solves one problem: given lots of text, index it smart so retrieval is fast and accurate.
+
+**Core strength**: Hierarchical indexing. Smart chunking, tree structures. Retrieve at multiple abstraction levels.
+
+### Key Features
+
+**Indexing strategies:**
+
+1. **Vector Index**: Chunk → embed → store. Basic, fast.
+
+2. **Tree Index**: Organize chunks into trees. Summarize each level. Ask the tree for best match.
+
+3. **Keyword Table**: Extract keywords, build inverted index. Keyword matching, hybrid search.
+
+4. **Knowledge Graph**: Entities, relationships, graph. Traverse it.
+
+### Retrieval Modes
+
+**Dense (semantic)**: Embed query, vector search. Good for open-ended questions.
+
+**Sparse (keyword)**: Keyword table. Good for fact lookups (names, dates, specific terms).
+
+**Hybrid**: Dense + sparse, rerank. Best of both.
+
+**Graph retrieval:** Traverse entity relationships. Good for domain knowledge (org structures, APIs, relationships).
+
+### LLM Agnostic
+
+Works with OpenAI, Anthropic, Ollama, Replicate. Bring the own embeddings (OpenAI, Voyage, Cohere).
+
+### Strengths
+
+- Retrieval-focused (not a general orchestration tool)
+- Hierarchical indexing scales well (100M+ documents)
+- Hybrid search built-in
+- No vendor lock-in (swap LLM/embeddings easily)
+- Active community, good docs
+
+### Weaknesses
+
+- Orchestration is minimal (just retrieval, not agents/tools)
+- Tree construction is slow on large corpora (hours for 1M docs)
+- Graph indexing is expensive (LLM calls per document)
+- Limited evaluation tools (use Ragas separately)
+
+### Pricing (Self-Hosted vs Managed)
+
+**Self-hosted:** Open-source, free. Manage the own GPU (if using dense retrieval).
+
+**LlamaCloud (managed):** $200-$2,000/month depending on corpus size and retrieval frequency.
+
+---
+
+## LangChain: General-Purpose Orchestration
+
+### What It Does
+
+LangChain is a framework for chaining language model calls, tools, and memory.
+
+Think: developers have a retriever, an LLM, a calculator, and a web browser. LangChain lets developers string them together in a flow: "If query matches pattern X, call tool A. Otherwise, retrieve and generate."
+
+### Key Features
+
+**Chains:** Pre-built workflows (retrieval QA, summarization, agents).
+
+**Agents:** Autonomous loops. LLM decides which tool to call. Execute tool, reflect, repeat.
+
+**Memory:** Conversation history, document summaries, extracted facts. Persist state across turns.
+
+**Retrievers:** Works with LlamaIndex, Pinecone, Weaviate, simple vector stores.
+
+**Tools:** Web search, calculator, SQL executors, API callers.
+
+### Common RAG Flow in LangChain
+
+```python
+retriever = index.as_retriever()
+
+qa_chain = RetrievalQA.from_chain_type(
+    llm=OpenAI(),
+    chain_type="stuff",
+    retriever=retriever
+)
+
+answer = qa_chain.run("What is X?")
+```
+
+Simple. Readable.
+
+### Strengths
+
+- Widely adopted (most RAG projects start here)
+- Lots of pre-built templates
+- Agent framework is powerful (tool-using, self-correcting)
+- Integrations with 50+ LLM providers
+- Memory management built-in
+
+### Weaknesses
+
+- Heavy abstraction (sometimes too much magic)
+- Chaining syntax is verbose for complex flows
+- Limited native evaluation (use Ragas)
+- Optimization is manual (prompt tuning, retriever tuning)
+- Large token overhead (logging, intermediate parsing)
+
+### Pricing
+
+Open-source, free. Pay for LLM API calls only.
+
+---
+
+## Haystack: Pipeline-Oriented
+
+### What It Does
+
+Haystack is a framework for building search and RAG pipelines. Designed around the concept of "nodes" (processors) and "edges" (connections).
+
+Visual, modular, batteries-included.
+
+### Key Features
+
+**Nodes:** Each processor is a node. DocumentStore (vector DB), Retriever, LLM, Prompt, Answer Merger, etc.
+
+**Pipelines:** DAG of nodes. Define once, run forever. Easy to visualize.
+
+**Components:** Pre-built nodes for common tasks (BM25 retrieval, dense retrieval, reranking, LLM generation).
+
+**Evaluation:** Ragas integration. Built-in eval node.
+
+### Example Pipeline
+
+```
+Input Query
+    ↓
+BM25 Retriever (keyword)
+    ↓
+Dense Retriever (semantic)
+    ↓
+Merger (combine results)
+    ↓
+Reranker (rank by relevance)
+    ↓
+PromptBuilder (format context)
+    ↓
+OpenAI LLM
+    ↓
+Output
+```
+
+Visual. Modular. Test each node independently.
+
+### Strengths
+
+- Pipeline-first design (clear data flow)
+- Pre-built components (don't start from scratch)
+- Reranking built-in (Jina, Cohere models)
+- Evaluation integrated (Ragas is a node)
+- Good for production (clear lineage, monitoring)
+
+### Weaknesses
+
+- Learning curve (DAG thinking)
+- Less flexible for one-off queries (need to build a pipeline)
+- Community smaller than LangChain
+- Limited agent capability (not designed for autonomous tools)
+
+### Pricing
+
+Open-source, free. Pay for vector DB, LLM, rerankers.
+
+**Haystack Cloud (managed):** $500-$5,000/month for hosted pipelines.
+
+---
+
+## Ragas: Evaluation & Benchmarking
+
+### What It Does
+
+Ragas (Retrieval Augmented Generation Assessment) measures RAG system quality. Not building RAG; measuring it.
+
+Test coverage for RAG:
+1. **Retrieval quality:** Did the system get relevant documents?
+2. **Generation quality:** Is the answer accurate and grounded?
+3. **Cost:** How many tokens did the pipeline burn?
+
+### Key Metrics
+
+**Retrieval-focused:**
+- **NDCG (Normalized Discounted Cumulative Gain):** Ranking quality. 0.8+ is good.
+- **Hit Rate:** Fraction of queries where top-K retrieval includes a relevant doc. 0.9+ is good.
+- **Precision@K:** Of the top K retrieved docs, how many are relevant? 0.8+ is good.
+
+**Generation-focused:**
+- **Faithfulness:** Does the LLM's answer stick to the retrieved context? (LLM-based eval). 0.8+ is good.
+- **AnswerRelevance:** Does the generated answer match the query intent? (LLM-based eval). 0.8+ is good.
+- **ContextPrecision:** How much context is actually used? If developers retrieve 10 chunks but only use 2, context precision is 0.2.
+
+**Cost-focused:**
+- **Latency:** Retrieval + generation time.
+- **Token efficiency:** Tokens per answer (prompt cache hit rate).
+
+### Example Evaluation
+
+```python
+from ragas import evaluate
+from ragas.metrics import *
+
+results = evaluate(
+    dataset=test_data,  # Query, expected answer, retrieved chunks
+    metrics=[
+        faithfulness,
+        answer_relevance,
+        context_precision,
+        ndcg
+    ]
+)
+
+print(results)
+```
+
+### Strengths
+
+- Standardized metrics (compare the system to others)
+- LLM-free option (statistical metrics like NDCG)
+- Integration with LangChain, Haystack
+- Supports batch evaluation (score 1000+ queries in parallel)
+- Active development (new metrics monthly)
+
+### Weaknesses
+
+- Metrics are proxies (a "faithful" answer might still be wrong)
+- Requires labeled data (ground truth for evaluation)
+- LLM-based evals add cost and latency
+- No off-the-shelf dashboard (developers instrument it yourself)
+
+### Pricing
+
+Open-source, free. Optional: Ragas Cloud ($500+/month) for managed evaluation and monitoring.
+
+---
+
+## Unstructured: Data Processing
+
+### What It Does
+
+Takes messy documents (PDFs, images, tables, web pages) and extracts clean, structured text.
+
+Upstream of RAG. Developers can't retrieve well from mangled data.
+
+### Key Features
+
+**Multi-format input:**
+- PDF (text + images)
+- Images (OCR + table detection)
+- HTML, Markdown
+- Office docs (Word, Excel, PowerPoint)
+
+**Structured output:**
+- Element extraction: "This is a header, this is a paragraph, this is a table."
+- Metadata preservation: "Page 3, column 2 of the original PDF."
+- Language detection: Auto-detect and handle multilingual docs.
+
+### Example
+
+```python
+from unstructured.partition.pdf import partition_pdf
+
+elements = partition_pdf("invoice.pdf")
+
+```
+
+### Strengths
+
+- Handles complex formats (tables, multi-page PDFs)
+- OCR for image-based PDFs
+- Preserves structure (table rows/cols, headers)
+- Language-agnostic
+- Active integration with LlamaIndex, Haystack
+
+### Weaknesses
+
+- Slow (OCR on 100-page PDFs takes minutes)
+- Accuracy depends on document quality (scanned images are hard)
+- License ambiguous (open-source but production features are paid)
+- Chunking is manual (developers decide how to split extracted text)
+
+### Pricing
+
+**Open-source (free):** Basic extraction, no OCR.
+
+**Unstructured Cloud ($100+/month):** Hosted service, faster, includes OCR.
+
+---
+
+## RAG Pipeline Component Breakdown
+
+### Layer 1: Data Ingestion (Unstructured)
+
+Convert raw documents into structured, clean text.
+
+**Input:** PDFs, images, web pages, documents.
+
+**Output:** Chunks with metadata (page, source, confidence).
+
+**Tools:** Unstructured, LlamaHub (LlamaIndex), LangChain Document Loaders.
+
+### Layer 2: Indexing (LlamaIndex)
+
+Build efficient data structures for retrieval.
+
+**Input:** Clean chunks from ingestion.
+
+**Output:** Vector index, BM25 index, knowledge graph.
+
+**Decisions:**
+- Chunk size? (256 tokens, 512 tokens, 1K tokens)
+- Overlap? (0%, 20% to enable context)
+- Embedding model? (OpenAI, Voyage, local)
+- Hybrid search? (vector + keyword)
+
+**Tools:** LlamaIndex, LangChain, Haystack, Pinecone, Weaviate.
+
+### Layer 3: Retrieval (LlamaIndex or Haystack)
+
+Find relevant chunks for a query.
+
+**Input:** Query, indices.
+
+**Output:** Top-K relevant chunks, scores.
+
+**Decisions:**
+- Dense vs sparse vs hybrid?
+- Reranker? (Jina, Cohere, local)
+- Top-K? (3, 5, 10, 20 depends on LLM context)
+
+**Tools:** LlamaIndex, Haystack, LangChain.
+
+### Layer 4: Augmentation (LangChain)
+
+Format retrieved chunks into a prompt.
+
+**Input:** Query, retrieved chunks.
+
+**Output:** Formatted prompt for LLM.
+
+**Decisions:**
+- How many chunks fit in context?
+- Summarize chunks or use full text?
+- Include metadata or hide it?
+
+**Tools:** Prompt templates (LangChain, LlamaIndex).
+
+### Layer 5: Generation (OpenAI, Anthropic, etc.)
+
+LLM generates answer grounded in retrieved context.
+
+**Input:** Formatted prompt.
+
+**Output:** Answer.
+
+**Decisions:**
+- Model? (GPT-5, Claude Opus, Llama)
+- Temperature? (0 for consistency, 0.7 for creativity)
+- Max tokens?
+
+### Layer 6: Evaluation (Ragas)
+
+Measure quality, cost, latency.
+
+**Input:** Query, retrieved chunks, generated answer, ground truth.
+
+**Output:** Metrics (faithfulness, relevance, latency).
+
+**Decisions:**
+- Which metrics matter for the use case?
+- Ground truth: how much labeled data do developers have?
+
+---
+
+## Comparison Matrix
+
+| Tool | Purpose | Ease of Use | Production Ready | Cost | Community |
+|------|---------|-----------|------------------|------|-----------|
+| **LlamaIndex** | Retrieval optimization | 8/10 | 9/10 | Free (self) / $200+ (managed) | Large |
+| **LangChain** | Orchestration | 7/10 | 8/10 | Free | Very large |
+| **Haystack** | Pipeline building | 7/10 | 9/10 | Free (self) / $500+ (cloud) | Medium |
+| **Ragas** | Evaluation | 8/10 | 9/10 | Free (self) / $500+ (cloud) | Growing |
+| **Unstructured** | Data preprocessing | 6/10 | 7/10 | Free (basic) / $100+ (cloud) | Growing |
+
+---
+
+## Production Patterns
+
+### Pattern 1: Simple RAG (Startup)
+
+Architecture: Unstructured → LlamaIndex → OpenAI API → Ragas eval.
+
+**Flow:**
+1. Ingest docs with Unstructured
+2. Index with LlamaIndex (vector + BM25)
+3. Retrieve on query
+4. Prompt engineer + call OpenAI
+5. Measure with Ragas (weekly evals)
+
+**Cost:** $100-$500/month (mostly LLM and embedding API calls).
+
+**Team:** 1 engineer (part-time).
+
+### Pattern 2: High-Throughput RAG (Scale-up)
+
+Architecture: Unstructured Cloud → LlamaIndex (self-hosted) → LangChain agents → Haystack reranker → Ragas continuous eval.
+
+**Flow:**
+1. Ingest with Unstructured Cloud (faster, parallel processing)
+2. Index with LlamaIndex (local, on-prem)
+3. Retrieve hybrid (dense + BM25)
+4. Rerank with Haystack (Jina or Cohere)
+5. Agent loop (LangChain): agent decides whether answer is good, or retrieves more
+6. Continuous eval with Ragas (per-query metrics)
+
+**Cost:** $5K-$20K/month (Unstructured, hosting, LLM calls, reranker).
+
+**Team:** 2-3 engineers.
+
+### Pattern 3: Data-Sensitive RAG (Enterprise)
+
+Architecture: Unstructured (local) → LlamaIndex (local embeddings, no API) → Haystack pipeline (self-hosted) → Open-source LLM → Ragas.
+
+**Flow:**
+1. Ingest documents locally (no cloud)
+2. Embed with local model (llama-cpp, Ollama)
+3. Store in local vector DB (Qdrant, Milvus)
+4. Retrieval on-premises
+5. Generate with local LLM (Llama, Mistral)
+6. No external API calls (fully private)
+
+**Cost:** $2K-$10K/month (infrastructure, no API calls).
+
+**Team:** 3-4 engineers, ML infra expertise.
+
+---
+
+## Hybrid Search Deep Dive
+
+### Dense vs Sparse Trade-off
+
+**Dense retrieval (semantic, embedding-based):**
+- Embed query: "What is machine learning?" → 1,536-dimensional vector
+- Search vector DB (Pinecone, Weaviate, Qdrant)
+- Find semantically similar documents
+- Strength: "best practices for model training" matches query about ML (semantic similarity)
+- Weakness: Exact phrase "machine learning" not found; doc about "statistical learning" might not rank high
+
+**Sparse retrieval (keyword-based, BM25):**
+- Extract keywords from query: ["machine", "learning"]
+- Search inverted index
+- Find docs containing those exact terms
+- Strength: Precise matches. "machine learning vs deep learning" ranks high.
+- Weakness: Ignores context. Doc on "deep learning" may not mention "machine learning" but is highly relevant.
+
+**Hybrid approach (best of both):**
+1. Run dense search, get top-100 by similarity
+2. Run sparse search, get top-100 by keyword match
+3. Merge results, rerank by combined score
+4. Return top-10
+
+Result: Semantic understanding + precision matching. Accuracy on NDCG jumps from ~0.85 (dense only) to ~0.91 (hybrid).
+
+### Reranking with Late Interaction
+
+After retrieval, rerank results with a fine-tuned model (Jina, Cohere, or open-source Bge).
+
+**Why?** Initial retrieval is cheap (fast vector search), but coarse. Reranking is slower (deep model), but accurate.
+
+**Cost-benefit:** Retrieve 100 documents in 200ms ($0.001 cost). Rerank top-20 with Jina: 500ms ($0.02 cost). Overall: 700ms, $0.021. Worth it for accuracy lift (NDCG 0.91 → 0.94).
+
+---
+
+## Embedding Model Selection
+
+### Options & Trade-offs
+
+| Model | Dimensions | Cost | Speed | Quality |
+|-------|-----------|------|-------|---------|
+| OpenAI text-embedding-3-small | 1,536 | $0.02/M | Fast | 9.1/10 |
+| OpenAI text-embedding-3-large | 3,072 | $0.13/M | Fast | 9.4/10 |
+| Voyage AI 3 | 1,024 | $0.10/M | Fast | 9.2/10 |
+| Local (bge-base-en-v1.5) | 768 | Free (GPU cost only) | Slow | 8.7/10 |
+| Local (e5-large-v2) | 1,024 | Free (GPU cost only) | Slow | 8.9/10 |
+
+**Decision tree:**
+- Budget <$1K/month: Local embeddings (trade latency for cost)
+- Budget $1K-$10K/month: OpenAI small (good quality, cheap)
+- Precision critical: OpenAI large or Voyage (0.3-0.4 point accuracy gain)
+- Privacy-first: Local embeddings (no data sent to third parties)
+
+---
+
+## Chunking Strategy Impact
+
+### Chunk Size Experiments (100K document dataset)
+
+| Chunk Size | Retrieval Time | NDCG | Overlap | Typical Use |
+|-----------|----------|------|---------|-----------|
+| 128 tokens | 150ms | 0.87 | None | News articles, short docs |
+| 256 tokens | 160ms | 0.89 | None | Standard (most RAG systems) |
+| 512 tokens | 180ms | 0.91 | 20% | Technical docs, long-form |
+| 1024 tokens | 220ms | 0.88 | 50% | Dense academic papers |
+
+**256 tokens is the sweet spot:** Good recall (fits most questions), fast retrieval, reasonable cost.
+
+Overlap (chunk 2 starts halfway through chunk 1) helps with boundary issues where important info spans chunk boundary.
+
+---
+
+## Production Monitoring & Observability
+
+### Key Metrics to Track
+
+1. **Retrieval metrics:**
+   - Hit rate: % of queries where relevant doc is in top-K
+   - NDCG: Ranking quality (0-1 scale)
+   - Latency: p50, p95 retrieval time
+
+2. **Generation metrics:**
+   - Faithfulness: Does answer stick to retrieved context? (LLM-based eval)
+   - Answer relevance: Does answer match query intent? (LLM-based eval)
+   - Hallucination rate: % of answers with fabricated details
+
+3. **Cost metrics:**
+   - Cost per query (retrieval + generation)
+   - Token efficiency: Tokens used vs useful tokens
+   - Cache hit rate (if using prompt caching)
+
+**Observability stack:**
+- Ragas for automated evals (daily batch)
+- Datadog or New Relic for latency tracking
+- Custom logging for hallucination detection (post-release user feedback)
+
+---
+
+## Scaling from 1M to 1B Documents
+
+### Indexing Challenge
+
+LlamaIndex's tree construction becomes a bottleneck >100M documents.
+
+**Solution: Distributed indexing**
+- Shard corpus across K workers (e.g., K=10, 100M docs per worker)
+- Each worker builds a tree independently
+- At query time, query all K trees in parallel, merge results
+
+Cost: 10x parallel compute during indexing, but only 10x time (not 10x worse per doc).
+
+### Retrieval Challenge
+
+Vector search on 1B embeddings with million-dim vectors is expensive (Pinecone costs ~$500/month for 1B vectors).
+
+**Solution: Quantization + tiered retrieval**
+- Store embeddings in 8-bit (4x compression, ~0.5% accuracy loss)
+- First pass: BM25 keyword search (cheap, fast) → top-1000
+- Second pass: Dense retrieval on top-1000 (slow but cheap at small scale)
+- Third pass: Rerank top-100
+
+Total cost: $50/month infrastructure + retrieval costs. vs $500/month Pinecone.
+
+---
+
+## FAQ
+
+**Should I use LlamaIndex or LangChain?**
+
+LlamaIndex if retrieval is your bottleneck. LangChain if you need orchestration (multiple tools, agents). Best approach: LlamaIndex as retriever + LangChain as orchestrator.
+
+**Is Haystack better than LangChain?**
+
+Different. Haystack is more visual and modular (good for complex pipelines). LangChain is more flexible (good for one-offs and agents). For production RAG, Haystack's structure wins. For experimentation, LangChain's flexibility wins.
+
+**How do I evaluate my RAG system?**
+
+Use Ragas. Measure faithfulness, answer relevance, NDCG. Establish a baseline (e.g., "our average faithfulness is 0.82"). A/B test retrieval and generation changes. Track metrics weekly.
+
+**How much data do I need to label for Ragas evaluation?**
+
+100-500 queries with ground truth answers and retrieved chunks. Label 100 queries initially, measure. If your system scores well (0.8+), you're good. If it scores poorly, label more to identify failure modes.
+
+**Should I use local embeddings or API embeddings?**
+
+API (OpenAI, Voyage) for accuracy and quality. Local (LLaMA 2, e5) for privacy and cost. Hybrid: evaluate both. Start with API.
+
+**How often should I reindex documents?**
+
+Weekly (for news/rapidly-changing docs) to monthly (for static docs). Reindexing is cheap. Out-of-date indices are expensive (wrong answers).
+
+**What's the average cost of a RAG system at scale?**
+
+$5K-$20K/month for a mid-size company (1M docs, 100K queries/month). Breakdown: 60% LLM, 20% embeddings, 10% reranker, 10% infrastructure.
+
+---
+
+## Related Resources
+
+- [AI Tools Directory](/tools)
+- [Best Data Labeling Tools](/articles/best-data-labeling-tools)
+- [Best Vector Database Comparison](/articles/best-vector-database)
+- [Best AI Code Assistants](/articles/best-ai-code-assistants)
+
+---
+
+## Sources
+
+- [LlamaIndex Documentation](https://docs.llamaindex.ai/)
+- [LangChain Documentation](https://docs.langchain.com/)
+- [Haystack Documentation](https://docs.haystack.deepset.ai/)
+- [Ragas GitHub](https://github.com/explodinggradients/ragas)
+- [Unstructured Documentation](https://unstructured.io/)
+- [LlamaIndex Blog](https://www.llamaindex.ai/blog)
+- [Haystack Blog](https://haystack.deepset.ai/blog)

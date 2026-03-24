@@ -1,0 +1,144 @@
+---
+title: 'L4 on AWS: Pricing, Specs & How to Rent'
+slug: l4-on-aws-pricing-specs-how-to-rent
+description: >-
+  NVIDIA L4: low-power inference GPU. 24GB GDDR6. Great
+  cost-per-performance for production inference on AWS g6 instances.
+date: 2026-03-22T00:00:00.000Z
+author: DeployBase
+---
+## Contents
+
+- [L4 GPU Specifications](#l4-gpu-specifications)
+- [AWS L4 Pricing & Availability](#aws-l4-pricing-availability)
+- [How to Rent L4 on AWS](#how-to-rent-l4-on-aws)
+- [AWS L4 vs. Alternative Inference GPUs](#aws-l4-vs-alternative-inference-gpus)
+- [L4 Performance Benchmarks](#l4-performance-benchmarks)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## L4 GPU Specifications
+
+NVIDIA L4: low-power inference GPU. 24GB GDDR6. Great cost-per-performance for production inference on AWS g6 instances.
+
+Key specifications:
+- 24GB GDDR6 memory
+- 7,424 CUDA cores
+- 121 TFLOPS peak FP32 performance
+- 300 GB/s memory bandwidth
+- Maximum power consumption: 72W
+- Single-slot form factor
+- Hardware video encoding (NVENC)
+- TensorRT optimization support
+
+The L4's power efficiency makes it ideal for dense deployments where power and cooling are constraints. Unlike training-focused GPUs, the L4 balances performance and cost for inference operations.
+
+## AWS L4 Pricing & Availability
+
+AWS offers L4 GPUs through multiple instance families, each targeting different workload patterns and scaling needs.
+
+Standard L4 instance pricing:
+- g6.xlarge (1x L4): approximately $0.80/hour on-demand
+- g6.12xlarge (4x L4): approximately $3.22/hour on-demand
+- Regional variation: US regions typically cheapest
+- Spot pricing: 60-70% discount off on-demand rates
+- 1-year savings plans: 20-30% discount
+- 3-year savings plans: 40-45% discount
+
+As of March 2026, AWS L4 pricing remains competitive for production inference. The g6 instance family integrates well with AWS services like SageMaker and Lambda.
+
+Compare to [Lambda GPU pricing](/articles/lambda-labs-gpu-pricing) which offers fixed rates independent of commitment, or [RunPod pricing](/articles/runpod-gpu-pricing) for alternative spot-like flexibility.
+
+## How to Rent L4 on AWS
+
+Deploying L4 instances on AWS EC2 follows standard EC2 provisioning workflows:
+
+1. Log into AWS Console
+2. Go to EC2 Dashboard
+3. Select "Launch Instances"
+4. Choose Amazon Machine Image (Ubuntu, Amazon Linux, or custom)
+5. Select instance type (g6.xlarge or g6.12xlarge)
+6. Configure instance details (VPC, subnet, IAM role)
+7. Add storage (EBS volume for OS and model storage)
+8. Configure security group (enable SSH, ports for inference API)
+9. Review and launch
+10. Select key pair or use AWS Systems Manager Session Manager
+
+AWS provides NVIDIA drivers pre-installed on GPU-optimized AMIs. Users can deploy inference frameworks like TensorRT, ONNX Runtime, or vLLM directly on launch.
+
+Integration with AWS SageMaker simplifies multi-instance deployment. The managed service handles scaling, load balancing, and endpoint monitoring automatically.
+
+## AWS L4 vs. Alternative Inference GPUs
+
+L4 competes with various GPU options across clouds, each suited to different inference scenarios.
+
+Vs. T4: Older Tesla T4 GPUs offer lower cost but 3x slower throughput. L4 preferred for modern workloads despite higher cost.
+
+Vs. A10: [A10 on Lambda](/articles/lambda-labs-gpu-pricing) costs around $0.86/hour with stronger performance than L4 for many models. A10 better for mixed workloads, L4 for pure inference.
+
+Vs. L40: [L40S specifications](/articles/nvidia-l40s-price) include 48GB memory versus L4's 24GB. L40S better for large models, L4 for cost-efficient smaller model inference.
+
+Vs. [Google Cloud GPU pricing](/articles/google-cloud-gpu-pricing): Google's L4 pricing similar to AWS. Choice depends on ecosystem integration preferences.
+
+The L4 strikes balance between cost and performance, making it popular with startups and teams scaling inference from development to production.
+
+## L4 Performance Benchmarks
+
+L4 performance varies significantly by workload, with particular strength in inference scenarios.
+
+LLM inference (with quantization):
+- Llama 2 7B: 45-60 tokens/second
+- Mistral 7B: 50-70 tokens/second
+- TinyLlama 1B: 150+ tokens/second
+- Throughput improves with batch size (up to 8)
+
+Image generation:
+- Stable Diffusion: 4-6 images/minute at 512x512
+- SDXL: 2-3 images/minute at 1024x1024
+- Real-time improvement with model optimization
+
+Video processing:
+- H.264 encoding: Full HD real-time (30fps)
+- H.265 encoding: Full HD at 15-20fps
+- Decoding: supports 4-8 concurrent HD streams
+
+Recommendation systems:
+- Dense embedding lookup: 1000s requests/second
+- Feature extraction: 100-200 batch inference/second
+
+The L4's memory bandwidth enables efficient batching. Real-world deployments often saturate the GPU with batch sizes of 8-16, achieving near-peak throughput.
+
+## FAQ
+
+**Is L4 suitable for real-time inference?**
+Yes, L4 latency ranges from 10-50ms depending on model size. Perfect for API endpoints requiring sub-100ms response times.
+
+**Can I run multiple models on one L4?**
+Yes, NVIDIA's Multi-Process Service (MPS) allows multiple inference processes per GPU. Carefully partition memory to avoid contention.
+
+**Does AWS L4 support TensorRT optimization?**
+Yes, TensorRT is fully supported. Optimization typically yields 2-5x speedup over baseline CUDA kernels.
+
+**What's cheaper: AWS L4 or spot GPU markets?**
+Spot instances on AWS cost 60-70% less. [Vast.ai](/articles/vast-ai-pricing) offers similar discounts but with availability variability. Trade stability for cost savings.
+
+**How does L4 compare to RTX 4090 for inference?**
+L4 is datacenter-grade with better cooling and ECC memory. RTX 4090 offers more raw compute but lacks production support.
+
+## Related Resources
+
+- [GPU Pricing Guide](/gpus) - All provider costs
+- [AWS GPU Pricing](/articles/aws-vs-azure-gpu-pricing) - Complete AWS breakdown
+- [Inference Optimization](/articles/what-is-llm-inference) - Maximize L4 efficiency
+- [Lambda GPU Pricing](/articles/lambda-labs-gpu-pricing) - Alternative provider
+- [Fine-tuning Guide](/articles/what-is-fine-tuning-llm) - Prepare models for L4
+
+## Sources
+
+- NVIDIA L4 Datasheet - https://www.nvidia.com/en-us/data-center/l4/
+- AWS EC2 G6 Instances - https://aws.amazon.com/ec2/instance-types/g6/
+- AWS Pricing Calculator - https://calculator.aws/

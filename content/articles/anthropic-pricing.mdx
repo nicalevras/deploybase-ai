@@ -1,0 +1,433 @@
+---
+title: >-
+  Anthropic Claude Pricing Breakdown: Cost Per Token, Model Comparison & Hidden
+  Fees
+slug: anthropic-pricing
+description: >-
+  Anthropic Claude pricing: Opus 4.6 $5/$25, Sonnet 4.6 $3/$15, Haiku 4.5 $1/$5
+  per million tokens. Batch API discounts, prompt caching, token counting.
+date: '2026-03-22'
+author: DeployBase
+category: LLM Pricing Guide
+keywords:
+  - anthropic pricing
+  - claude pricing
+  - anthropic claude cost
+  - claude token price
+  - claude model pricing
+---
+
+## Contents
+
+- [Anthropic Pricing: Overview](#anthropic-pricing-overview)
+- [Model Pricing Table](#model-pricing-table)
+- [Tier Breakdown](#tier-breakdown)
+- [Prompt Caching](#prompt-caching)
+- [Batch API](#batch-api)
+- [Token Counting](#token-counting)
+- [Cost Examples](#cost-examples)
+- [API Availability & Latency](#api-availability-latency)
+- [Optimization Strategies](#optimization-strategies)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Anthropic Pricing: Overview
+
+Anthropic Claude pricing breaks into three tiers: Opus 4.6 (most capable), Sonnet 4.6 (fastest), Haiku 4.5 (cheapest). As of March 2026, Opus 4.6 costs $5 per million input tokens and $25 per million output tokens. Sonnet 4.6 is $3/$15. Haiku 4.5 is $1/$5. The pricing structure incentivizes long context (1M tokens standard) and penalizes token waste. Prompt caching reduces token reuse costs by 90%. The Batch API (72-hour processing) cuts Opus costs by 50%. Understanding which model fits each task saves thousands monthly.
+
+---
+
+## Model Pricing Table
+
+| Model | Input $/M | Output $/M | Context | Max Output | Throughput (tok/s) | Best For |
+|-------|-----------|-------------|---------|------------|-------------------|----------|
+| **Opus 4.6** | $5.00 | $25.00 | 1M | 128K | 35 | Complex reasoning, long documents |
+| **Sonnet 4.6** | $3.00 | $15.00 | 1M | 128K | 37 | General purpose, balanced |
+| **Sonnet 4.5** | $3.00 | $15.00 | 1M | 64K | 36 | Older, same price as 4.6 |
+| **Sonnet 4** | $3.00 | $15.00 | 1M | 64K | 42 | Legacy (use 4.6 instead) |
+| **Opus 4.5** | $5.00 | $25.00 | 200K | 64K | 39 | Older, same price as 4.6 |
+| **Opus 4** | $15.00 | $75.00 | 200K | 32K | 29 | Very old (avoid, use 4.6) |
+| **Haiku 4.5** | $1.00 | $5.00 | 200K | 64K | 44 | Classification, summarization, routing |
+| **Claude 3 Haiku** | $0.25 | $1.25 | 200K | 4K | 40 | Very basic tasks (avoid) |
+
+Data from Anthropic pricing page (March 2026).
+
+---
+
+## Tier Breakdown
+
+### Opus 4.6: The Flagship
+
+Opus is the most capable model. Best for complex reasoning, multi-step logic, and long-context analysis.
+
+**Pricing:** $5 input / $25 output per million tokens.
+
+**When to use:**
+- Document analysis (contracts, research papers, 100K+ token inputs)
+- Multi-turn reasoning (systems requiring chain-of-thought)
+- Code generation (complex algorithms, architecture decisions)
+- Customers willing to pay for accuracy
+
+**When to avoid:**
+- Bulk classification (Sonnet is faster and cheaper)
+- Simple summarization (Haiku works fine)
+- High-volume batch processing (use Batch API for 50% discount)
+
+**Monthly cost example:** 100M input tokens + 20M output tokens (Opus-heavy workflow).
+- Input: 100M × $5 / 1M = $500
+- Output: 20M × $25 / 1M = $500
+- Total: $1,000/month (non-discounted)
+
+### Sonnet 4.6: The Default
+
+Sonnet is the sweet spot for most applications. Balanced speed, capability, and cost.
+
+**Pricing:** $3 input / $15 output per million tokens (40% cheaper than Opus).
+
+**When to use:**
+- General API responses (chat, Q&A)
+- Content generation (emails, summaries, descriptions)
+- Code review and refactoring
+- Production chatbots (speed matters)
+
+**Performance delta from Opus:** Sonnet is ~85-90% as accurate on reasoning tasks but 6% faster (37 tok/s vs 35 tok/s). For most tasks, accuracy difference is not noticeable. The 40% cost savings compound.
+
+**Monthly cost example:** 500M input + 100M output (typical SaaS platform).
+- Input: 500M × $3 / 1M = $1,500
+- Output: 100M × $15 / 1M = $1,500
+- Total: $3,000/month (before discounts)
+
+### Haiku 4.5: The Budget Workhorse
+
+Haiku is the cheapest and fastest. Best for high-volume, latency-sensitive tasks where accuracy is less critical.
+
+**Pricing:** $1 input / $5 output per million tokens (80% cheaper than Opus).
+
+**When to use:**
+- Content classification (spam, sentiment, category detection)
+- Routing (directing user queries to specialized systems)
+- Summarization (single-pass extraction)
+- High-volume batch operations
+
+**Accuracy caveat:** Haiku struggles on reasoning tasks requiring multiple steps. Not recommended for code generation, math, or multi-turn logic chains.
+
+**Monthly cost example:** 2B input + 500M output (classification service for 10K requests/day).
+- Input: 2,000M × $1 / 1M = $2,000
+- Output: 500M × $5 / 1M = $2,500
+- Total: $4,500/month (before discounts)
+
+Note: Haiku is cheapest in absolute cost, but Sonnet's 40% cost difference may not justify the accuracy loss for many production systems.
+
+---
+
+## Prompt Caching
+
+Prompt caching is a cost reduction mechanism for repeated inputs. Store a prompt, pay full price once, then subsequent queries using that cached prompt cost 90% less per cached token.
+
+**Use case:** Document analysis. Cache a 100K-token document, then ask 50 different questions about it.
+
+**Without caching:**
+- Query 1: 100K cached tokens + 500 query tokens = 100.5K input tokens = $0.50 (Sonnet)
+- Query 2: 100K cached tokens + 500 query tokens = 100.5K input tokens = $0.50
+- Query 3-50: same, $0.50 each
+- Total: 50 × $0.50 = $25.00
+
+**With caching:**
+- Query 1: 100K cached tokens (full price) = $0.30 (Sonnet $3/M)
+- Queries 2-50: 100K cached tokens + 500 query tokens = (100K × $0.03/M + 500 × $3/M) = $0.30 + $0.0015 = $0.0015 each
+- Total: $0.30 + (49 × $0.0015) = $0.30 + $0.07 = $0.37
+
+**Savings: $24.63 (97.5% reduction).**
+
+### How Caching Works
+
+Prompt caching works at the API level. Tokens within a prompt marked as "cacheable" (typically the first 1,024 tokens and any preceding system prompts) are cached by Anthropic's servers. Subsequent API calls using the same cache hit pay 10% of the input token cost.
+
+**Caching setup (Python):**
+```python
+response = client.messages.create(
+    model="claude-3-5-sonnet-20241022",
+    max_tokens=1024,
+    system=[
+        {
+            "type": "text",
+            "text": "Teams are a helpful assistant.",
+            "cache_control": {"type": "ephemeral"}
+        }
+    ],
+    messages=[
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "text",
+                    "text": "[LARGE DOCUMENT OR CONTEXT]",
+                    "cache_control": {"type": "ephemeral"}
+                },
+                {
+                    "type": "text",
+                    "text": "Answer the question based on the document above."
+                }
+            ]
+        }
+    ]
+)
+```
+
+Cache hits are reported in the API response headers. Check `usage.cache_read_input_tokens` and `usage.cache_creation_input_tokens` to verify caching worked.
+
+**Minimum cache size:** 1,024 tokens. Anything smaller is not cached.
+
+**Cache duration:** 5 minutes. If unused for 5 minutes, the cache is evicted.
+
+---
+
+## Batch API
+
+Anthropic's Batch API processes requests asynchronously over 72 hours and charges 50% of on-demand rates. Ideal for non-real-time workloads.
+
+**Pricing discount:**
+- Opus: $5 input → $2.50 (Batch), $25 output → $12.50
+- Sonnet: $3 input → $1.50, $15 output → $7.50
+- Haiku: $1 input → $0.50, $5 output → $2.50
+
+**Batch API example:** Processing 1M customer support tickets offline.
+
+- Tickets: 1M requests × 1.5K average tokens = 1.5B input tokens
+- Expected output: ~500M tokens (summary per ticket)
+- On-demand (Sonnet): (1.5B × $3 + 500M × $15) / 1M = $4,500 + $7,500 = $12,000
+- Batch API (Sonnet): (1.5B × $1.50 + 500M × $7.50) / 1M = $2,250 + $3,750 = $6,000
+
+**Savings: $6,000 (50% reduction).**
+
+### When to Use Batch
+
+- Classification or summarization of large datasets
+- Offline analysis of documents
+- Report generation
+- Any task with >24-hour time budget
+
+### When NOT to Use Batch
+
+- Real-time chat or API responses
+- Tasks needing sub-second latency
+- User-facing workflows
+- Anything requiring immediate feedback
+
+---
+
+## Token Counting
+
+Anthropic tokens ≠ OpenAI tokens. Anthropic uses a custom tokenizer. Claude Opus-4.6 uses approximately 1 token per 4 characters of English text (similar to OpenAI but not identical).
+
+**Rough estimate:** 1 token per word (English).
+
+**Exact count:** Use Anthropic's token counting API.
+
+```python
+import anthropic
+
+client = anthropic.Anthropic()
+
+text = "The quick brown fox jumps over the lazy dog."
+count = client.messages.count_tokens(
+    model="claude-3-5-sonnet-20241022",
+    messages=[
+        {"role": "user", "content": text}
+    ]
+)
+
+print(f"Token count: {count.input_tokens}")
+```
+
+Or use the `claude-3-5-sonnet-20241022` model's tokenizer directly:
+
+```python
+from anthropic import HUMAN_PROMPT, AI_PROMPT, TextBlock
+
+def count_tokens_in_text(text):
+    # Anthropic does not expose tokenizer directly in client
+    # Use the API for accuracy
+    pass
+```
+
+**Important:** Always use the API's token counting before submitting large requests. Underestimating tokens causes API failures.
+
+---
+
+## Cost Examples
+
+### Use Case 1: Customer Support Chatbot
+
+**Scenario:** 1,000 daily conversations, 5 turns average, Sonnet model.
+
+- Input per conversation: 2,000 tokens (context + user messages)
+- Output per conversation: 500 tokens (bot responses)
+- Daily: 1,000 × (2K input + 500 output) = 2.5M input + 500K output
+- Monthly (30 days): 75M input + 15M output
+
+**Cost (Sonnet, no discounts):**
+- Input: 75M × $3/1M = $225
+- Output: 15M × $15/1M = $225
+- Total: $450/month
+
+**Cost (Sonnet + 20% volume discount from Anthropic):**
+- Total: $360/month
+
+---
+
+### Use Case 2: Bulk Document Analysis
+
+**Scenario:** 10,000 legal contracts analyzed monthly, Opus model.
+
+- Input per document: 50K tokens (contracts are long)
+- Output per document: 2K tokens (summary)
+- Monthly: 10,000 × (50K input + 2K output) = 500M input + 20M output
+
+**Cost (Opus, on-demand):**
+- Input: 500M × $5/1M = $2,500
+- Output: 20M × $25/1M = $500
+- Total: $3,000/month
+
+**Cost (Opus + Batch API, 50% discount):**
+- Input: 500M × $2.50/1M = $1,250
+- Output: 20M × $12.50/1M = $250
+- Total: $1,500/month (50% savings)
+
+---
+
+### Use Case 3: High-Volume Classification
+
+**Scenario:** 5M product reviews classified daily (sentiment, category), Haiku model.
+
+- Input per review: 300 tokens
+- Output per review: 50 tokens
+- Daily: 5M × (300 input + 50 output) = 1.5B input + 250M output
+- Monthly (30 days): 45B input + 7.5B output
+
+**Cost (Haiku, on-demand):**
+- Input: 45B × $1/1M = $45,000
+- Output: 7.5B × $5/1M = $37,500
+- Total: $82,500/month
+
+**Cost (Haiku + Batch API, 50% discount):**
+- Input: 45B × $0.50/1M = $22,500
+- Output: 7.5B × $2.50/1M = $18,750
+- Total: $41,250/month (50% savings)
+
+**Cost (Haiku + Batch API + routing):**
+
+If 60% of reviews are spam and filtered before API call:
+
+- Actual input: 45B × 40% = 18B tokens
+- Actual output: 7.5B × 40% = 3B tokens
+- Total: (18B × $0.50 + 3B × $2.50) / 1M = $9,000 + $7,500 = $16,500/month (80% savings from baseline)
+
+---
+
+## API Availability & Latency
+
+Anthropic's API is backed by AWS and operates globally. Latency varies by region.
+
+**Latency by region (March 2026):**
+- US East: 50-150ms (optimal)
+- US West: 100-200ms
+- Europe: 150-300ms
+- Asia-Pacific: 200-500ms
+
+For interactive applications (real-time chat), latency matters. A 500ms API call is barely acceptable; 2-3 seconds is bad UX. For batch processing, latency is irrelevant.
+
+**Multi-region failover:**
+
+Anthropic doesn't offer explicit multi-region failover. Developers must implement retry logic: if us-east-1 times out, retry us-west-1. Or, use a proxy service (CloudFlare, AWS API Gateway) for intelligent routing.
+
+**Downtime history:**
+
+Anthropic's API has had ~3 major outages in 2025 (typically 1-2 hours). No SLA published (as of March 2026). For mission-critical applications, plan for fallback models (use GPT-4o or DeepSeek V3.1 as backup).
+
+---
+
+## Optimization Strategies
+
+### 1. Right-Size the Model
+
+Don't default to Opus. Test Sonnet on the target workload. Sonnet is 40% cheaper and 95% as accurate for most applications.
+
+### 2. Use Batch API for Non-Real-Time Work
+
+If latency isn't critical, Batch API cuts costs 50%. Analyze customer feedback, process logs, backfill analyses: all suitable for Batch.
+
+### 3. Implement Prompt Caching
+
+Cache system prompts and large documents. 90% cost reduction on cached tokens. For workflows with repeated documents (FAQ, knowledge base, legal contracts), caching returns 10-100x ROI.
+
+### 4. Filter Before Calling the API
+
+Route simple queries (classifications, rule-based filters) to cheaper logic before hitting Claude. Example: if email is obviously spam (header-based rules), don't send to Claude. Save 90%+ of token costs.
+
+### 5. Compress Context with Summarization
+
+Instead of sending 200K tokens of raw logs, summarize to 10K tokens first. Claude summarizes cheaper than it analyzes raw logs. Two API calls (summarize + analyze) cost less than one long analysis.
+
+### 6. Use Sonnet for Routing
+
+Route complex queries to Opus, simple queries to Sonnet. Haiku for classification. A 3-tier routing system typically saves 30-50% vs using Opus for everything.
+
+---
+
+## FAQ
+
+**What's the difference between Opus and Sonnet?**
+
+Opus is 15% more accurate on reasoning tasks. Sonnet is 40% cheaper and 6% faster. For most applications (chat, content generation, code review), accuracy difference is imperceptible. Use Sonnet as default; upgrade to Opus only if you hit accuracy limits.
+
+**Does Anthropic offer volume discounts?**
+
+Yes. 20%+ discounts for >$10K/month spend. Contact sales@anthropic.com for large-scale agreements.
+
+**Can I save costs by using multiple models?**
+
+Yes. Route simple queries to Haiku ($1/$5), moderate queries to Sonnet ($3/$15), complex queries to Opus ($5/$25). A mixed strategy saves 30-50% vs defaulting to Opus.
+
+**How does prompt caching work with multi-turn conversations?**
+
+Caching works within a single API call. Multi-turn conversations (separate API calls) don't benefit from caching between turns unless you reconstruct the full conversation history with cache markers each turn. Not recommended; caching is best for repeated long documents, not chat history.
+
+**What if I exceed the 1M token context limit?**
+
+Anthropic doesn't offer a longer-context tier yet. Claude Opus 4.6 maxes at 1M context tokens. For longer documents, summarize first, then analyze the summary.
+
+**Are there any hidden fees?**
+
+No. Anthropic's pricing is transparent. You pay for input tokens + output tokens. No overages, no minimum monthly spend (except for on-demand billing).
+
+**Can I use prompt caching with the Batch API?**
+
+Yes. Batch API supports caching. Combine 50% batch discount + 90% cache reduction for the best savings on repeated documents.
+
+**How do I estimate my monthly bill?**
+
+Count tokens in a sample request. Multiply by the monthly request volume. Apply model pricing. Use this formula: (input_tokens × input_price/1M) + (output_tokens × output_price/1M).
+
+---
+
+## Related Resources
+
+- [Anthropic API Documentation](https://docs.anthropic.com)
+- [Anthropic Pricing Page](https://anthropic.com/pricing)
+- [Claude vs OpenAI Pricing Comparison](/articles/openai-pricing)
+- [DeepSeek Pricing Guide](/articles/deepseek-pricing)
+- [Groq Pricing Guide](/articles/groq-pricing)
+
+---
+
+## Sources
+
+- [Anthropic Official Pricing](https://anthropic.com/pricing)
+- [Anthropic API Documentation - Token Counting](https://docs.anthropic.com/en/api/tokens)
+- [Anthropic API Documentation - Prompt Caching](https://docs.anthropic.com/en/api/token-counting)
+- [Anthropic Batch API Documentation](https://docs.anthropic.com/en/api/batch)
+- [DeployBase LLM Pricing Database](/llms) (tracked March 22, 2026)

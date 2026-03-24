@@ -1,0 +1,375 @@
+---
+title: How to Set Up Multi-GPU Training on Lambda Labs
+slug: how-to-set-up-multi-gpu-training-on-lambda-labs
+description: >-
+  Multi-GPU training scales fast. Single GPU bottlenecks batch size and
+  throughput. Four GPUs train 3-4x faster with distributed setup. Lambda Labs
+  offers.
+date: '2026-03-22'
+author: DeployBase
+---
+
+## Contents
+
+- [Introduction](#introduction)
+- [Lambda Labs Account Setup](#lambda-labs-account-setup)
+- [Selecting Multi-GPU Hardware](#selecting-multi-gpu-hardware)
+- [Environment Configuration](#environment-configuration)
+- [PyTorch Distributed Setup](#pytorch-distributed-setup)
+- [Performance Optimization](#performance-optimization)
+- [Troubleshooting](#troubleshooting)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Introduction
+
+Multi-GPU training scales fast. Single GPU bottlenecks batch size and throughput. Four GPUs train 3-4x faster with distributed setup. Lambda Labs offers the hardware. Setup, config, optimization:covered here as of March 2026.
+
+## Lambda Labs Account Setup
+
+### Creating an Account
+
+Register via email or GitHub. Add payment method. Fast:no approval hoops.
+
+### Quota Configuration
+
+Lambda starts with 1 GPU type limit. Request increases for multi-GPU training. Standard: 2-4 A100s. Takes 24-48 hours. Plan ahead.
+
+### API Key Generation
+
+Get API key from dashboard for scripting.
+
+```bash
+export LAMBDA_API_KEY="your-api-key-here"
+```
+
+Use Lambda CLI for automated provisioning (optional).
+
+## Selecting Multi-GPU Hardware
+
+### A100 vs. H100 for Multi-GPU Training
+
+**A100 (40GB or 80GB)**
+- Cost: $1.48/hour (PCIe) or higher (SXM)
+- Memory: 40GB or 80GB
+- Bandwidth: 2TB/s (HBM2e)
+
+**H100 (80GB)**
+- Cost: $2.86/hour (PCIe)
+- Memory: 80GB
+- Bandwidth: 3.35TB/s (HBM3)
+
+H100 trains 30-40% faster per epoch. For multi-GPU training, H100 reduces wall-clock time significantly. A100 provides cost-effective training for models fitting in 40GB memory.
+
+### Instance Configuration
+
+Lambda offers pre-configured multi-GPU instances:
+- 2x A100 SXM (160GB total)
+- 4x A100 SXM (320GB total)
+- 2x H100 (160GB total)
+- 4x H100 (320GB total)
+
+Select based on model size and batch size targets.
+
+**Model size fit guide** (full fine-tuning, FP16):
+- 7B: Single A100 80GB sufficient
+- 13-34B: 2x A100 80GB or 1x H100 80GB
+- 70B: 4x A100 80GB or 2x H100 80GB
+- 175B+: 8x H100 or multi-node setup (350GB+ weights alone)
+
+### Regional Selection
+
+Lambda operates data centers in US regions. US-Central typically shows best availability. Select during instance provisioning.
+
+## Environment Configuration
+
+### Instance Launch
+
+Lambda assigns public IP immediately after provisioning. SSH access works without additional setup:
+
+```bash
+ssh -i ~/.ssh/lambda_key ubuntu@your.instance.ip
+```
+
+Initial setup: Update packages and install CUDA:
+
+```bash
+apt-get update && apt-get upgrade -y
+apt-get install -y cuda-12-1
+source ~/.bashrc
+```
+
+Verify GPU detection:
+
+```bash
+nvidia-smi
+```
+
+Output should show all GPUs (2, 4, or 8 depending on selection).
+
+### NCCL Configuration
+
+NCCL (NVIDIA Collective Communications Library) handles multi-GPU communication. Install via NVIDIA repository:
+
+```bash
+apt-get install -y libnccl2 libnccl-dev
+```
+
+Verify NCCL:
+
+```bash
+nccl-tests/build/all_reduce_perf -b 256M -e 256M -f 2 -g 4
+```
+
+Output should show inter-GPU communication bandwidth. Modern GPUs show >200 GB/s via NVLink.
+
+### Python Environment
+
+Create conda environment for training:
+
+```bash
+conda create -n training python=3.10
+conda activate training
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+pip install transformers datasets peft accelerate wandb
+```
+
+## PyTorch Distributed Setup
+
+### Data Parallel Training
+
+PyTorch Distributed Data Parallel (DDP) splits batch across GPUs. Gradients synchronize after backward pass.
+
+Basic training loop:
+
+```python
+import torch
+import torch.nn as nn
+from torch.nn.parallel import DistributedDataParallel as DDP
+from torch.utils.data import DataLoader, DistributedSampler
+
+torch.distributed.init_process_group(backend="nccl")
+rank = torch.distributed.get_rank()
+world_size = torch.distributed.get_world_size()
+
+model = model.to(rank)
+model = DDP(model, device_ids=[rank])
+
+sampler = DistributedSampler(
+    dataset,
+    num_replicas=world_size,
+    rank=rank,
+    shuffle=True
+)
+loader = DataLoader(dataset, sampler=sampler, batch_size=32)
+
+for epoch in range(num_epochs):
+    sampler.set_epoch(epoch)
+    for batch_idx, (data, target) in enumerate(loader):
+        data, target = data.to(rank), target.to(rank)
+
+        optimizer.zero_grad()
+        output = model(data)
+        loss = criterion(output, target)
+        loss.backward()
+        optimizer.step()
+```
+
+Key points:
+- `init_process_group()`: Initialize distributed training
+- `DistributedSampler`: Ensures no data duplication across GPUs
+- `DDP()`: Wraps model for gradient synchronization
+- `sampler.set_epoch()`: Ensures different data shuffling per epoch
+
+### Launching Distributed Training
+
+Use `torch.distributed.launch`:
+
+```bash
+torchrun --nproc_per_node=4 train.py
+```
+
+For 4x A100 instance, launches 4 processes (1 per GPU).
+
+Alternative with explicit host/port:
+
+```bash
+torchrun \
+  --nproc_per_node=4 \
+  --master_addr=localhost \
+  --master_port=29500 \
+  train.py
+```
+
+### Monitoring Distributed Training
+
+Add distributed-aware logging:
+
+```python
+if rank == 0:  # Log only from rank 0
+    wandb.init(project="training")
+    wandb.log({"loss": loss.item(), "epoch": epoch})
+```
+
+Rank 0 becomes the main process. Only rank 0 should log, save checkpoints, and report metrics.
+
+## Performance Optimization
+
+### Gradient Accumulation for Large Batches
+
+Distributed training enables large effective batch sizes. Accumulate gradients over multiple steps for stability:
+
+```python
+accumulation_steps = 4
+for batch_idx, (data, target) in enumerate(loader):
+    output = model(data)
+    loss = criterion(output, target) / accumulation_steps
+    loss.backward()
+
+    if (batch_idx + 1) % accumulation_steps == 0:
+        optimizer.step()
+        optimizer.zero_grad()
+```
+
+Effective batch size = per-GPU batch size × num GPUs × accumulation steps.
+
+### Mixed Precision Training
+
+Use automatic mixed precision (AMP) to reduce memory and speed up training:
+
+```python
+from torch.cuda.amp import autocast, GradScaler
+
+scaler = GradScaler()
+
+for data, target in loader:
+    optimizer.zero_grad()
+    with autocast():
+        output = model(data)
+        loss = criterion(output, target)
+    scaler.scale(loss).backward()
+    scaler.unscale_(optimizer)
+    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+    scaler.step(optimizer)
+    scaler.update()
+```
+
+AMP reduces memory by 50%, enabling 2x larger batch sizes.
+
+### Learning Rate Scaling
+
+Larger batch sizes require learning rate adjustment. Common rule: scale learning rate by sqrt(batch_size):
+
+```python
+base_lr = 1e-4
+world_size = 4
+per_gpu_batch_size = 32
+total_batch_size = per_gpu_batch_size * world_size
+scaled_lr = base_lr * (total_batch_size / 256) ** 0.5
+optimizer = torch.optim.AdamW(model.parameters(), lr=scaled_lr)
+```
+
+### Checkpointing Strategy
+
+Save distributed training checkpoints from rank 0:
+
+```python
+if rank == 0 and epoch % save_interval == 0:
+    checkpoint = {
+        'epoch': epoch,
+        'model_state_dict': model.module.state_dict(),  # .module for DDP
+        'optimizer_state_dict': optimizer.state_dict(),
+        'loss': loss,
+    }
+    torch.save(checkpoint, f"checkpoint_epoch_{epoch}.pt")
+
+torch.distributed.barrier()  # Wait for rank 0 to save
+```
+
+`barrier()` ensures all processes wait before continuing.
+
+## Troubleshooting
+
+### NCCL Communication Errors
+
+Error: "NCCL operation timed out"
+
+Solution: Increase NCCL timeout:
+
+```bash
+export NCCL_DEBUG=INFO
+export NCCL_SOCKET_IFNAME=eth0
+```
+
+Set correct network interface. Check with `ifconfig` or `ip addr`.
+
+### GPU Memory Mismatch
+
+Error: "CUDA out of memory on GPU 0"
+
+Solution: Different GPUs may have different memory. Reduce per-GPU batch size or enable gradient checkpointing:
+
+```python
+model.gradient_checkpointing_enable()
+```
+
+This trades memory for compute.
+
+### Slow Data Loading
+
+Issue: GPU idle during data loading. Bottleneck in CPU or I/O.
+
+Solution: Increase number of data loader workers:
+
+```python
+loader = DataLoader(dataset, batch_size=32, num_workers=8)
+```
+
+Balance with system memory. Each worker consumes memory.
+
+### Inter-GPU Communication Bottleneck
+
+Issue: Adding more GPUs doesn't proportionally speed up training.
+
+Solution: Check NCCL bandwidth. NVLink provides >200 GB/s; PCIe provides <20 GB/s. Verify NCCL using:
+
+```bash
+nccl-tests/build/all_reduce_perf -b 256M -e 256M -f 2 -g 4
+```
+
+## FAQ
+
+### Does Lambda Labs support Horovod?
+
+Yes, but PyTorch DDP is simpler and faster for single-node multi-GPU training. Horovod excels for multi-node distributed training. Stick with DDP for Lambda Labs instances.
+
+### What's the expected speedup with 4 GPUs?
+
+Theoretical: 4x speedup. Practical: 3.5-3.8x due to gradient synchronization overhead. Modern GPUs and NVLink minimize this overhead.
+
+### How do I scale beyond Lambda's max GPU count?
+
+Use multi-node training with Horovod or PyTorch distributed launch on multiple instances. This requires coordinating across Lambda instances. Consider SageMaker or Ray for automated multi-node scaling.
+
+### Should I use RTX GPUs for multi-GPU training?
+
+Consumer RTX GPUs lack NVLink. Multi-GPU coordination drops to PCIe, providing only 3-4x speedup for 4 GPUs instead of 3.8x. Not recommended; use A100 or H100.
+
+### How often should I save checkpoints?
+
+Save every 500-1000 steps for safety. Disk I/O is fast on Lambda instances. Checkpointing takes seconds.
+
+## Related Resources
+
+- [Deploy Llama 3 on RunPod](/articles/how-to-fine-tune-on-runpod-complete-gpu-guide)
+- [Deploy Stable Diffusion on Vast AI](/articles/best-gpu-for-stable-diffusion)
+- [Deploy Mistral on Lambda Labs](/articles/how-to-deploy-mistral-on-lambda-labs)
+- [Fine-Tuning Guide](/articles/what-is-fine-tuning-llm)
+
+## Sources
+
+- PyTorch Distributed Training: https://pytorch.org/docs/stable/distributed.html
+- Lambda Labs Documentation: https://docs.lambdalabs.com
+- NCCL Documentation: https://docs.nvidia.com/deeplearning/nccl/user-guide/
+- Hugging Face Accelerate: https://huggingface.co/docs/accelerate/

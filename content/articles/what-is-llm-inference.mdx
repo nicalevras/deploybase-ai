@@ -1,0 +1,465 @@
+---
+title: What Is LLM Inference? How It Works & Why Cost Matters
+slug: what-is-llm-inference
+description: >-
+  LLM inference explained: prefill and decode phases, KV cache mechanics,
+  speculative decoding optimization, latency analysis, and cost drivers as of
+  March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: Educational
+keywords:
+  - what is llm inference
+  - llm inference cost
+  - inference vs training
+  - prefill decode latency
+  - kv cache llm
+---
+
+## Contents
+
+- [What is LLM Inference: Overview](#what-is-llm-inference-overview)
+- [Inference vs Training {#vs-training}](#inference-vs-training-vs-training)
+- [The Prefill Phase {#prefill}](#the-prefill-phase-prefill)
+- [The Decode Phase {#decode}](#the-decode-phase-decode)
+- [KV Cache and Memory {#kvcache}](#kv-cache-and-memory-kvcache)
+- [Batching and Throughput {#batching}](#batching-and-throughput-batching)
+- [Attention Mechanism in Inference {#attention}](#attention-mechanism-in-inference-attention)
+- [Speculative Decoding {#speculative}](#speculative-decoding-speculative)
+- [Inference Hardware Selection {#hardware}](#inference-hardware-selection-hardware)
+- [Latency Analysis {#latency}](#latency-analysis-latency)
+- [Why Inference Cost Dominates {#cost}](#why-inference-cost-dominates-cost)
+- [Optimization Strategies {#optimization}](#optimization-strategies-optimization)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## What is LLM Inference: Overview
+
+LLM inference is the process of running a trained language model to generate text, code, or other outputs in response to inputs (prompts). Unlike training, which involves learning patterns from data, inference applies those learned patterns to generate new outputs. Understanding inference is critical for anyone building with language models, because inference costs and latency characteristics dominate API bills and user experience.
+
+When a user types a prompt and hits "send," three things happen behind the scenes. First, the prompt is tokenized (broken into discrete tokens). Second, those tokens flow through the model's neural networks to compute internal representations. Third, the model predicts the next token, and this process repeats until a stopping condition (end-of-sequence token, maximum length, or explicit stop). This entire cycle from prompt submission to final output is inference, and the latency and cost depend on understanding its two distinct phases: prefill and decode.
+
+## Inference vs Training {#vs-training}
+
+Training and inference are fundamentally different operations, even though both involve neural networks.
+
+**Training**
+
+Training is the process of adjusting model weights to minimize loss on a dataset. It involves:
+
+1. Forward pass: compute predictions on input data
+2. Backward pass: compute gradients
+3. Weight update: adjust weights based on gradients
+
+Training is computationally expensive, requiring many passes over data (epochs). A typical 7B parameter model trains for 2-4 trillion tokens, taking weeks on specialized GPU clusters. Training a model from scratch costs $100,000+ in cloud GPU compute.
+
+**Inference**
+
+Inference is the process of using a trained model to generate outputs. It involves:
+
+1. Forward pass only: compute predictions on user input
+2. No backward pass, no gradient computation
+3. No weight updates
+
+Inference is dramatically cheaper than training on a per-example basis. A forward pass on 100 tokens costs milliseconds on a single GPU. But inference happens continuously in production: millions of users making requests per day means millions of inference jobs. The total inference cost across a platform dwarfs training cost.
+
+**Example: Chatbot Economics**
+
+- Training a 7B model once: $100,000 (one-time cost)
+- Running inference for one user asking 100 questions: $0.50 (at typical API rates)
+- 1,000 daily active users, 100 questions each: $50/day or $18,250/year
+
+After one year, the cumulative inference cost ($18,250) exceeds the one-time training cost ($100,000). After 5 years, inference costs are $91,250:nearly as expensive as training the model from scratch.
+
+This is why LLM companies obsess over inference efficiency. A 10% reduction in inference cost translates directly to 10% additional profit margin on every API call in perpetuity.
+
+## The Prefill Phase {#prefill}
+
+The prefill phase is the initial computation of the prompt. When a user submits a request, all prompt tokens are processed together to compute the key-value cache (explained below), which enables fast generation of subsequent tokens.
+
+**How Prefill Works**
+
+Assume a prompt: "What is the capital of France?"
+
+1. Tokenize: [101, 2054, 2003, 1996, 3007, 1997, 2605, 102] (8 tokens)
+2. Pass through embedding layer: 8 embeddings of dimension 4096 (typical)
+3. Pass through transformer layers: 32 layers of attention and feed-forward computation
+4. Compute key-value (KV) pairs at each layer
+5. Output: a representation of the entire prompt
+
+The prefill phase processes all prompt tokens in parallel. Modern GPUs are good at parallel computation, so processing 8 tokens simultaneously is only slightly more expensive than processing 1 token.
+
+**Time Complexity of Prefill**
+
+Prefill time is proportional to prompt length times model size:
+
+Time ≈ (prompt_length × model_size) / GPU_throughput
+
+A 7B model processing a 500-token prompt on an A100 GPU takes roughly 50-100ms.
+A 70B model processing the same prompt takes 500ms-1s.
+
+Prefill is mostly I/O bound (moving weights through memory) rather than compute bound, so larger models don't scale linearly. But the scaling is super-linear: processing 2x longer prompts takes more than 2x time due to attention's quadratic scaling.
+
+**Prefill Cost in APIs**
+
+Some API providers charge equally for input and output tokens. Others charge less for input tokens. [OpenAI](/articles/openai-pricing) charges $2/1M input tokens and $8/1M output tokens for GPT-4.1, reflecting that input tokens cost less to compute than output tokens.
+
+This makes sense: input tokens are parallelized in prefill; output tokens are sequential in decode (explained below).
+
+## The Decode Phase {#decode}
+
+After prefill completes, the decode phase begins. This is where the model generates output one token at a time, sequentially.
+
+**How Decode Works**
+
+After the prefill phase, the model has:
+1. Processed the entire prompt
+2. Computed key-value (KV) caches for each layer
+3. Produced a final representation
+
+Now, generating output:
+
+1. Compute next-token prediction from the final prompt representation
+2. Sample a token from the distribution (or take argmax)
+3. Add that token to the sequence
+4. Recompute based on the new, longer sequence
+5. Repeat until stopping condition
+
+Key constraint: each output token requires a full forward pass of the model. There's no parallelization within a single sequence. Generating a 100-token response requires 100 sequential forward passes.
+
+**Time Complexity of Decode**
+
+Decode time is proportional to output length and model size:
+
+Time ≈ (output_length × model_size) / GPU_throughput
+
+Generating 100 tokens from a 7B model on an A100 typically takes 1-2 seconds.
+The same on a 70B model takes 10-20 seconds.
+
+Decode is memory-bandwidth bound. The entire model weights must be loaded from memory for each token generation, even if only a small fraction are computed. Larger models (more weights) are slower at decoding because moving more weights from memory is slower.
+
+**Decode Latency is the Bottleneck**
+
+For users, decode latency dominates user experience:
+
+A 5-second response breakdown:
+- Prefill: 100ms (model processes prompt)
+- Decode: 4,900ms (model generates 100 tokens at ~50ms per token)
+
+The prefill phase is 2% of total time. Optimization efforts on decode pay off much more.
+
+## KV Cache and Memory {#kvcache}
+
+The KV (key-value) cache is the secret to fast decoding. Understanding it is critical to understanding inference cost and why larger batch sizes slow down inference.
+
+**What Is KV Cache?**
+
+During the prefill phase, the model computes attention scores at every layer. Computing these scores requires projecting input embeddings into key and value spaces. Rather than recomputing these for each new token during decode, the model caches the key-value pairs from prefill and reuses them.
+
+Example: prefill on a 500-token prompt computes KV pairs for all 500 positions. When generating token 501, the model:
+1. Computes KV for just the new token (fast, O(1) computation)
+2. Reuses cached KV from tokens 1-500
+3. Computes new attention against the combined cache
+
+Without KV cache, generating each new token would require recomputing KV for the entire sequence (slow, O(n) computation where n = sequence length).
+
+KV cache makes decoding efficient. With cache, each token takes ~50ms. Without cache, each token would take seconds.
+
+**Memory Cost of KV Cache**
+
+KV cache requires memory storage proportional to:
+
+Memory = batch_size × sequence_length × num_layers × hidden_dim × 2 (key and value)
+
+For a 7B model with 32 layers and 4096-dimensional embeddings:
+
+Per token, per batch: 32 × 4096 × 2 × 2 bytes = 524KB
+
+A batch of 10 sequences, average length 500 tokens each:
+
+Total KV cache: 10 × 500 × 524KB = 2.6GB
+
+That's 2.6GB of GPU memory just for KV cache on a relatively small batch. Large models (70B parameters) require larger cache (more layers, larger hidden dimensions), so KV cache can consume 20GB+ of GPU memory in practical batching scenarios.
+
+This is why larger batch sizes degrade inference latency: KV cache grows linearly with batch size. More cache means more memory bandwidth consumed, slowing token generation.
+
+## Batching and Throughput {#batching}
+
+Inference systems batch multiple requests to improve GPU utilization and total throughput, but batching introduces latency trade-offs.
+
+**Why Batching Works for Throughput**
+
+A single request on a single GPU doesn't fully utilize hardware. GPUs have thousands of compute cores; processing a single sequence leaves most cores idle.
+
+When processing multiple sequences in parallel (batching), the GPU distributes computation across more cores, improving utilization and total tokens-per-second.
+
+Example: on an A100 GPU:
+- Single sequence: 100 tokens per second
+- Batch of 10: 1,000 tokens per second total (100 per sequence, all in parallel)
+
+For maximizing throughput, batching is essential. A production LLM serving system batches hundreds of requests simultaneously.
+
+**The Latency Trade-off**
+
+But batching has a downside: longer sequences in the batch slow down shorter sequences.
+
+Assume a batch of 2 requests:
+- Request 1: 100-token output
+- Request 2: 10-token output
+
+Without batching:
+- Request 1 latency: 100 tokens × 50ms = 5 seconds
+- Request 2 latency: 10 tokens × 50ms = 500ms
+
+With batching:
+- Both requests decode together
+- Batch doesn't complete until the longest sequence finishes
+- Request 1 latency: still 5 seconds
+- Request 2 latency: now 5 seconds (not 500ms) because it waits for Request 1
+
+The longer sequence is unaffected, but the shorter sequence is delayed. This is called "batch latency tail" and is why interactive applications often avoid large batches.
+
+Batch size selection is a complex trade-off:
+- Large batches: high throughput, high tail latency
+- Small batches: low throughput, low tail latency
+- Optimal batch size depends on workload characteristics (request distribution, SLA requirements)
+
+## Attention Mechanism in Inference {#attention}
+
+Understanding the attention mechanism clarifies why inference has particular computational and memory characteristics.
+
+Attention computes similarities between all pairs of tokens in a sequence. For a sequence of N tokens, computing attention requires O(N²) comparisons. This is why longer sequences are more expensive to process.
+
+Example: comparing two sequences:
+- 100-token sequence: 100² = 10,000 comparisons
+- 500-token sequence: 500² = 250,000 comparisons
+
+A 5x longer sequence requires 25x more attention computation. This super-linear scaling explains why KV cache is so valuable: it avoids recomputing attention for old tokens during decode.
+
+In practice, attention computation is fast on modern GPUs (tensor cores excel at matrix multiplication). The real bottleneck during decoding isn't attention computation itself; its memory bandwidth. Each token decode requires loading entire model weights from memory, and this bandwidth-bound operation dominates latency.
+
+This is why GPU memory bandwidth (not compute cores) limits inference throughput. An H100 with faster memory can decode faster than a GPU with more cores but slower memory.
+
+## Speculative Decoding {#speculative}
+
+Speculative decoding is an optimization technique to speed up inference by generating multiple tokens speculatively and verifying correctness.
+
+**How Speculative Decoding Works**
+
+Normally, decoding is sequential: generate token N, use it to generate token N+1, repeat. No parallelization.
+
+With speculative decoding:
+
+1. Use a fast, small model (draft model) to predict the next K tokens
+2. Verify the draft tokens against the full model
+3. Accept tokens that match the full model; reject and re-sample if they don't
+4. Continue from the last accepted token
+
+Example: decode the sentence "The capital of France is"
+
+1. Draft model (small, fast): [Paris, is]
+2. Full model verification on "The capital of France is Paris": confident (accept)
+3. Full model verification on "The capital of France is Paris is": low confidence (reject)
+4. Full model generates next token: [beautiful]
+5. Continue from "...is beautiful"
+
+Speculative decoding effectively parallelizes generation: instead of computing 1 token per forward pass, compute 1 + K tokens per forward pass (where K tokens are speculative, verified in the same pass).
+
+**Performance Improvements**
+
+In practice, speculative decoding speeds up inference by 20-40% depending on draft model quality and verification success rate. The draft model must be fast (smaller) but accurate (good match to full model output distribution).
+
+Companies like Anthropic and OpenAI use speculative decoding in production APIs to reduce inference latency and cost.
+
+## Inference Hardware Selection {#hardware}
+
+Choosing the right GPU for inference depends on model size, latency requirements, and cost constraints.
+
+**GPU Memory Requirements**
+
+Model weights must fit in GPU memory:
+
+- 7B parameter model: ~14GB (in float16)
+- 70B parameter model: ~140GB
+- 200B parameter model: ~400GB
+
+Additional memory needed for KV cache (grows with batch size and sequence length).
+
+GPU VRAM options:
+- NVIDIA H100: 80GB HBM3 (fits up to 70B models comfortably)
+- NVIDIA H200: 141GB HBM3 (fits 200B models)
+- NVIDIA A100: 80GB HBM2 (older, less throughput than H100)
+- NVIDIA L40S: 48GB GDDR6 (adequate for 7B-13B models)
+
+**Throughput vs Latency**
+
+Large GPUs offer high throughput but may not be cost-optimal for low-latency applications:
+
+- H100: 3,000+ tokens/second, good for batch processing
+- L40S: 1,000+ tokens/second, faster per-token latency
+- T4: 200-300 tokens/second, cheapest but slowest
+
+For interactive chat, L40S might offer better latency per dollar than H100.
+For batch report generation, H100 offers better throughput per dollar.
+
+**Cloud GPU Selection**
+
+[RunPod offers A100 at $1.19/hour and H100 at $1.99/hour](/articles/runpod-gpu-pricing), making per-hour cost easy to calculate but harder to interpret for variable workloads.
+
+Better to think in terms of cost per million tokens:
+
+A100 (40 sequences × 100 tokens/sec): 4,000 tokens/sec
+Cost: $1.19/hour = $0.00012 per 1,000 tokens
+
+H100 (100 sequences × 100 tokens/sec): 10,000 tokens/sec
+Cost: $1.99/hour = $0.00008 per 1,000 tokens
+
+Per token, H100 is cheaper despite higher hourly cost because it produces more tokens per hour.
+
+## Latency Analysis {#latency}
+
+Latency in inference comes from multiple sources. Understanding these helps optimize for end-user experience.
+
+**Network Latency**
+
+Sending a prompt to a remote API incurs network round-trip latency. For a user geographically distant from the inference server:
+
+- Local API (same datacenter): 1-5ms
+- Regional API (same region, different datacenter): 5-20ms
+- Cross-region API: 50-200ms
+
+For interactive applications, this matters. A chatbot with 100ms network latency feels sluggish. But for batch processing, network latency is irrelevant.
+
+**Queue Latency**
+
+When many requests arrive simultaneously, inference servers queue them. A request might wait seconds before GPU processing begins.
+
+Queue time depends on:
+- Concurrent load
+- Average request duration
+- GPU throughput
+
+A server processing 100 requests per second, receiving 110 requests per second, builds a 1-second queue. Users at the end of the queue experience 1+ second of wait before their processing even starts.
+
+Queue time dominates user-perceived latency more than computation time, in many production systems. This is why auto-scaling matters: additional GPUs reduce queue depth.
+
+**Processing Latency**
+
+After queuing, the actual inference:
+- Prefill: proportional to prompt length
+- Decode: proportional to output length
+
+A user typing a 50-token query and expecting a 200-token response experiences:
+- Prefill: ~50ms (on H100)
+- Decode: ~2 seconds (200 tokens × 10ms/token)
+- Network: ~100ms
+- Total: ~2.15 seconds
+
+The decode phase dominates. Optimization efforts should focus on reducing decode latency (faster hardware, smaller models, speculative decoding) rather than prefill optimization.
+
+## Why Inference Cost Dominates {#cost}
+
+Most LLM API bills are dominated by inference, not training. Understanding why matters for cost optimization.
+
+**Training is One-Time, Inference is Continuous**
+
+Training a model happens once. A $100,000 training cost amortized over 5 years of service is $55/day.
+
+Inference happens billions of times. One million API calls per day at $0.01 per call is $10,000/day.
+
+After the first day of production inference, the daily inference cost exceeds the amortized training cost. After the first month, monthly inference cost exceeds the training cost.
+
+**Cost Per Token Multiplies with Scale**
+
+A 1% reduction in inference cost compounds at scale:
+
+- 100 daily API calls: saves $0.001/day (irrelevant)
+- 10,000 daily API calls: saves $0.10/day or $36.50/year (noticeable)
+- 1 million daily API calls: saves $10/day or $3,650/year (significant)
+- 1 billion daily API calls: saves $10,000/day or $3.65M/year (material to business)
+
+This is why efficiency matters. Companies at scale obsess over shaving 10% off inference latency or cost.
+
+## Optimization Strategies {#optimization}
+
+**1. Model Quantization**
+
+Quantization reduces model weights from float32 (4 bytes per weight) to int8 (1 byte) or int4 (0.5 bytes), reducing memory and compute requirements.
+
+Benefit: 2-4x faster inference, lower memory cost
+Tradeoff: slight accuracy loss
+
+Quantized 7B model: 14GB → 3.5GB VRAM, fits on L40S (48GB)
+
+**2. Knowledge Distillation**
+
+Train a smaller model (3B parameters) to mimic a larger model (7B). The smaller model is faster and cheaper to run.
+
+Benefit: 3-5x faster inference, lower cost
+Tradeoff: slightly lower accuracy
+
+**3. Prompt Optimization**
+
+Shorter prompts require less compute during prefill. Reduce prompt length where possible:
+
+Instead of sending full context: "Answer this question based on the document below. The document is... Question: ..."
+
+Send only relevant context: "Answer: What is France's capital?"
+
+Benefit: faster prefill, reduced token costs
+Tradeoff: may lose relevant detail
+
+**4. KV Cache Optimization (Paged Attention)**
+
+vLLM and similar inference engines use paged attention, storing KV cache in smaller pages that fit in GPU memory more efficiently. This allows larger batch sizes without excessive memory overhead.
+
+Benefit: higher throughput per GPU
+Tradeoff: requires specialized inference software
+
+**5. Lazy Loading and Model Sharding**
+
+Split large models across multiple GPUs (sharding) or only load layers as needed (lazy loading). This enables serving large models that don't fit on single GPU.
+
+Benefit: serve larger models, higher quality
+Tradeoff: distributed compute complexity, higher latency
+
+## FAQ
+
+**Does inference cost vary by model size?**
+
+Yes. Larger models require more compute per token, so inference is slower and more expensive. A 70B model generates tokens 5-10x slower than a 7B model, making per-token cost higher.
+
+**Why do some APIs charge differently for input vs output tokens?**
+
+Input tokens (prefill phase) are parallelized, so they're cheaper to compute. Output tokens (decode phase) are sequential, so they're more expensive. Pricing reflects actual compute cost.
+
+**Is KV cache always beneficial?**
+
+Yes, for autoregressive generation (standard transformer inference). There are rare cases (very short sequences where recomputation is faster than cache lookup) where KV cache provides marginal benefit, but for practical sequences, KV cache is essential.
+
+**Can inference happen on CPUs?**
+
+Yes, but slowly. CPUs can run inference on small models in reasonable time (Llama 2 7B runs on modern CPUs in 5-10 seconds per token). For production APIs, GPUs are necessary due to latency requirements.
+
+**What's the relationship between batch size and inference cost?**
+
+Larger batches increase GPU utilization, so cost per token decreases (amortized over more tokens). But larger batches increase KV cache memory, which can slow down inference. Optimal batch size depends on hardware and model.
+
+**Do I optimize for latency or throughput?**
+
+Depends on use case. Interactive chat requires low latency (small batches). Batch report generation benefits from high throughput (large batches, better GPU utilization). Rarely can both be optimized simultaneously.
+
+## Related Resources
+
+- [LLM Cost Per Token Analysis](/articles/llm-cost-per-token)
+- [Best GPU for Fine-Tuning Guide](/articles/best-gpu-for-fine-tuning)
+- [vLLM Inference Engine Documentation](https://docs.vllm.ai/)
+- Training vs Inference Cost Breakdown
+
+## Sources
+
+- vLLM Research Paper: https://arxiv.org/abs/2309.06180
+- Speculative Decoding Paper: https://arxiv.org/abs/2211.17192
+- Efficient Attention in Transformers: https://arxiv.org/abs/2307.08691
+- Official DeployBase.AI March 2026 Pricing Data

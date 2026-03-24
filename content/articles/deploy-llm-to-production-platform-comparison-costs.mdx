@@ -1,0 +1,169 @@
+---
+title: 'Deploy LLM to Production: Platform Comparison & Costs'
+slug: deploy-llm-to-production-platform-comparison-costs
+description: >-
+  Compare LLM deployment platforms (Replicate, Together, Baseten, Runhouse).
+  Explore production hosting options, pricing models, and technical
+  architecture.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - deploy llm to production
+---
+
+## Contents
+
+- [Deploy LLM to Production: LLM Deployment market](#deploy-llm-to-production-llm-deployment-market)
+- [Deployment Platform Options](#deployment-platform-options)
+- [Pricing Comparison](#pricing-comparison)
+- [Technical Requirements](#technical-requirements)
+- [Scaling to Production](#scaling-to-production)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Deploy LLM to Production: LLM Deployment market
+
+Deploying a language model to production requires choosing between managed platforms, self-hosted infrastructure, and API-based solutions. Each approach trades cost, control, and operational complexity differently.
+
+Deploy LLM to production decisions hinge on several factors: inference latency requirements, cost sensitivity, model size, and team infrastructure expertise. Teams range from serverless function deployments to multi-node GPU clusters.
+
+As of March 2026, production LLM hosting spans these categories:
+
+**Managed inference platforms** handle scaling, monitoring, and load balancing automatically.
+
+**Self-hosted options** provide maximum control but demand DevOps expertise.
+
+**API-first approaches** eliminate infrastructure concerns but incur per-query costs.
+
+## Deployment Platform Options
+
+**Replicate** provides serverless LLM inference. Users pay per API call with automatic scaling. No infrastructure management required.
+
+Pricing: $0.00035 per second for Llama 2 7B, $0.0014 per second for Llama 2 70B. A model running for 10 seconds costs $0.0035-$0.014 per request.
+
+Best for: Early-stage applications, experimental models, unpredictable traffic patterns.
+
+**Together AI** offers batch processing and streaming inference APIs. Emphasis on cost-effective large-batch inference.
+
+Pricing: $0.00015 per 1K tokens for Llama 2 7B, $0.0009 per 1K tokens for Llama 2 70B. 100K token inference costs $0.015-$0.09.
+
+Best for: Batch processing, document processing pipelines, predictable workloads.
+
+**Baseten** provides containerized model deployment with auto-scaling. Hybrid approach combining serverless simplicity with custom code.
+
+Pricing: $0.50 per hour compute base, plus usage charges. A continuous inference service costs $360+/month plus API calls.
+
+Best for: Custom model serving, complex preprocessing, medium-scale applications.
+
+**Runhouse** enables distributed model serving. Self-hosted infrastructure with distributed compute abstraction.
+
+Pricing: Infrastructure costs only (GPU rental). Runhouse platform is open-source. Self-hosted H100 inference costs $1.99/hour via RunPod.
+
+Best for: Cost-sensitive deployments, on-premise infrastructure, complex multi-model serving.
+
+**vLLM + cloud hosting** combines open-source serving framework with cloud compute. Users rent GPU instances and run inference themselves.
+
+Pricing: GPU rental only. RunPod H100 at $1.99/hour serves 50-100 requests/hour, costing $0.02-$0.04 per request.
+
+Best for: Maximum cost efficiency, custom inference optimization, on-premise flexibility.
+
+## Pricing Comparison
+
+Real-world costs for Llama 2 70B deployment at 1,000 daily requests (30K requests monthly):
+
+**Replicate:**
+- 1,000 requests at 10 seconds average = 10,000 seconds = $14/month
+- Highly efficient for low-volume inference
+
+**Together AI:**
+- 1,000 requests at 2,000 output tokens = 60M tokens/month = $540/month
+- Cost scales linearly with output tokens
+
+**Baseten:**
+- Base compute: $360/month (always-on container)
+- Plus token overage: $5-$15/month
+- Total: $365-$375/month
+
+**Runhouse on RunPod H100:**
+- H100 at $1.99/hour
+- Assuming 50 requests/hour utilization
+- Cost per request: $1.99 / 50 = $0.04
+- Monthly cost at 1,000 requests/day = $1,200-$1,600
+
+**Self-hosted vLLM on RunPod H100:**
+- Same H100 rental: $1.99/hour
+- Better throughput optimization = 80-100 requests/hour
+- Cost per request: $0.02-$0.025
+- Monthly cost at 1,000 requests/day = $600-$750
+
+At low volumes (100 requests/day), Replicate wins ($1.40/month). At high volumes (10K requests/day), self-hosted vLLM becomes cheapest ($3,000-$4,000/month for dedicated H100).
+
+## Technical Requirements
+
+**Replicate and Together AI** require minimal technical setup: API credentials, model selection, parameter tuning. Integration takes hours.
+
+**Baseten** requires Docker containerization knowledge and understanding of async request handling.
+
+**Runhouse** demands familiarity with distributed Python, GPU memory management, and networking configuration.
+
+**vLLM self-hosted** requires expertise in Kubernetes or cloud VM management, load balancing, monitoring infrastructure.
+
+Model size dictates infrastructure requirements:
+
+- Llama 2 7B: Single A100 (40GB) or L40S sufficient
+- Llama 2 70B: Single H100 (80GB) or A100 SXM required
+- Llama 2 70B + LoRA: Multi-GPU setup recommended
+
+Latency requirements drive architecture decisions. Sub-100ms latency requires containerized serving on GPUs; sub-1000ms tolerates batch processing or queue-based approaches.
+
+## Scaling to Production
+
+Early-stage deployments often use Replicate for simplicity. Cost structure shifts as volume scales:
+
+**0-1M requests/month:** Replicate cost-effective; consider Together AI for token-intensive workloads.
+
+**1-10M requests/month:** Baseten or containerized solutions become competitive. Fixed monthly costs dominate variable per-request pricing.
+
+**10M+ requests/month:** Self-hosted vLLM on reserved GPU capacity wins. Reserved H100s at $1,600+/month support millions of inference requests.
+
+Multi-model serving adds complexity. Baseten and Runhouse handle multiple models better than Replicate. Load balancing, fallback logic, and model versioning require careful architecture.
+
+Visit [/gpus](/gpus) for GPU selection guidance and [/articles/self-hosted-llm](/articles/run-ai-locally) for self-hosting considerations.
+
+## FAQ
+
+**What's the cheapest way to deploy a Llama 2 model in production?**
+
+Self-hosted vLLM on an H100 from RunPod costs $0.02-$0.04 per inference request at scale. For low volumes (under 1,000 requests/day), Replicate is cheaper at $0.00035 per second.
+
+**Should I use API-based solutions or self-host?**
+
+API solutions (Replicate, Together AI) are simpler to start but become expensive at scale. Self-hosting requires infrastructure expertise but is cheaper beyond 10K monthly requests. Hybrid approaches use API for prototyping, self-hosting for production.
+
+**Can I deploy a fine-tuned model on these platforms?**
+
+Replicate and Together AI support custom model uploads. Baseten excels at custom models through containerization. Self-hosted approaches support any model; fine-tuning integration is straightforward with vLLM.
+
+**What about compliance and data privacy?**
+
+Managed platforms send inference data to their servers. Compliance-sensitive workloads require self-hosting or production solutions with data residency guarantees. Some platforms offer private clusters for additional cost.
+
+**How do I minimize latency in production?**
+
+Use GPU-optimized serving (vLLM, TensorRT-LLM). Deploy close to users geographically. Batch inference offline when possible. For interactive latency, reserve GPU capacity; spot instances introduce unpredictable delays.
+
+## Related Resources
+
+- [/gpus](/gpus)
+- [/articles/self-hosted-llm](/articles/run-ai-locally)
+- [/articles/self-host-llm](/articles/run-ai-locally)
+- [/articles/secure-compliant-llm-hosting-cloud](/articles/best-gpu-cloud-for-government-defense)
+
+## Sources
+
+- Replicate API pricing: https://replicate.com/pricing
+- Together AI pricing: https://www.together.ai/pricing
+- Baseten documentation: https://docs.baseten.co/pricing
+- vLLM documentation: https://docs.vllm.AI
+- Runhouse documentation: https://runhouse-docs.readthedocs.io

@@ -1,0 +1,206 @@
+---
+title: 'Chain-of-Thought Models: How AI Reasoning Works'
+slug: chain-of-thought-models-how-ai-reasoning-works
+description: >-
+  Understand chain-of-thought prompting and reasoning models. Learn how LLMs
+  solve complex problems step-by-step.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - chain of thought ai models
+---
+
+## Contents
+
+- [Chain of Thought AI Models: Chain-of-Thought Reasoning in Modern LLMs](#chain-of-thought-ai-models-chain-of-thought-reasoning-in-modern-llms)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Chain of Thought AI Models: Chain-of-Thought Reasoning in Modern LLMs
+
+Chain-of-thought (CoT) prompting makes LLMs solve hard problems. Show the work, get better answers. March 2026, this is table stakes for reasoning.
+
+### How Chain-of-Thought Works
+
+**The Basic Mechanism**
+Chain-of-thought reasoning asks models to show working before answering. Instead of jumping to conclusions, models explicitly state each reasoning step.
+
+Example without CoT:
+"What's 47 + 85? Answer: 132"
+
+With CoT:
+"What's 47 + 85? Let me work through this. 40 + 80 = 120. 7 + 5 = 12. 120 + 12 = 132."
+
+The difference seems trivial for arithmetic but becomes significant for logic problems, code analysis, and decision-making tasks.
+
+**Why Intermediate Steps Help**
+Showing work forces the model to decompose problems before answering. Decomposition reveals errors early. Self-correction happens more frequently when models are forced to verbalize reasoning.
+
+Mathematically, explicit reasoning paths reduce error accumulation. Each step is independently verifiable rather than relying on final answer correctness.
+
+**Multi-Step Reasoning Paths**
+Complex problems require multiple reasoning steps. Medical diagnosis reasoning: symptom analysis -> differential diagnosis -> test recommendations -> treatment planning. Each step constrains subsequent steps.
+
+More steps don't always improve accuracy. Diminishing returns appear after 5-10 steps. Longer chains introduce error accumulation from small mistakes.
+
+### Prompting Techniques
+
+**Few-Shot Demonstrations**
+Showing examples of reasoning chains dramatically improves model performance. Provide 2-5 examples of correct reasoning paths.
+
+Example for math problems:
+"Problem: 12 * 8 = ?
+Work: 12 * 8 = 12 * (5 + 3) = 60 + 36 = 96
+Answer: 96"
+
+Then ask the actual problem. Models learn reasoning style from demonstrations.
+
+**Explicit Step Instructions**
+Tell models to show working explicitly. "Solve step by step" is insufficient. More specific instructions help:
+
+- "List all assumptions"
+- "Consider alternative approaches"
+- "Check your work"
+- "Explain your reasoning at each step"
+
+**Self-Consistency**
+Generate multiple reasoning chains for the same problem. Average results or take majority vote. Dramatically improves accuracy for subjective tasks.
+
+Running a problem 5 times and voting on answers costs 5x inference but catches reasoning errors.
+
+**Tree-of-Thought Exploration**
+Instead of linear reasoning, explore branching paths. Some branches reach dead ends. Models backtrack and explore alternatives.
+
+Computationally expensive (10-100x more inference) but solves harder problems. Used when accuracy is critical and cost is secondary.
+
+### LLM Reasoning Capabilities
+
+**What Models Can Reason About**
+- Logic puzzles: High accuracy with CoT
+- Math problems: Moderate accuracy (arithmetic mistakes persist)
+- Code generation: Moderate accuracy (logic errors in complex functions)
+- Common sense: Good accuracy
+- Causality: Moderate (models struggle with true causality)
+- Subjective decisions: Varies based on domain knowledge
+
+**Limitations and Failure Modes**
+Models sometimes fabricate reasoning that sounds plausible but is wrong. "Hallucinated logic" is harder to detect than factual hallucinations.
+
+Models struggle with truly novel problems requiring steps outside training data. They excel at variations on problems seen frequently in training data.
+
+**Reasoning vs Memorization**
+Hard to distinguish whether models are reasoning or retrieving memorized patterns. A model might produce correct reasoning that was exact trained sequence. Measuring generalization requires out-of-distribution testing.
+
+Strong chain-of-thought performance on held-out test sets suggests reasoning. Poor generalization to slightly different problems suggests pattern matching.
+
+### Specialized Reasoning Models
+
+**OpenAI o1**
+Specialized reasoning model that internally uses chain-of-thought during inference (hidden from users). Dramatically improves performance on complex problems.
+
+Cost is 10-20x higher than standard GPT-4o. Latency is 10-30x slower (30+ seconds for some problems). Trade-off: accuracy for speed.
+
+Use o1 when accuracy is paramount. Unsuitable for real-time applications. [OpenAI API pricing](/articles/openai-pricing) for o1 is significantly higher than standard models.
+
+**Anthropic Claude with Extended Thinking**
+Claude models support extended thinking mode where models allocate tokens to internal reasoning before responding. Similar to o1 but more transparent about reasoning allocation.
+
+Cost scales with token count. Longer thinking consumes more tokens. Trade-off: accuracy for cost and latency.
+
+**Google Gemini 2.0 with Deep Research**
+Gemini added deep research capability for multi-step problem solving. Combines web search with reasoning. Suitable for research-heavy tasks requiring current information.
+
+**Open-Source Options: DeepSeek-R1**
+DeepSeek-R1 is open-source reasoning model emphasizing transparency. Models show full reasoning chains. Smaller than proprietary options (671B parameters) but still powerful.
+
+Running self-hosted requires [GPU infrastructure](/gpus). DeepSeek-R1 needs H100s or B200s for reasonable latency.
+
+### Performance Improvements from CoT
+
+**Math and Logic**
+Standard models: 50-70% accuracy on college-level math
+With CoT: 75-90% accuracy
+
+Improvement of 25-40 percentage points from explicit reasoning is substantial.
+
+**Code Generation**
+Standard models: 60-75% on complex algorithm tasks
+With CoT: 75-85% accuracy
+
+CoT is less dramatic for code but still meaningful improvement.
+
+**Fact Verification**
+Standard models: 60-70% accuracy on claim verification
+With CoT: 70-80% accuracy
+
+CoT helps models catch logical inconsistencies but doesn't fix factual knowledge gaps.
+
+**Decision Making**
+CoT forces consideration of pros and cons. Subjective decision quality improves noticeably. Harder to quantify but users report higher confidence in reasoning.
+
+### Cost and Latency Implications
+
+**Token Consumption**
+Explicit reasoning chains consume more tokens. A simple math problem without CoT might use 10 tokens to answer. With CoT explanation, same problem uses 50-100 tokens.
+
+Using [OpenAI API](/articles/openai-pricing) at $2.50/$10 per 1M tokens, cost increases proportionally. A problem costing $0.0003 without CoT costs $0.001-0.002 with CoT.
+
+**Latency Trade-off**
+Models must generate intermediate steps before final answer. This adds 20-50% latency even for simple problems.
+
+Real-time applications (chat, voice) sometimes disable CoT despite accuracy loss because latency matters more than perfection.
+
+**Batch Processing Advantage**
+CoT works well for batch processing where latency is less critical. Process 10,000 documents overnight with full reasoning chains.
+
+Real-time APIs might use fast inference without CoT, then use CoT for high-confidence cases requiring verification.
+
+### When to Use Chain-of-Thought
+
+**Use CoT When:**
+- Accuracy is critical (legal, medical, financial decisions)
+- Complex reasoning is required
+- Cost per request is not primary constraint
+- Latency tolerance exists (batch processing)
+- Explainability is valuable
+
+**Avoid CoT When:**
+- Latency is critical (sub-second response required)
+- Cost is highly constrained
+- Simple pattern matching suffices
+- High volume, low-value requests (spam detection, quick summaries)
+
+**Hybrid Approaches**
+Use fast inference for initial triage. Use CoT only for cases requiring verification. This balances cost, latency, and accuracy.
+
+## FAQ
+
+**Do all models support chain-of-thought reasoning?**
+Most modern LLMs support CoT through prompting. Some models are specifically optimized for reasoning (o1, DeepSeek-R1). Standard models work with CoT prompts but produce less sophisticated reasoning.
+
+**Can chain-of-thought improve factual accuracy?**
+Somewhat. CoT catches logical inconsistencies but doesn't fix missing knowledge. A model wrong about a fact will produce wrong reasoning that sounds right.
+
+**How many intermediate steps is optimal?**
+Typically 5-10 steps for most problems. More steps add cost with diminishing accuracy improvement. Measure optimal depth for specific use cases.
+
+**Should we always show chain-of-thought to users?**
+Not necessarily. Users sometimes want just answers. Show reasoning when users request it or when verification is important. Hide reasoning for simpler interactions.
+
+## Related Resources
+
+- [OpenAI API pricing and reasoning models](/articles/openai-pricing)
+- [Anthropic Claude API pricing](/articles/anthropic-pricing)
+- [Google Gemini API pricing](/articles/gemini-api-pricing)
+- [GPU pricing for self-hosted reasoning models](/gpus)
+- [Best LLM for vision tasks](/articles/best-llm-for-vision-multimodal-api-comparison)
+
+## Sources
+
+- OpenAI chain-of-thought prompting research
+- Anthropic extended thinking documentation
+- Google Gemini deep research capabilities
+- DeepSeek-R1 reasoning model paper
+- 2026 reasoning model benchmarks and comparisons
+- Chain-of-thought prompting techniques and best practices

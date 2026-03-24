@@ -1,0 +1,299 @@
+---
+title: 'llama.cpp vs vLLM: Inference Engine Architecture and Performance'
+slug: llama.cpp-vs-vllm
+description: >-
+  llama.cpp vs vLLM comparison: CPU-first vs GPU-optimized inference engines.
+  Architecture differences, performance benchmarks, deployment trade-offs.
+date: '2026-03-22'
+author: DeployBase
+category: LLM Infrastructure
+keywords:
+  - llama.cpp vs vllm
+  - llama.cpp performance
+  - vLLM inference
+  - LLM inference engines
+  - GPU inference optimization
+---
+
+## Contents
+
+- [llama.cpp vs vLLM: Overview](#llamacpp-vs-vllm-overview-two-inference-paradigms)
+- [Architecture Fundamentals](#architecture-fundamentals)
+- [Performance Characteristics](#performance-characteristics)
+- [Deployment Requirements](#deployment-requirements)
+- [Use Case Suitability](#use-case-suitability)
+- [Production Considerations](#production-considerations)
+- [Cost Analysis](#cost-analysis)
+- [Model Compatibility](#model-compatibility)
+- [FAQ](#faq)
+- [Evolution and Roadmap](#evolution-and-roadmap)
+- [Deployment Decision Tree](#deployment-decision-tree)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## llama.cpp vs vLLM: Overview: Two Inference Paradigms
+
+The llama.cpp vs vLLM choice defines inference efficiency for open-source language models. Both engines optimize language model inference but from opposing philosophical starting points. llama.cpp prioritizes accessibility and CPU compatibility; vLLM prioritizes throughput and GPU utilization. Understanding these differences prevents costly infrastructure mistakes.
+
+llama.cpp emerged as a single-file, CPU-first inference engine. Written in C++, it loads quantized models into memory and generates tokens sequentially. No external dependencies, minimal setup, works on laptops alongside GPUs. The simplicity enables running 7B-70B parameter models on consumer hardware with acceptable latency.
+
+vLLM represents a ground-up GPU-optimized inference server. Built on CUDA, vLLM implements PagedAttention and continuous batching to maximize throughput. Single-GPU throughput reaches 1000+ tokens/second; multi-GPU throughput scales linearly. Designed for production serving at scale.
+
+The philosophical gap: llama.cpp asks "how do I run this model?", vLLM asks "how do I serve this model at maximum throughput?" Different questions lead to different optimization targets.
+
+## Architecture Fundamentals
+
+### llama.cpp Architecture
+
+llama.cpp loads model weights into host memory, optionally offloading layers to GPU VRAM. The inference loop processes one token at a time:
+
+1. Embed input token sequence
+2. Load KV cache from disk or memory
+3. Run forward pass (partially on GPU if configured)
+4. Sample next token
+5. Update KV cache
+6. Repeat
+
+Inference happens synchronously in main thread. Multi-threading support exists but single-thread dominates real-world deployments. The simplicity means predictable behavior:no complex scheduling logic to debug.
+
+Quantization is central to llama.cpp design. Running unquantized 70B models requires 140GB VRAM. Quantized to int4 requires 17.5GB. On consumer GPUs with 24-48GB capacity, quantization enables running large models. llama.cpp supports GGUF quantization format optimized for inference speed.
+
+Memory layout prioritizes cache efficiency. KV cache tokens stored contiguously in memory. Attention computation remains compute-bound despite this (limited parallelism on consumer GPUs). Single-user inference dominates because concurrent requests compete for GPU resources destructively.
+
+### vLLM Architecture
+
+vLLM implements PagedAttention, treating KV cache as virtual memory. Physical memory manages pages of 16 tokens each. Attention computation uses pages of logical token indices, not dense arrays. This approach reduces fragmentation and enables flexible batch sizing.
+
+Continuous batching enables processing requests at different progress stages. If request A awaits token 100 and request B awaits token 15, vLLM processes both in parallel without waiting. Throughput improvement reaches 5-10x versus static batching.
+
+Request scheduling uses priority queues. Long-running requests get deprioritized slightly to prevent starvation. New requests enter queue dynamically. Scheduling complexity enables efficient utilization but makes behavior less predictable than llama.cpp.
+
+vLLM uses distributed tensor parallelism for multi-GPU inference. Models split across GPUs automatically. 100B parameter models run on 8xH100 clusters with minimal configuration overhead. This scalability removes model size constraints.
+
+GPU memory layout optimizes for throughput. Attention patterns structured to maximize hardware utilization. cuBLAS and custom CUDA kernels replace generic matrix operations. Performance-critical paths rewritten in CUDA for 2-3x throughput improvements.
+
+## Performance Characteristics
+
+### Single-Request Latency
+
+llama.cpp achieves 5-15ms time-to-first-token (TTFT) on moderately large prompts. Generation speed reaches 50-100 tokens/second on GPU-accelerated hardware. On CPU-only, speed drops to 5-10 tokens/second (1B parameter models viable).
+
+vLLM achieves similar TTFT on its first concurrent request but trades latency for throughput. With batch size 32+, TTFT increases to 20-30ms due to queuing. Subsequent requests in batch overlap computation, improving aggregate throughput dramatically.
+
+For interactive applications where single-user latency matters most, llama.cpp shows marginal advantages. For batch processing, vLLM dominates.
+
+### Throughput at Scale
+
+llama.cpp processes ~80-120 tokens/second per GPU on 70B models. Multi-GPU throughput improves via distributed inference but remains sub-linear (60-70% scaling efficiency). Running multiple llama.cpp instances works (N instances = N*throughput) but requires N-GPUs.
+
+vLLM achieves 300-500 tokens/second per [H100](/articles/nvidia-h100-price) through PagedAttention and continuous batching. Throughput scales better with batch size. Adding instances provides linear scaling. For serving 10,000 concurrent users, vLLM's model fundamentally scales differently than llama.cpp.
+
+Production serving rarely runs single requests. Batch size 32+ becomes normal at scale. In this regime, vLLM's 3-5x throughput advantage dominates cost calculations.
+
+### Memory Efficiency
+
+llama.cpp quantizes aggressively. 70B models run in 17.5GB with int4 quantization and acceptable quality loss (2-5% perplexity increase). This enables [RTX 4090](/articles/rtx-4090-cloud-price) and [A100](/articles/nvidia-a100-price) deployments that would require vLLM deployments on [H100s](/articles/nvidia-h100-price) for throughput.
+
+vLLM operates on unquantized weights for maximum quality. PagedAttention reduces KV cache memory 40-50% compared to dense representations. A 70B model with batch size 256 requires ~192GB on vLLM. Same batch on llama.cpp (quantized) requires 50-60GB.
+
+For throughput-per-dollar, vLLM wins. For throughput-per-GPU, llama.cpp wins through quantization.
+
+### Quality and Correctness
+
+llama.cpp quantization introduces minor accuracy losses. int4 quantization affects MMLU scores by 0.5-1.5%. Most applications tolerate this. int8 quantization has negligible impact (<0.1%).
+
+vLLM preserves full precision, eliminating quantization quality trade-offs. For tasks with zero tolerance for quality degradation (medical AI, financial modeling), vLLM's guarantee matters.
+
+## Deployment Requirements
+
+### llama.cpp Deployments
+
+Requirements: llama.cpp binary (~50MB), model weights, minimal GPU drivers. Single file deployment. Works on laptops, edge devices, and servers identically. No Python, no CUDA toolkit requirements beyond drivers.
+
+Setup takes minutes: download binary, download quantized weights, run inference. No configuration beyond model selection. This accessibility appeals to rapid prototyping and non-ML-specialists.
+
+Production llama.cpp deployments wrap the binary in HTTP servers (llama-cpp-python, ollama). Request handling remains single-threaded underneath. Concurrency requires multiple processes sharing GPU context (limited by VRAM fragmentation).
+
+Monitoring requires custom integration. CPU usage, GPU memory, inference latency require external tools. No built-in observability.
+
+### vLLM Deployments
+
+Requirements: Python 3.8+, PyTorch, CUDA toolkit 11.8+. vLLM installs via pip. Complex dependency chain. Environmental setup takes 30+ minutes for inexperienced engineers.
+
+Configuration covers tensor parallelism degree, maximum batch size, GPU memory fractions, scheduling parameters. More knobs mean better tuning but steeper learning curve.
+
+vLLM includes built-in HTTP server. Handles concurrent requests natively. Request queuing, priority scheduling, resource limits configured declaratively. Production-ready without wrappers.
+
+Monitoring includes Prometheus metrics, detailed logging, performance profiling. Extensive observability for debugging throughput issues.
+
+## Use Case Suitability
+
+### llama.cpp Excels For:
+
+**Small deployments (1-4 GPUs):** Simpler operations. Quantization enables using cheaper GPUs. RTX 4090 deployments with llama.cpp cost-effective versus H100 for vLLM.
+
+**CPU-only deployments:** Embedded systems, edge devices, laptops. vLLM requires CUDA. llama.cpp runs CPU-only (slowly but runs).
+
+**Interactive development:** Single-user scenarios where latency matters. Research, prototyping, experimentation. Minimal setup friction.
+
+**Models under 70B:** CPU-first approach works well. Quantization preserves quality. Single-request latency acceptable.
+
+**Budget-constrained teams:** No infrastructure expertise required. Download, run, go. Minimal ongoing operational burden.
+
+### vLLM Excels For:
+
+**Production inference:** 24/7 availability, SLA commitments, multi-user serving. Built-in queueing and scheduling handle complexity.
+
+**High-throughput requirements:** 1000+ concurrent users. Batch processing 10K+ requests daily. Throughput/dollar optimization matters more than latency.
+
+**Large models (100B+):** Distributed inference across multiple GPUs. Model sharding, communication overhead. vLLM handles transparently.
+
+**Quality-critical applications:** Medical, financial, legal domains. Full-precision inference, no quantization trade-offs.
+
+**Infrastructure-mature teams:** Python ecosystems, containerization expertise, monitoring infrastructure. Additional complexity acceptable for performance gains.
+
+**Multi-model serving:** Serving 5-20 different models concurrently. vLLM model loading, request routing, resource allocation. llama.cpp less suitable.
+
+## Production Considerations
+
+### Reliability and Uptime
+
+llama.cpp crashes mean simple restart. Minimal state. Recovery takes seconds. No distributed state to reconcile.
+
+vLLM crashes more catastrophic. Distributed state (tensor-parallel weights) spread across GPUs. Recovery requires synchronization. Restart takes 30-120 seconds.
+
+For SLA-critical services, llama.cpp's simpler failure modes appeal. For guaranteed throughput, vLLM's predictable scaling appeals.
+
+### Scalability Path
+
+llama.cpp scales horizontally: add more instances, distribute load. Each instance independent. Load balancing external responsibility. Works but operationally verbose.
+
+vLLM scales vertically (single instance, multiple GPUs) or horizontally (multiple instances). Vertical scaling built-in. Horizontal scaling via multiple instances. Simpler operational patterns for rapid growth.
+
+### Version Stability
+
+llama.cpp updates frequently. Community-driven development. Breaking changes possible. Model format (GGUF) standardized but ecosystem remains dynamic.
+
+vLLM backed by Databricks investment. Slower release cadence. Breaking changes documented carefully. production support available (paid).
+
+## Cost Analysis
+
+### Total Cost of Ownership Comparison
+
+**Small deployment: 1 GPU, 100K inference requests/month (1M tokens)**
+
+llama.cpp route: [RTX 4090 on RunPod](/articles/rtx-4090-runpod) at $0.34/hr running 8 hours/month = $2.72/month. Simple cost. Throughput: ~80 tokens/sec = 576K tokens/hour. 1M tokens requires 1.7 hours runtime. Barely fits in on-demand usage.
+
+vLLM route: [A100 on Lambda](/articles/lambda-labs-gpu-pricing) at $1.48/hr running 2 hours/month = $2.96/month. Higher throughput (300 tokens/sec) enables same request volume faster. Better economics if autoscaling works.
+
+**Medium deployment: 4 GPUs, 10M inference requests/month**
+
+llama.cpp: 4x[RTX 4090] at $1.36/month running 144 hours = $196/month. Cost-per-token: $0.0196 per million tokens.
+
+vLLM: 2x[A100] at $2.96/month running 24 hours = $71/month. Cost-per-token: $0.0071 per million tokens. 3x cost advantage through throughput.
+
+**Large deployment: 500M tokens/month**
+
+This volume justifies [H100 rental](/articles/nvidia-h100-price) or dedicated GPUs. vLLM's throughput advantage translates to 30-50% cost savings at scale.
+
+### Infrastructure Hosting
+
+llama.cpp-friendly platforms: [RunPod](/articles/runpod-gpu-pricing), [Vast.ai](/articles/vast-ai-pricing), [Lambda](/articles/lambda-labs-gpu-pricing). Any GPU provider works.
+
+vLLM-optimized platforms: CoreWeave, specialized AI infrastructure with NVIDIA partnership certification. Slightly premium pricing for optimized CUDA environment.
+
+## Model Compatibility
+
+Both engines support open-source models (Llama, Qwen, Mistral, DeepSeek). Model format determines compatibility.
+
+llama.cpp primarily uses GGUF format. Conversion tools handle transformers-format models but add friction. New models may not have GGUF variants immediately.
+
+vLLM supports transformers format natively. Meta releases Llama weights in transformers format immediately. vLLM adoption easier for fresh models.
+
+For models released 6+ months ago, both support equally. For bleeding-edge models, vLLM leads by months.
+
+## FAQ
+
+**Q: Should I use llama.cpp or vLLM?**
+A: Choose llama.cpp for <4 GPU deployments, single-user interactive applications, or budget constraints. Choose vLLM for >8 GPU deployments, production serving, or throughput-critical applications. In between (4-8 GPUs), test both for the specific models.
+
+**Q: Can I use both together?**
+A: Yes. Run llama.cpp for latency-sensitive requests, vLLM for batch processing. Complex but possible. Single-engine deployments simpler operationally.
+
+**Q: How much faster is vLLM really?**
+A: 3-5x throughput advantage at batch size 32+. Single-request latency similar or slightly slower. Real-world speedup depends entirely on batching patterns.
+
+**Q: Can I quantize models for vLLM?**
+A: Yes. GPTQ and AWQ quantization work with vLLM. Less common than llama.cpp quantization but technically possible. Smaller throughput gains than CPU offset.
+
+**Q: What about inference on CPU with vLLM?**
+A: Not viable. vLLM requires CUDA. CPU inference needs llama.cpp or similar CPU-optimized engines.
+
+**Q: Which engine is more reliable in production?**
+A: llama.cpp has simpler failure modes. vLLM has better observability and monitoring. Both reach production maturity; different trade-offs. llama.cpp crashes and restart cleanly. vLLM distributed state requires careful recovery management.
+
+**Q: How do I benchmark for my specific workload?**
+A: Deploy both on test infrastructure. Measure latency at the typical batch size. Measure throughput under load. Real data trumps projections. Test with the models, not benchmark examples. Architectural characteristics diverge with model-specific code patterns.
+
+**Q: Can I use llama.cpp in a production inference service?**
+A: Yes, with HTTP wrappers (ollama, llama-cpp-python). Concurrency limited by single-threaded core. Fine for <100 concurrent users. Beyond that, vLLM's continuous batching provides better scalability.
+
+**Q: Does vLLM support quantized models?**
+A: Yes. GPTQ and AWQ quantization work. Throughput gains from quantization less dramatic than llama.cpp (5-15% vs 20-30%). Full-precision inference standard for vLLM; quantization optional optimization.
+
+**Q: What about model serving on CPU with vLLM?**
+A: Not supported. vLLM requires NVIDIA CUDA. CPU inference requires llama.cpp or similar CPU-optimized engines. ONNX Runtime enables some CPU serving but rarely matches llama.cpp performance.
+
+**Q: Can I mix llama.cpp and vLLM in same deployment?**
+A: Yes. Route latency-critical requests to llama.cpp, batch requests to vLLM. Adds operational complexity but enables optimization for different request patterns. Worth considering if request distribution varies dramatically.
+
+## Evolution and Roadmap
+
+Both engines continue active development. llama.cpp focuses on quantization techniques and CPU optimization. vLLM emphasizes serving scale and multimodal inference. Future convergence unlikely; different niches endure.
+
+llama.cpp's roadmap includes better distributed inference across machines. Currently single-machine focus limits scaling. vLLM's roadmap includes speculative decoding and more advanced scheduling algorithms. Performance optimization never ends in competitive inference space.
+
+Inference engine diversity benefits users. Competition drives innovation. Teams benefit from multiple options rather than single dominant platform. Specialization beats generalization in infrastructure layer.
+
+## Deployment Decision Tree
+
+**Choose llama.cpp if:**
+- Running inference on consumer GPUs (RTX 4090, A100)
+- Single-user interactive applications matter most
+- Quantization importance demands aggressive optimization
+- CPU inference required (edge deployment, laptops)
+- Infrastructure simplicity matters more than throughput
+
+**Choose vLLM if:**
+- Production serving at scale (100+ concurrent users)
+- Throughput optimization more important than latency
+- Multi-GPU scaling required for large models
+- Batch processing workloads dominate
+- Infrastructure expertise available for deployment complexity
+
+**Use both if:**
+- Request distribution mixed (some latency-sensitive, mostly batch)
+- Different request types require different optimization
+- Cost permits redundancy for optimization
+
+## Related Resources
+
+- [llama.cpp Official Repository](https://github.com/ggml-org/llama.cpp) (external)
+- [vLLM Official Documentation](https://docs.vllm.ai) (external)
+- [ollama: llama.cpp HTTP Server](https://ollama.com) (external)
+- [H100 GPU Pricing](/articles/nvidia-h100-price)
+- [A100 GPU Pricing](/articles/nvidia-a100-price)
+- [RTX 4090 GPU Pricing](/articles/rtx-4090-cloud-price)
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [Lambda GPU Pricing](/articles/lambda-labs-gpu-pricing)
+- [Vast.ai GPU Pricing](/articles/vast-ai-pricing)
+- [vLLM vs llama.cpp Benchmarks](https://github.com/vllm-project) (external)
+
+## Sources
+
+- llama.cpp GitHub repository documentation (March 2026)
+- vLLM official documentation and papers (March 2026)
+- Benchmark comparisons from community deployments
+- Cloud provider pricing data (current as of March 2026)
+- Inference engine performance measurements
+- Production deployment case studies from infrastructure teams

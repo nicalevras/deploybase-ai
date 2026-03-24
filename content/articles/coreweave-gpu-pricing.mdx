@@ -1,0 +1,291 @@
+---
+title: 'CoreWeave GPU Pricing: 2026 Cluster & Hardware Costs'
+slug: coreweave-gpu-pricing
+description: >-
+  CoreWeave GPU pricing guide 2026. GH200 $6.50/hr single, 8xA100 $21.60/hr,
+  8xH100 $49.24/hr. Dedicated cluster infrastructure model. Updated March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Pricing
+keywords:
+  - coreweave gpu pricing
+  - coreweave pricing
+  - coreweave gpu cost
+  - coreweave cloud pricing
+  - gpu cluster pricing
+---
+
+## Contents
+
+- [CoreWeave GPU Pricing: Overview](#coreweave-gpu-pricing-overview)
+- [CoreWeave Pricing Table](#coreweave-pricing-table)
+- [Cluster Configurations](#cluster-configurations)
+- [Form Factors](#form-factors)
+- [Network and Connectivity](#network-and-connectivity)
+- [Regional Availability](#regional-availability)
+- [Cost Per GPU Analysis](#cost-per-gpu-analysis)
+- [Infrastructure Design](#infrastructure-design)
+- [When CoreWeave Makes Sense](#when-coreweave-makes-sense)
+- [Comparison to Single-GPU Providers](#comparison-to-single-gpu-providers)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## CoreWeave GPU Pricing: Overview
+
+CoreWeave GPU pricing follows a cluster-only model, meaning individual GPUs are unavailable (except GH200 single-GPU at $6.50/hr). As of March 2026, CoreWeave's 8-GPU cluster configurations range from $10/hr (8xL40) to $68.80/hr (8xB200). This positioning targets teams building production infrastructure: distributed training, high-throughput inference pipelines, and research institutions requiring guaranteed hardware availability. CoreWeave competes on infrastructure quality and reliability, not on price per hour. Minimum commitments and dedicated infrastructure add complexity compared to per-hour rental platforms like [RunPod](/articles/runpod-gpu-pricing) or [Lambda](/articles/lambda-cloud-gpu-pricing).
+
+---
+
+## CoreWeave Pricing Table
+
+| Configuration | Count | Total VRAM | Price/hr | Monthly (730 hrs) | Per-GPU/hr | Annual |
+|---------------|-------|-----------|----------|------------------|-----------|--------|
+| **GH200** | 1x | 96GB | $6.50 | $4,745 | $6.50 | $56,940 |
+| **8xL40** | 8x | 384GB | $10.00 | $7,300 | $1.25 | $87,600 |
+| **8xL40S** | 8x | 384GB | $18.00 | $13,140 | $2.25 | $157,680 |
+| **8xRTX PRO 6000 SE** | 8x | 768GB | $20.00 | $14,600 | $2.50 | $175,200 |
+| **8xA100** | 8x | 640GB | $21.60 | $15,768 | $2.70 | $189,216 |
+| **8xH100** | 8x | 640GB | $49.24 | $35,945 | $6.16 | $431,426 |
+| **8xH200** | 8x | 1,128GB | $50.44 | $36,821 | $6.31 | $442,142 |
+| **8xB200** | 8x | 1,440GB | $68.80 | $50,224 | $8.60 | $602,688 |
+
+Data as of March 2026. CoreWeave does not offer single-GPU rentals except GH200. Pricing includes 24/7 cluster uptime with guaranteed availability. Multi-year commitments available at 15-30% discount (contact CoreWeave sales).
+
+---
+
+## Cluster Configurations
+
+### Entry Level: L40 and L40S Clusters
+
+L40 and L40S represent CoreWeave's cost-optimized tier for inference at scale and multimedia processing. L40 ($10/hr for 8x, $1.25/GPU) has been the workhorse for video processing pipelines since 2022. L40S ($18/hr for 8x, $2.25/GPU) adds incremental memory and performance improvements over L40.
+
+L40 lacks native TF32 or FP8 support (Ampere generation) but handles standard inference workloads efficiently. Media companies, rendering studios, and inference-focused shops use L40 clusters for batch processing. Aggregate VRAM: 384GB allows serving 70B-parameter models with quantization or splitting across GPUs.
+
+Form factor: Single-slot GDDR6 memory (not HBM), which simplifies power delivery and cooling compared to HBM-based data center GPUs. Throughput on Llama 2 70B inference: 1,800-2,000 tokens/second aggregate (225-250 tok/s per GPU). Running L40 cluster 24/7: $7,300/month or $87,600/year.
+
+### Professional Grade: A100 Clusters
+
+8xA100 at $21.60/hr ($2.70 per GPU) is the baseline for production training and high-scale inference. 640GB aggregate HBM2e memory. A100 (Ampere, 2020) is proven, mature, and well-understood. Supports TF32 precision for training, critical for efficiency.
+
+This tier spans inference, fine-tuning, and small-to-medium model training. Teams training 13B-30B parameter models choose A100. Teams fine-tuning larger models (7B-70B with LoRA) also converge here.
+
+Cost-performance tradeoff: A100 costs 56% less than H100 per GPU ($2.70 vs $6.16). Throughput difference on training: 3x slower. Throughput on inference: 2.5x slower. Teams choosing A100 clusters are balancing speed against cost, typically when training time-to-completion is flexible (10-20 day windows acceptable).
+
+Hardware interconnect: NVLink (600 GB/s per GPU, 57.6 TB/s aggregate across 8). Sufficient for 8-GPU training of models up to 70B parameters with gradient accumulation.
+
+Monthly cost (full-time): $15,768. Annual: $189,216. Breakeven against H100: 6-8 months if training throughput is utilized >50% of cluster time.
+
+### High-Performance: H100, H200, B200 Clusters
+
+H100 clusters ($49.24/hr, $6.16/GPU) are the industry standard for large-scale distributed training. 640GB aggregate HBM3 memory. H100 (Hopper, 2023) provides 3x training throughput over A100. NVLink 4 (900 GB/s per GPU, 86.4 TB/s aggregate) reduces gradient synchronization bottlenecks.
+
+H200 clusters ($50.44/hr, $6.31/GPU) add HBM3e (extended memory: 1,128GB aggregate). Primarily for dense batch inference and training models requiring >80GB per GPU.
+
+B200 ($68.80/hr, $8.60/GPU) is NVIDIA's newest data center GPU (launched late 2025). 1,440GB aggregate memory, 20.4 sparsity-adjusted TFLOPS. Purpose-built for training frontier 200B+ models and dense inference at scale.
+
+Pricing is premium. Most teams evaluate B200 only for specific projects (pre-training 140B+ models, not for continuous serving). Monthly cost for 8xB200: $50,224 (4.3x A100 cluster cost).
+
+CoreWeave H100/H200/B200 clusters target:
+- Large AI labs pre-training foundation models
+- Production teams fine-tuning on proprietary data at scale
+- Research institutions needing guaranteed hardware access
+- Companies optimizing inference throughput (128-256 batch sizes)
+
+---
+
+## Form Factors
+
+CoreWeave standardizes on 8-GPU configurations for most hardware. This reflects the company's data center design: rack-optimized builds with predefined power, cooling, and networking.
+
+GH200 is the only single-GPU exception ($6.50/hr). It's NVIDIA's Grace Hopper Superchip (CPU + GPU integrated), a specialized processor for workloads benefiting from GPU-CPU cooperation. Most teams use GH200 for specific inference tasks, not as a scalable base.
+
+Mixed configurations unavailable. Cannot order 4xH100 + 4xA100. Cannot order 2xB200 + 6xH100. Build a single configuration or go to a provider offering flexibility. This design choice simplifies CoreWeave's supply chain but limits workload diversity on a single cluster.
+
+---
+
+## Network and Connectivity
+
+CoreWeave clusters are connected via dedicated interconnect. Inter-GPU latency is optimized (NVLink for SXM variants, PCIe for older configurations). Data transfer between GPUs is fast (negligible overhead). This is critical for distributed training where gradient communication happens every forward-backward pass.
+
+NVLink 4 (H100, B200): 900 GB/s per GPU. Gradient reduction across 8 GPUs synchronizes in milliseconds. Multi-node clusters across different racks: Ethernet interconnect (25-200 GbE). Latency: microseconds (much lower than cloud providers with shared infrastructure).
+
+CoreWeave data centers are optimized for GPU workloads. Power delivery is redundant (no single point of failure). Cooling is efficient (liquid or air depending on region). Network is overprovisioned (no bandwidth bottlenecks). Teams achieve >95% scaling efficiency on 8-GPU clusters (meaning training throughput is near-linear with GPU count).
+
+Contrast: RunPod/Lambda clusters spanning multiple physical machines may experience latency variance (multi-region or multi-rack deployments). CoreWeave keeps clusters in single racks, minimizing jitter.
+
+---
+
+## Regional Availability
+
+CoreWeave operates data centers in North America (US East Virginia, US West California) and Europe (Netherlands, France). Cluster provisioning: select region at booking time. No multi-region clusters (would introduce unacceptable latency for training).
+
+Bandwidth to client: standard cloud egress charges may apply (rarely used for training, only for job submission/retrieval). Typical deployment: customer code/data pre-uploaded to region, training runs locally, results downloaded afterward.
+
+---
+
+## Cost Per GPU Analysis
+
+| Configuration | Per-GPU/hr | Per-GPU/month | Annual (Full-Time) |
+|---------------|-----------|---------------|--------------------|
+| GH200 (1x) | $6.50 | $4,745 | $56,940 |
+| L40 (8x cluster) | $1.25 | $912 | $10,950 |
+| L40S (8x cluster) | $2.25 | $1,643 | $19,710 |
+| RTX PRO 6000 SE (8x) | $2.50 | $1,825 | $21,900 |
+| A100 (8x cluster) | $2.70 | $1,971 | $23,652 |
+| H100 (8x cluster) | $6.16 | $4,497 | $53,961 |
+| H200 (8x cluster) | $6.31 | $4,603 | $55,236 |
+| B200 (8x cluster) | $8.60 | $6,278 | $75,336 |
+
+Comparison to spot pricing on [RunPod](/articles/runpod-gpu-pricing): H100 spot is $2.69/hr (SXM form factor). CoreWeave H100 is $6.16/hr per GPU ($3.10x more expensive on an hourly basis). The premium covers dedicated hardware (zero resource contention), guaranteed uptime (no preemption), and low inter-GPU latency (NVLink-connected in controlled data centers). For continuous training and inference pipelines, CoreWeave's reliability premium is justified. For experimental workloads, the cost difference is prohibitive.
+
+---
+
+## Infrastructure Design
+
+### Dedicated Hardware Model
+
+CoreWeave clusters are physically isolated. When a customer rents 8xH100, those exact GPUs are reserved for that customer's workloads. No resource sharing. No "noisy neighbor" problems from concurrent jobs on shared hardware.
+
+Contrast with RunPod/Lambda: shared hardware, thousands of users on the same server. CoreWeave offers single-tenancy at the cluster level.
+
+Implication: predictable performance. Training a 70B model on CoreWeave H100 cluster completes in a known timeframe (no variance from competing workloads). RunPod throughput may vary ±20% depending on overall platform load.
+
+### NVLink Interconnect
+
+H100 and newer clusters use NVLink 4 (900 GB/s per GPU). Training distributed across 8 GPUs with all-reduce operations during backprop: gradient synchronization speed is 1.5x faster than PCIe interconnect. For models 70B+, this becomes the training bottleneck. NVLink eases it.
+
+A100 clusters have NVLink 3 (600 GB/s per GPU). Older, slower, but still serviceable for 8-GPU training of models <70B.
+
+L40 clusters have no NVLink (PCIe only). Suitable for inference only, not distributed training.
+
+### Power and Cooling
+
+CoreWeave publishes power specs (rarely done by other cloud providers). H100 cluster: 5,600W aggregate (700W per GPU). B200 cluster: 6,880W aggregate. Power density informs scheduling and cost modeling.
+
+Cooling cost is included in CoreWeave's hourly pricing (unlike some on-premises setups where power/cooling is unbilled). No surprises.
+
+---
+
+## When CoreWeave Makes Sense
+
+### Large-Scale Distributed Training
+
+Teams training 70B+ parameter models with tight time-to-completion SLAs. CoreWeave's H100/B200 clusters reduce inter-GPU latency (NVLink-connected SXM GPUs) and guarantee resource availability. Spot instance markets cannot guarantee 8 identical GPUs at the same moment in time. CoreWeave does.
+
+Example: pre-training a 70B model with 1T tokens. A100 cluster: 25-26 days. H100 cluster: 8-10 days. Time savings enable faster iteration on architecture, data, and hyperparameters. CoreWeave's cost premium ($49.24/hr vs RunPod spot $5.38/hr for 2x H100 SXM) is justified if model quality improves with faster experimentation cycles.
+
+### High-Throughput Inference Pipelines
+
+Batch processing with SLAs. A company processing 10M customer documents daily, 512 tokens each. 5.12B tokens/day inference requirement.
+
+CoreWeave 8xA100 cluster ($21.60/hr): 2,240 tok/s aggregate throughput, processes 5.12B tokens in 2.3M seconds = 640 hours = 26 days (serial). Unacceptable. Solution: run multiple clusters or use faster hardware.
+
+CoreWeave 4xH100 cluster (price: $49.24 × (4/8) = $24.62/hr estimated): 3,400 tok/s, processes 5.12B tokens in 1.5M seconds = 420 hours = 17.5 days. Better but still slow.
+
+Solution: 2x H100 clusters (or faster). Guaranteed uptime and predictable throughput are critical for SLA-bound inference pipelines.
+
+### GPU Supply Scarcity
+
+Spot markets for H100 fluctuate. During AI boom periods (ChatGPT launches, new model releases), spot availability drops, prices spike. CoreWeave guarantees H100 availability at fixed monthly rates for committed contracts. When supply scarcity is expected, paying CoreWeave's premium buys certainty.
+
+Example: pre-training 405B model. Fixed timeline: 6 months. RunPod spot H100 might be unavailable (demand spike) for weeks. CoreWeave guarantees availability. Worth the premium.
+
+### Limitations and Trade-offs
+
+1. **Cluster-only model creates friction.** Minimum 8-GPU commitment (except GH200). Teams wanting to experiment with different GPU counts must maintain separate clusters.
+
+2. **Setup time.** CoreWeave clusters take 24-48 hours to provision (vs 5 minutes on RunPod). Not suitable for rapid experimentation.
+
+3. **No hourly discounts.** List rates apply. RunPod and Lambda offer volume discounts or reserved instances. CoreWeave's pricing is fixed.
+
+4. **Vendor lock-in.** CoreWeave's infrastructure and APIs are proprietary. Migrating to RunPod/Lambda requires code changes.
+
+Teams running ad-hoc workloads, experimenting with different hardware, or requiring month-to-month flexibility should use RunPod or Lambda instead. CoreWeave is for committed, long-term workloads with high SLA requirements.
+
+---
+
+## Comparison to Single-GPU Providers
+
+### CoreWeave H100 vs RunPod H100
+
+CoreWeave: $6.16/GPU/hr, 8-GPU minimum = $49.24/hr cluster, no preemption, NVLink, guaranteed SLA.
+
+RunPod: $2.69/hr (SXM form), no minimum commitment, preemption possible (spot tier), NVLink available, lower latency guarantee.
+
+CoreWeave is 2.3x more expensive per GPU per hour. For continuous training (breakeven > 6 months utilization), CoreWeave cost premium is absorbed by increased productivity. For experimentation, RunPod wins.
+
+### CoreWeave A100 vs Lambda A100
+
+CoreWeave: $2.70/GPU/hr for 8xA100 cluster = $21.60/hr, 8-GPU minimum, NVLink, no preemption.
+
+Lambda: $1.48/hr for single A100, no minimum, on-demand guaranteed (not spot), 40GB HBM2e.
+
+Lambda is 59% cheaper per GPU per hour. But Lambda's single-GPU availability is limiting for distributed training. Running 8x A100s on Lambda costs 8 × $1.48 = $11.84/hr. CoreWeave 8xA100 is $21.60/hr. CoreWeave's 83% premium includes NVLink and cluster-level SLA. If distributed training isn't required, Lambda wins.
+
+---
+
+## FAQ
+
+**Can I rent a single GPU from CoreWeave?**
+
+Only GH200 at $6.50/hr. All other GPU types require 8-GPU cluster minimum. This reflects CoreWeave's data center design (rack-level provisioning). Single-GPU requirements should go to [RunPod](/articles/runpod-gpu-pricing) or [Lambda](/articles/lambda-cloud-gpu-pricing).
+
+**Is CoreWeave cheaper than buying?**
+
+H100 clusters: $6.16/GPU/hr = $53,961/GPU/year full-time. NVIDIA H100 PCIe retail: $30-35k. Payback period: 5-7 years at full utilization. Not cost-effective for multi-year continuous use. Renting makes sense for 18-month commitments or lower utilization (<40% of cluster time).
+
+**How does CoreWeave compare to AWS, GCP, Azure?**
+
+AWS p4d instances (8xA100): $12.48/hr ($9,110/month). CoreWeave 8xA100: $21.60/hr ($15,768/month). CoreWeave is 73% more expensive. AWS wins on price. CoreWeave wins on simplicity (8 GPUs guaranteed connected, no configuration). Workload dependent.
+
+**Does CoreWeave offer spot pricing?**
+
+No. Pricing is fixed for the cluster duration. Discounts apply only to multi-month or annual commitments, not spot/preemptible tiers. This is CoreWeave's competitive advantage (predictability) and drawback (higher cost).
+
+**What is GH200 and why is it the only single-GPU option?**
+
+GH200 is NVIDIA's Grace Hopper Superchip: CPU + GPU integrated. 96GB HBM3e memory. $6.50/hr. CoreWeave offers it individually because it's a specialized processor. Not a standard cluster GPU. Suitable for CPU+GPU workloads (HPC, large language model inference with custom kernels, scientific computing with heterogeneous compute).
+
+**Can I use CoreWeave for development or testing?**
+
+Possible but expensive. $10/hr minimum (8xL40 cluster). A 4-hour development session = $40. Most teams use cheaper [RunPod](/articles/runpod-gpu-pricing) or [Lambda](/articles/lambda-cloud-gpu-pricing) for development, then migrate to CoreWeave for production training runs.
+
+**What happens if my job fails mid-training?**
+
+CoreWeave charges hourly for cluster uptime, not per-job success. Failed training runs still incur costs. Teams mitigate with automated checkpointing (save model state every 30 minutes) and retry logic (restart training from latest checkpoint). No refunds for job failure.
+
+**Are there volume discounts?**
+
+Yes, but only for annual or multi-quarter commitments. Standard on-demand rates shown here. Contact CoreWeave sales for pricing on 6-month or longer reservations. volume deals: 15-30% discount for 12-month commitments.
+
+**What is the setup time for a CoreWeave cluster?**
+
+24-48 hours typical. Provisioning involves validating customer account, assigning data center capacity, configuring network, and testing interconnects. Not instant like RunPod (5-10 minutes). Plan ahead for cluster launches.
+
+**Can I mix GPU types in a cluster?**
+
+No. All 8 GPUs in a cluster are identical. Cannot mix H100 + A100. This simplifies CoreWeave's operations but limits flexibility.
+
+**Does CoreWeave support multi-region clusters?**
+
+No. Clusters are regional (US East, US West, EU). Cannot span regions (would introduce multi-region latency). Single-region design keeps latency low.
+
+---
+
+## Related Resources
+
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [Lambda Cloud GPU Pricing](/articles/lambda-cloud-gpu-pricing)
+- [Vast.ai GPU Pricing](/articles/vast-ai-pricing)
+- [GPU Pricing Comparison Dashboard](/gpus)
+
+---
+
+## Sources
+
+- [CoreWeave Pricing Documentation](https://docs.coreweave.com/resources/pricing)
+- [CoreWeave Infrastructure Overview](https://docs.coreweave.com)
+- [DeployBase GPU Pricing Tracker](/gpus) (March 2026 observations)

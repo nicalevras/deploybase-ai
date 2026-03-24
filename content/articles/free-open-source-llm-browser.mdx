@@ -1,0 +1,504 @@
+---
+title: >-
+  Free Open-Source LLM Models That Run in Your Browser: WebGPU, WASM,
+  Quantization
+slug: free-open-source-llm-browser
+description: >-
+  In-browser LLM models: Phi-3, Gemma 2B, TinyLlama. WebGPU/WASM inference, no
+  backend needed, privacy-first architecture. Deploy in March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: LLM Guides
+keywords:
+  - free open source llm models browser
+  - run llm locally browser
+  - webgpu llm inference
+  - phi-3 browser
+  - gemma 2b browser
+  - quantized llm
+---
+
+## Contents
+
+- [Free Open Source LLM Models Browser: Overview](#free-open-source-llm-models-browser-overview)
+- [Browser LLM Fundamentals](#browser-llm-fundamentals)
+- [Top In-Browser Models](#top-in-browser-models)
+- [WebGPU and WASM Inference](#webgpu-and-wasm-inference)
+- [Quantization Explained](#quantization-explained)
+- [Memory and Device Requirements](#memory-and-device-requirements)
+- [Performance Comparison Table](#performance-comparison-table)
+- [Real-World Application Examples](#real-world-application-examples)
+- [Deployment Guide](#deployment-guide)
+- [Limitations and Constraints](#limitations-and-constraints)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Free Open Source LLM Models Browser: Overview
+
+Free open-source LLM models that run directly in browsers via WebGPU (GPU acceleration) or WASM (CPU fallback) eliminate backend costs and keep user data local. No servers. No APIs. No privacy concerns. Phi-3 Mini (3.8B), Gemma 2B, and TinyLlama (1.1B) work well. WebGPU is stable in Chrome and Edge. Firefox needs a flag (`dom.webgpu.enabled = true`). Safari added WebGPU in Safari 18 (2024), though support is still maturing.
+
+Models must be quantized to 4-bit (2-4GB) to fit browser memory. Developers get 50-500ms per token latency-acceptable for chat, not for high-speed batch processing.
+
+---
+
+## Browser LLM Fundamentals
+
+### How It Works
+
+1. **Download quantized model weights** (2-4GB, split into chunks) to IndexedDB or file storage
+2. **Load chunks into memory** progressively as needed
+3. **Execute tensor operations** via WebGPU (GPU) or WASM (CPU)
+4. **Stream tokens** back to the UI without server round-trips
+
+No backend server. No API keys. No rate limits. All computation happens on the user's device.
+
+### Privacy Advantages
+
+User inputs and model outputs never leave the browser. No telemetry. No logging on external servers. Ideal for sensitive documents, medical data, or compliance-heavy workflows.
+
+### Trade-offs
+
+- **Latency:** 50-500ms per token (vs. 10-50ms on cloud GPU)
+- **Throughput:** Single-token generation only (batch inference is browser-hostile)
+- **Interruption:** Browser tab focus loss, low-power mode suspend inference
+- **Memory pressure:** Larger models (>7B) stutter on consumer hardware
+
+---
+
+## Top In-Browser Models
+
+### Phi-3 Mini (3.8B Parameters)
+
+Microsoft's compact model. Built for speed and quality on edge devices.
+
+**Specs:**
+- Parameters: 3.8B
+- Context window: 4,096 tokens
+- Quantized size: 2.0-2.4GB (4-bit, GGUF format)
+- Latency on RTX 4090 (browser): ~40ms per token
+- Latency on M1 MacBook: ~120ms per token
+- Latency on mid-range mobile GPU: ~300-500ms per token
+
+**Strengths:** Fast inference, good reasoning for a 3.8B model, extensive tuning for question-answering. Better quality per parameter than Gemma 2B.
+
+**Weaknesses:** Shorter context than 7B competitors. Smaller dataset means lower instruction-following quality compared to Mistral or Llama 7B.
+
+**Best for:** Browser chatbots, document Q&A, code snippet explanation, customer support bots.
+
+### Gemma 2B
+
+Google's minimal model. Trained on 2 trillion tokens (unusually high for model size).
+
+**Specs:**
+- Parameters: 2B
+- Context window: 8,192 tokens
+- Quantized size: 1.0-1.2GB (4-bit, GGUF)
+- Latency on consumer GPU: ~30-60ms per token
+- Latency on M1: ~100-150ms per token
+- Latency on mobile: ~400ms per token
+
+**Strengths:** Smallest footprint. Instant load time. Works on low-end devices. High token count in training compensates for size.
+
+**Weaknesses:** Weaker reasoning than Phi-3. Fewer instruction-tuned variants. Struggles with code.
+
+**Best for:** Lightweight chatbots, live typing suggestions, content filtering, mobile inference.
+
+### TinyLlama (1.1B Parameters)
+
+Meta-derived model. Smallest viable LLM.
+
+**Specs:**
+- Parameters: 1.1B
+- Context window: 2,048 tokens
+- Quantized size: 0.6-0.7GB (4-bit)
+- Latency on GPU: ~20-40ms per token
+- Latency on CPU: ~80-120ms per token
+
+**Strengths:** Featherweight (fits on any device with 2GB RAM). Instant load.
+
+**Weaknesses:** Minimal reasoning. Poor code understanding. Best for very simple classification and tagging.
+
+**Best for:** Extremes of edge (old phones, IoT), classification, basic filtering.
+
+### Mistral 7B (4-bit Quantized, 3.5-4GB)
+
+Small 7B model. Larger than Phi-3 but still feasible in browsers with aggressive caching.
+
+**Specs:**
+- Parameters: 7B
+- Context window: 32,768 tokens (extended)
+- Quantized size: 3.5-4.0GB (4-bit)
+- Latency on RTX 4090: ~80-100ms per token
+- Latency on M1: ~300-400ms per token
+- Mobile: impractical (stuttering, thermal throttle)
+
+**Strengths:** Strong reasoning, good code quality, long context. First-rate instruction-following.
+
+**Weaknesses:** Large download (first cold start is slow). Requires beefy consumer hardware. Not practical on budget laptops.
+
+**Best for:** Desktop-only applications, technical support, code explanation.
+
+---
+
+## WebGPU and WASM Inference
+
+### WebGPU (GPU Acceleration)
+
+WebGPU is a modern GPU API for browsers. Replaces the deprecated WebGL. Supported on:
+
+- Chrome 113+ (stable)
+- Edge 113+ (stable)
+- Firefox (behind flag, `dom.webgpu.enabled = true`)
+- Safari 18+ (added in 2024, still maturing — test before relying on in production)
+
+**Performance:**
+
+On an RTX 4090 (desktop):
+- Phi-3 Mini: 25 tokens/second (40ms per token)
+- Gemma 2B: 35 tokens/second (28ms per token)
+
+On an M1 (ARM GPU):
+- Phi-3 Mini: 8 tokens/second (125ms per token)
+- Gemma 2B: 10 tokens/second (100ms per token)
+
+**Overhead:** First inference call (GPU memory allocation) adds 1-2 seconds. Subsequent calls are fast.
+
+### WASM (CPU Fallback)
+
+WebAssembly for CPU-only inference. Slower but works everywhere (all browsers, no GPU required).
+
+**Performance:**
+
+On an M1:
+- Phi-3 Mini: 2-3 tokens/second (500ms per token)
+- Gemma 2B: 3-4 tokens/second (300ms per token)
+
+On Intel i7 (4-core):
+- Gemma 2B: 1-1.5 tokens/second (700ms per token)
+
+**Overhead:** Significant (WASM interpreter slower than native). Use WebGPU if available; fall back to WASM for browsers without GPU support.
+
+### Hybrid Approach
+
+Check for WebGPU support. If available, use GPU. If not, fall back to WASM. User sees no difference, except latency on non-GPU browsers.
+
+```javascript
+if (navigator.gpu) {
+  // Use WebGPU
+} else {
+  // Fall back to WASM
+}
+```
+
+---
+
+## Quantization Explained
+
+### 4-Bit Quantization (INT4)
+
+Original model weights are FP32 (32-bit floats). Quantization converts to 4-bit integers.
+
+**Math:**
+
+Original Phi-3 Mini: 3.8B params × 4 bytes = 15.2GB.
+4-bit quantized: 3.8B params × 0.5 bytes = 1.9GB.
+
+**Quality loss:** Minimal. 4-bit quantization introduces ~0.5-1.0% accuracy drop on most benchmarks. For chat, imperceptible.
+
+**Format:** GGUF (Georgi Gerganov Unified Format) is the standard for browser quantized models. Split into segments (e.g., `model-0001-of-0007.gguf`) for streaming load.
+
+### 2-Bit and 1-Bit (Extreme Quantization)
+
+2-bit: 2.5x smaller than 4-bit. ~3-5% accuracy loss. Used for tiny models on very constrained devices.
+
+1-bit: ~2.5GB model compressed to 500MB. Accuracy loss is severe (8-12%). Only viable for simple classification.
+
+### Dynamic Quantization
+
+Some models quantize weights to 4-bit but keep activations in FP16 during inference. Slight quality gain over static 4-bit, similar size.
+
+---
+
+## Memory and Device Requirements
+
+### Minimum Browser Memory by Model
+
+| Model | Size (4-bit) | Min Browser RAM | Min GPU VRAM | Recommended |
+|-------|--------------|-----------------|--------------|-------------|
+| TinyLlama 1.1B | 0.6GB | 2GB | 1GB | 4GB RAM, GPU |
+| Gemma 2B | 1.0GB | 4GB | 1.5GB | 8GB RAM, GPU |
+| Phi-3 Mini | 2.0GB | 6GB | 2.5GB | 8GB+ RAM, GPU |
+| Mistral 7B | 3.5GB | 8GB+ | 4GB+ | 16GB RAM, GPU |
+
+### Device Examples
+
+**M1 MacBook Pro (8GB):** Gemma 2B or TinyLlama smooth. Phi-3 Mini workable with stuttering on first token.
+
+**RTX 4090 Desktop (24GB VRAM):** All models fast. Mistral 7B at 80ms/token. Phi-3 at 40ms/token.
+
+**iPhone 15 Pro (GPU capable):** TinyLlama smooth. Gemma 2B stutters if multiple requests/minute.
+
+**iPhone 12 (older GPU):** TinyLlama only. Gemma 2B too slow for interactive use.
+
+**Budget Android (no GPU):** WASM CPU inference. TinyLlama at 1-2 tokens/second. Mobile inference is impractical for any model >1B.
+
+---
+
+## Performance Comparison Table
+
+| Model | Size | GPU Latency | CPU Latency | Best Device |
+|-------|------|-------------|------------|-------------|
+| TinyLlama 1.1B | 600MB | 20-40ms | 80-150ms | Laptop, phone |
+| Gemma 2B | 1.0GB | 30-60ms | 300-500ms | Laptop, desktop |
+| Phi-3 Mini | 2.0GB | 40-80ms | 400-700ms | Desktop, MacBook |
+| Mistral 7B | 3.5GB | 80-120ms | >1500ms (too slow) | Desktop only |
+
+**Cold Start (first inference):** Add 1-3 seconds for GPU memory allocation and model load from storage.
+
+**Streaming:** Models support token streaming (partial output as tokens arrive). User sees first token in 40-80ms, then tokens trickle in at 20-40ms each.
+
+---
+
+## Real-World Application Examples
+
+### Use Case: Customer Support Chatbot
+
+A SaaS support platform embeds Gemma 2B in the browser. Support agents type questions; the model drafts responses instantly, no API calls, all offline.
+
+**Setup:**
+- Model: Gemma 2B (1.0GB download)
+- Framework: Hugging Face Transformers.js
+- Hosting: Static site, model loaded from CDN on first visit, IndexedDB cached
+
+**Performance:**
+- First load: 3-5 seconds (model download + initialization)
+- Subsequent loads: instant (from browser cache)
+- Inference latency: 80-120ms per token (M1 MacBook)
+- First token latency: 150-200ms
+
+**User experience:** User types question, waits 150-200ms, then sees tokens arrive at 10-12 tokens/second. Feels interactive. Acceptable for a drafting tool.
+
+**Cost:** Zero server infrastructure. Users' browsers do the work. Saves ~$500-1,000/month vs cloud API calls.
+
+**Limitation:** M1 MacBook feels snappy. Budget laptop with Intel CPU feels sluggish (500ms/token). Mobile browsers stall. Not for all users.
+
+### Use Case: Content Classification in the Browser
+
+A content moderation tool uses TinyLlama (0.6GB) to tag user posts as safe/unsafe before they go to human reviewers. All processing client-side, zero latency on the server.
+
+**Setup:**
+- Model: TinyLlama 1.1B
+- Prompt: "Classify this post as safe/unsafe: [text]"
+- Inference: 40-60ms per classification on GPU, 200ms on CPU
+
+**Benefit:** Instant feedback. Users see a preliminary safety flag inline as they type.
+
+**Cost:** Zero server cost. Trade-off: relies on TinyLlama, which is weaker than larger models. Some misclassifications. Acceptable as a first-pass filter (human review is the final gate).
+
+### Use Case: Interactive Research Tool
+
+A researcher builds a tool to explain code snippets. Click a snippet, Phi-3 Mini (2.0GB) generates explanation in-browser.
+
+**Setup:**
+- Model: Phi-3 Mini (2.0GB)
+- System prompt: "You are an expert code explainer. Break down this code for a junior developer."
+- Inference: 40-80ms per token on RTX 4090, 300-500ms on M1
+
+**Performance:** First explanation: ~500ms latency. Second explanation: ~3 seconds (model is loaded, token generation dominates).
+
+**Limitation:** Phi-3 Mini sometimes hallucinates on complex algorithms. For production, Mistral 7B would be better, but requires 3.5GB (stretches browser memory on budget devices).
+
+### Use Case: Offline Documentation Search
+
+A developer downloads documentation and a Gemma 2B model for offline searching. No internet connection needed. Instant results.
+
+**Setup:**
+- Model: Gemma 2B (1.0GB)
+- Documentation: 50 Markdown files (50KB each = 2.5MB)
+- Framework: Transformers.js + static HTML page
+
+**Performance:**
+- Load documentation: instant (static files)
+- Load model: 1-2 seconds (IndexedDB cache after first load)
+- Search query to results: 500ms-2s (inference + matching)
+
+**Use Case:** Airport wifi is slow or unavailable. Developer searches docs offline. Gemma 2B is fast enough to feel responsive.
+
+**Cost:** Zero recurring cost. One-time CDN bandwidth for model hosting (~$5/month for heavy traffic).
+
+### Use Case: Mobile App with Privacy Requirements
+
+A health app uses TinyLlama to analyze user input (symptoms, medications) without sending data to servers. HIPAA compliance: all processing is local.
+
+**Setup:**
+- Model: TinyLlama 1.1B (0.6GB)
+- Device: iPhone 14 Pro (A16 GPU)
+- Framework: WASM (WebGPU not stable on iOS yet)
+
+**Performance:**
+- Inference: ~200-400ms per token (WASM CPU fallback, faster with WebGPU when available)
+- User types symptom, waits 200ms for first token, then reads response
+
+**Privacy:** No data leaves device. No PII sent to servers. Meets HIPAA/GDPR requirements without backend infrastructure.
+
+**Trade-off:** WASM is slow on mobile. Larger models stall the app. TinyLlama is the sweet spot (adequate quality, fast enough on old iPhones).
+
+## Deployment Guide
+
+### Step 1: Choose the Right Model
+
+- Interactive chatbot (desktop): Phi-3 Mini
+- Lightweight mobile support: Gemma 2B
+- Extreme edge (low RAM): TinyLlama
+- Code-heavy use case: Mistral 7B (if desktop only)
+
+### Step 2: Download Quantized Weights
+
+Most models are hosted on Hugging Face in GGUF format. Example:
+
+```bash
+wget https://huggingface.co/microsoft/Phi-3-mini-4k-instruct-gguf/resolve/main/Phi-3-mini-4k-instruct-q4.gguf
+```
+
+Weights are hosted in chunks on CDN. Browser downloads progressively.
+
+### Step 3: Load into Browser
+
+Use a library like `transformers.js` (Xenova) or `ollama.js` for WebGPU/WASM handling.
+
+```javascript
+import { pipeline } from "@xenova/transformers";
+
+const classifier = await pipeline(
+  "text-classification",
+  "Xenova/bert-base-multilingual-uncased"
+);
+const result = await classifier("I love this movie!");
+```
+
+Or for chat:
+
+```javascript
+const text_generation = await pipeline(
+  "text-generation",
+  "Xenova/gpt2"
+);
+const result = await text_generation("Hello, my name is", {
+  max_new_tokens: 50,
+});
+```
+
+### Step 4: Optimize Storage
+
+Use IndexedDB to persist model weights after first download. Subsequent sessions load from local storage (instant).
+
+```javascript
+const options = {
+  cache_dir: "indexeddb://model-cache",
+};
+const model = await pipeline("text-generation", "Xenova/phi-3-mini", options);
+```
+
+### Step 5: Add UI Streaming
+
+Display tokens as they arrive, don't wait for full response.
+
+```javascript
+const stream = await model.generate(prompt, { max_new_tokens: 100 });
+for await (const token of stream) {
+  console.log(token); // Update UI in real-time
+}
+```
+
+---
+
+## Limitations and Constraints
+
+### Latency Not Suitable For Real-Time
+
+50-500ms per token is acceptable for chat (human response time is >200ms anyway) but not for millisecond-critical UX (autocomplete, real-time translation).
+
+### Single-Turn, No Batching
+
+Browser inference is single-request. Concurrent requests (multiple users, batch processing) will stall. Not for production API servers.
+
+### Memory Fragmentation
+
+Long conversations accumulate KV cache in memory. After 100+ tokens, memory pressure increases. No cleanup mechanism. Refresh the page to reset.
+
+### No Multi-GPU
+
+Browser can't split model across multiple GPUs. Max inference is single-GPU performance.
+
+### Thermal Throttling on Mobile
+
+Running inference on phone drains battery fast and triggers thermal throttling. Keep inference short (<50 tokens per request).
+
+### Safari Support Is Partial
+
+Safari 18 (2024) added initial WebGPU support, but coverage remains incomplete. LLM inference libraries may not fully utilize Safari's WebGPU implementation. Test thoroughly before targeting Safari users; a WASM fallback is still advisable for reliable cross-browser support.
+
+---
+
+## FAQ
+
+**Is browser inference secure?**
+
+Yes, more secure than cloud. User data never leaves the device. But remember: malicious JavaScript in the page can still access the model and user inputs. Use HTTPS and verify code before deploying.
+
+**Can I fine-tune models in the browser?**
+
+Technically yes, but impractical. Fine-tuning requires gradient computation and backprop, which is memory-intensive. A single fine-tuning iteration would take minutes. Not recommended.
+
+**How much faster is GPU vs CPU inference?**
+
+10-30x faster. Phi-3 Mini on RTX 4090 GPU: 40ms/token. Same model on i7 CPU: 500ms/token. GPU matters.
+
+**What about proprietary models like GPT-4?**
+
+Cannot run in-browser because they're closed-source and require API keys. You're limited to open-source models.
+
+**Can I serve an in-browser model to multiple users?**
+
+Each user's browser runs the model independently. No shared backend. Great for privacy, bad for cost-sharing. 1,000 users = 1,000 copies of the model downloaded.
+
+**Should I use this for production?**
+
+Browser inference is best for:
+- Privacy-critical chat (healthcare, legal)
+- Offline-first apps (no internet required)
+- Research/prototyping
+- Low-cost demonstration
+
+Not suitable for:
+- High-throughput batch processing
+- Real-time applications (autocomplete, typing-as-you-go)
+- Serving hundreds of concurrent users (bandwidth spike)
+
+**What's the future of browser LLMs?**
+
+WebGPU maturation, larger models via model-sharding, persistent storage improvements. By 2027, expect 13B+ models to be practical in browsers on high-end hardware.
+
+---
+
+## Related Resources
+
+- [Open-Source LLM Directory](/llms)
+- [Open-Source vs Closed-Source LLM Comparison](/articles/open-source-vs-closed-source-llm)
+- [Best Small LLM Models 2026](/articles/best-small-llm)
+- [Best Open-Source LLM Comparison](/articles/best-open-source-llm)
+
+---
+
+## Sources
+
+- [Hugging Face Model Hub](https://huggingface.co/models)
+- [Transformers.js Documentation](https://huggingface.co/docs/transformers.js)
+- [W3C WebGPU Specification](https://www.w3.org/TR/webgpu/)
+- [GGUF Format Specification](https://github.com/ggerganov/ggml)
+- [Phi-3 Mini Model Card](https://huggingface.co/microsoft/Phi-3-mini-4k-instruct)
+- [Gemma 2B Model Card](https://huggingface.co/google/gemma-2b)
+- [TinyLlama Model Card](https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0)

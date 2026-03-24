@@ -1,0 +1,378 @@
+---
+title: 'NVIDIA L40S Cloud Pricing: Where to Rent & How Much It Costs'
+slug: nvidia-l40s-price
+description: >-
+  L40S cloud rental pricing and performance. 48GB GDDR6 for inference on 7B-70B
+  models. Compare L40S to A100 and H100 for cost-effective deployment March
+  2026.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Pricing
+keywords:
+  - nvidia l40s price
+  - l40s cloud rental cost
+  - l40s inference pricing
+  - l40s vs a100 vs h100
+  - l40s where to rent
+---
+
+## Contents
+
+- [Nvidia L40s Price: Overview](#nvidia-l40s-price-overview)
+- [L40S Specifications and Architecture](#l40s-specifications-and-architecture)
+- [Cloud Provider Pricing Summary](#cloud-provider-pricing-summary)
+- [Detailed Provider Breakdown](#detailed-provider-breakdown)
+- [L40S vs A100 vs H100: Use Case Matching](#l40s-vs-a100-vs-h100-use-case-matching)
+- [Inference Workload Performance](#inference-workload-performance)
+- [Cost per Token for LLM Inference](#cost-per-token-for-llm-inference)
+- [Real-World Deployment Scenarios](#real-world-deployment-scenarios)
+- [Multi-GPU Configurations](#multi-gpu-configurations)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## Nvidia L40s Price: Overview
+
+NVIDIA L40S represents an optimal middle ground for inference workloads, offering 48GB GDDR6 memory, Ada Lovelace architecture optimizations, and pricing that makes large-model inference accessible without the cost of A100 or H100 systems. As of March 2026, L40S cloud rental pricing ranges from $0.79/hour on RunPod to $18/hour on CoreWeave 8x systems, making it the most cost-effective GPU for inference on models up to 70B parameters. Unlike training-focused GPUs, L40S prioritizes inference latency and throughput, with mature software support and wide cloud availability across multiple providers.
+
+This guide examines L40S pricing, performance characteristics, and optimal deployment scenarios to help teams select the right inference GPU.
+
+| Aspect | L40S | A100 | H100 | RTX 4090 |
+|--------|------|------|------|----------|
+| **Memory** | 48GB GDDR6 | 80GB HBM2e | 80GB HBM3 | 24GB GDDR6X |
+| **Memory Bandwidth** | 960 GB/s | 2.0 TB/s | 3.35 TB/s | 1.0 TB/s |
+| **Architecture** | Ada (2022) | Ampere (2020) | Hopper (2023) | Ada (2022) |
+| **Tensor Float 32** | 362 TFLOPS | 312 TFLOPS | 1,456 TFLOPS | 179 TFLOPS |
+| **RunPod Hourly** | $0.79 | N/A | $1.99 | $0.34 |
+| **Best For** | Inference | Training/Inference | Large inference | Budget inference |
+| **Llama 70B Inference** | ~45 tokens/sec | ~35 tokens/sec | ~100 tokens/sec | ~8 tokens/sec |
+
+**Key Finding**: L40S at $0.79/hour on RunPod is the most cost-efficient inference GPU for models 7B-70B parameters. For Llama 7B, L40S costs $0.11 per million tokens (at $0.79/hour, 7B models run 9,500 tokens/second). A100 at $1.19 costs $0.13/token. L40S wins on pure economics.
+
+## L40S Specifications and Architecture
+
+L40S is an iteration on the original L40 from NVIDIA's professional GPU lineup. The "S" denotes speed increases and memory upgrades over L40.
+
+**Hardware Specs**:
+
+- 48GB GDDR6 memory (vs A100's 40GB HBM2e)
+- 18,176 CUDA cores
+- 568 tensor cores (TensorFloat32)
+- 960GB/s memory bandwidth
+- 350W power consumption (vs A100's 250W)
+- PCI-E 4.0 x16 interface
+- Release date: 2022 (Ada Lovelace architecture)
+
+The memory is the headline feature. GDDR6 is consumer-grade DRAM; HBM2e (A100) is production-grade. GDDR6 has lower bandwidth (960GB/s vs 2TB/s) but higher latency. For inference workloads that are latency-tolerant and throughput-hungry, GDDR6 is perfectly adequate and costs less.
+
+The 48GB memory footprint enables fitting large open-source models:
+
+- Llama 7B: ~14GB (quantized int8)
+- Llama 13B: ~26GB (quantized int8)
+- Llama 70B: ~140GB (needs 3x L40S or 2x H100)
+- Mistral 7B: ~14GB
+- CodeLlama 34B: ~68GB (fits in 1x L40S at fp16)
+
+Most inference workloads on open-source models fit on 1-2 L40S GPUs. This makes L40S the natural choice for teams avoiding training hardware.
+
+**Power and Cooling**:
+
+L40S draws 350W continuous. Compare to A100's 250W and H100's 700W. Data center power consumption adds 10-15% to hourly costs when providers account for power delivery. L40S's moderate power draw keeps costs down.
+
+Cooling is straightforward. L40S fits standard data center cooling without special arrangements. No liquid cooling required (unlike H100 for dense deployments). This reduces operational complexity.
+
+## Cloud Provider Pricing Summary
+
+| Provider | Configuration | Hourly Cost | Memory Config | Notes |
+|----------|---------------|-------------|---------------|-------|
+| **RunPod** | 1x L40S | $0.79 | 48GB | Spot pricing lower |
+| **Vast.AI** | 1x L40S | $0.70-0.95 | 48GB | Depends on provider |
+| **CoreWeave** | 8x L40S | $144/cluster | 384GB total | $18/GPU equivalent |
+| **Lambda Labs** | 1x L40S | $1.10 | 48GB | Standard on-demand |
+| **Paperspace** | 1x L40S | $1.29 | 48GB | Cloud IDE included |
+| **Crusoe Energy** | 1x L40S | $0.68 | 48GB | Regional (CO/TX) |
+
+**Best Price**: Crusoe Energy at $0.68/hour, though availability is limited to Colorado and Texas. RunPod at $0.79/hour is the accessible leader for most geographies.
+
+**Spot Pricing**: All providers offer spot/interruptible instances at 30-50% discount. RunPod spot L40S pricing drops to $0.35-0.50/hour. Ideal for batch processing, development, and non-critical inference.
+
+## Detailed Provider Breakdown
+
+**RunPod** ($0.79/hour):
+
+RunPod specializes in GPU rental without AWS infrastructure overhead. L40S pricing is competitive. SpotPods (interruptible) cost $0.35-0.50/hour. RunPod handles provisioning in seconds (no cold start penalty like serverless). Developers get SSH/root access, full Docker support, and API-driven automation.
+
+Best for: Development, small-scale production, burst inference.
+
+Considerations: Spot instances terminate without warning. Use for batch processing or failover capacity, not critical interactive inference. On-demand instances are more stable for production.
+
+**CoreWeave** ($18/GPU in 8x clusters):
+
+CoreWeave offers bare metal GPU clusters. The L40S pricing reflects 8 GPUs sold as a cluster with shared power and cooling. Divided by 8, it's $2.25/hour per GPU, but developers pay for all 8 whether using one or eight.
+
+Better value: Reserve the full cluster for multi-model serving or distributed training on consumer models. If developers need 1 GPU, CoreWeave is overpriced. If developers need 4-8, it's reasonable.
+
+Best for: Large-scale inference, distributed workloads, customer isolation (full cluster ownership).
+
+**Vast.AI** ($0.70-0.95/hour):
+
+Community-driven GPU marketplace. Providers post available GPUs; customers bid on hourly rates. L40S pricing varies by provider; averages are $0.70-0.95. Lowest prices but variable quality and support.
+
+Risk: Provider can disconnect the instance at any time (contract breach). More common than major providers but rare with positive-reputation providers. Always maintain fallback capacity.
+
+Best for: Cost-conscious experimentation, non-critical workloads, team training.
+
+**Lambda Labs** ($1.10/hour):
+
+Lambda is a professional GPU cloud with mature support. Pricing is 40% higher than RunPod but offers stability. Lambda instances run indefinitely (no spot-style termination), include volume storage, and have reliable customer support.
+
+Best for: Production inference with SLAs, team deployments requiring support contracts.
+
+**Paperspace** ($1.29/hour):
+
+Paperspace provides cloud IDE and Jupyter integration. Higher cost than RunPod reflects the managed development environment. If developers're running notebooks, the IDE adds value. For headless inference servers, it's overpriced.
+
+Best for: Interactive development, research teams using Jupyter.
+
+**Crusoe Energy** ($0.68/hour):
+
+Crusoe uses stranded energy (oil field flare gas) to power data centers in Colorado and Texas. Lowest L40S pricing ($0.68) reflects commitment to renewable and stranded energy costs. Geographic limitation is the constraint.
+
+Best for: Teams in Mountain West or South, cost-sensitive, accepting geographic limitation.
+
+## L40S vs A100 vs H100: Use Case Matching
+
+The GPU selection question often comes down to these three options.
+
+**L40S ($0.79/hour)**:
+
+Strengths: Cheapest inference, 48GB memory, Ada architecture benefits, mature software support.
+Weaknesses: Lower memory bandwidth than HBM variants, only 18K CUDA cores (vs A100's 20K, H100's 21K).
+
+Best for: Inference on 7B-70B parameter models, batch processing, cost-sensitive deployments.
+
+**A100 ($1.19/hour on RunPod)**:
+
+Strengths: HBM2e memory (2TB/s bandwidth), balance of training and inference, mature ecosystem.
+Weaknesses: 40GB memory (tight for 70B models), older architecture (Ampere), higher cost than L40S.
+
+Best for: Mixed training/inference workloads, large model training, teams preferring proven hardware.
+
+**H100 ($1.99/hour on RunPod)**:
+
+Strengths: HBM3e memory (3TB/s), highest performance, transformer optimization, newest architecture.
+Weaknesses: Expensive, 80GB memory overkill for most inference, highest power consumption.
+
+Best for: Very large models (200B+), performance-critical inference, training of >100B parameter models.
+
+**Decision Matrix**:
+
+- Model size <50B parameters: L40S
+- Model size 50B-200B parameters: A100 or H100 (H100 if latency critical)
+- Model size >200B parameters: H100 or multi-GPU L40S/A100
+- Training workload: A100 or H100 (avoid L40S)
+- Cost optimization primary goal: L40S
+- Performance optimization primary goal: H100
+- Balanced approach: A100
+
+## Inference Workload Performance
+
+Real-world inference performance on L40S:
+
+**Llama 7B (int8 quantization)**:
+
+- Tokens per second: 9,500 (batch of 1)
+- Memory: 14GB
+- Cost per 1M tokens: $0.11 (at $0.79/hour)
+- Latency (single token): 35ms
+
+**Llama 13B (int8 quantization)**:
+
+- Tokens per second: 6,200
+- Memory: 26GB
+- Cost per 1M tokens: $0.16
+- Latency: 45ms
+
+**Llama 70B (fp16, requires 2x L40S with tensor parallelism)**:
+
+- Tokens per second: 1,800 (across 2 GPUs)
+- Memory: 140GB (70GB per GPU)
+- Cost per 1M tokens: $0.88 (2x $0.79)
+- Latency: 150ms
+
+**CodeLlama 34B (fp16, fits on 1x L40S)**:
+
+- Tokens per second: 3,400
+- Memory: 68GB (uses 45GB L40S memory)
+- Cost per 1M tokens: $0.25
+- Latency: 80ms
+
+**Mistral 7B (int8)**:
+
+- Tokens per second: 11,000
+- Memory: 14GB
+- Cost per 1M tokens: $0.09
+- Latency: 30ms
+
+These estimates assume batch size of 1 (single user request). Batching 8 requests together increases tokens/second 5-7x but adds 200-500ms latency. For interactive inference, batch size 1 is appropriate.
+
+## Cost per Token for LLM Inference
+
+The metric teams care about most: cost per million tokens processed.
+
+Calculation: (hourly cost) / (tokens per second) / 3,600 seconds = cost per million tokens.
+
+**L40S Cost per 1M Tokens**:
+
+- Llama 7B: $0.11
+- Llama 13B: $0.16
+- CodeLlama 34B: $0.25
+- Mistral 7B: $0.09
+
+**Compare to API providers** (from [DeployBase pricing](/llms)):
+
+- Anthropic Sonnet 4.6: $3/$15 (input/output)
+- OpenAI GPT-4.1: $2/$8
+- Mistral Large: $2/$6
+- [DeepSeek R1: $0.55/$2.19](/articles/deepseek-pricing)
+
+For high-volume inference (1M+ tokens daily), self-hosting on L40S is 10-20x cheaper than API pricing. DeepSeek R1 APIs are exception (below self-hosted costs due to open-source optimization).
+
+Break-even calculation: How many tokens monthly to justify L40S self-hosting?
+
+- L40S cost: $0.79/hour × 730 hours = $577/month
+- Cost per token: $0.11 (Llama 7B)
+- Monthly tokens for break-even: $577 / ($0.11 / 1M) = 5.2B tokens
+
+5.2 billion tokens monthly is 172M tokens daily. A typical chat application serving 1,000 users, 100 requests each daily = 100K requests × 1,000 tokens average = 100M tokens daily. This application benefits slightly from L40S self-hosting.
+
+For applications <50M tokens monthly, cloud API providers remain cheaper due to overhead.
+
+## Real-World Deployment Scenarios
+
+Theoretical performance metrics don't capture how L40S fits into production systems. Real-world deployments reveal where L40S shines.
+
+**Scenario 1: SaaS Chatbot at $20/user/month**
+
+A B2B SaaS company serves 1,000 users paying $20/month each. Each user averages 50 inference requests daily. Peak usage occurs during business hours (9am-5pm) but averaging across 24 hours, the system processes ~35,000 daily inference requests.
+
+Llama 7B inference at 9,500 tokens/second on L40S. Average request is 1,000 tokens input, 200 tokens output = 1,200 tokens total. 35,000 requests × 1,200 tokens = 42M tokens daily.
+
+Time to process: 42M tokens / 9,500 tokens/sec = 74 minutes of GPU compute daily. Running 24/7, a single L40S (cost $0.79/hour = $18.96/day) gives 1,440 minutes of capacity. L40S achieves 74/1,440 = 5% utilization.
+
+Total cost: $18.96 × 365 = $6,924/year for L40S compute. Divide by 1,000 users: $6.92/user/year = $0.58/user/month. Infrastructure cost is 3% of revenue. Profitable.
+
+**Scenario 2: production Document Summarization**
+
+A financial services firm summarizes earnings reports, SEC filings, and news articles weekly for 500 analysts. Each analyst reviews 10 documents; each document processes through 5 summarization requests = 25,000 requests weekly.
+
+Average document is 8,000 tokens. Summarization requests are shorter (5,000 tokens input + 1,000 output = 6,000 tokens). 25,000 × 6,000 = 150M tokens weekly = 21.4M daily.
+
+Single L40S processes in 21.4M / 9,500 = 2,253 seconds = 37 minutes daily. Cost: $18.96/day = $1.10 per analyst per month. Negligible operational cost.
+
+But the firm also wants model fine-tuning on domain-specific financial language. L40S can fine-tune a LoRA adapter on Llama 7B in ~6 hours. Cost: $0.79 × 6 = $4.74 per fine-tuning run. production value from domain customization easily justifies this.
+
+**Scenario 3: Image Analysis at Scale**
+
+A computer vision company deploys a multi-model system:
+
+- Model 1 (CLIP): 2.5B parameters, 500 token context. Processes images to generate embeddings. 100,000 images daily. Throughput: 2,000 images/second per L40S = 50 seconds processing daily.
+- Model 2 (LLaVA 7B): Visual QA model. 500 image requests daily × 1,500 tokens average = 750,000 tokens. Throughput: 8,000 tokens/sec on L40S = 94 seconds processing daily.
+- Model 3 (Mistral 7B): Text classification on image captions. 50,000 captions × 500 tokens = 25M tokens. Throughput: 10,000 tokens/sec = 2,500 seconds = 42 minutes daily.
+
+Total GPU time required: 50 + 94 + 2,500 = 2,644 seconds = 44 minutes daily. Three L40S GPUs at $2.37/day provide 216 minutes of capacity. Utilization: 44/216 = 20%.
+
+Cost-wise: $2.37/day × 365 = $865/year for three GPUs. With 100,000 images daily (36.5M annually), cost per image = $865 / 36.5M = $0.000024 per image. This is highly economical.
+
+Each scenario shows L40S hitting the sweet spot: high enough performance for single-GPU inference on 7B-13B models, low enough cost to remain economical even at modest utilization rates.
+
+## Multi-GPU Configurations
+
+Some inference workloads benefit from multiple L40S GPUs.
+
+**Tensor Parallelism**:
+
+Split a single model across multiple GPUs. Llama 70B across 2x L40S means each GPU runs partial computations, then synchronizes. Throughput increases <2x (communication overhead) but memory requirement is halved per GPU.
+
+Cost: $1.58/hour (2x $0.79). Throughput improvement: ~1.8x. Cost per token improves 10%.
+
+Worth it: Only if Llama 70B is the primary inference target and latency <300ms is required.
+
+**Model Parallelism**:
+
+Run multiple smaller models on separate GPUs. L40S 1 runs Llama 7B; L40S 2 runs CodeLlama 34B. Throughput is additive. Cost is linear.
+
+Worth it: Always, if serving multiple models. Utilization is higher, cost per request lower.
+
+**Data Parallelism**:
+
+Run identical models on separate GPUs, distribute requests across them. 2x L40S each running Llama 7B handle 2x throughput at 2x cost. Effective when developers have high request volume.
+
+Worth it: Only if request volume exceeds single GPU capacity (>5,000 concurrent tokens).
+
+For most teams: stick with 1x L40S. Complexity of multi-GPU coordination isn't worth the modest throughput gain for typical inference volumes.
+
+## FAQ
+
+### Why is L40S cheaper than A100 when A100 is older?
+
+Pricing reflects demand and supply, not just age. A100 was designed for training (high-bandwidth memory needed). L40S was designed for inference (bandwidth is less critical, latency-tolerant). Inference is higher volume than training, so L40S has better economics. L40S also uses GDDR6 (cheaper) vs HBM2e (expensive).
+
+### Can I train models on L40S?
+
+Yes, but it's inefficient. L40S's lower memory bandwidth (960GB/s vs A100's 2TB/s) makes gradient computation slower. For training, A100 or H100 are better. L40S works for fine-tuning small models (<7B) but not full training of large models.
+
+### What's the difference between L40 and L40S?
+
+L40S and L40 both have 48GB memory. The L40S adds higher clock speeds and improved FP8/INT8 tensor core throughput. Speed difference is ~10-15%. If you find an old L40 for cheaper, take it for inference workloads, but new systems should use L40S.
+
+### Can I run Llama 405B on L40S?
+
+No. Llama 405B at fp16 requires 810GB memory. L40S has 48GB. Even int8 quantization (202GB) exceeds multi-GPU capability without advanced model sharding. Use H100 or multiple A100s with careful partitioning.
+
+### Is spot pricing reliable for production?
+
+No. Spot instances can be terminated with 30 seconds notice. Use on-demand pricing for production, spot for development/batch processing. Major providers (RunPod, Lambda) have dedicated non-preemptible instances to prevent interruptions.
+
+### What inference framework runs best on L40S?
+
+vLLM (vLLM.AI) is optimized for inference on all GPUs including L40S. Supports batching, paged attention, memory optimization. Also consider HuggingFace transformers or TorchServe. All support L40S equally well.
+
+### How much does data transfer cost?
+
+Depends on provider. RunPod charges $0.05/GB for outbound data. A 1GB response costs $0.05 ($0.000000050 per byte). For most inference, data transfer is negligible (<$5/month unless you're downloading 100GB+ monthly).
+
+### Is L40S good for real-time video inference?
+
+Yes, excellent for video (batch of frames). 48GB memory fits ~2000 high-resolution frames simultaneously. Throughput is high (1000+ fps for ResNet50). L40S is competitive with A100 for video inference and much cheaper.
+
+### Can I upgrade my L40S instance to H100?
+
+Yes. Most cloud providers let you terminate one instance and launch another. No vendor lock-in. This is why shopping around for best pricing makes sense.
+
+### What happens if I run out of memory?
+
+Instance crashes with out-of-memory error. Model inference fails. Mitigate by quantizing model, reducing batch size, or upgrading GPU. No graceful degradation; OOM is binary.
+
+## Related Resources
+
+- [H100 Cloud Pricing](/articles/h100-price) - Compare to highest-end GPU
+- [A100 Cloud Pricing](/articles/a100-price) - Compare to balanced GPU
+- [RTX 4090 Cloud Pricing](/articles/rtx-4090-cloud) - Lower-cost alternative
+- [GPU Benchmarking Guide](/articles/gpu-vs-cpu-for-ai) - Comparative performance metrics
+- [LLM Inference Optimization](/articles/what-is-llm-inference) - Maximize throughput on L40S
+- [vLLM Documentation](https://github.com/vllm-project/vllm)
+
+## Sources
+
+- NVIDIA L40S Datasheet (nvidia.com/data-center/l40s, March 2026)
+- RunPod Pricing (runpod.io/pricing, March 2026)
+- CoreWeave Pricing (coreweave.com/pricing, March 2026)
+- Lambda Labs Pricing (lambdalabs.com/service/gpu-cloud, March 2026)
+- Vast.AI Marketplace (vast.AI, March 2026)
+- DeployBase GPU Pricing Data (deploybase.AI, March 2026)
+- Ada Lovelace Architecture (nvidia.com/en-us/architecture/ada, March 2026)
+- vLLM Benchmark Results (vllm.AI, January 2026)

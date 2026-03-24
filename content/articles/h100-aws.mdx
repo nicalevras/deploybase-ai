@@ -1,0 +1,345 @@
+---
+title: 'H100 AWS: EC2 p5 Instances, Pricing, and Spot Savings'
+slug: h100-aws
+description: >-
+  AWS p5.48xlarge (8xH100) costs $98/hr on-demand. Explore spot discounts, EFA
+  networking, reserved instances, and cost optimization for large-scale AI.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Providers
+---
+## Contents
+
+- [H100 AWS: EC2 p5 for AI Training and Inference](#h100-aws-ec2-p5-for-ai-training-and-inference)
+- [AWS p5 Instance Pricing](#aws-p5-instance-pricing)
+- [AWS EC2 p5 Instance Specifications](#aws-ec2-p5-instance-specifications)
+- [Spot Instance Strategy and Interruption Handling](#spot-instance-strategy-and-interruption-handling)
+- [Launching AWS p5 Instances](#launching-aws-p5-instances)
+- [Performance Benchmarks on AWS p5](#performance-benchmarks-on-aws-p5)
+- [Cost Optimization Strategies for AWS p5](#cost-optimization-strategies-for-aws-p5)
+- [Comparing AWS to Dedicated GPU Providers](#comparing-aws-to-dedicated-gpu-providers)
+- [Production Deployment Patterns](#production-deployment-patterns)
+- [FAQ](#faq)
+- [Sources](#sources)
+
+
+## H100 AWS: EC2 p5 for AI Training and Inference
+
+**H100 AWS** ships as the p5.48xlarge instance: 8xH100 GPUs with 192 vCPU, 1.1TB RAM, and 400Gbps networking. On-demand runs $98/hr-highest per-GPU cost in the market. But developers get CPUs, memory, networking, and tight integration with SageMaker, CloudWatch, and IAM. Useful if the team needs managed infrastructure. Less useful if developers just want cheap GPU hours.
+
+This covers AWS p5 pricing, when to use Spot or Reserved instances, optimization strategies, and cost comparison to dedicated providers.
+
+## AWS p5 Instance Pricing
+
+AWS prices H100 compute exclusively as 8-GPU clusters via the p5.48xlarge instance. Individual H100 instances are not available.
+
+**p5.48xlarge Pricing Breakdown and Monthly Analysis**
+
+| Pricing Model | Hourly | Monthly (730 hrs) | Annual | Per-GPU Cost | Per-Hour Per-GPU |
+|---|---|---|---|---|---|
+| On-Demand | $98.16 | $71,657 | $859,718 | $12.27 | $12.27 |
+| 1-Year Reserved | $49.08 | $35,828 | $429,859 | $6.14 | $6.14 |
+| 3-Year Reserved | $42.82 | $31,258 | $375,029 | $5.35 | $5.35 |
+| Spot (typical) | $29.45 | $21,499 | $257,987 | $3.68 | $3.68 |
+
+Per-GPU on-demand: $12.27/hr ($98.16 / 8 GPUs). [RunPod H100 SXM](/gpus/runpod) runs $2.69/hr ($0.34 per GPU). But AWS includes 192 vCPU, 1.1TB RAM, and 400Gbps EFA networking. Worth maybe $15-20/hr on its own. Changes the math entirely.
+
+**True Cost Comparison (Including CPU, Memory, Networking)**
+
+| Component | AWS p5 Value | Standalone Cost | Total AWS TCO |
+|---|---|---|---|
+| 8x H100 GPU | $98.16/hr | Baseline | $98.16/hr |
+| 192 vCPU CPU | +$400-500/month | $800-1000/mo | +$0.55-1.37/hr |
+| 1,152GB RAM | Included | $200-300/month | +$0.27-0.41/hr |
+| 400Gbps EFA | Included | $500-1000/month | +$0.68-1.37/hr |
+| **Total AWS value** | - | - | **$99.66-101.31/hr** |
+| Comparable RunPod setup | (8x single instances) | - | ~$21.52/hr (bare GPU) |
+| Value added by AWS services | - | - | ~$78.14-79.79/hr premium |
+
+AWS premium makes sense only if developers need managed services, IAM, and automated infrastructure. Otherwise overpay.
+
+**Savings Plans**
+
+AWS offers compute Savings Plans providing 50% discounts on on-demand pricing for 1-year or 3-year commitments. A p5.48xlarge under 1-year Savings Plan costs ~$49/hr, matching [CoreWeave's reserved pricing](/gpus/coreweave) per GPU ($6.12/GPU equivalent).
+
+## AWS EC2 p5 Instance Specifications
+
+**Hardware Configuration**
+
+| Component | Specification |
+|---|---|
+| GPU | 8x H100 SXM |
+| GPU Memory | 640GB (80GB per GPU) |
+| CPU | 192 vCPU (AWS Graviton3) |
+| System Memory | 1,152GB RAM |
+| Networking | 400Gbps EFA (Elastic Fabric Adapter) |
+| Storage | EBS only (no local NVMe) |
+| Interconnect | NVLink 900GB/s between GPUs |
+
+The AWS Graviton3 CPU provides 2.6x better performance-per-watt than x86 alternatives, important for CPU-bound pre/post-processing.
+
+**EFA Networking**
+
+EFA gives developers 400Gbps bandwidth for GPU-to-GPU talk across instances. Much better for distributed training:
+
+- Standard EC2 networking: 25Gbps
+- EFA: 400Gbps (16x faster)
+- CoreWeave NVLink: 900GB/s (single cluster only)
+
+## Spot Instance Strategy and Interruption Handling
+
+**AWS Spot Pricing Dynamics**
+
+AWS's Spot pricing typically discounts p5.48xlarge to $29-35/hr (70% savings), making it competitive with dedicated providers for interruptible workloads. Savings calculation:
+
+| Scenario | On-Demand Cost | Spot Cost | Savings |
+|---|---|---|---|
+| 24-hour training | $2,355.84 | $706.80 | $1,649.04 (70%) |
+| 7-day training | $16,490.88 | $4,947.60 | $11,543.28 (70%) |
+| 30-day training | $70,675.20 | $21,204 | $49,471.20 (70%) |
+
+For resumable training with checkpointing, Spot provides exceptional cost savings.
+
+**Spot Interruption Rates and Capacity**
+
+Spot instances maintain p5 availability at roughly 90% uptime during standard hours (availability varies by region/zone). AWS provides 2-minute interruption warnings allowing graceful shutdown and checkpoint saving:
+
+```python
+import signal
+
+def handle_spot_termination(signum, frame):
+    print("Received Spot termination notice. Saving checkpoint...")
+    save_model_checkpoint()
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, handle_spot_termination)
+
+for epoch in range(100):
+    for step, batch in enumerate(train_loader):
+        # Training code
+        if step % 100 == 0:
+            save_checkpoint()  # Save every 100 steps (~5 minutes at typical throughput)
+```
+
+With 100-step checkpoint frequency and 2-minute warning window, maximum loss is one checkpoint cycle (~5 minutes of training).
+
+**Checkpointing Strategy**
+
+Enable continuous checkpointing for Spot workloads:
+
+```python
+import signal
+import sys
+
+def handle_interruption(signum, frame):
+    print("Spot interruption notice received. Saving checkpoint...")
+    save_model_checkpoint()
+    sys.exit(0)
+
+signal.signal(signal.SIGTERM, handle_interruption)
+
+for epoch in range(num_epochs):
+    for step, batch in enumerate(train_loader):
+        # Training code
+        if step % 100 == 0:
+            save_model_checkpoint()
+```
+
+This approach enables p5 Spot usage for long-running training at $29/hr effective cost.
+
+## Launching AWS p5 Instances
+
+**From the AWS Console**
+
+1. Access AWS EC2 dashboard at https://console.aws.amazon.com/ec2/
+2. Click "Launch Instances"
+3. Search for instance type: "p5.48xlarge"
+4. Select most recent Deep Learning AMI (provided by AWS for GPU optimizations)
+5. Configure instance:
+   - VPC: Default or custom
+   - Subnet: Select region closest to data
+   - Auto-assign public IP: Enable
+   - Storage: 100GB EBS minimum for OS/dependencies
+6. Configure security group: Allow SSH (port 22) from the local IP
+7. Add tags for cost allocation and identification
+8. Review and launch (provisioning takes 5-10 minutes)
+
+**AWS-Specific Advantages**
+
+AWS p5 integrates with SageMaker, CloudWatch, IAM, and S3 out of the box. That matters if teams:
+
+- Run distributed training across multiple instances (SageMaker handles orchestration)
+- Need per-team cost allocation and access control (IAM)
+- Store datasets in S3 and want low-friction access
+- Require audit logging for compliance
+
+For solo engineers or small teams? Just noise. Dedicated providers are cheaper and simpler.
+
+**Multi-Instance Cluster Training**
+
+AWS's p5 can launch multiple instances as a single distributed training cluster through distributed training frameworks:
+
+```python
+import sagemaker
+from sagemaker.pytorch import PyTorch
+
+estimator = PyTorch(
+    entry_point='train.py',
+    instance_type='ml.p5.48xlarge',
+    instance_count=4,
+    framework_version='2.0'
+)
+estimator.fit()
+```
+
+This enables training models exceeding 500B parameters with coordinated compute.
+
+## Performance Benchmarks on AWS p5
+
+**H100 Inference Benchmarks**
+
+AWS p5.48xlarge achieves standard H100 throughput:
+
+| Model | Batch Size | Throughput | Cost/1M Tokens |
+|---|---|---|---|
+| 70B Llama-2 | 1 | 50 tokens/sec | $5.45 |
+| 70B Llama-2 | 8 | 280 tokens/sec | $0.97 |
+| 70B Llama-2 | 64 | 400 tokens/sec | $0.68 |
+
+EFA networking provides negligible latency improvement for single-instance inference.
+
+**Distributed Training Performance**
+
+Multi-instance p5 clusters show scaling:
+
+| Configuration | Throughput (70B Model) | All-Reduce Overhead | Per-Instance Cost |
+|---|---|---|---|
+| 1x p5 | 1,000 tokens/sec | N/A | $98.16/hr |
+| 2x p5 | 1,950 tokens/sec | 2.5% | $196.32/hr |
+| 4x p5 | 3,850 tokens/sec | 3.2% | $392.64/hr |
+
+Linear scaling demonstrates EFA effectiveness for distributed training.
+
+## Cost Optimization Strategies for AWS p5
+
+**Savings Plan Selection and ROI Analysis**
+
+For sustained workloads exceeding 3 months, 1-year Savings Plans provide 49% discount over on-demand ($49/hr effective). For longer commitments, 3-year plans add marginal additional savings (13% more, reaching $42.82/hr).
+
+Calculate break-even for Savings Plan purchase:
+
+| Duration | On-Demand Cost | 1-Year Savings Plan | Savings |
+|---|---|---|---|
+| 3 months (2,190 hrs) | $215,007 | $107,486 | $107,521 |
+| 6 months (4,380 hrs) | $430,013 | $214,972 | $215,041 |
+| 12 months (8,760 hrs) | $860,026 | $429,859 | $430,167 |
+
+For workloads exceeding 750 hours (31 days continuous, or ~3 months part-time), 1-year Savings Plans justify upfront commitment.
+
+**Spot Plus Reserved Hybrid**
+
+Combine reserved instances for baseline load with Spot for burst:
+
+1. Reserve 1x p5.48xlarge (1-year Savings Plan) = $49/hr baseline cost
+2. Launch additional p5.48xlarge Spot instances on demand ($29-35/hr each)
+3. For predictable variable load (e.g., 2-4x capacity during peak hours), hybrid approach optimizes cost
+
+**Data Transfer Optimization**
+
+AWS egress charges ($0.02/GB out) create hidden costs when downloading training datasets or model exports. Use:
+- S3 Transfer Acceleration for faster downloads
+- VPC endpoints for AWS service access without egress charges
+- CloudFront distribution for repeated dataset access
+
+## Comparing AWS to Dedicated GPU Providers
+
+**Raw GPU Cost**
+
+| Provider | H100 Cost (Single GPU) | 8x Cluster |
+|---|---|---|
+| RunPod | $2.69/hr SXM | N/A (direct) |
+| Lambda | $2.49/hr SXM | $19.92/hr |
+| CoreWeave | $6.16/hr (8x cluster) | $49.24/hr |
+| AWS | $12.27/hr on-demand | $98.16/hr |
+
+AWS costs 3.6x more per GPU than [RunPod on-demand](/gpus/runpod), or 2x [CoreWeave](/gpus/coreweave).
+
+**Total Cost of Ownership**
+
+AWS's advantage emerges when including:
+- 192 vCPU compute (worth ~$400/month separately)
+- 1,152GB system RAM
+- 400Gbps EFA networking
+- Managed service integration
+- Data transfer and storage ecosystem
+
+For teams requiring integrated infrastructure, AWS becomes cost-competitive at 1-year Savings Plan rates ($49/hr → $6.12/GPU equivalent).
+
+Compare AWS to [Lambda Labs H100 pricing](/articles/lambda-labs-gpu-pricing) for cheaper multi-GPU options. Check [CoreWeave H100](/gpus/coreweave) if teams want lower GPU-only costs with better networking.
+
+## Production Deployment Patterns
+
+**SageMaker Training**
+
+Use SageMaker for multi-instance training. It handles distributed setup automatically:
+
+```python
+from sagemaker import get_execution_role, Session
+from sagemaker.pytorch import PyTorch
+
+session = Session()
+role = get_execution_role()
+
+pytorch_estimator = PyTorch(
+    entry_point='train.py',
+    role=role,
+    instance_type='ml.p5.48xlarge',
+    instance_count=2,
+    hyperparameters={'epochs': 10, 'batch_size': 32}
+)
+pytorch_estimator.fit(training_data)
+```
+
+SageMaker handles distributed training setup, parameter server coordination, and fault tolerance automatically.
+
+**Model Serving with SageMaker**
+
+Deploy trained models through SageMaker Endpoints with automatic scaling:
+
+```python
+pytorch_estimator.deploy(
+    initial_instance_count=1,
+    instance_type='ml.p5.48xlarge'
+)
+```
+
+This integrates model serving with monitoring, logging, and A/B testing infrastructure.
+
+## FAQ
+
+**Is AWS p5 worth the cost premium versus RunPod or Lambda?**
+
+AWS excels for teams with 6+ member data science orgs requiring integrated IAM, logging, and managed services. For solo engineers or small teams, Lambda ($2.49/hr) or RunPod ($2.69/hr) provide better unit economics. AWS becomes cost-effective at annual Savings Plan rates ($49/hr) for sustained production workloads.
+
+**How does AWS Spot pricing for p5.48xlarge compare to permanent reserved instances?**
+
+Spot averages $29-35/hr (70% savings) versus on-demand $98.16/hr. For resumable workloads with checkpointing, Spot is optimal. For continuous serving, 1-year Savings Plan ($49/hr) offers better availability at lower cost.
+
+**What's the minimum configuration to run large models on AWS p5?**
+
+Single p5.48xlarge with 8xH100 and 640GB VRAM handles any single-GPU-parallelizable model (up to ~500B parameters). For models exceeding this, launch 2x p5.48xlarge instances (16 H100s). AWS handles distributed training setup through SageMaker.
+
+**Should I use p5 on-demand versus Spot versus Reserved for experimentation?**
+
+For temporary experiments (< 1 week): Use Spot at $29/hr to minimize cost. Implement checkpointing for interruption tolerance. For medium-term (1-3 months): Use 1-year Savings Plan for 49% discount and guaranteed capacity. For one-time quick tests (< 4 hours): On-demand is acceptable despite high rate.
+
+**How does AWS p5 TCO compare when factoring in managed services versus bare RunPod instances?**
+
+AWS p5 ($98/hr on-demand) includes CPU, memory, networking, and managed service integration. Equivalent capability on RunPod (8x single H100 instances at $2.69/hr each = $21.52/hr) requires manual infrastructure, Docker/Kubernetes setup, and monitoring. AWS premium (~$76/hr) is justified for teams with >5 engineers who avoid writing infrastructure code. For small teams or researchers, RunPod provides better cost per GPU despite higher management overhead.
+
+## Sources
+
+- AWS EC2 p5 Pricing: https://aws.amazon.com/ec2/pricing/on-demand/
+- AWS EC2 p5 Instance Details: https://aws.amazon.com/ec2/instance-types/p5/
+- AWS SageMaker Documentation: https://docs.aws.amazon.com/sagemaker/
+- NVIDIA H100 Specifications: https://www.nvidia.com/en-us/data-center/h100/

@@ -1,0 +1,711 @@
+---
+title: 'NVIDIA Tesla T4 Cloud Pricing: Where to Rent & How Much It Costs'
+slug: tesla-t4-price
+description: >-
+  NVIDIA Tesla T4 cloud pricing: $0.20-0.76/hour. Compare specs,
+  cost-per-inference, T4 vs L4, benchmarks, and when to upgrade to newer GPU
+  architectures.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Pricing
+keywords:
+  - tesla t4 price
+  - tesla t4 cost
+  - t4 gpu pricing
+  - nvidia t4 cloud
+  - t4 specs
+---
+
+## Contents
+
+- [Tesla T4 Price: Overview](#tesla-t4-price-overview)
+- [Tesla T4 Specifications](#tesla-t4-specifications)
+- [Cloud Provider Pricing Comparison](#cloud-provider-pricing-comparison)
+- [Cost-Per-Inference Breakdown](#cost-per-inference-breakdown)
+- [T4 Performance Characteristics](#t4-performance-characteristics)
+- [T4 vs L4: When to Upgrade](#t4-vs-l4-when-to-upgrade)
+- [T4 vs H100: Use Case Differences](#t4-vs-h100-use-case-differences)
+- [Optimization Strategies for T4](#optimization-strategies-for-t4)
+- [Real-World Cost Examples](#real-world-cost-examples)
+- [Detailed T4 vs L4 Performance Data](#detailed-t4-vs-l4-performance-data)
+- [Real-World Cost Scenarios](#real-world-cost-scenarios)
+- [T4 Lifecycle and Replacement Timeline](#t4-lifecycle-and-replacement-timeline)
+- [Alternatives to Consider](#alternatives-to-consider)
+- [T4 Cloud Deployment Deep Dive](#t4-cloud-deployment-deep-dive)
+- [Monitoring T4 Costs and Usage](#monitoring-t4-costs-and-usage)
+- [Migration Path from T4](#migration-path-from-t4)
+- [Monitoring T4 Performance Over Time](#monitoring-t4-performance-over-time)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Tesla T4 Price: Overview
+
+The NVIDIA Tesla T4 remains a popular GPU for machine learning inference in 2026, even as newer architectures emerge. The T4 occupies a specific niche: powerful enough for real-time inference, affordable enough for budget-conscious projects, and widely available across cloud providers.
+
+Understanding T4 pricing requires looking beyond hourly rates. The actual cost depends on inference throughput, batch size, GPU utilization, and provider. This guide breaks down T4 pricing across platforms and helps developers calculate realistic costs for the workload.
+
+As of March 2026, T4 instances range from $0.20 to $0.76 per hour depending on provider and region. For inference-heavy but latency-tolerant workloads, T4 remains competitive against newer options.
+
+## Tesla T4 Specifications
+
+The Tesla T4 represents NVIDIA's Turing architecture, released in 2018. Understanding its capabilities determines whether it fits the workload.
+
+### Hardware Specifications
+
+**GPU Memory:** 16GB GDDR6 memory. Sufficient for most inference models up to 13 billion parameters. Larger models require compression, quantization, or multi-GPU sharding.
+
+**Compute Capability:** 2560 CUDA cores. Peak FP32 throughput reaches 8.1 TFLOPS. INT8 inference throughput reaches 65 TOPS.
+
+**Memory Bandwidth:** 320 GB/s. Modern transformer inference is memory-bandwidth bound. This bandwidth is adequate for moderate batch sizes but becomes limiting at very high throughput.
+
+**Power Consumption:** 70W typical, 75W maximum. Energy efficiency matters for sustained inference workloads.
+
+**Architecture:** Turing generation includes tensor cores optimized for matrix operations. These cores handle the linear algebra underlying neural networks exceptionally well.
+
+**Cooling:** Passive cooling via host system fans. No dedicated cooling. Requires adequate airflow in data centers.
+
+## Cloud Provider Pricing Comparison
+
+### RunPod: $0.25/hour
+
+RunPod offers T4 access at $0.25 per hour for on-demand instances. Regional variations and spot discounts reduce this to $0.15-0.20 for preemptible instances.
+
+**Billing:** Per-second granularity. Stop an instance after 5 minutes and pay only for 5 minutes.
+
+**Availability:** Generally excellent. T4s are common in RunPod's network.
+
+**Support:** Community-focused with limited formal support. Suitable for experienced users.
+
+**Advantages:** Competitive pricing, easy onboarding, Jupyter integration.
+
+### Google Cloud Platform: $0.35/hour
+
+GCP's standard pricing for n1-standard machines with 1xT4 GPU costs $0.35 per hour. Regional pricing varies ($0.28-0.38).
+
+With commitment discounts (1-year or 3-year), pricing drops to $0.21-0.26 per hour.
+
+**Billing:** Per-minute precision.
+
+**Availability:** Highly reliable. GCP maintains substantial capacity.
+
+**Support:** Professional support options available. Suitable for production workloads.
+
+**Advantages:** Reliability, production-grade support, integration with BigQuery and AI services.
+
+### AWS: $0.526/hour
+
+AWS pricing for g4dn.xlarge instances (1xT4) in us-east-1 region is $0.526 per hour. Using spot instances reduces this to $0.15-0.20.
+
+**Billing:** Per-second precision.
+
+**Availability:** Generally available, though occasionally out in specific regions.
+
+**Support:** AWS support infrastructure is extensive. Production-ready.
+
+**Advantages:** Spot instance pricing is exceptionally cheap, broad service ecosystem integration.
+
+### Lambda Labs: $0.30/hour
+
+Lambda Labs offers T4 access at $0.30 per hour. Reserved capacity commitments provide 20-30% discounts.
+
+**Billing:** Per-hour minimum.
+
+**Availability:** Usually available, though smaller provider means less consistent capacity.
+
+**Support:** Responsive support, documentation focused on ML workflows.
+
+**Advantages:** ML-focused pricing, straightforward interface.
+
+### Vast.AI: $0.20-0.30/hour (variable)
+
+Vast.AI operates as a marketplace. T4 pricing ranges from $0.20-0.30 per hour depending on provider and availability. Prices fluctuate based on supply and demand.
+
+**Billing:** Per-minute precision.
+
+**Availability:** Highly variable. Instances may terminate if providers need their hardware.
+
+**Support:** Limited. Community-based assistance.
+
+**Advantages:** Lowest prices, diverse inventory.
+
+### Oracle Cloud: $0.30/hour
+
+Oracle's T4 pricing is $0.30 per hour on-demand. Always-free tier includes limited free compute, but T4 GPUs are not eligible.
+
+**Billing:** Per-minute precision.
+
+**Availability:** Excellent. Oracle maintains high capacity.
+
+**Support:** production support available.
+
+**Advantages:** Integration with database services, consistent pricing.
+
+## Cost-Per-Inference Breakdown
+
+Hourly rates don't directly translate to per-inference costs. Developers must consider throughput.
+
+A T4 GPU can handle different inference throughput depending on:
+
+- Model size and complexity
+- Batch size
+- Precision (FP32 vs FP16 vs INT8)
+- Input/output sizes
+
+### Real-World Example: BERT Inference
+
+BERT (110M parameters) in FP16 precision:
+
+- Batch size 1: ~5ms per inference
+- Batch size 16: ~30ms per 16 inferences
+- Batch size 64: ~90ms per 64 inferences
+
+At $0.25/hour ($0.0000694/second) on RunPod:
+
+**Batch size 1:** 5ms inference = $0.00000035 per inference
+
+**Batch size 16:** 30ms for 16 = $0.000000065 per inference
+
+**Batch size 64:** 90ms for 64 = $0.000000097 per inference
+
+Larger batches reduce per-inference cost but increase latency. Batch size 16 offers balance for most applications.
+
+### Real-World Example: Mistral 7B Inference
+
+Mistral 7B (7 billion parameters) in INT8 quantization:
+
+- Batch size 1: ~50ms per inference
+- Batch size 8: ~200ms per 8 inferences
+
+At $0.25/hour:
+
+**Batch size 1:** 50ms = $0.0000035 per inference
+
+**Batch size 8:** 200ms for 8 = $0.0000006 per inference
+
+Batching dramatically reduces per-inference cost, but latency becomes problematic for real-time applications.
+
+## T4 Performance Characteristics
+
+### Throughput Scaling with Batch Size
+
+T4 throughput scales nearly linearly with batch size until memory or compute saturation. Most models saturate at batch size 32-128.
+
+Beyond saturation, increasing batch size increases latency without throughput improvement.
+
+### Memory Usage
+
+A single transformer model uses:
+
+- Base model weights: (parameters × bytes per parameter)
+- Activation memory: (varies by implementation)
+- Workspace memory: (temporary allocations)
+
+For a 7B parameter model in FP16:
+
+- Weights: 14GB
+- Activations: 1-2GB
+- Total: 15-16GB
+
+The 16GB T4 fits this barely. Batch sizes of 2-4 work. Batch size 8 risks out-of-memory errors.
+
+### Latency vs Throughput Tradeoff
+
+Interactive applications require low latency. Batch size 1 achieves this but at high per-inference cost. Batch size 32 achieves maximum throughput but adds 200-500ms latency.
+
+The application requirements determine optimal batch size.
+
+### Energy Efficiency
+
+T4's 70W power draw is excellent for inference. Running continuously costs roughly $61/month in electricity (at $0.12/kWh).
+
+When comparing total cost of ownership against cloud rental, T4 becomes viable for large-scale inference. A T4 purchased (roughly $2,500) and run for 12 months costs ~$2,800 electricity plus infrastructure. If cloud costs exceed $3,500 annually, ownership breaks even.
+
+## T4 vs L4: When to Upgrade
+
+NVIDIA's L4 GPU, released in 2023, supersedes T4 in many dimensions. Comparing them informs upgrade decisions.
+
+### L4 Specifications
+
+**Memory:** 24GB GDDR6 (vs T4's 16GB)
+**Compute Cores:** 5,120 CUDA cores (vs T4's 2560)
+**Tensor Performance:** 370 teraflops FP32 (vs T4's 260)
+**Memory Bandwidth:** 432 GB/s (vs T4's 320)
+**Power:** 72W (similar to T4)
+
+### Performance Comparison
+
+L4 is roughly 1.3-1.5x faster than T4 for most inference workloads. Inference benefits less from raw compute than training does because inference is typically memory-bound.
+
+L4's advantage is threefold:
+
+1. More memory (24GB vs 16GB) enables larger batch sizes
+2. Higher bandwidth supports larger models
+3. Newer architecture optimizations
+
+### Pricing Comparison
+
+As of March 2026:
+
+**T4:** $0.20-0.35/hour depending on provider
+**L4:** $0.44-0.60/hour typical pricing (higher depending on provider)
+
+L4 costs 1.5-2x more than T4.
+
+### Performance-per-Dollar
+
+For most inference tasks, T4 remains superior on cost-per-inference. L4's benefits justify upgrade cost only if:
+
+- The model is larger than 16GB (can't fit on T4)
+- Developers require batch sizes the T4 can't support
+- The 30-40% speed improvement justifies 50-100% cost increase
+
+For budget-conscious inference, T4 remains the optimal choice through 2026.
+
+## T4 vs H100: Use Case Differences
+
+H100 is NVIDIA's flagship training GPU, currently $1.99-2.69 per hour on RunPod.
+
+### When T4 Beats H100
+
+**Inference efficiency:** T4's power-efficient design is better for sustained inference workloads.
+
+**Cost:** T4 costs 1/10th the price of H100.
+
+**Sufficient capability:** Many models don't need H100's power. T4 handles them adequately.
+
+### When H100 Beats T4
+
+**Training speed:** H100 is 5-10x faster for training. ROI justifies the cost for frequent retraining.
+
+**Large models:** Foundation models (70B+) require H100 memory and bandwidth.
+
+**Research:** Advanced model research demands H100's capabilities.
+
+For pure inference at scale, T4 is almost always more economical. For model training and development, H100 or A100 becomes necessary.
+
+## Optimization Strategies for T4
+
+### Model Quantization
+
+Converting model weights from FP32 to INT8 reduces memory by 4x and often increases speed by 2-3x.
+
+```python
+import torch.quantization as quantization
+
+model_quantized = quantization.quantize_dynamic(
+    model, {torch.nn.Linear}, dtype=torch.qint8
+)
+```
+
+INT8 quantization typically preserves 99%+ accuracy while enabling massive speedups on T4.
+
+### Batch Processing
+
+Instead of single-inference requests, accumulate requests and process them as batches. Batch size 16-32 provides optimal T4 throughput while maintaining acceptable latency for non-real-time applications.
+
+### Model Caching
+
+Load models once and keep them in GPU memory. Repeated inference on the same model avoids loading overhead.
+
+### Mixed Precision
+
+Use FP16 for compute-intensive operations and FP32 for precision-critical sections. This approach balances speed and accuracy.
+
+```python
+with torch.autocast(device_type="cuda"):
+    output = model(input)
+```
+
+## Real-World Cost Examples
+
+### Scenario 1: Embedding Service
+
+Running a BERT-base model for 100,000 daily embeddings:
+
+- Average batch size: 32
+- Latency: 30ms per batch
+- Daily compute time: 100,000 * 30ms / 32 = ~93 seconds
+
+At $0.25/hour RunPod pricing:
+- Daily cost: 93 seconds * ($0.25/3600) = $0.0065
+- Monthly cost: ~$0.20
+
+Adding overhead for idle time (5x), total is ~$1/month. T4 is extremely economical for this workload.
+
+### Scenario 2: Content Moderation
+
+Running toxicity classification on 1 million daily text samples:
+
+- Model: DistilBERT
+- Average batch size: 64
+- Processing time: ~15ms per batch
+- Daily compute time: 1,000,000 * 15ms / 64 = ~234 seconds
+
+At $0.30/hour Lambda pricing:
+- Daily cost: 234 seconds * ($0.30/3600) = $0.0195
+- Monthly cost: ~$0.60
+
+Even high-volume tasks remain inexpensive on T4.
+
+### Scenario 3: Real-Time API Service
+
+Providing inference API with <100ms latency requirement:
+
+- Model: BERT-small, batch size 1
+- Throughput: 200 requests/hour
+- Monthly requests: 144,000
+
+At $0.35/hour GCP pricing:
+- T4 on dedicated 1-hour reservation: $0.35/hour
+- 200 requests × $0.35/hour = $0.00175 per request
+- Monthly cost: $0.35 minimum (reserved) + variable for actual usage
+
+For interactive applications, T4 works but with modest throughput. High-volume APIs need batching or multiple T4s.
+
+## Detailed T4 vs L4 Performance Data
+
+Beyond general comparison, specific benchmarks inform upgrade decisions.
+
+### Computer Vision Models
+
+YOLO v8 inference with image size 640x640:
+
+| Model | T4 FPS | L4 FPS | Speed Gain | Cost Increase |
+|-------|--------|--------|-----------|---------------|
+| Small | 45 | 68 | 51% | 100% |
+| Medium | 22 | 35 | 59% | 100% |
+| Large | 9 | 15 | 67% | 100% |
+
+L4 provides 50-67% speed improvement. Cost doubles. For high-throughput vision pipelines, L4 pays for itself through improved latency.
+
+### Language Model Inference
+
+BERT-base, batch size 1, latency in milliseconds:
+
+| Precision | T4 | L4 | Improvement |
+|-----------|----|----|-------------|
+| FP32 | 8.2ms | 6.1ms | 26% |
+| FP16 | 4.1ms | 2.8ms | 32% |
+| INT8 | 2.1ms | 1.4ms | 33% |
+
+L4's improvements are consistent across precisions. L4 worth the cost for latency-sensitive applications.
+
+### Memory Efficiency
+
+Larger models now fit on L4:
+
+- T4 (16GB): BERT-large, GPT2, distilled models
+- L4 (24GB): GPT-Neo 2.7B, FLAN-T5-XXL, smaller Stable Diffusion
+
+The 50% memory increase removes significant limitations.
+
+## Real-World Cost Scenarios
+
+Detailed case studies show when T4 wins and when L4 is justified.
+
+### Scenario 1: Content Moderation at Scale
+
+Moderation API handling 10 million documents daily:
+
+**With T4:**
+- Batch size 32: 50ms latency per batch
+- Daily compute: 10M docs × 50ms / 32 = ~156 hours
+- At $0.25/hour: $39/day = $1,170/month
+
+**With L4:**
+- Batch size 48: 35ms latency per batch
+- Daily compute: 10M docs × 35ms / 48 = ~81 hours
+- At $0.50/hour: $40.50/day = $1,215/month
+
+Surprisingly close costs. T4 slightly cheaper despite L4's 33% speed improvement. Choose T4 unless latency targets specifically require L4.
+
+### Scenario 2: Real-Time Recommendation Engine
+
+Recommendation API with 1ms response deadline:
+
+**With T4:**
+- Inference latency: 8-12ms
+- Unacceptable. T4 can't meet SLA.
+
+**With L4:**
+- Inference latency: 4-7ms
+- Meets SLA with margin.
+
+**Conclusion:** L4 is mandatory. Cost is irrelevant if T4 can't meet requirements.
+
+### Scenario 3: Batch Image Processing
+
+Processing 500TB monthly image archives:
+
+**With T4:**
+- Throughput: 30 images/sec
+- Monthly processing: 500TB ÷ 0.5MB/image = 1B images
+- At 30 img/sec: ~38 continuous days of GPU time
+- At $0.25/hr: ~$23,000/month
+
+**Potential Optimization:**
+- Run 8 parallel T4s: cost stays ~$23,000
+- Run 8 parallel L4s: cost ~$48,000 (still cheaper tha production solution)
+- Batch size optimization could reduce by 20%
+
+At massive scale, batch optimization matters more than GPU choice. Both work, but optimization is critical.
+
+## T4 Lifecycle and Replacement Timeline
+
+T4 released in 2018. Should teams still be using it in 2026?
+
+**Pros of Continuing T4:**
+- Economics remain good for inference
+- Proven reliability, no surprises
+- Widespread availability
+- Existing tools optimized for T4
+
+**Cons:**
+- Newer architectures (Ada, Hopper) are faster
+- Newer models often target newer GPUs
+- Support eventually ends
+
+**Recommendation:**
+- Keep T4 for cost-sensitive inference workloads
+- Upgrade to L4 for latency-sensitive or heavy batch workloads
+- Plan long-term migration to newer architectures
+
+T4 remains viable through 2027-2028 for standard inference, but don't purchase new hardware expecting long-term support.
+
+## Alternatives to Consider
+
+Before committing to T4 or L4, evaluate alternatives.
+
+### CPU Inference
+
+Modern CPUs handle inference adequately for many models. No GPU cost. Trade latency for cost.
+
+- 1 CPU instance: $10-30/month
+- 1 T4 GPU instance: $180-250/month
+- 1 L4 GPU instance: $350-450/month
+
+CPUs lose decisively on throughput but can make sense for low-traffic scenarios or when latency tolerance is high (batch processing).
+
+### Quantized Models
+
+Quantizing to INT4 or even INT2 sometimes produces acceptable accuracy with 4-8x speedups. May eliminate need for expensive GPUs.
+
+Benchmark first. Not all models tolerate aggressive quantization.
+
+### Distilled Models
+
+Smaller models trained from larger models using knowledge distillation:
+
+- Smaller: fit on cheaper GPUs or CPUs
+- Faster: lower inference latency
+- Cheaper: less compute required
+
+Tradeoff: slight accuracy loss. For many applications, acceptable.
+
+### Specialized Hardware
+
+TPUs (Google), Cerebras, Graphcore offer alternatives to NVIDIA. Availability is limited in cloud, and ecosystem is smaller. Consider for specific use cases where they excel (matrix operations, specific ML frameworks).
+
+## T4 Cloud Deployment Deep Dive
+
+Practical deployment considerations beyond pricing.
+
+### Containerization Best Practices
+
+Package the T4 application in Docker. Standard container startup:
+
+```dockerfile
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+
+RUN pip install torch torchvision
+
+COPY model.onnx /app/
+COPY app.py /app/
+
+WORKDIR /app
+CMD ["python", "app.py"]
+```
+
+- Use nvidia/cuda base image (ensures CUDA compatibility)
+- Pin library versions (reproducibility)
+- Minimize layer count (smaller images)
+- Test locally before cloud deployment
+
+### Orchestration with Docker Compose
+
+For local testing or small deployments:
+
+```yaml
+version: '3'
+services:
+  inference:
+    image: my-t4-app:latest
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+```
+
+The `nvidia` runtime gives container access to GPUs.
+
+### Production Deployment on Kubernetes
+
+For scale, Kubernetes handles orchestration:
+
+Refer to the [Kubernetes for ML guide](/articles/kubernetes-gpu-ml) for detailed production Kubernetes patterns.
+
+## Monitoring T4 Costs and Usage
+
+As of March 2026, T4 instances run costs 24/7 unless stopped. Monitoring is essential.
+
+### Billing Alerts
+
+Set up alerts in the cloud provider:
+
+- Alert if daily cost exceeds $20
+- Alert if monthly projection exceeds $600
+- Alert for unused instances (idle >1 hour)
+
+Most providers support these alerts natively.
+
+### Usage Dashboards
+
+Track metrics:
+
+- Hours used per month
+- Average cost per inference
+- Peak and off-peak usage
+
+Trends reveal optimization opportunities.
+
+### Cost Attribution
+
+Tag instances by project:
+
+```
+Project: recommendation-system
+Team: ml-platform
+Owner: alice@company.com
+Cost-Center: engineering
+```
+
+Aggregate costs by tag. Understand which initiatives are expensive.
+
+## Migration Path from T4
+
+When T4 becomes insufficient, upgrade planning matters.
+
+### Vertical Scaling (Single GPU)
+
+T4 → L4: Same deployment, better performance
+
+T4 → A100: 10x compute improvement, but 5x cost increase
+
+Choose intermediate step (L4) to avoid overcommitting.
+
+### Horizontal Scaling (Multiple GPUs)
+
+Instead of upgrading single GPU:
+
+- 4x T4 (cost: $1/hour, throughput: 4x)
+- 1x A100 (cost: $1.19-1.39/hour, throughput: 8-10x)
+
+A100 often more cost-effective for high throughput.
+
+### Algorithmic Optimization
+
+Before upgrading hardware, optimize algorithm:
+
+- Quantization: 4x speedup
+- Batching: 2-3x throughput improvement
+- Model distillation: 2x speedup with slight accuracy loss
+
+Algorithmic improvements are often better ROI than hardware upgrades.
+
+## Monitoring T4 Performance Over Time
+
+GPU performance degrades subtly. Monitor for changes.
+
+### Benchmark Regression
+
+Run consistent benchmark monthly:
+
+```python
+import time
+import torch
+
+model = load_model()
+data = load_test_data()
+
+start = time.time()
+for _ in range(1000):
+    output = model(data)
+elapsed = time.time() - start
+
+print(f"1000 inferences: {elapsed}s, throughput: {1000/elapsed} inf/s")
+```
+
+Decreasing throughput indicates driver issues, thermal throttling, or hardware degradation.
+
+### Thermal Performance
+
+Monitor GPU temperature:
+
+```bash
+nvidia-smi --query-gpu=index,name,temperature.gpu,power.draw \
+           --format=csv,noheader -l 1
+```
+
+Increasing temperature without load increase suggests cooling degradation.
+
+## FAQ
+
+**Q: Is T4 still worth using in 2026?**
+
+Yes, for inference. T4 costs less than newer GPUs and handles most inference workloads adequately. For training, newer architectures (A100, H100) are preferable.
+
+**Q: Can I run LLMs on T4?**
+
+Smaller LLMs (7B parameters) work in INT8 quantization. Larger models (70B+) require multiple T4s or newer GPUs.
+
+**Q: What's the maximum batch size on T4?**
+
+Depends on model. BERT-base works at batch 64-128. Larger transformers max out at batch 16-32. Very large models fit batch 1-4.
+
+**Q: Should I buy a T4 instead of renting?**
+
+Buy if your inference volume averages >150 hours/month. Rent if <150 hours/month. Break-even is roughly 12 months of continuous use.
+
+**Q: Does T4 support mixed precision training?**
+
+Yes, but it's not optimized for training. A100 or H100 are better choices for training workflows.
+
+**Q: How do I migrate from T4 to L4?**
+
+Model code doesn't change. Just select L4 instances instead of T4 in the cloud provider. Performance improves without code modifications.
+
+**Q: Can multiple GPUs be T4s?**
+
+Yes. Multi-GPU systems using T4s work through standard PyTorch distributed training. NVLink isn't available, so communication happens over PCIe, reducing efficiency compared to newer architectures with NVLink.
+
+**Q: What about used T4 GPUs?**
+
+Used T4s can be purchased for $1,000-1,500 online. At $0.25/hour cloud pricing, payback is roughly 4,000-6,000 hours (4-8 months of continuous use). Makes sense if your usage exceeds 200 hours/month consistently.
+
+## Related Resources
+
+Explore our comprehensive [GPU Cloud Pricing](/gpus) guide comparing all providers and models. For detailed T4 specifications and performance data, see [Tesla T4 Detailed Specs](/gpus/models/nvidia-tesla-t4).
+
+Compare T4 against newer L4 architecture in our [L4 vs T4 Comparison](/articles/l4-vs-t4) guide. For training workload analysis, review our [NVIDIA H100 Price](/articles/nvidia-h100-price) guide.
+
+## Sources
+
+- NVIDIA Tesla T4 Specifications (2026)
+- Cloud Provider Pricing Pages (March 2026)
+- Performance Benchmarks Database (2026)
+- Real-World User Cost Reports (2026)
+- Inference Framework Documentation (PyTorch, TensorFlow 2026)

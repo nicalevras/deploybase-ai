@@ -1,0 +1,577 @@
+---
+title: 'Run AI Locally: Complete Beginner''s Guide to LLMs on Your Machine'
+slug: run-ai-locally
+description: >-
+  How to run LLMs locally using Ollama, LM Studio, and llama.cpp. Hardware
+  requirements, model selection, and performance tips as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: Tutorial
+keywords:
+  - run ai locally
+  - run llm locally
+  - ollama vs llama.cpp
+  - local llm inference
+  - llama.cpp tutorial
+---
+
+## Contents
+
+- [Overview](#overview)
+- [Why Run AI Locally](#why-run-ai-locally)
+- [Hardware Requirements](#hardware-requirements)
+- [Tool Comparison](#tool-comparison)
+- [Installation Guide](#installation-guide)
+- [Model Selection](#model-selection)
+- [Basic Usage](#basic-usage)
+- [Performance Optimization](#performance-optimization)
+- [Troubleshooting](#troubleshooting)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Overview
+
+Running AI models locally lets teams run large language models on their own computers with practical performance. Quantized models (4-bit, 8-bit) fit in 8GB-24GB RAM. Modern tools (Ollama, LM Studio, llama.cpp) abstract away the complexity. Inference speed is real-time: a Llama 2 7B model generates text at 5-15 tokens per second on a laptop.
+
+This guide covers three tools: Ollama (easiest), LM Studio (most user-friendly), llama.cpp (most flexible). Pick one based on the OS and comfort level. No GPU required (though helpful).
+
+---
+
+## Why Run AI Locally
+
+### Privacy
+
+Models run on the machine. Prompts never leave the device. No cloud API, no logs, no third-party access. Critical for sensitive work: legal documents, medical notes, internal code review.
+
+### Cost
+
+Zero recurring costs. Download a model once, run it forever. Compare to OpenAI API: $1.25-$25 per million tokens. For heavy inference (100M+ tokens/month), local inference saves thousands.
+
+### Latency
+
+No network round-trip. Inference is instant (limited by CPU/GPU speed, not network). Interactive use cases (debugging with AI, real-time code suggestions) benefit from sub-second latency.
+
+### Control
+
+Full model control. Modify prompts, combine models, integrate into proprietary systems without API restrictions. Run offline (no internet required).
+
+### Downsides
+
+- Limited by local hardware (smaller models, slower inference than cloud clusters)
+- No access to frontier models (GPT-4, Claude, Grok)
+- Setup complexity (first-time install, dependency management)
+- Maintenance burden (updates, troubleshooting)
+
+---
+
+## Hardware Requirements
+
+### Minimum (Laptop/Desktop)
+
+**For 7B model (4-bit quantized):**
+- 8GB RAM (6GB for model, 2GB overhead)
+- CPU: Intel i7 or equivalent (2020+)
+- No GPU required
+- SSD: 10GB free space
+
+**Performance:**
+- Token generation: 2-5 tokens/second (CPU only)
+- Latency: 200-500ms per token (interactive but slow)
+
+**Cost:** Free (use existing hardware).
+
+**Best for:** Experimentation, privacy-sensitive work, offline use.
+
+### Recommended (Desktop)
+
+**For 13B model (4-bit quantized) or faster 7B:**
+- 16GB RAM
+- GPU: NVIDIA RTX 3060 Ti or better (8GB VRAM)
+- CPU: Any modern CPU (2021+)
+- SSD: 50GB free space
+
+**Performance:**
+- Token generation: 15-30 tokens/second (GPU-accelerated)
+- Latency: 30-60ms per token (smooth, real-time)
+
+**Cost:** Depends on GPU (used: $200-500, new: $500-1000).
+
+**Best for:** Regular use, professional applications, multiple concurrent users.
+
+### Power User (Workstation)
+
+**For 70B model (4-bit) or multiple concurrent models:**
+- 64GB+ RAM
+- GPU: 2x RTX 4090 or NVIDIA H100
+- SSD: 500GB+ free space
+
+**Performance:**
+- Token generation: 50-100 tokens/second (for 70B model)
+- Latency: 10-20ms per token
+
+**Cost:** $3000-10000.
+
+**Best for:** Production inference, large teams, multiple model serving.
+
+### Note on GPUs
+
+NVIDIA GPUs are best supported (CUDA toolkit). AMD GPUs are supported but slower (ROCm). Apple Silicon (M1/M2/M3) is well-supported (Metal acceleration). Intel GPUs are emerging (oneAPI).
+
+For maximum compatibility, test on CPU first. GPU acceleration is optional but dramatically improves speed.
+
+---
+
+## Tool Comparison
+
+### Ollama
+
+**What it is:** Lightweight Docker-like wrapper for running LLMs locally.
+
+**Strengths:**
+- Easiest to install and use (single binary)
+- Works on macOS, Linux, Windows
+- Built-in model manager (download, update, switch)
+- REST API included
+- Excellent documentation
+
+**Weaknesses:**
+- Less control over quantization/parameters
+- Slower than llama.cpp on some hardware
+- Limited to pre-built models
+
+**Installation (macOS):**
+```bash
+# Download the macOS app from ollama.com, then:
+ollama pull llama3
+
+ollama run llama3
+```
+
+**Typical Speed:**
+- 7B model on CPU: 5-10 tokens/sec
+- 7B model on GPU (RTX 3060): 20-30 tokens/sec
+
+**Best For:** Beginners, macOS users, fast prototyping.
+
+### LM Studio
+
+**What it is:** GUI application for running LLMs with minimal setup.
+
+**Strengths:**
+- Beautiful user interface
+- Works on Windows and macOS
+- Download and run models with clicks
+- No terminal knowledge required
+- Built-in chat interface
+- Good memory management
+
+**Weaknesses:**
+- Windows/macOS only (no Linux GUI)
+- Less flexible than llama.cpp
+- Smaller model library than Ollama
+- Higher memory overhead
+
+**Installation (Windows):**
+1. Download LM Studio from lmstudio.AI
+2. Install
+3. Open app, select a model, click "Download"
+4. Click "Start Server"
+5. Chat in built-in interface
+
+**Typical Speed:**
+- 7B model on CPU: 3-8 tokens/sec
+- 7B model on GPU (RTX 3060): 15-25 tokens/sec
+
+**Best For:** Windows users, non-technical users, GUI preference.
+
+### llama.cpp
+
+**What it is:** Lightweight C++ implementation of LLM inference. Most control, most optimization options.
+
+**Strengths:**
+- Fastest performance on CPU and GPU
+- Highly configurable (quantization, batch size, threads)
+- Cross-platform (macOS, Linux, Windows)
+- Minimal dependencies
+- Largest model compatibility
+
+**Weaknesses:**
+- Steepest learning curve (command-line only)
+- Requires compilation or binary download
+- No GUI
+
+**Installation (Linux):**
+```bash
+git clone https://github.com/ggml-org/llama.cpp
+cd llama.cpp
+make
+
+wget https://huggingface.co/...gguf
+
+./main -m model.gguf -n 128 -p "Explain quantum computing:"
+```
+
+**Typical Speed:**
+- 7B model on CPU: 8-15 tokens/sec
+- 7B model on GPU (RTX 3060): 30-50 tokens/sec
+
+**Best For:** Performance optimization, integration into pipelines, experienced users.
+
+### Quick Recommendation
+
+| Skill Level | OS | Recommendation |
+|---|---|---|
+| Beginner | macOS | Ollama |
+| Beginner | Windows | LM Studio |
+| Beginner | Linux | Ollama |
+| Intermediate | Any | llama.cpp |
+| Advanced | Any | llama.cpp |
+
+---
+
+## Installation Guide
+
+### Ollama on macOS
+
+```bash
+# Download and install the macOS app from ollama.com, then:
+ollama pull llama3
+
+ollama run llama3
+```
+
+**Verification:**
+```
+$ ollama run llama3
+>>> What is 2+2?
+4
+
+>>> /bye
+```
+
+### LM Studio on Windows
+
+1. Go to lmstudio.ai
+2. Download Windows installer
+3. Run installer
+4. Open LM Studio
+5. Click "Search Models" (left sidebar)
+6. Search "Mistral 7B"
+7. Click download on first result
+8. Wait for download (5-10 minutes)
+9. Click "Start Server"
+10. Type prompt in chat window, press Enter
+
+**Verification:**
+Chat box displays model response in real-time.
+
+### llama.cpp on Linux
+
+```bash
+git clone https://github.com/ggml-org/llama.cpp
+cd llama.cpp
+make -j4
+
+wget https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/Mistral-7B-Instruct-v0.1.Q4_K_M.gguf
+
+./main -m Mistral-7B-Instruct-v0.1.Q4_K_M.gguf \
+    -n 128 \
+    -p "Explain machine learning in 3 sentences:" \
+    -t 4 \
+    --gpu-layers 50
+```
+
+**Verification:**
+Terminal displays generated text.
+
+---
+
+## Model Selection
+
+### Model Tiers by Size
+
+| Size | Parameters | VRAM (4-bit) | Speed (CPU) | Quality | Best For |
+|------|-----------|------------|------------|---------|----------|
+| Tiny | 3B | 2GB | 15 tok/s | Basic | Learning, prototyping |
+| Small | 7B | 4GB | 8 tok/s | Good | Most use cases |
+| Medium | 13B | 8GB | 4 tok/s | Very Good | Production |
+| Large | 34B | 20GB | 1 tok/s | Excellent | Complex reasoning |
+| XL | 70B | 40GB | 0.5 tok/s | State-of-art | Research, accuracy |
+
+### Recommended Models (as of March 2026)
+
+**General Purpose:**
+- **Llama 3 8B:** Meta's current flagship small model. Fast, accurate, 128K context.
+- **Mistral 7B Instruct:** Lightweight workhorse. Fast, smart, good defaults.
+
+**Coding:**
+- **DeepSeek-Coder 7B:** Code generation, completion, explanation.
+- **CodeLlama 34B:** Better at complex functions, debugging (Llama 2-based).
+
+**Chat/Dialogue:**
+- **Llama 3 8B Instruct:** Natural conversation, follows instructions well.
+- **Mistral 7B Instruct:** Lightweight alternative with solid instruction-following.
+
+**Specialized (Domain):**
+- **Meditron 7B:** Medical question-answering (fine-tuned for healthcare)
+- **WizardLM 13B:** Better reasoning and problem-solving
+
+### Download and Setup
+
+**Ollama:**
+```bash
+ollama pull mistral:7b-instruct
+ollama pull llama3
+ollama pull neural-chat
+```
+
+**LM Studio:**
+Click "Download" in UI. Models auto-download to `~/LM Studio/models/`.
+
+**llama.cpp:**
+```bash
+wget https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/Mistral-7B-Instruct-v0.1.Q4_K_M.gguf
+```
+
+**Model Format Note:**
+Downloads use GGUF format (quantized, optimized for CPU). Not raw weights. GGUF files are 3-5GB for 7B models (4-bit quantization).
+
+---
+
+## Basic Usage
+
+### Ollama Chat
+
+```bash
+ollama run mistral:7b-instruct
+
+>>> What is the capital of Japan?
+Tokyo is the capital of Japan. It's located on the eastern coast of Honshu island and is the largest metropolitan area in the country.
+
+>>> Summarize in one word.
+Tokyo.
+
+>>> /bye
+```
+
+### Programmatic Use (Ollama API)
+
+```python
+import requests
+import json
+
+url = "http://localhost:11434/api/generate"
+
+payload = {
+    "model": "mistral:7b-instruct",
+    "prompt": "Explain machine learning in 3 sentences:",
+    "stream": False,
+}
+
+response = requests.post(url, json=payload)
+result = response.json()
+print(result['response'])
+```
+
+### llama.cpp Command-Line
+
+```bash
+./main -m Mistral-7B-Instruct-v0.1.Q4_K_M.gguf \
+    -p "Q: What is photosynthesis? A:" \
+    -n 150 \
+    -t 4 \
+    --top-k 40 \
+    --top-p 0.9 \
+    --temp 0.7
+```
+
+**Parameters:**
+- `-m`: Model file path
+- `-p`: Prompt
+- `-n`: Number of tokens to generate
+- `-t`: Number of threads (use CPU cores)
+- `--gpu-layers`: Layers to run on GPU (if available)
+- `--temp`: Temperature (higher = more creative)
+
+### LM Studio Server Mode
+
+```bash
+curl -X POST http://localhost:8000/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "mistral-7b-instruct",
+    "prompt": "Explain quantum computing:",
+    "max_tokens": 150
+  }'
+```
+
+---
+
+## Performance Optimization
+
+### CPU-Only Tips
+
+**1. Increase Thread Count**
+```bash
+./main -m model.gguf -t 8  # Use 8 CPU threads
+```
+
+**2. Reduce Batch Size**
+```bash
+./main -m model.gguf -b 32
+```
+
+**3. Lower Quantization (Smaller Model)**
+Use Q4 instead of Q6. 4-bit quantization: ~2GB for 7B model. 6-bit: ~3GB.
+
+**4. Use Smaller Model**
+Trade quality for speed. 7B model is 2-3x faster than 13B, still capable for most tasks.
+
+**5. Pre-allocate Memory**
+```bash
+ulimit -v 16000000  # 16GB
+```
+
+### GPU Acceleration
+
+**NVIDIA (CUDA):**
+```bash
+LLAMA_CUDA=1 make -j4
+
+./main -m model.gguf --gpu-layers 50
+```
+
+**macOS (Metal):**
+```bash
+LLAMA_METAL=1 make -j4
+
+```
+
+**AMD (ROCm):**
+```bash
+LLAMA_HIPBLAS=1 make -j4
+```
+
+### Model Quantization
+
+Use Q4_K_M quantization (4-bit, medium). Best balance of size and quality.
+
+- Q2: Smallest (~1GB for 7B), lowest quality
+- Q4: Small (~4GB for 7B), good quality
+- Q5: Medium (~5GB), very good
+- Q6: Larger (~6GB), high quality
+- Q8: Full precision (~13GB), no loss
+
+For most use cases, Q4_K_M is sufficient.
+
+---
+
+## Troubleshooting
+
+### Out of Memory (OOM)
+
+**Symptom:** Model crashes or becomes extremely slow.
+
+**Solution:**
+1. Use smaller model (7B instead of 13B)
+2. Lower quantization (Q4 instead of Q6)
+3. Reduce batch size (`-b 16`)
+4. Increase system RAM (upgrade hardware)
+
+```bash
+./main -m tiny_model.gguf -b 8 -t 2 -n 50
+```
+
+### Very Slow Inference
+
+**Symptom:** Tokens generate at <1 token/second.
+
+**Likely Cause:** Running on CPU, model too large.
+
+**Solution:**
+1. Enable GPU acceleration (if available)
+2. Reduce number of threads (counterintuitively helps on some systems)
+3. Use smaller model
+
+### Model Downloads Fail
+
+**Symptom:** Download stops mid-way or times out.
+
+**Solution:**
+```bash
+wget --continue https://huggingface.co/.../model.gguf
+
+```
+
+### Segmentation Fault (llama.cpp)
+
+**Symptom:** Binary crashes on startup.
+
+**Solution:**
+1. Update to latest llama.cpp (`git pull && make clean && make`)
+2. Redownload model (may be corrupted)
+3. Check if model matches binary (some versions incompatible)
+
+---
+
+## FAQ
+
+**Do I need a GPU to run models locally?**
+
+No. CPU-only inference works on any modern computer (2020+). GPU is optional, speeds up inference by 5-20x. For 7B models on laptop CPU, expect 3-8 tokens/second. With GPU, expect 20-50 tokens/second.
+
+**Which tool is fastest?**
+
+llama.cpp is fastest (most optimized). Ollama and LM Studio add abstraction layers. On same hardware, llama.cpp generates ~20% more tokens/sec. For casual use, difference is imperceptible.
+
+**Can I run 70B models locally?**
+
+Yes, but requires 40GB+ VRAM or significant CPU RAM. Not practical without a workstation GPU (RTX 4090, H100) or a cluster. For most users, 7B-13B is the practical limit.
+
+**How much does inference cost locally?**
+
+Electricity only. For 1 hour of continuous inference on modern laptop: ~$0.01. GPU adds cost (electricity) but negligible on hobby use. For comparison, OpenAI API: $1.25 per million tokens (~$0.001 per token).
+
+**Can I combine local models with cloud APIs?**
+
+Yes. Use local model for privacy-sensitive work, fall back to cloud API for heavier loads. Many frameworks support this hybrid approach (e.g., Python client that checks local server, falls back to OpenAI).
+
+**Is the quality as good as ChatGPT?**
+
+No. ChatGPT (GPT-4) is better at reasoning, math, complex tasks. Local models (Llama 2 70B, Mistral 7B) are good for text generation, summarization, classification, coding. For research, content creation, customer support, local models are sufficient. For math tutoring, complex reasoning, GPT is better.
+
+**How long does a model take to download?**
+
+7B model: 2-5 minutes (depends on internet speed). 13B: 5-10 minutes. 70B: 30-60 minutes.
+
+**Can I fine-tune a local model?**
+
+Yes. Tools like LoRA allow fine-tuning on single GPU. Requires programming knowledge. Most beginners skip this.
+
+**What about privacy with local models?**
+
+Data stays on device. No cloud upload. But be aware: if you connect to cloud services (integrate with cloud APIs, log analytics), some data may leak. For true privacy, run completely offline.
+
+---
+
+## Related Resources
+
+- [LLM Models Comparison](/llms)
+- [Ollama vs llama.cpp](/articles/llama-cpp-vs-ollama)
+- [LM Studio vs Ollama](/articles/lm-studio-vs-ollama)
+- [Ollama Usage Guide](/articles/how-to-use-ollama)
+
+---
+
+## Sources
+
+- [Ollama Documentation](https://ollama.ai)
+- [LM Studio](https://lmstudio.ai)
+- [llama.cpp GitHub Repository](https://github.com/ggml-org/llama.cpp)
+- [GGUF Model Format Specification](https://huggingface.co/docs/hub/gguf)
+- [Mistral 7B Model Card](https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.1)
+- [Meta Llama 2 Model Card](https://huggingface.co/meta-llama/Llama-2-7b)
+- [NVIDIA CUDA Documentation](https://docs.nvidia.com/cuda/)

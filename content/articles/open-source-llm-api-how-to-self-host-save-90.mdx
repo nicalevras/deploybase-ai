@@ -1,0 +1,297 @@
+---
+title: 'Open Source LLM API: How to Self-Host & Save 90%'
+slug: open-source-llm-api-how-to-self-host-save-90
+description: >-
+  Closed-source APIs (OpenAI GPT-4, Claude, Gemini) charge $0.01-0.03 per
+  thousand tokens. A 70-billion parameter model run 24/7 at 500 req/sec
+  generates.
+date: '2026-03-22'
+author: DeployBase
+---
+
+## Contents
+
+- [Open Source vs. Closed LLM Cost Analysis](#open-source-vs-closed-llm-cost-analysis)
+- [Popular Open Source Models: Feature & Cost Comparison](#popular-open-source-models-feature-cost-comparison)
+- [Self-Hosting Infrastructure Requirements](#self-hosting-infrastructure-requirements)
+- [Model Server Deployment: vLLM vs. TGI vs. Ollama](#model-server-deployment-vllm-vs-tgi-vs-ollamallm)
+- [Cost Comparison: Self-Hosted vs. API](#cost-comparison-self-hosted-vs-api)
+- [Quantization: Reducing Memory Without Quality Loss](#quantization-reducing-memory-without-quality-loss)
+- [API Compatibility & Integration](#api-compatibility-integration)
+- [Production Considerations](#production-considerations)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Open Source vs. Closed LLM Cost Analysis
+
+Closed-source APIs (OpenAI GPT-4, Claude, Gemini) charge $0.01-0.03 per thousand tokens. A 70-billion parameter model run 24/7 at 500 req/sec generates $10,000-15,000 monthly API costs.
+
+Self-hosted open source models on GPU cloud infrastructure cost dramatically less. Running Llama 2 70B on Lambda Labs H100 ($2.86/hour) generates $2,087/month in compute costs (with volume discounts), delivering 80% savings versus proprietary APIs.
+
+Cost reduction enables model customization. Fine-tuning proprietary models costs $0.02-0.08 per token, making specialized variants prohibitive. Self-hosted fine-tuning costs only GPU hours, enabling domain-specific models for legitimate cost differentiation.
+
+As of March 2026, open source models demonstrate competitive capability with proprietary alternatives. Llama 2 70B performs comparably to GPT-3.5-level models. Mistral 8x7B mixture-of-experts architecture delivers near GPT-4 quality at a fraction of the cost.
+
+## Popular Open Source Models: Feature & Cost Comparison
+
+### Llama 2 Series (Meta)
+| Model | Size | Context | Type | Quantized RAM | Speed/sec |
+|-------|------|---------|------|-------|----------|
+| Llama 2 | 7B | 4K tokens | Base | 14 GB | 280 tokens/sec (L4) |
+| Llama 2 Chat | 7B | 4K tokens | Chat | 14 GB | 280 tokens/sec |
+| Llama 2 | 13B | 4K tokens | Base | 26 GB | 180 tokens/sec (A100) |
+| Llama 2 | 70B | 4K tokens | Base | 70 GB | 65 tokens/sec (H100) |
+
+Llama 2 models excel at general-purpose text generation. Chat-optimized variants perform best for conversational AI. Commercial use allowed (unlike Llama 1).
+
+### Mistral Series (Mistral AI)
+| Model | Size | Context | Type | Quantized RAM | Speed/sec |
+|-------|------|---------|------|-------|----------|
+| Mistral 7B | 7B | 32K tokens | Base | 14 GB | 290 tokens/sec (L4) |
+| Mistral Instruct | 7B | 32K tokens | Instruction | 14 GB | 290 tokens/sec |
+| Mistral 8x7B | 47B | 32K tokens | MoE | 48 GB | 185 tokens/sec (A100) |
+
+Mistral prioritizes efficiency and long context. 8x7B mixture-of-experts activates only 2 of 8 expert groups per token, reducing compute 60% versus dense 47B model.
+
+### Qwen Series (Alibaba)
+| Model | Size | Context | Type | Quantized RAM | Speed/sec |
+|-------|------|---------|------|-------|----------|
+| Qwen 7B | 7B | 32K tokens | Base | 14 GB | 280 tokens/sec (L4) |
+| Qwen 14B | 14B | 32K tokens | Base | 28 GB | 140 tokens/sec (A100) |
+
+Qwen emphasizes multilingual performance. Strong Chinese language capability differentiates from English-optimized Llama/Mistral.
+
+### Specialized Models
+| Model | Size | Focus | RAM | Use Case |
+|-------|------|-------|-----|----------|
+| CodeLlama 34B | 34B | Code | 70 GB | Software development |
+| Baichuan 53B | 53B | Chinese | 106 GB | Chinese language priority |
+| SOLAR 10.7B | 10.7B | Efficiency | 22 GB | Constrained environments |
+
+## Self-Hosting Infrastructure Requirements
+
+Minimum infrastructure for production LLM serving:
+
+**For 7B models:**
+- GPU: L4 ($0.35/hour) or RTX 4090
+- vCPU: 4-8 cores
+- RAM: 32 GB minimum
+- Storage: 100 GB for model + cache
+
+**For 13B models:**
+- GPU: A100 or L40S ($0.73-0.79/hour)
+- vCPU: 8-16 cores
+- RAM: 64 GB minimum
+- Storage: 200 GB
+
+**For 70B models:**
+- GPU: [H100 ($1.99-2.86/hour)](/articles/h100-on-google-cloud-pricing-specs-how-to-rent)
+- vCPU: 16-32 cores
+- RAM: 128 GB minimum
+- Storage: 500 GB
+
+Network bandwidth: 500 Mbps minimum for production. Peak load (500 req/sec): 400 Mbps typical.
+
+Load balancing: Multiple GPU instances behind load balancer (nginx, HAProxy) for availability.
+
+## Model Server Deployment: vLLM vs. TGI vs. Ollama
+
+### vLLM (Ray-Transparent Execution)
+vLLM specializes in inference throughput through PagedAttention optimization. Same-client batching reduces memory fragmentation 50%, enabling higher concurrent loads.
+
+Deployment:
+```
+pip install vllm
+python -m vllm.entrypoints.openai.api_server \
+  --model meta-llama/Llama-2-70b-hf \
+  --tensor-parallel-size 2 \
+  --gpu-memory-utilization 0.9
+```
+
+Performance: 40% throughput improvement over standard implementations. Achieves 500+ concurrent users on single H100.
+
+Cost effectiveness: vLLM recommended for production serving. Throughput gains reduce required GPU count, offsetting complexity investment.
+
+### Text Generation Inference (TGI)
+Text Generation Inference by Hugging Face focuses on production safety and compliance. Supports token streaming, dynamic batching, and multi-GPU serving.
+
+Deployment (Docker):
+```
+docker run --gpus all \
+  -p 8080:80 \
+  -e MODEL_ID=meta-llama/Llama-2-70b-hf \
+  -e QUANTIZE=bitsandbytes \
+  ghcr.io/huggingface/text-generation-inference
+```
+
+Performance: 20-30% faster than naive implementation. Suitable for most production workloads.
+
+Community: Extensive documentation and Hugging Face ecosystem integration.
+
+### Ollama
+Ollama simplifies local inference. Single command runs models with minimal configuration.
+
+```
+ollama run llama2:7b
+```
+
+Best for: Development, local testing, non-critical workloads. Unsuitable for production serving due to lack of multi-concurrency optimization.
+
+## Cost Comparison: Self-Hosted vs. API
+
+### Small-Scale Service (100 req/day, 500 tokens avg)
+- Tokens/month: 100 × 500 × 30 = 1.5M tokens
+- OpenAI GPT-3.5: 1.5M × $0.001 = $1,500/month
+- Self-hosted Llama 7B on [L4 ($0.35/hour)](/gpus): $252/month
+- **Savings: $1,248 (83%)**
+
+### Medium-Scale Service (1000 req/day, 1000 tokens avg)
+- Tokens/month: 1000 × 1000 × 30 = 30M tokens
+- OpenAI GPT-4: 30M × $0.03 = $900,000/month (API cost at scale)
+- Self-hosted Llama 70B on [H100 ($1.99/hour)](/articles/h100-on-google-cloud-pricing-specs-how-to-rent): $1,453/month (continuous)
+- **Savings: ~99% vs GPT-4 API at this volume; custom fine-tuning possible**
+
+### Large-Scale Service (10,000 req/day, 2000 tokens avg)
+- Tokens/month: 10,000 × 2,000 × 30 = 600M tokens
+- OpenAI GPT-4: 600M × $0.03 = $18,000/month
+- Self-hosted 4x H100 cluster ($1.99 × 4 = $7.96/hour): $5,813/month
+- **Savings: $12,187 (68%)**
+
+Inflection point: Savings exceed 50% at 10M tokens/month processing (typical at 3,000+ req/day).
+
+## Quantization: Reducing Memory Without Quality Loss
+
+Quantization reduces model precision to lower memory footprint.
+
+| Quantization | Memory Reduction | Quality Loss | Recommendation |
+|--------------|-----------------|-------------|-----------------|
+| Full FP32 | Baseline | 0% | Training, benchmarking |
+| FP16/BF16 | 50% | 0% | Production inference |
+| int8 | 75% | <0.1% | Cost-optimized serving |
+| int4 (GPTQ) | 87.5% | <0.5% | Memory-constrained |
+
+Quantized Llama 2 70B examples:
+- FP32: 140 GB memory requirement
+- FP16: 70 GB (fits single A100)
+- int8: 35 GB (fits dual L40S)
+- int4: 17.5 GB (fits single L4)
+
+Trade-off: int4 quantization reduces throughput 10-15% while cutting memory requirement 8x.
+
+## API Compatibility & Integration
+
+### Drop-In OpenAI Compatibility
+vLLM and TGI provide OpenAI-compatible APIs. Migrate from proprietary APIs with code change:
+
+```python
+from openai import OpenAI
+client = OpenAI(
+    base_url="http://my-instance:8000/v1",
+    api_key="local"
+)
+
+response = client.chat.completions.create(
+    model="llama2",
+    messages=[{"role": "user", "content": "Hello"}]
+)
+```
+
+Identical client code; only endpoint changes. Zero application refactoring required.
+
+### Prompt Format Compatibility
+Llama 2 Chat uses specific prompt format:
+```
+<s>[INST] <<SYS>>
+You are a helpful assistant.
+<</SYS>>
+
+User message [/INST]
+```
+
+Mistral uses different format:
+```
+<s>[INST] User message [/INST]
+```
+
+Model servers handle formatting automatically when using chat completions API.
+
+### Function Calling & Structured Output
+Open source models lack native function calling like GPT-4. Libraries (ollama-function, instructor) add capability through prompt engineering, adding latency.
+
+Workaround: Parse JSON output manually or use constraint sampling to ensure valid structure.
+
+## Production Considerations
+
+### Availability & Monitoring
+Self-hosted models require monitoring. Prometheus metrics for:
+- GPU utilization (target: > 80%)
+- Queue depth (target: < 100 requests)
+- Token/sec throughput (baseline for alerting)
+- Memory usage (target: < 90%)
+
+Set alerts for GPU degradation (< 70% utilization indicates issues).
+
+### Scaling Strategy
+Single GPU instance: RunPod L4 handles 20-50 concurrent users.
+
+Multi-GPU cluster: Load balance across instances. vLLM tensor-parallel speeds scale to 8 GPUs with NVLINK.
+
+Caching layer: Redis-backed semantic cache stores embeddings for common queries. Cache hits return instant results, reducing GPU load 30-40%.
+
+Fallback strategy: Route requests to OpenAI API if self-hosted instances reach capacity. Graceful degradation maintains availability at premium cost.
+
+### Cost Optimization
+Reserve instances during off-peak hours. Batch inference workloads run overnight at discount spot pricing.
+
+Fine-tune models for domain specificity. Custom Llama 2 7B model runs on L4, reducing GPU cost 70% versus generic 70B.
+
+Implement prompt caching. Duplicate system prompts across requests are cached; only unique tokens billed.
+
+## FAQ
+
+**Q: Is open source model quality competitive with GPT-4?**
+
+Llama 2 70B and Mistral 8x7B demonstrate comparable performance on many benchmarks. Specialized proprietary models (Claude, Gemini) may exceed open source on specific tasks.
+
+**Q: Can I commercially use open source models?**
+
+Llama 2, Mistral, Qwen allow commercial use. Always verify specific model license (typically MIT or Apache 2.0).
+
+**Q: How much faster is quantization at inference?**
+
+int8 quantization: 5-10% slower than FP16. int4: 15-25% slower. Throughput trade-off is modest.
+
+**Q: What's the fastest way to serve Llama 2 70B?**
+
+vLLM on H100 with FP16 precision and tensor parallelism across 2 GPUs achieves 150+ tokens/sec.
+
+**Q: Can I fine-tune open source models myself?**
+
+Yes, see [Fine-Tuning Guide](/articles/what-is-fine-tuning-llm). Fine-tuning on L4 costs $70-100 per complete pass through 1M token dataset.
+
+**Q: What happens when open source models are updated?**
+
+New versions download from HuggingFace hub. Old model checkpoints remain available. No forced upgrades.
+
+**Q: Is inference throughput identical across providers?**
+
+No. GPU type matters most (H100 > A100 > L4). Provider network and virtualization overhead: typically < 5% variance.
+
+## Related Resources
+
+[LLM API Pricing](/llms) - Compare commercial APIs
+
+[Fine-Tuning Guide](/articles/what-is-fine-tuning-llm) - Custom model training
+
+[Inference Optimization](/articles/what-is-llm-inference) - Production serving strategies
+
+[Best GPU Cloud for Research Lab](/articles/best-gpu-cloud-for-research-lab-provider-pricing-comparison) - Provider selection
+
+## Sources
+
+- Open Source LLM Benchmarks and Performance Analysis (2026)
+- Llama 2, Mistral, Qwen Official Documentation
+- vLLM and Text Generation Inference Performance Reports
+- Cost Analysis: Open Source vs. Proprietary API (2026 Pricing)
+- Production LLM Deployment Case Studies

@@ -1,0 +1,145 @@
+---
+title: 'Serverless vs Dedicated Containers: LLM Hosting Comparison'
+slug: serverless-vs-dedicated-containers-llm-hosting-comparison
+description: >-
+  Compare serverless and dedicated container approaches for LLM deployment.
+  Analyze cold start, cost, scaling, and production readiness.
+date: '2026-03-22'
+author: DeployBase
+category: Comparison
+---
+
+## Contents
+
+- [Architecture Overview](#architecture-overview)
+- [Architectural Differences](#architectural-differences)
+- [Cold Start Performance](#cold-start-performance)
+- [Cost Analysis](#cost-analysis)
+- [Scaling Characteristics](#scaling-characteristics)
+- [Feature and Complexity](#feature-and-complexity)
+- [Production Readiness](#production-readiness)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Architecture Overview
+
+As of March 2026, Serverless vs dedicated containers. Pick one, and developers're locked in for months. Serverless abstracts away infrastructure but adds latency. Dedicated containers need management but give developers control. This breakdown shows when each makes sense.
+
+## Architectural Differences
+
+Serverless auto-provisions. Dedicated containers need manual management.
+
+Serverless: event-driven, auto-scale, pay-per-execution, 15-minute limit.
+
+Dedicated: always-on, manual scaling, pay-per-hour, no time limit.
+
+## Cold Start Performance
+
+Cold start kills serverless for latency-sensitive apps. Here's the gap.
+
+### Serverless Cold Start
+
+Serverless boots from scratch: container provision (1-2s) + runtime init (1-2s) + model load (5-30s) + request (0.5-2s) = 7-36 seconds total.
+
+Small models (1-7B): 15-20s. Large models (70B): 30+s. Model size, runtime choice, dependencies all affect it.
+
+### Dedicated Container Performance
+
+Always warm. 40-100ms first response. No startup. Memory stays reserved.
+
+Massive difference: dedicated hits 40-100ms. Serverless adds 7-36 seconds.
+
+### Warm Request Performance
+
+After cold start, serverless matches dedicated: 100-150ms. Both roughly identical when warm. Cold start matters only for sparse traffic.
+
+## Cost Analysis
+
+### Pay-Per-Execution vs Always-On
+
+Serverless: $0.01-0.025 per 2-5 second request. Zero when idle.
+
+Dedicated: $2.69/hr regardless. 1000 requests/hr = $0.0027 per request. Developers pay the full hour no matter what.
+
+### Break-Even Analysis
+
+1,000 requests/mo: Serverless $15. Dedicated $1,964. Serverless wins.
+
+100k requests/mo: Serverless $1,500. Dedicated $1,964. Dedicated wins slightly.
+
+1M requests/mo: Serverless $15,000. Dedicated $1,964. Dedicated wins 7.6x.
+
+Break-even: 20-30 requests per minute. Below that, go serverless. Above, go dedicated. Compare [H100 pricing](/articles/h100-price) and specific platforms.
+
+Serverless hidden costs: cold start wastes time (SLA risk), caching needs storage, no discounts. Dedicated hidden costs: idle capacity, reserved commitments, monitoring, on-call overhead.
+
+## Scaling Characteristics
+
+### Horizontal Scaling
+
+Serverless: instant auto-scale, but hits concurrency limits (300-1000). Cold starts during scale-out. Dedicated: manual config, 1-5 minute scale time, load balancing works smoothly.
+
+### Handling Traffic Spikes
+
+Unpredictable spikes? Serverless scales instantly (but cold starts hurt). Predictable spikes? Dedicated wins-scale ahead of time and stay warm.
+
+## Feature and Complexity
+
+Serverless: deploy and forget. But cold start debugging is painful. Time limits force optimization. Proprietary features lock developers in. Limited visibility.
+
+Dedicated: full control, mature monitoring, standard tools. But developers own the infrastructure headaches.
+
+Customization: Serverless limits developers to standard libraries. Dedicated lets developers customize everything-inference code, GPU settings, monitoring. For frameworks, see [vLLM vs alternatives](/articles/vllm-vs-tgi).
+
+## Production Readiness
+
+Serverless: 99.95% SLA, but cold start breaks it. Provider manages hardware but vendor lock-in is real. Dedicated: developers own reliability. Multi-instance HA works. Full observability-Prometheus, Datadog, custom alerts. No vendor lock-in. See [RunPod setup](/articles/runpod-gpu-pricing) for dedicated options.
+
+## FAQ
+
+**Q: When should I use serverless?**
+
+A: Low-traffic apps (under 10 requests/min). Batch processing where latency doesn't matter. Small budgets.
+
+**Q: Should I use dedicated for production?**
+
+A: Yes. Production needs consistent latency and reliable scaling. Dedicated delivers both. Serverless adds cold start unpredictability.
+
+**Q: Can I fix serverless cold start?**
+
+A: Partially. Smaller models, fewer dependencies, pre-warming helps. Never eliminates it. Dedicated still wins for latency apps.
+
+**Q: What about Kubernetes?**
+
+A: Hybrid approach. Manual scaling control with container simplicity. Use when you've outgrown simple dedicated.
+
+**Q: Should I use both?**
+
+A: Yes. Route high-traffic to dedicated, low-traffic to serverless. API gateway picks the path. Saves money while keeping reliability.
+
+**Q: What's cloud-native serverless?**
+
+A: AWS Lambda containers, Cloud Run. Still cold start. Similar pricing. More flexibility than traditional serverless.
+
+**Q: How much does operations matter in total cost?**
+
+A: Serverless cuts ops overhead (worth 20-30% of compute). Dedicated ops costs hide. Total cost often similar after labor.
+
+## Related Resources
+
+- [LLM hosting provider comparison](/articles/llm-hosting-providers-compared-pricing-latency-and-features)
+- [GPU pricing for dedicated infrastructure](/gpus)
+- [RunPod dedicated containers](/articles/runpod-gpu-pricing)
+- [AWS GPU infrastructure](/articles/aws-vs-azure-gpu-pricing)
+- [CoreWeave bare metal options](/articles/coreweave-gpu-pricing)
+- [AI product cost breakdown](/articles/how-much-does-it-cost-to-build-an-ai-product-complete)
+
+## Sources
+
+- AWS Lambda cold start performance metrics
+- Google Cloud Run documentation
+- Dedicated container benchmarks
+- Cost comparison analysis from Serverless Framework
+- Production deployment case studies
+- MLPerf inference benchmark results

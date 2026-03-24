@@ -1,0 +1,238 @@
+---
+title: 'RAG vs Fine-Tuning vs Prompt Engineering: Complete Guide'
+slug: rag-vs-fine-tuning-vs-prompt-engineering-complete-guide
+description: >-
+  Compare RAG, fine-tuning, and prompt engineering for LLM customization.
+  Understand when to use each approach, costs, and implementation complexity.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - rag vs fine tuning vs prompt engineering
+---
+
+## Contents
+
+- [Rag vs Fine Tuning vs Prompt Engineering: Core Approaches](#rag-vs-fine-tuning-vs-prompt-engineering-core-approaches)
+- [Technical Comparison](#technical-comparison)
+- [Cost Analysis](#cost-analysis)
+- [Implementation Complexity](#implementation-complexity)
+- [Decision Framework](#decision-framework)
+- [Hybrid Approaches](#hybrid-approaches)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Rag vs Fine Tuning vs Prompt Engineering: Core Approaches
+
+RAG vs Fine Tuning vs Prompt Engineering is the focus of this guide. Three ways to customize LLMs:
+
+**Prompt engineering**: Instructions at inference. Zero overhead. Immediate.
+
+**RAG**: Fetch docs at inference. Add to context. Vector DB needed.
+
+**Fine-tuning**: Train model weights. High cost upfront. Permanent changes.
+
+Most teams use all three together, not either/or.
+
+## Technical Comparison
+
+**Prompt engineering mechanism:**
+
+Instructions, few-shot examples, and system prompts guide model behavior without internal change.
+
+```
+System: "You are a customer support agent."
+Prompt: "Respond to this query: {user_question}"
+```
+
+Changes apply immediately; no training required.
+
+**RAG mechanism:**
+
+Retrieve relevant documents from vector database; prepend context to prompt.
+
+```
+Query: "What is the refund policy?"
+Retrieved docs: [Policy doc 1, Policy doc 2, ...]
+Prompt: "Based on these policies: {docs}, answer: {user_question}"
+```
+
+Adds network latency (50-500ms retrieval), database cost, but no model modification.
+
+**Fine-tuning mechanism:**
+
+Update model weights on domain-specific training data. Permanently changes model behavior.
+
+```
+Training data: [("input_1", "output_1"), ("input_2", "output_2"), ...]
+Fine-tuned model: weights optimized for domain
+```
+
+Requires thousands to millions of tokens of training data; significant compute cost.
+
+## Cost Analysis
+
+**Prompt engineering:**
+- Design time: 2-40 hours (building good prompts is non-trivial)
+- Infrastructure: LLM API usage only
+- Per-query cost: Full input + output token charges
+- Example (10K queries/month, 2K input + 500 output tokens):
+  - GPT-3.5 Turbo: $150/month
+  - Claude Opus: $300/month
+
+**RAG:**
+- Design time: 20-100 hours (building retrieval system, tuning chunk size)
+- Infrastructure: Vector database + embedding model + LLM API
+- Per-query cost: Retrieval + embedding + LLM generation
+- Example (10K queries/month, 100 retrieved chunks, 2K input + 500 output):
+  - Vector database (Qdrant self-hosted): $50/month
+  - Embedding API (OpenAI): $2/month
+  - LLM API (GPT-3.5 Turbo): $150/month
+  - Total: $202/month
+
+**Fine-tuning:**
+- Design time: 40-200 hours (data collection, curation, training setup)
+- Infrastructure: GPU compute for training
+- Upfront investment: Training cost (one-time)
+- Per-query cost: Reduced API cost (fine-tuned model is typically cheaper)
+- Example (Llama 2 7B fine-tune on 10K examples):
+  - A100 rental: 100 hours at $1.19/hour = $119
+  - LoRA weights storage: <1GB = <$1/month
+  - Inference cost (self-hosted): $50-100/month (reduced API costs)
+  - Total first month: $169 (high); subsequent months: $50-100 (low)
+
+**Breakeven analysis:**
+
+For 10K monthly queries:
+- Prompt engineering: $150-300/month (stable)
+- RAG: $200/month (stable)
+- Fine-tuning: $169 first month, $50 subsequent months
+
+Fine-tuning breaks even after 5-7 months; RAG is cheaper upfront but stable long-term; prompt engineering is perpetually expensive but simplest.
+
+At 100K monthly queries:
+- Prompt engineering: $1,500-3,000/month
+- RAG: $2,000/month
+- Fine-tuning: $300-600/month (after amortizing training cost)
+
+Fine-tuning dominates at scale.
+
+## Implementation Complexity
+
+**Prompt engineering:**
+- Skill level: Low (basic writing, prompt design)
+- Development time: Days to weeks
+- Iteration speed: Minutes (test new prompts immediately)
+- Versioning: Simple (save prompt text)
+- Rollback: Instant (revert to previous prompt)
+
+Entry barrier: Lowest. Anyone can write prompts.
+
+**RAG:**
+- Skill level: Intermediate (vector databases, embeddings, API integration)
+- Development time: Weeks to months (building retrieval pipeline)
+- Iteration speed: Hours (requires reindexing documents)
+- Versioning: Moderate (document versions, index versions)
+- Rollback: Manual (requires reindexing previous doc versions)
+
+Entry barrier: Moderate. Requires DevOps and ML knowledge.
+
+**Fine-tuning:**
+- Skill level: Advanced (training, hyperparameter tuning, optimization)
+- Development time: Weeks to months (data collection, training setup)
+- Iteration speed: Slow (hours to train per iteration)
+- Versioning: Complex (model checkpoints, training data versions)
+- Rollback: Slow (restore from checkpoint, retrain if needed)
+
+Entry barrier: Highest. Requires ML expertise and patience.
+
+## Decision Framework
+
+**Use prompt engineering when:**
+- Response requirements change frequently (customer support variations)
+- Data is small or already integrated in prompts (few-shot examples)
+- Quick iteration is critical (A/B test different instructions daily)
+- Team lacks infrastructure expertise
+- Cost is secondary to simplicity
+
+**Use RAG when:**
+- Knowledge is large (thousands of documents, continuously updated)
+- Up-to-date information is critical (pricing, policies, FAQs)
+- Response freshness matters (real-time documents vs stale training)
+- Model modification is acceptable
+- Privacy is critical (keep documents separate, audit retrieval)
+
+**Use fine-tuning when:**
+- Behavioral change is structural (domain reasoning, style, format)
+- Cost matters at scale (10K+ monthly queries)
+- Response consistency is critical (format, tone, specific patterns)
+- Model ownership is important
+- Training data reflects desired output distribution
+
+**Combination approach:**
+Most production systems use all three:
+- Prompt engineering: System role, output format, few-shot examples
+- RAG: Domain knowledge and current information
+- Fine-tuning: Core reasoning and style patterns
+
+Example: Customer support chatbot
+- Fine-tuned on support response patterns (1K examples)
+- RAG retrieves from FAQ database and ticket history
+- Prompt engineering provides system role ("You are helpful, concise")
+
+Visit [/tools](/tools) for RAG frameworks and fine-tuning platforms.
+
+## Hybrid Approaches
+
+**Fine-tuning + RAG:** Fine-tune on domain-specific patterns; use RAG for recent data.
+
+Advantage: Best of both. Fine-tuned model understands domain; RAG provides current information.
+
+Example: Medical chatbot fine-tuned on medical terminology; RAG retrieves latest clinical guidelines.
+
+**Prompt engineering + fine-tuning:** Prompt guides output format; fine-tuned model understands domain.
+
+Advantage: Simple prompt logic; fine-tuned reasoning. Better separation of concerns.
+
+Example: Code generation tool fine-tuned on target codebase; prompt specifies desired function signature.
+
+**Three-layer stack:** Prompt engineering layer (instructions), fine-tuning layer (domain), RAG layer (external knowledge).
+
+Advantage: Flexible. Modify any layer without retraining others.
+
+Disadvantage: Complex to maintain and debug interactions between layers.
+
+## FAQ
+
+**Should I fine-tune or use RAG for customer support?**
+
+Use RAG for knowledge-heavy, frequently-updated content (FAQs, policies). Fine-tune if response patterns or tone is critical. Most customer support systems use both: fine-tuned for conversational quality, RAG for policy retrieval.
+
+**Can prompt engineering solve domain adaptation without fine-tuning?**
+
+Partially. Few-shot prompting (examples in prompt) handles simple adaptation. Complex reasoning requires fine-tuning. Break-even is roughly 500-1K in-context examples; beyond that, fine-tuning is cleaner.
+
+**How much training data is needed for fine-tuning?**
+
+Minimum 100-500 examples for meaningful improvement. Quality exceeds quantity; 500 curated examples > 5,000 noisy examples. 2,000-10,000 examples yield strong results.
+
+**Is RAG just lazy fine-tuning?**
+
+Philosophically, yes. Practically, no. RAG is faster to implement, handles dynamic data better, and provides audit trails. Fine-tuning is cheaper at scale, produces smaller models, and enables custom reasoning. Choose based on requirements, not laziness.
+
+**What if I use RAG with out-of-domain documents?**
+
+Retrieval becomes unreliable. Vector search finds plausible-but-wrong documents. Garbage in, garbage out. RAG quality depends heavily on document quality and chunking strategy.
+
+## Related Resources
+
+- [/tools](/tools) - Vector database and RAG framework comparisons
+- [/articles/rag-vs-fine-tuning](/articles/rag-vs-fine-tuning)
+- [/articles/rag-infrastructure-cost](/articles/rag-infrastructure-costs-gpu-storage-api-pricing-guide)
+
+## Sources
+
+- OpenAI fine-tuning documentation: https://platform.openai.com/docs/guides/fine-tuning
+- Anthropic prompt engineering guide: https://docs.anthropic.com/claude/reference/prompt-engineering
+- LangChain RAG documentation: https://python.langchain.com/docs/use_cases/question_answering/
+- Stanford CS225 LLM survey: https://arxiv.org/abs/2308.04912

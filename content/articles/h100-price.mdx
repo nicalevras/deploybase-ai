@@ -1,0 +1,432 @@
+---
+title: 'NVIDIA H100 Cloud Pricing: Where to Rent & How Much It Costs'
+slug: h100-price
+description: >-
+  H100 cloud rental pricing: RunPod $1.99-$2.69/hr, Lambda $2.49-$2.86/hr,
+  CoreWeave 8xH100 $49.24/hr. Compare providers as of March 2026. Updated March
+  2026.
+date: '2026-03-22'
+author: DeployBase
+category: Price Guide
+keywords:
+  - h100 price
+  - h100 cloud pricing
+  - h100 rental cost
+  - where to rent h100
+  - h100 hourly rate
+---
+
+## Contents
+
+- [H100 Price: H100 Pricing Overview](#h100-price-h100-pricing-overview)
+- [Provider Pricing Table](#provider-pricing-table)
+- [Form Factor Breakdown](#form-factor-breakdown)
+- [Multi-GPU Cluster Pricing](#multi-gpu-cluster-pricing)
+- [Cost Analysis By Workload](#cost-analysis-by-workload)
+- [Cost Optimization Strategies](#cost-optimization-strategies)
+- [Provider Feature Comparison](#provider-feature-comparison)
+- [Buy vs Rent Analysis](#buy-vs-rent-analysis)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## H100 Price: H100 Pricing Overview
+
+H100 Price is the focus of this guide. RunPod: $1.99-2.69/hr per GPU. Lambda: $2.49-2.86/hr. PCIe is 25-35% cheaper than SXM. Monthly runs $1,450-2,760/GPU. Annual commitments save 30-40%.
+
+---
+
+## Provider Pricing Table
+
+| Provider | GPU | VRAM | Form Factor | $/GPU-hr | Monthly (730h) | Annual (8,760h) |
+|----------|-----|------|-------------|----------|----------------|-----------------|
+| **RunPod** | H100 | 80GB | PCIe | $1.99 | $1,453 | $17,426 |
+| **RunPod** | H100 | 80GB | SXM | $2.69 | $1,964 | $23,572 |
+| **Lambda** | H100 | 80GB | PCIe | $2.86 | $2,088 | $25,056 |
+| **Lambda** | H100 | 80GB | SXM | $2.49 | $1,818 | $21,812 |
+| **CoreWeave** | H100 (8x) | 640GB | Clustered | $49.24 | $35,945 | $431,344 |
+
+Data: DeployBase tracking (March 21, 2026). All prices on-demand, no commitment.
+
+**Quick answer:** RunPod H100 PCIe is the cheapest entry point at $1.99/hr. CoreWeave 8x H100 cluster is the only option for pre-built, NVLink-connected training clusters at scale.
+
+---
+
+## Form Factor Breakdown
+
+### PCIe vs SXM
+
+**PCIe variant (H100 PCIe):**
+- Fits standard x16 PCIe slots
+- Works in consumer-grade server motherboards
+- No NVLink (only PCIe Gen5, ~800 GB/s between GPUs)
+- Runs cooler (lower power envelope)
+- Cheaper to integrate into heterogeneous servers
+- Best for: single-GPU deployments, inference, non-distributed training
+
+Price: $1.99/hr (RunPod), $2.86/hr (Lambda)
+
+**SXM variant (H100 SXM):**
+- Custom module, requires SXM socket on compute module
+- NVLink interconnect (900 GB/s per GPU, 7.2 TB/s aggregate across 8 GPUs)
+- Tighter power and cooling constraints
+- Must deploy in dedicated HGX or DGX pods
+- Best for: distributed training, large batch sizes, multi-GPU synchronization
+
+Price: $2.69/hr (RunPod SXM), $2.49/hr (Lambda SXM) / $2.86/hr (Lambda PCIe)
+
+**Cost delta:** SXM is 35% more expensive than PCIe. If clustering GPUs for training, SXM's NVLink bandwidth pays for the premium (3x synchronization speed). For single-GPU inference, PCIe saves money.
+
+### NVL (NVLink-capable) Variant
+
+NVIDIA released H100 NVL in 2024. Pairs two 94GB dies on one package (188GB shared HBM3e). Single-socket deployment with memory capacity of a small cluster.
+
+Availability: not yet common in cloud. CoreWeave and Lambda testing. Pricing: TBD, likely $4.50-$6.00/hr when widely available.
+
+---
+
+## Multi-GPU Cluster Pricing
+
+### 2x H100 SXM (NVLink-connected)
+
+Use case: fine-tuning larger models, distributed inference.
+
+**RunPod 2x H100 SXM Pod:**
+- Price: $5.38/hr (2 GPUs, $2.69/ea)
+- Monthly: $3,927
+- Annual: $47,128
+
+**Lambda 2x H100 SXM Pod:**
+- Price: $4.98/hr ($2.49/ea)
+- Monthly: $5,519
+- Annual: $66,216
+
+### 8x H100 SXM (NVLink, full training cluster)
+
+Use case: pretraining large models, 70B+ parameters.
+
+**RunPod 8x H100 SXM Pod:**
+- Price: $21.52/hr (all 8 cores, $2.69/ea)
+- Monthly: $15,710
+- Annual: $188,563
+
+**Lambda 8x H100 SXM Pod:**
+- Price: $19.92/hr ($2.49/ea)
+- Monthly: $22,075
+- Annual: $264,866
+
+**CoreWeave 8x H100 (purpose-built pod):**
+- Price: $49.24/hr (entire pod, optimized interconnect)
+- Monthly: $35,945
+- Annual: $431,344
+
+CoreWeave's 8x H100 is 2.3x more expensive per hour but includes optimized cluster scheduling, pre-integrated software stack, and guaranteed low-latency NVLink (no contention). For production training pipelines (e.g., daily model updates), the premium buys reliability.
+
+For R&D or one-off training runs, RunPod is better economics. For production SLAs, CoreWeave's pricing includes the reliability margin.
+
+---
+
+## Cost Analysis By Workload
+
+### Single-GPU Inference (Serving a 70B Model)
+
+Model: Llama 2 70B, quantized to 4-bit, batch size 32.
+
+**A100 PCIe:**
+- Throughput: 280 tokens/sec
+- Cost per million tokens: (1M tokens / 280 tok/s) / 3,600 sec/hr × $1.19/hr = $1.19
+
+**H100 PCIe:**
+- Throughput: 850 tokens/sec
+- Cost per million tokens: (1M tokens / 850 tok/s) / 3,600 sec/hr × $1.99/hr = $0.65
+
+**Conclusion:** H100 is 45% cheaper per million tokens despite higher hourly rate. Pay more per hour, complete work faster.
+
+### 8x H100 Training (1T Token Pretraining)
+
+Model: 70B parameter transformer, 1 trillion token pretraining run.
+
+**Cluster:** 8x H100 SXM (NVLink), RunPod
+- Throughput: 1,350 samples/sec (batch 128 across cluster)
+- Time to 1T tokens: 740,000 seconds = 9.2 days
+- Cost: $2.69/hr × 8 GPUs × 221 hours = $4,757
+
+**Cost breakdown:**
+- Compute only: $4,757
+- I/O and data staging (estimate): +$500-$1,000
+- Total: ~$5,257
+
+Cost per token trained: $5,257 / 1T tokens = $0.0000053 per token.
+
+For context: hiring a team to build and optimize a 70B model from scratch costs $2M+. Cloud training cost is 0.26% of labor cost. Worth doing.
+
+### Fine-Tuning (LoRA, 7B Model)
+
+Model: Mistral 7B, quantized, LoRA rank 16, 100K training examples.
+
+**Single H100 PCIe:**
+- Training time: 6-7 hours
+- Cost: 6.5 hours × $1.99/hr = $12.94
+- Cost per example: $12.94 / 100K = $0.000129
+
+For comparison: A100 would take 18 hours at $1.19/hr = $21.42. H100 costs 39% less (due to 2.8x speedup).
+
+---
+
+## Cost Optimization Strategies
+
+### Strategy 1: Spot Instances
+
+RunPod offers spot pricing for H100 (unused capacity, can be evicted). Discount: 40-60% off on-demand.
+
+Spot H100 PCIe: $0.80-$1.20/hr (vs $1.99 on-demand)
+Spot H100 SXM: $1.08-$1.61/hr (vs $2.69 on-demand)
+
+**Trade-off:** workload can be interrupted with 10-30 minute notice. Good for: batch training, fine-tuning, inference jobs with checkpoints. Bad for: live serving, interactive development.
+
+Cost savings: 40% per month with spot. Risk: must handle eviction gracefully.
+
+**Spot usage patterns:** batch training with checkpoints saves 50%+ over on-demand. A 1-week training run with daily checkpoints costs $21.52/hr × 168 hrs = $3,615 on-demand. Same run on spot (assume 50% effective rate due to interruptions): ~$1,800. The tradeoff: resume training 3-5 times due to evictions. Each resume adds 30 minutes overhead. Net savings still favor spot.
+
+### Strategy 2: Reserved Capacity (Annual Commitment)
+
+Google Cloud TPU offers 3-year reserved at 65% discount. NVIDIA GPU cloud providers (RunPod, Lambda) don't widely advertise multi-year discounts, but negotiate for:
+- 1-year commitment: 15-20% discount
+- 2-year commitment: 25-30% discount
+- 3-year commitment: 35-40% discount
+
+Applied to 8x H100 SXM cluster:
+- On-demand: $21.52/hr
+- 1-year reserved (20% estimated): $17.22/hr
+- 3-year reserved (40% estimated): $12.91/hr
+
+Annual costs (730 hours/month):
+- On-demand: $21.52 × 730 × 12 = $188,563
+- 1-year reserved: $125,981 (saves $62,582)
+- 3-year reserved (annualized): $92,471 (saves $96,092)
+
+Caveat: locked into one provider for 3 years. Risky if provider changes pricing or quality. For teams committing to a single cloud provider long-term (mature production pipelines), the savings justify the risk.
+
+### Strategy 2.5: Blended Commitment Strategy
+
+Mix on-demand and reserved to hedge risk.
+
+Example: 8x H100 cluster for production training
+- 50% capacity reserved (3-year, $12.91/hr): runs 24/7 on committed cores
+- 50% capacity on-demand (overflow, $21.52/hr): handles spikes and provides flexibility
+
+Monthly cost:
+- Reserved: $12.91 × 4 GPUs × 730 hrs = $37,729
+- On-demand: $21.52 × 4 GPUs × 730 hrs = $62,854
+- Total: $100,583
+
+Pure on-demand (8 GPUs): $125,456
+
+Savings: 19.8% with no lock-in risk. Better for teams unwilling to fully commit.
+
+### Strategy 3: Batch Processing Window
+
+Run training and inference during off-peak hours (nights, weekends). No discount from provider, but better utilization = lower cost-per-task.
+
+Example: 8x H100 cluster training for 12 hours/day instead of 24/7:
+- On-demand cost: $21.52/hr × 12 hrs/day × 30 days = $7,747/month
+- 24/7 cost: $21.52/hr × 24 hrs/day × 30 days = $15,495/month
+- Savings: 50% (but time-to-completion doubles)
+
+### Strategy 4: GPU Right-Sizing
+
+Don't assume H100 is always needed. For inference with latency budget >2ms, A100 handles it:
+
+Compare:
+- 2x H100 inference cluster: $3.98/hr
+- 4x A100 inference cluster: $4.76/hr (similar throughput)
+
+Cost is similar, but A100 cluster requires different tuning. Consider if the inference SLA allows it.
+
+---
+
+## Provider Feature Comparison
+
+Different cloud providers offer different trade-offs. Price alone doesn't tell the story.
+
+| Feature | RunPod | Lambda | CoreWeave |
+|---------|--------|--------|-----------|
+| **H100 Price** | $1.99-$2.69/hr | $2.49-$2.86/hr | $49.24/hr (8x) |
+| **Availability** | High | Medium | Low (large-scale) |
+| **Spot Pricing** | 40-50% discount | No spot | N/A |
+| **Reserved Discounts** | Limited | Limited | Negotiated |
+| **SLA Uptime** | 95% (best-effort) | 99.5% | 99.9% |
+| **Networking** | PCIe/Gigabit | PCIe/10G | Optimized NVLink, 100G |
+| **Support** | Community | Email | Dedicated |
+| **Startup Time** | 2-5 mins | 2-5 mins | <1 min |
+
+**RunPod:** Cheapest, best for cost-conscious teams, spot instances save 50%. No SLA guarantees. Good for R&D, less suitable for production inference.
+
+**Lambda:** Pricier ($1.39/hr more than RunPod for H100 SXM), better uptime (99.5% SLA), email support. Better for small production deployments (10-20 GPU-hours/day). Not worth the premium for pure cost optimization.
+
+**CoreWeave:** Most expensive per hour, but includes optimized networking (low-latency NVLink), dedicated support, 99.9% SLA. Worth the premium for production training (24/7 operations) where reliability matters more than cost. Startup time under 1 minute versus RunPod's 2-5 minutes. For a 30-day training run, the reliability and support matter significantly.
+
+**Decision rule:** Use RunPod for <30 GPU-hours/day (cost-optimized, can tolerate occasional interruptions). Use CoreWeave for >100 GPU-hours/day (reliability matters, support matters, optimization margins are already razor-thin).
+
+---
+
+## Buy vs Rent Analysis
+
+### Breakeven Analysis: When to Buy H100s
+
+Buy H100 if: 24/7 utilization for 18+ months.
+
+**H100 GPU purchase (on Ebay, used: 2025 pricing):**
+- Used H100 PCIe: ~$9,000-$12,000
+- Used H100 SXM: ~$14,000-$18,000 (rarer)
+- Add: power supply ($1,500), compute module ($5,000-$10,000), cooling ($2,000)
+- Total cost: ~$20,000-$40,000 per GPU (new deployment)
+
+**Rental cost (RunPod H100 SXM):**
+- Monthly: $1,964/GPU
+- 12 months: $23,568
+
+Breakeven: $23,568 / $1,964 per month = 12 months of constant rental = 8,760 GPU-hours.
+
+If training 24/7 for 12+ months, buying saves 40-50% total cost.
+
+**Reality check:** most teams don't run 24/7. Typical utilization is 40-60% (training, not serving). At 50% utilization, breakeven = 24 months.
+
+### Real-World Breakeven Scenarios
+
+**Scenario 1: Research Lab (intermittent training)**
+
+Usage: 100 GPU-hours/month (10 hours/week experimentation).
+
+- Rental cost: 100 hrs × $2.69 = $269/month
+- Annual: $3,228
+
+Buying ($30k setup) takes 116 months to break even. Rent is obviously better.
+
+**Scenario 2: Startup with Production Model**
+
+Usage: 1,000 GPU-hours/month (model training every 2 weeks, inference 24/7).
+
+- Rental cost: 1,000 hrs × $2.69 = $2,690/month
+- Annual: $32,280
+
+Buying ($30k setup, add 25% operational overhead = $37.5k/year total cost) breaks even at year 1. Renting at year 2 ($64,560 cumulative) vs buying ($37.5k). Buying wins by year 1.5. Realistic for startups doing continuous training.
+
+**Scenario 3: Large Company (constant workload)**
+
+Usage: 10,000 GPU-hours/month (5x 8-GPU clusters, 24/7 production).
+
+- Rental cost: 10,000 hrs × $2.69 = $26,900/month
+- Annual: $322,800
+
+Buying cost: 40x H100 GPUs × $35k per GPU setup = $1.4M initial, plus operational overhead (cooling, power, management: ~$50k/month). Year 1 total: $1.4M + $600k = $2M vs renting $322.8k. Renting wins year 1. By year 3, cumulative rental ($968k) is cheaper than buying+ops ($2M). But operational risk and infrastructure complexity favor renting even for large companies.
+
+### Infrastructure & Operational Costs
+
+Buying H100s requires more than just GPU cost.
+
+**Power infrastructure:**
+- Each H100 SXM: 700W sustained
+- 8x cluster: 5.6 kW
+- Data center power supply (UPS, distribution): $10k-$30k one-time
+- Monthly power cost: 5.6 kW × 730 hrs × $0.12/kWh = $492/month
+- Over 3 years: $17,712
+
+**Cooling:**
+- Liquid cooling loop for 8 GPUs: $5k-$15k one-time
+- Ongoing maintenance (coolant top-ups, filter replacements): $200/month
+- Over 3 years: $7,200
+
+**Networking:**
+- Dual 100G ethernet NICs: $3k-$5k
+- Network switches and cabling: $5k-$10k
+- Over 3 years: $8k total
+
+**Total hidden costs (3-year amortization):**
+- Power: $17,712
+- Cooling: $7,200
+- Networking: $8,000
+- Space rental (data center or on-premises): $10-$30/sq ft/month × 100 sq ft = $1,000-$3,000/month = $36k-$108k
+- Management/monitoring: 1 FTE at $100k/year = $300k
+- **Total: $368k-$534k over 3 years**
+
+Effective cost per GPU-hour: ($20k + $50k ops/year) / 8,760 GPU-hours per year = 2.3x rental cost on RunPod.
+
+Even for high-utilization scenarios, buying H100s on-premises loses to cloud rental when operational overhead is included.
+
+### Recommendation
+
+**Rent if:**
+- Training or inference workload is intermittent (8-16 hrs/day)
+- Project duration <12 months
+- Need flexibility to change hardware (scaling up/down)
+- On-premises infrastructure not available (cloud-native team)
+- Avoid operational burden (cooling, power management, upgrades)
+
+**Buy if (rare case):**
+- 24/7 production serving with zero downtime requirement
+- Captive data center (already operating, spare capacity available)
+- Willingness to operate/cool hardware
+- Stable workload (no major scaling changes expected for 3+ years)
+- Access to subsidized power (<$0.08/kWh)
+
+---
+
+## FAQ
+
+**Where is the cheapest H100?**
+
+RunPod H100 PCIe at $1.99/hr (March 2026). Only $0.80/hr on spot (40% discount, subject to eviction).
+
+**Can I negotiate lower prices?**
+
+RunPod and Lambda don't publish discounts, but high-volume customers (spending $50k+/month) negotiate: 10-20% off on-demand pricing or annual commitments at 25-30% discount.
+
+**How much does H100 power cost?**
+
+H100 SXM draws 700W. At $0.12/kWh (US average), power costs $0.084/hr. At $0.25/kWh (data center peak), power costs $0.175/hr. Negligible vs rental cost.
+
+**Is H100 still worth it in 2026?**
+
+H100 released March 2023. H200 released late 2025. B200 released Q1 2026.
+
+H200 (141GB) at $3.59/hr (RunPod) is only 34% more expensive but has 76% more memory. For models 70B+, H200 might be better value.
+
+B200 (192GB) at $5.98/hr is expensive and has limited availability.
+
+H100 remains competitive for cost-conscious teams and single-GPU inference. For new projects, compare H200 and H100 benchmarks first.
+
+**What if I need 4 H100s for just one day?**
+
+Cost: $2.69/hr × 4 GPUs × 24 hrs = $258.24 (SXM, RunPod).
+
+Is that worth it? Only if the task generates >$258 in value (e.g., inference on 100M customer records, monetized at >$0.003/record). For research or one-off development, too expensive. Use smaller GPU or wait until batch opportunity.
+
+**Can I rent from multiple providers?**
+
+Yes. No vendor lock-in on cloud GPU rental. Some teams use RunPod for training (cheaper) and Lambda for inference (better uptime SLA). Multi-cloud approach adds operational complexity but avoids single-provider outages.
+
+**What about Vast.AI or other spot marketplaces?**
+
+Vast.AI aggregates used GPU capacity from independent miners. Pricing is cheaper ($1.20-$1.80/hr for H100) but availability is unpredictable. No SLA. Good for non-critical batch jobs, risky for production.
+
+---
+
+## Related Resources
+
+- [NVIDIA GPU Pricing Comparison](/gpus)
+- [H100 GPU Specifications and Models](/gpus/models/nvidia-h100)
+- [A100 Cloud Pricing](/articles/nvidia-a100-price)
+- [H100 vs A100 Comparison](/articles/h100-vs-a100)
+
+---
+
+## Sources
+
+- [RunPod GPU Pricing](https://www.runpod.io/pricing)
+- [Lambda Cloud GPU Pricing](https://lambda.ai/pricing)
+- [CoreWeave GPU Pricing](https://docs.coreweave.com/pricing)
+- [NVIDIA H100 Tensor Core GPU Datasheet](https://resources.nvidia.com/en-us-gpu-resources/h100-datasheet-24306)
+- [DeployBase GPU Pricing Dashboard](/gpus)

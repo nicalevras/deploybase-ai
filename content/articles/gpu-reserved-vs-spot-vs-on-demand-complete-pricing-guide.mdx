@@ -1,0 +1,195 @@
+---
+title: 'GPU Reserved vs Spot vs On-Demand: Complete Pricing Guide'
+slug: gpu-reserved-vs-spot-vs-on-demand-complete-pricing-guide
+description: >-
+  Compare GPU pricing models (reserved, spot, on-demand) across cloud providers.
+  See actual costs for H100, A100, RTX 4090 with real-world savings
+  calculations.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Infrastructure
+keywords:
+  - GPU pricing
+  - reserved instances
+  - spot instances
+  - cloud costs
+---
+
+## Contents
+
+- [Understanding GPU Instance Types](#understanding-gpu-instance-types)
+- [Pricing Comparison Matrix](#pricing-comparison-matrix)
+- [Hybrid Strategies for Cost Optimization](#hybrid-strategies-for-cost-optimization)
+- [Workload Matching Framework](#workload-matching-framework)
+- [Reserved Instance Purchasing Decisions](#reserved-instance-purchasing-decisions)
+- [Financial Breakeven Analysis](#financial-breakeven-analysis)
+- [Risk Factors in Instance Selection](#risk-factors-in-instance-selection)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Understanding GPU Instance Types
+
+Three fundamentally different purchasing strategies - reserved, spot, and on-demand - optimize for distinct workload patterns and risk profiles. The choice directly affects infrastructure budgets by 40-80%, making this critical for production deployments.
+
+On-Demand instances charge hourly rates without commitment. Flexibility costs more per unit time but requires zero planning. Reserved Instances lock in prices for 1 or 3-year terms, delivering 30-50% discounts. Spot Instances fill idle capacity at steep discounts (60-90% cheaper), though they risk interruption.
+
+### Reserved Instance Economics
+
+Reserved Instances function as capacity guarantees. Prepay for compute time upfront, locking in rates for 1 or 3-year periods. RunPod offers H100 SXM reserved at approximately $1.94/hour versus $2.69/hour on-demand, delivering 28% savings. Lambda's reserved H100 pricing mirrors this at roughly $1.74/hour reserved compared to $2.49/hour on-demand.
+
+The break-even calculation for reserved instances requires sustained utilization. A machine running 730 hours monthly needs consistent workloads to justify prepayment. Reserved instances suit training pipelines, batch processing, and 24/7 inference services.
+
+For GPU workloads, the financial model improves dramatically at scale. A team running 10 H100s continuously saves approximately $84,000 annually through reserved commitments versus on-demand pricing. This calculation assumes consistent utilization exceeding 80% monthly.
+
+### Spot Instances and Interruption Strategies
+
+Spot Instances exploit cloud provider surplus capacity. Providers auction these machines at market rates, which fluctuate based on demand. Interruptions can occur with 2-5 minute notice, making them unsuitable for stateful applications without checkpointing strategies.
+
+RTX 4090 spot pricing typically runs $0.17-0.22/hour versus $0.34/hour on-demand, representing 50-60% savings. H100 SXM spot rates hover around $1.35-1.60/hour, again providing roughly 50% cost reduction.
+
+Spot instances excel for:
+- Distributed training with checkpoint recovery
+- Batch inference jobs with retry logic
+- Development and testing phases
+- Research workloads with flexible deadlines
+- Parallel processing with built-in fault tolerance
+
+Teams implementing spot instances must architect resumable jobs. Training scripts need checkpoint mechanisms every 15-30 minutes. Batch jobs require queuing systems that resubmit failed tasks. The operational complexity trades against significant cost savings.
+
+### On-Demand Instance Use Cases
+
+On-Demand pricing provides predictability and availability guarantees. No commitment, full hourly billing. This model suits:
+- Production inference with SLA requirements
+- Unpredictable workloads with variable demand
+- Short-term prototyping and validation
+- Workloads requiring immediate scaling
+
+On-Demand pricing anchors all other comparisons. Check [GPU pricing details](/gpus) for current provider rates.
+
+## Pricing Comparison Matrix
+
+RunPod GPU pricing (as of March 2026):
+- RTX 4090: $0.34/hour on-demand
+- A100 SXM: $1.39/hour on-demand
+- H100 SXM: $2.69/hour on-demand
+- H200: $3.59/hour on-demand
+- B200: $5.98/hour on-demand
+
+Lambda Labs H100: $2.49/hour on-demand versus reserved rates offering 30-35% discounts.
+
+Reserved pricing across providers typically offers:
+- 1-year term: 30-40% discount
+- 3-year term: 45-55% discount
+
+Spot discounts vary by provider and time of day:
+- RunPod H100 spot: ~50% discount
+- Lambda H100 spot: ~45% discount
+- A100 spot: ~55% discount
+- RTX 4090 spot: ~50% discount
+
+For detailed provider comparisons, see [Lambda GPU pricing](/articles/lambda-labs-gpu-pricing) and [RunPod GPU pricing](/articles/runpod-gpu-pricing).
+
+## Hybrid Strategies for Cost Optimization
+
+Production systems rarely use single purchasing models. Instead, blending reserved capacity with spot overflow minimizes costs while maintaining reliability.
+
+A typical strategy allocates:
+- 60-70% of baseline capacity as reserved instances
+- 20-30% of capacity as on-demand for traffic spikes
+- 10-20% reserved for development and testing
+
+This structure ensures core workloads run cheaply through reservations while maintaining elasticity through on-demand fallback. Unexpected traffic spikes don't trigger runaway costs because on-demand represents only peak overflow capacity.
+
+For machine learning inference, this means reserving H100 capacity for the SLA-critical base load, using spot instances for training jobs with checkpoint recovery, and maintaining on-demand capacity for client-specific fine-tuning endpoints that require immediate availability.
+
+The financial impact compounds at scale. A 100-GPU inference cluster using hybrid strategies costs approximately 35-45% less than pure on-demand pricing, with 99%+ availability.
+
+## Workload Matching Framework
+
+Different workloads align naturally with different instance types:
+
+**Batch Processing and Training**: Reserve capacity for baseline load, supplement with spot instances for distributed training runs with full checkpoint recovery. Cost savings reach 60% versus on-demand.
+
+**Real-Time Inference**: Combine reserved baseline capacity with on-demand spillover. This guarantees response time SLAs while controlling costs. Spot instances introduce unacceptable latency variance in this context.
+
+**Development Workflows**: Use on-demand exclusively during development phases. Reserve capacity only after confirming stable production patterns. This avoids overcommitting to infrastructure designs that change.
+
+**Research and Experimentation**: Spot instances excel here. Implement job queuing with automatic retry logic. Most research workloads tolerate occasional interruptions, so cost savings justify architectural complexity.
+
+Check [CoreWeave GPU pricing](/articles/coreweave-gpu-pricing) and [Vast.ai GPU pricing](/articles/vast-ai-pricing) for production reserved instance options.
+
+## Reserved Instance Purchasing Decisions
+
+Purchasing decisions require financial discipline. Commit to reserved instances only when:
+- Workload utilization exceeds 75% monthly
+- Service lifetime extends beyond 6 months
+- Scaling patterns stabilize
+
+Overestimating reserved capacity creates waste. A 3-year H100 reservation costs $25,000+ per instance. Underutilization represents sunk costs. Conservative teams start with 70% reserved, 30% on-demand, adjusting after 3 months of usage data.
+
+AWS reserved instances apply to any instance in an availability zone, providing flexibility. Most specialized GPU providers tie reservations to specific instance types, reducing flexibility but offering deeper discounts.
+
+## Financial Breakeven Analysis
+
+For an H100 cluster, breakeven analysis determines optimal purchasing mix:
+
+Monthly on-demand cost (730 hours): $1,965 per instance
+Annual on-demand cost: $23,580 per instance
+3-year on-demand cost: $70,740 per instance
+
+3-year reserved cost: $18,800 per instance (approximately)
+Savings: $51,940 per instance over 3 years, or 73% discount
+
+This calculation assumes 100% utilization. At 80% utilization, 3-year reserved still saves 65%. At 60% utilization, 3-year reserved saves 50% compared to on-demand.
+
+Break-even utilization for 1-year reserved versus on-demand: approximately 40%. Anything above 40% sustained utilization justifies 1-year commitments.
+
+## Risk Factors in Instance Selection
+
+Spot instance interruption patterns vary seasonally. Holiday periods see increased interruption rates (December, August). Planning batch workloads around low-demand periods reduces interruption likelihood by 40%.
+
+Reserved instance risk appears in two forms:
+- Technology obsolescence: AI accelerators evolve. Committing to H100s for 3 years risks overcommitting to technology that improves significantly.
+- Workload evolution: The service may mature, reducing raw computational needs through optimization.
+
+Mitigation involves purchasing flexibility. Mix 1-year and 3-year reservations rather than concentrating in 3-year terms. This maintains optionality as technology and business requirements evolve.
+
+## FAQ
+
+**Do all providers offer the same reserved discount percentages?**
+No. Larger providers like AWS and Lambda Labs offer deeper discounts (45-55% for 3-year terms). Smaller providers often offer 30-40% discounts due to smaller commitment pools.
+
+**Can I sell reserved instances I no longer need?**
+Some providers allow secondary market resale. AWS allows this directly through their marketplace. Lambda Labs and RunPod generally don't support resale, making their reservations less liquid.
+
+**How often do spot instance prices fluctuate?**
+Prices update hourly or more frequently based on supply/demand. Weekly patterns show lower prices off-peak (2-6 AM US time). Monthly patterns show higher prices mid-month and lower prices month-end.
+
+**What percentage of spot instances actually get interrupted?**
+Top-tier GPUs (H100, A100) see interruption rates of 2-8% monthly with proper zone selection. Lower-tier GPUs (RTX 4090) experience 5-15% monthly interruptions. Regional variation is significant.
+
+**Should I use spot instances for training production models?**
+Yes, with architectural requirements. Implement checkpointing every 15-20 minutes. Use distributed training frameworks that handle node failures. The 50-60% cost savings justify moderate complexity.
+
+**How do I forecast GPU costs for new workloads?**
+Start with on-demand pricing to establish baselines. Monitor actual utilization for 4-8 weeks. Then size reserved instances for 70% of average usage, keep remainder as on-demand. This minimizes initial overcommitment.
+
+## Related Resources
+
+- [GPU Pricing Comparison](/gpus)
+- [Lambda GPU Pricing Details](/articles/lambda-labs-gpu-pricing)
+- [RunPod GPU Pricing Details](/articles/runpod-gpu-pricing)
+- [CoreWeave GPU Pricing](/articles/coreweave-gpu-pricing)
+- [Vast.ai GPU Pricing](/articles/vast-ai-pricing)
+- [NVIDIA H100 Pricing](/articles/nvidia-h100-price)
+- [NVIDIA A100 Pricing](/articles/nvidia-a100-price)
+- [AWS GPU Pricing](/articles/aws-vs-azure-gpu-pricing)
+
+## Sources
+
+- AWS Compute Savings Plans documentation
+- Lambda Labs pricing structure (March 2026)
+- RunPod GPU pricing API
+- Cloud provider spot market analytics
+- GPU instance utilization benchmarks

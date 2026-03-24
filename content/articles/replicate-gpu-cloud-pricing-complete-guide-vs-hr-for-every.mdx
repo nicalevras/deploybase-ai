@@ -1,0 +1,211 @@
+---
+title: 'Replicate GPU Cloud Pricing: Complete Guide vs Hourly Rates for Every GPU'
+slug: replicate-gpu-cloud-pricing-complete-guide-vs-hr-for-every
+description: >-
+  Breakdown of Replicate GPU cloud pricing for AI model deployment. Compare
+  pay-as-you-go rates, cost per prediction, and total infrastructure costs.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Pricing
+---
+## Contents
+
+- [Overview](#overview)
+- [Replicate Model Pricing Reference Guide](#replicate-model-pricing-reference-guide)
+- [Hardware and Costs](#hardware-and-costs)
+- [Economics Analysis](#economics-analysis)
+- [API-First Inference Model](#api-first-inference-model)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## Overview
+
+Replicate bills per second of inference. No hourly reservations. No idle charges. That's fundamentally different from traditional cloud GPU providers.
+
+### Per-Second Billing
+
+Replicate bills all workloads per second, rounded to the nearest second. Minimum charges apply to keep the platform running.
+
+Typical rates hit $0.001 to $0.10 per second depending on hardware. Which hardware developers get depends on the model-developers don't pick it directly.
+
+### No Idle Time Charges
+
+Replicate doesn't charge while requests sit in queue. Shared GPU pools mean no per-customer resource reservation.
+
+This works best for variable workloads. Batch processing particularly benefits since developers avoid the dead time cost of dedicated hardware.
+
+## Replicate Model Pricing Reference Guide
+
+### Popular Model Costs
+
+Here's what common models cost:
+
+| Model | Task | Typical Latency | Cost Per Request | Monthly Cost (1000 daily) |
+|---|---|---|---|---|
+| Llama 2 7B | Text completion | 5s | $0.0009 | $27 |
+| Llama 2 13B | Text completion | 8s | $0.0018 | $54 |
+| Llama 2 70B | Text completion | 15s | $0.0035 | $105 |
+| Mistral 7B | Text completion | 5s | $0.0009 | $27 |
+| Stable Diffusion 3 | Image generation | 12s | $0.0072 | $216 |
+| DALL-E 3 | Image generation | 20s | $0.012 | $360 |
+| Whisper Large | Speech-to-text | 8s per min | $0.0018 | $54 |
+| ControlNet | Image manipulation | 10s | $0.006 | $180 |
+
+### Volume Discount Structure
+
+Replicate discounts scale with request volume:
+
+| Monthly Request Volume | Discount | Effective Pricing |
+|---|---|---|
+| <100,000 | 0% | Standard rates |
+| 100,000-1,000,000 | 5-10% | 5-10% reduction |
+| 1,000,000-10,000,000 | 15-20% | 15-20% reduction |
+| 10,000,000+ | Custom | Contact sales |
+
+Hit 1M monthly predictions (about 33k daily) and developers get 15-20% savings.
+
+## Hardware and Costs
+
+### GPU Tier Selection
+
+Replicate hides the hardware layer. Developers pick the model, it picks the GPU. No manual hardware selection.
+
+Common assignments:
+
+- A40 (inference): Most models land here
+- A100 (standard): Compute-heavy work
+- H100 (premium): When latency or performance matter most
+
+[Lambda prices](/articles/lambda-labs-gpu-pricing) H100 SXM at $2.49/hour. Replicate's H100 runs ~$0.001/second, or $3.60/hour continuous — somewhat more expensive than Lambda for sustained use, different billing model.
+
+### Model-Specific Costs
+
+Bigger models cost more per request. More GPU memory means longer inference times. Simple math.
+
+- Llama 2 13B: ~$0.0018 per prediction (8-second latency)
+- Llama 2 70B: ~$0.0035 per prediction (15-second latency)
+- Stable Diffusion 3: ~$0.005-0.010 per prediction (10-25 second generation)
+
+## Economics Analysis
+
+### Inference Comparison
+
+1000 Stable Diffusion 3 image generations:
+
+- Replicate: 1000 × $0.0075 = $7.50
+- Self-hosted H100: 10,000 seconds = 2.78 hours
+- [Koyeb](/articles/top-gpu-cloud-providers-2026) at $3.45/hour: 2.78 × $3.45 = $9.58
+
+Replicate saves 21%.
+
+[RunPod](/articles/runpod-gpu-pricing) H100 costs $2.69/hour though. 2.78 × $2.69 = $7.47. So RunPod saves $0.03-essentially tied.
+
+Llama 2 70B completions at 15-second latency on H100 ($0.0014/sec) = $0.021 per request at H100 rates. The table's $0.0035 per prediction reflects A40 GPU pricing (lower-cost hardware). On H100, 1000 requests = $21.
+
+70B needs significant VRAM. Let's compare at H100 rates:
+- RunPod H100 ($2.69/hr): 5.56 hours = $14.95
+- Replicate H100 ($0.0014/sec): 1000 × 15s × $0.0014 = $21.00
+
+Developers pay 40% more for Replicate on H100. That's the price of not managing infrastructure.
+
+### Real-Time API Endpoint Economics
+
+Text-to-image API with 50 daily requests:
+
+- Replicate: 50 × $0.0075 = $11.25/month
+- Self-hosted A100: ~$1,800/month ([Koyeb](/articles/top-gpu-cloud-providers-2026))
+
+Replicate is 0.6% of the cost.
+
+Low-to-moderate volume? Replicate dominates. Dedicated hardware only makes sense above 2000+ monthly requests. Between 100-2000, Replicate lets developers launch without infrastructure overhead.
+
+### High-Volume Batch Processing Economics
+
+100,000 Llama 2 70B completions:
+
+- Replicate: $350
+- [RunPod](/articles/runpod-gpu-pricing): 250 hours × $2.69 = $672.50
+- [Koyeb](/articles/top-gpu-cloud-providers-2026): 250 × $3.45 = $862.50
+
+Replicate saves 48%.
+
+Scale to 1M though, the math breaks. [CoreWeave](/articles/coreweave-gpu-pricing) and [Alibaba](/articles/top-gpu-cloud-providers-2026) with commitment discounts flip it:
+
+- Replicate: $3,500
+- RunPod: $2,692.50
+- CoreWeave 8×H100: 50 hours × $49.24 = $2,462
+- Alibaba 4×H100 (discounted): 50 × $9.80 × 0.75 = $367.50
+
+At million-scale, self-hosted infrastructure costs 90% less.
+
+### Hybrid Strategy for Variable Workloads
+
+Mix providers to optimize both cost and complexity:
+
+- **Prototyping**: Replicate (no infrastructure)
+- **Batch processing (500-5000 monthly)**: [Koyeb](/articles/top-gpu-cloud-providers-2026) with auto-scaling
+- **Large batch (10,000+ monthly)**: [RunPod](/articles/runpod-gpu-pricing) or [CoreWeave](/articles/coreweave-gpu-pricing)
+- **Fine-tuning**: [Lambda](/articles/lambda-labs-gpu-pricing) or [Nebius](/articles/nebius-vs-coreweave-gpu-cloud-pricing-performance-compared)
+
+This splits the load across the right provider for each job type.
+
+## API-First Inference Model
+
+### Replicate's Positioning in AI Stack
+
+Replicate is the modern API-first inference play. Call HTTP endpoints instead of managing infrastructure. That abstraction matters.
+
+Trade-off matrix:
+- **Self-hosted**: Full control, maximum hassle
+- **Replicate**: Simple, moderate costs
+- **[LLM APIs](/llms)**: Simplest, priciest
+
+Replicate sits in the middle. Developers trade some cost for sanity.
+
+### Developer Experience Value
+
+Replicate's API simplicity matters more than the spreadsheet shows. The team spends zero time on infrastructure. All energy goes to the product.
+
+For prototyping and MVPs, that per-request model means developers iterate fast. No infrastructure commitments. For many teams, that speed premium is worth the cost.
+
+### Model Ecosystem
+
+Thousands of pre-built models live on Replicate. Deploy them instantly. No training complexity.
+
+That matters for teams without ML chops. Developers call an API and get SOTA results. That's not free, but it's valuable.
+
+## FAQ
+
+**Q: Can I fine-tune models on Replicate?**
+A: Replicate supports model fine-tuning through their training API. Training costs run $0.0025 per second per GPU, similar to inference pricing.
+
+**Q: Does Replicate provide guaranteed latency SLAs?**
+A: Replicate does not publish latency SLAs. Typical p95 latency ranges from 100-500ms depending on queue depth and model complexity.
+
+**Q: Can I deploy custom models on Replicate?**
+A: Yes. Custom models require Docker containerization and Cog definition files. Standard models like Llama and Stable Diffusion are pre-deployed.
+
+**Q: What's the maximum request concurrency?**
+A: Replicate auto-scales based on incoming requests. Peak concurrency depends on subscription tier and resource availability.
+
+**Q: Does Replicate offer discounts for high-volume usage?**
+A: Replicate provides custom production pricing for 1M+ monthly predictions. Contact their sales team for quote.
+
+## Related Resources
+
+- [GPU Pricing Comparison](/gpus)
+- [Koyeb GPU Pricing](/articles/top-gpu-cloud-providers-2026)
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [LLM API Pricing](/llms)
+- [NVIDIA A100 Price Guide](/articles/nvidia-a100-price)
+
+## Sources
+
+- Replicate official pricing page (as of March 2026)
+- Model inference latency benchmarks
+- Cloud GPU platform cost comparison studies
+- DeployBase infrastructure research

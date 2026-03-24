@@ -1,0 +1,329 @@
+---
+title: 'Open Source LLM Hosting: Best Platforms & GPU Costs'
+slug: open-source-llm-hosting-best-platforms-gpu-costs
+description: >-
+  Host open source LLMs on cloud GPUs. Compare platforms, pricing, and
+  deployment costs for Llama, Mistral, and other models.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - open source llm hosting
+---
+## Contents
+
+- [Overview](#open-source-llm-hosting-open-source-llm-overview)
+- [Popular Models & Requirements](#popular-models-requirements)
+- [Hosting Platforms Comparison](#hosting-platforms-comparison)
+- [GPU Cost Analysis](#gpu-cost-analysis)
+- [Deployment Strategies](#deployment-strategies)
+- [Performance & Optimization](#performance-optimization)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## Overview
+
+Open source language models provide cost-effective alternatives to proprietary APIs. Models like Llama 2, Llama 3, Mistral, and Qwen eliminate per-token API costs, replacing them with compute-only charges.
+
+Advantages of self-hosting:
+
+- No per-token fees after deployment
+- Full model control and customization
+- Data privacy (no external API calls)
+- Ability to fine-tune on proprietary data
+- Compliance with data residency requirements
+
+Disadvantages:
+
+- Infrastructure management overhead
+- Uptime responsibility
+- Lower baseline performance than optimized APIs
+- Operational complexity (scaling, monitoring)
+
+The economics shift at scale. A team generating 100M tokens monthly saves money by hosting. Smaller teams often benefit from managed APIs.
+
+## Popular Models & Requirements
+
+**Llama 2 Family:**
+
+- 7B: 16GB GPU memory minimum
+- 13B: 24GB minimum, 40GB recommended
+- 70B: 80GB minimum (H100, A100)
+
+Performance (single H100):
+- 7B: 800+ tokens/sec
+- 13B: 500+ tokens/sec
+- 70B: 150-200 tokens/sec
+
+**Llama 3 Family:**
+
+- 8B: 16GB minimum
+- 70B: 80GB minimum
+- 405B: 192GB (GB200, H200 cluster)
+
+**Mistral Models:**
+
+- 7B: 16GB minimum
+- Mistral Medium: 32GB
+- Mistral Large: 48GB
+
+**Qwen Family (Chinese-optimized):**
+
+- 7B: 16GB minimum
+- 14B: 24GB minimum
+- 72B: 80GB minimum
+
+Quantization reduces memory:
+
+- 4-bit quantization: 75% memory reduction
+- 8-bit quantization: 50% memory reduction
+
+Trade-off: Speed vs. memory. Quantized models generate 20-40% slower.
+
+## Hosting Platforms Comparison
+
+**1. RunPod (Lowest Cost)**
+
+Pricing: $0.44-0.79/hour for small GPUs, $1.19-2.69 for larger models
+
+Specifications:
+- L4 (24GB): $0.44/hour
+- L40S (48GB): $0.79/hour
+- A100 (80GB): $1.19/hour
+- H100 (80GB): $1.99/hour
+
+Monthly costs (24/7):
+- L4: $321/month
+- L40S: $577/month
+- A100: $869/month
+
+Best for: Budget deployments, experimentation, small-scale inference
+
+**2. Lambda Labs (production Support)**
+
+Pricing: $0.92-2.86/hour depending on GPU
+
+GPU options:
+- L40: $0.69/hour
+- A100: $1.48/hour
+- H100 PCIe: $2.86/hour
+- H100 SXM: $2.49/hour
+
+Monthly (24/7):
+- A100: $1,080/month
+- H100: $1,818-2,088/month
+
+Best for: Production workloads, customer-facing applications, premium support
+
+**3. Paperspace (Cloud-Native)**
+
+Pricing: $0.50-3.50/hour depending on machine type
+
+Notable features:
+- Built-in Jupyter notebooks
+- Auto-scaling capabilities
+- Persistent storage integration
+- GPU sharing (multiple users per GPU)
+
+Monthly costs:
+- GPU: $365-2,555/month
+- Storage: $0.10/GB/month additional
+
+Best for: Development teams, rapid prototyping, integrated workflows
+
+**4. Vast.AI (Market-Based)**
+
+Pricing: $0.10-3.00/hour (user-set prices)
+
+Characteristics:
+- Peer-to-peer marketplace
+- Lowest prices during low-demand periods
+- Availability fluctuates significantly
+- Machine provider ratings visible
+
+Typical H100: $1.50-2.50/hour
+
+Best for: Batch processing, non-critical workloads, cost-sensitive teams
+
+**5. CoreWeave (GPU Specialist)**
+
+Pricing: $10-70+/hour for multi-GPU clusters
+
+Cluster offerings:
+- 8x L40: $10/hour
+- 8x H100: $49.24/hour
+- 8x H200: $50.44/hour
+
+Monthly (24/7):
+- 8x L40: $7,300/month
+- 8x H100: $35,935/month
+
+Best for: Large deployments, distributed training, production scale
+
+## GPU Cost Analysis
+
+Monthly cost comparison for continuous inference:
+
+**Llama 2 70B hosting (baseline):**
+
+RunPod H100:
+- GPU: $1.99/hr x 730 hrs = $1,453
+- Storage: 200GB x $0.01 = $2
+- Total: $1,455/month
+
+Lambda A100:
+- GPU: $1.48/hr x 730 = $1,080
+- Storage: $0.14/GB x 200 = $28
+- Egress: Variable
+- Total: $1,108-1,300/month
+
+Vast.AI (market average):
+- GPU: $2.00/hr x 730 = $1,460
+- Storage: Varies
+- Total: $1,460-1,600/month
+
+**Mistral 7B hosting (lightweight):**
+
+RunPod L40S:
+- GPU: $0.79/hr x 730 = $577
+- Storage: $2
+- Total: $579/month
+
+Lambda L40:
+- GPU: $0.69/hr x 730 = $504
+- Storage: $0.14 x 200 = $28
+- Total: $532/month
+
+Vast.AI:
+- GPU: $0.60-0.80/hr = $438-584
+- Total: $438-584/month
+
+**Cost per 1M tokens (estimated):**
+
+- Llama 7B: $0.50-1.50/M tokens
+- Llama 13B: $1.00-3.00/M tokens
+- Llama 70B: $5.00-15.00/M tokens
+- Qwen 7B: $0.50-1.50/M tokens
+
+Self-hosting becomes cost-effective above 50-100M tokens monthly. APIs (OpenAI GPT-4, Claude) cost $15-40/M tokens.
+
+## Deployment Strategies
+
+**Strategy 1: Single-GPU shared inference**
+
+Deploy Llama 2 7B on RunPod L4 ($0.44/hour):
+1. Launch L4 Pod with PyTorch template
+2. Install vLLM: `pip install vllm`
+3. Start inference server: `vllm serve meta-llama/Llama-2-7b-hf`
+4. Expose port 8000 for API access
+5. Route client requests to the server
+
+Handles 20-50 concurrent users per L4.
+
+**Strategy 2: Multi-model serving**
+
+Host three 7B models (Llama, Mistral, Qwen) on H100 (80GB):
+- Each model: 14GB quantized
+- Reserve: 35GB for batch and overhead
+- Total: ~45GB used
+
+Requests route based on model selection. Improves utilization.
+
+**Strategy 3: Auto-scaling cluster**
+
+Use Kubernetes (EKS, GKE) with multiple GPU nodes:
+- Base: 2x A100 nodes ($0.87/hr each)
+- Burst capacity: Auto-scales to 8 nodes
+- Load balancer distributes requests
+
+Monthly cost:
+- Base 2 nodes: 730 x $0.87 x 2 = $1,270
+- Occasional burst (avg. 3 extra hours/day): 90 x $0.87 x 6 = $468
+- Total: ~$1,738/month
+
+**Strategy 4: Spot/preemptible instances**
+
+Use AWS Spot or Google Preemptible instances (50-70% cheaper):
+- Best for batch jobs, non-critical services
+- Implement auto-recovery for interruptions
+- Queue long-running requests during low-interruption periods
+
+Reduces costs but increases complexity.
+
+## Performance & Optimization
+
+Inference optimization techniques:
+
+**Quantization:**
+- 4-bit: 75% memory reduction, 20-30% speed reduction
+- 8-bit: 50% memory reduction, 10-15% speed reduction
+- Enables larger models on smaller GPUs
+
+**Batching:**
+- Process multiple requests together
+- Improves throughput 3-5x
+- Increases latency for individual requests
+
+**Token caching:**
+- Cache key-value pairs during generation
+- Reduces redundant computation
+- Improves speed 20-30%
+
+**Model merging:**
+- Combine LoRA adapters into base model
+- Saves GPU memory during inference
+- Simplifies deployment
+
+**Pruning:**
+- Remove unimportant weights
+- 20-40% faster inference
+- Minimal quality loss with proper technique
+
+Real-world performance (H100):
+
+- Llama 2 7B batch 32: 800+ tokens/sec
+- Llama 2 13B batch 16: 500+ tokens/sec
+- Llama 2 70B batch 4: 150-200 tokens/sec
+
+Quantized models:
+
+- 4-bit Llama 70B: 100-140 tokens/sec on H100
+
+## FAQ
+
+**Is self-hosting cheaper than APIs at small scale?**
+No. Below 10-20M tokens monthly, APIs cost less. Self-hosting has fixed overhead.
+
+**Can I run Llama 70B on consumer GPUs?**
+With 8-bit quantization and aggressive optimization, maybe on RTX 4090. Not recommended.
+
+**What happens if my instance crashes?**
+Depends on platform. RunPod and Lambda restart automatically. Manual recovery otherwise.
+
+**Can I fine-tune open source models on cloud GPUs?**
+Yes. RunPod and Lambda support fine-tuning workflows. Budget 10-15x the inference cost.
+
+**Do I need Kubernetes to scale beyond one GPU?**
+Not required, but helpful. Simple load balancer + multiple GPU instances works at smaller scale.
+
+**What's the best model for beginners?**
+Mistral 7B offers excellent quality-to-cost ratio. Llama 2 7B remains popular and proven.
+
+## Related Resources
+
+- [GPU Pricing Guide](/gpus)
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [Inference Optimization](/articles/what-is-llm-inference)
+- [Fine-Tuning Guide](/articles/what-is-fine-tuning-llm)
+- [LLM API Pricing](/llms)
+
+## Sources
+
+- Meta Llama Model Card & Documentation
+- Mistral AI Official Model Documentation
+- Alibaba Qwen LLM Repository
+- vLLM Inference Library Documentation
+- AWS EC2 GPU Instance Pricing

@@ -1,0 +1,457 @@
+---
+title: >-
+  Deploying LLMs to Production: Complete vLLM Setup, Load Balancing, and
+  Auto-Scaling Guide
+slug: deploy-llm-production
+description: >-
+  Production LLM deployment guide: vLLM architecture, load balancing,
+  monitoring, auto-scaling, GPU selection, cost optimization. End-to-end
+  infrastructure architecture.
+date: 2026-03-22T00:00:00.000Z
+author: DeployBase
+keywords:
+  - deploy llm production
+---
+
+## Deploy LLM Production: Complete Architecture and Optimization Guide
+
+Deploying language models to production requires careful attention to architecture, monitoring, and cost optimization. This guide covers the deploy llm production pipeline from choosing hardware through implementing auto-scaling, with focus on vLLM infrastructure patterns that handle production traffic characteristics reliably and cost-effectively. As of March 2026, vLLM remains the dominant open-source serving framework, with production deployments ranging from small startups to major companies.
+
+## Architecture Overview: Request Flow and Scaling Tiers
+
+A production LLM deployment consists of multiple layers working in concert:
+
+1. Load balancer: Routes requests across multiple vLLM instances
+2. vLLM instances: Serve inference requests with efficient batch processing
+3. Monitoring layer: Collects metrics on throughput, latency, errors
+4. Auto-scaling controller: Adjusts instance count based on load
+
+For a moderate-scale deployment serving 1,000 requests/minute baseline traffic:
+- Load balancer (stateless, replicable): 2x instances
+- vLLM inference (GPU-intensive): 4-6x H100 instances
+- Monitoring (lightweight): 1x instance
+- Auto-scaling controller: 1x instance
+
+This architecture handles typical traffic spikes (2-3x baseline) without dropping requests while avoiding excessive idle GPU cost during low-traffic periods.
+
+## Selecting GPU Hardware for Production Deployments
+
+GPU selection involves tradeoff between throughput per GPU, cost, and availability.
+
+Llama 4 Scout (17B active) inference requirements:
+- Model weights: 34GB (FP16)
+- KV cache (batch 256): 102GB
+- Total: 136GB required memory
+
+Available GPU options:
+- H100 SXM (96GB VRAM): $2.49/hour Lambda, $2.69/hour RunPod
+  - Handles Llama 4 with batch size 256
+  - Achieves 3,000-3,200 tokens/second
+  - Cost-per-token: $0.000375
+
+- A100 40GB: $1.19/hour RunPod, $1.25/hour Vast.AI
+  - Handles Llama 4 with batch size 128-160
+  - Achieves 1,200-1,600 tokens/second
+  - Cost-per-token: $0.000198
+
+- B200: $5.98/hour RunPod, $6.08/hour Lambda
+  - Handles Llama 4 with batch size 256-320
+  - Achieves 3,800-4,200 tokens/second
+  - Cost-per-token: $0.000357
+
+For cost optimization, pair A100s with H100s: route short requests (under 200 output tokens) to A100 clusters, long-form generation to H100/B200 clusters. This mixed approach typically reduces overall cost-per-token by 25-35% while meeting latency targets.
+
+## vLLM Configuration for Production Workloads
+
+Standard vLLM production configuration:
+
+```bash
+python -m vllm.entrypoints.openai_compatible_server \
+  --model meta-llama/Llama-4-scout \
+  --tensor-parallel-size 1 \
+  --gpu-memory-utilization 0.85 \
+  --max-num-batched-tokens 8192 \
+  --max-num-seqs 256 \
+  --enable-prefix-caching \
+  --enable-chunked-prefill \
+  --trust-remote-code
+```
+
+Key parameters:
+- tensor-parallel-size: Number of GPUs per vLLM instance (1 for H100, supports >1 for model parallelism)
+- gpu-memory-utilization: Balance between throughput (higher values) and latency predictability (lower values)
+- max-num-batched-tokens: Limits memory per batch; lower values improve latency for long sequences
+- max-num-seqs: Maximum concurrent requests per instance
+- enable-prefix-caching: Cache prompts across requests (saves compute for repeated prefixes)
+- enable-chunked-prefill: Process prefill in chunks (improves latency variance)
+
+For 1,000 requests/minute baseline traffic:
+- Each H100 vLLM instance handles approximately 180-200 requests/minute
+- Baseline deployment: 5-6 H100 instances
+
+Peak traffic (3x baseline):
+- Required: 15-18 H100 instances
+- Auto-scaling policy: scale up when average latency exceeds 500ms, scale down when below 250ms
+
+## Load Balancing and Request Routing Patterns
+
+vLLM instances are stateless; requests route to any available instance. Implementation through reverse proxies (NGINX, HAProxy) or cloud load balancers (AWS ALB, GCP Cloud Load Balancer):
+
+NGINX configuration:
+
+```nginx
+upstream vllm_backend {
+    server vllm1:8000;
+    server vllm2:8000;
+    server vllm3:8000;
+    server vllm4:8000;
+    least_conn;
+}
+
+server {
+    listen 80;
+
+    location /v1/completions {
+        proxy_pass http://vllm_backend;
+        proxy_http_version 1.1;
+        proxy_buffering off;
+        proxy_request_buffering off;
+    }
+}
+```
+
+The load balancer distributes requests round-robin across available instances. For better performance, implement least-connections routing (sends new requests to instance with fewest active connections) rather than simple round-robin.
+
+Health checking is critical. vLLM instances become unresponsive if memory fragmentation occurs, even though the process remains running. Health checks should verify:
+1. Process is responding to API calls
+2. Average latency is below threshold (500ms for health, 1000ms indicates degradation)
+3. Memory utilization is stable
+
+Remove instances exceeding latency thresholds from the load balancer immediately. A degraded instance slows the entire cluster more than its absence.
+
+## Monitoring and Observability Implementation
+
+Key metrics to track:
+
+1. Throughput: Tokens generated per second, requests per minute
+2. Latency: p50, p90, p99 latency percentiles
+3. GPU utilization: Percentage of GPU compute utilized
+4. Memory utilization: VRAM used vs. available
+5. Error rates: Failed requests, timeout counts
+6. Queue depth: Requests waiting for vLLM processing
+
+Example metrics collection with Prometheus:
+
+```python
+from prometheus_client import Counter, Histogram, Gauge
+import vllm
+
+tokens_generated = Counter('vllm_tokens_generated', 'Total tokens generated')
+request_latency = Histogram('vllm_request_latency_seconds', 'Request latency', buckets=[0.1, 0.5, 1.0, 2.0])
+gpu_memory = Gauge('vllm_gpu_memory_used', 'GPU memory used in bytes')
+
+@app.post("/v1/completions")
+def generate(request):
+    start = time.time()
+    result = vllm_engine.generate(request.prompt)
+    latency = time.time() - start
+
+    tokens_generated.inc(len(result.tokens))
+    request_latency.observe(latency)
+    gpu_memory.set(vllm_engine.get_gpu_memory_usage())
+
+    return result
+```
+
+Set up alerts:
+- P99 latency > 1 second: Indicates overload or degradation
+- Error rate > 1%: Something is failing, investigate immediately
+- GPU memory utilization > 90%: Risk of OOM errors
+
+Dashboards should display current load (requests/minute), latency distribution, instance health status, and cost metrics (GPU hours used, cost-per-1M-tokens).
+
+## Auto-Scaling Implementation Strategies
+
+Kubernetes-based auto-scaling using Horizontal Pod Autoscaler (HPA):
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: vllm-scaler
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: vllm-deployment
+  minReplicas: 5
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Pods
+    pods:
+      metric:
+        name: vllm_request_latency_seconds
+      target:
+        type: AverageValue
+        averageValue: "0.5"
+```
+
+This configuration:
+- Maintains 5-20 vLLM instances
+- Scales up when average latency exceeds 500ms or CPU utilization exceeds 70%
+- Scales down when latency drops below 300ms and CPU below 50%
+- Prevents rapid scaling cycles through cooldown periods (default 3 minutes)
+
+For non-Kubernetes deployments (standalone cloud instances), implement scaling through API calls to cloud providers.
+
+Scaling strategy matters. Aggressive scaling (adding instances at smallest load increase) prevents latency spikes but wastes GPU cost during traffic volatility. Conservative scaling (waiting for sustained high load) reduces cost but risks timeout errors. Optimal strategy typically uses 60-90 second smoothing windows: scale only if high latency persists for 60+ seconds.
+
+## Cost Optimization at Production Scale
+
+For production deployments processing billions of tokens monthly, cost optimization becomes critical.
+
+Baseline cost (serving 10B tokens/month):
+- H100-only approach: $5,000-6,000/month GPU cost
+- Mixed A100/H100: $2,500-3,200/month GPU cost
+- Spot instances (cloud provider temporary capacity at 60-70% discount): $1,500-2,100/month
+
+Implementing spot instance strategy:
+1. 70% of capacity on spot instances (interruption risk acceptable for non-critical workloads)
+2. 30% on reserved instances (guaranteed capacity for critical customers)
+3. When spot instance is interrupted, route traffic to reserved instances, scale up additional reserved capacity
+
+This mixed approach reduces cost by 40-50% while maintaining SLA compliance. The downside: infrastructure complexity increases substantially.
+
+Additional optimizations:
+- Quantization: Running Llama 4 in int4 format reduces memory by 75%, enabling batch size 512+ on A100, increasing cost-per-token efficiency by 40%
+- Model caching: Cache generated outputs for repeated queries (7-12% of typical traffic is repeated)
+- Request batching: Accumulate requests for 50-100ms before processing (improves batching efficiency by 15-20%)
+
+## Deployment Checklist and Pre-Production Validation
+
+Before deploying to production:
+
+1. Load test: Generate 2-3x expected peak traffic, verify all instances remain healthy
+2. Failover test: Kill instances during peak traffic, verify load balancer reroutes correctly
+3. Monitoring validation: Confirm all metrics are collected and alerting works
+4. Cost tracking: Set up budget alerts at $100 overage threshold
+5. Documentation: Document instance configuration, scaling policies, and rollback procedures
+
+Expected cost for 1,000 requests/minute deployment (16-hour active window daily):
+- H100 instances (6 baseline, 3 reserved peak): $350-450/month
+- Data transfer: $50-100/month
+- Monitoring/observability: $30-50/month
+- Total: $430-600/month
+
+For comparison, using managed services (AWS Bedrock, Google Vertex AI):
+- Variable pricing based on requests
+- Typical cost: $800-1,200/month for equivalent throughput
+- Trade-off: Reduced operational overhead vs. 50-100% cost premium
+
+## Advanced Configurations for Specific Workloads
+
+**Long-Context Inference (4K-8K tokens)**
+
+Long context requires more KV cache memory than short-context inference. Adjust configurations:
+- Lower `max-num-seqs` to 64 (was 256)
+- Reduce `gpu-memory-utilization` to 0.75 (was 0.85)
+- Expect 30-40% throughput reduction
+- Consider A100 clusters for cost-efficiency on long sequences
+
+**Multi-turn Conversation (stateful sessions)**
+
+Conversation history accumulates. Optimize for repeated context:
+- Enable prefix caching aggressively
+- Use persistent session pools
+- Cache conversation prefixes across requests
+- Expect 20-30% reduction in compute per turn after first response
+
+**Real-time Streaming Applications**
+
+Token-by-token streaming requires chunked processing:
+- Enable chunked prefill
+- Reduce `max-num-batched-tokens` to 4096
+- Implement streaming response handlers
+- Monitor token-level latencies, not just request latency
+
+## Disaster Recovery and Failover Scenarios
+
+**Instance Failure Recovery**
+
+vLLM instances become unresponsive when GPU memory fragmentation causes OOM. Implement:
+- Health checks every 10 seconds
+- Automatic removal from load balancer on health failure
+- Instance replacement triggers new startup
+- Checkpoint recovery from persistent storage
+
+**Load Balancer Failure**
+
+If load balancer fails, traffic stops immediately. Mitigate:
+- Use cloud provider load balancers with automatic failover (AWS ALB, GCP Cloud LB)
+- Implement backup load balancer in secondary region
+- DNS failover to alternate regions
+- Test failover quarterly
+
+**Regional Outage**
+
+Prepare for entire region going down:
+- Maintain read replicas in secondary regions
+- Traffic automatically routes to backup region
+- Latency impact acceptable for most applications
+- Cost is 50% premium for regional redundancy
+
+## Benchmarking The Deployment
+
+Before going live, establish baseline metrics:
+
+1. **Throughput Test**: Run 100 concurrent requests, measure tokens/second. Aim for 3K+ tokens/second on H100.
+2. **Latency Test**: Measure p50, p90, p99 latencies under load. P99 should be under 800ms for typical requests.
+3. **Failover Test**: Kill an instance mid-request, verify graceful handling. Expect <2 second interruption.
+4. **Scaling Test**: Simulate 3x traffic growth, confirm auto-scaling works. Scaling should trigger within 30 seconds.
+5. **Cost Test**: Run 24 hours, measure actual GPU hours consumed. Compare to projections.
+6. **Memory Test**: Monitor GPU memory fragmentation over 8+ hours. Ensure no gradual degradation.
+7. **Error Recovery Test**: Inject errors (request timeouts, model load failures), verify graceful degradation.
+
+Expected results for properly configured H100 setup:
+- Throughput: 3,000-3,500 tokens/second sustained
+- P99 latency: 500-800ms for 1K input tokens
+- P99 latency: 1,200-1,500ms for 4K input tokens
+- Failover recovery: <2 second request interruption
+- Scaling time: 2-4 minutes from trigger to ready
+- Cost: $3-4 per million tokens (including scaling overhead)
+- Memory utilization: 70-85% sustained (avoid >90%)
+- Error rate: <0.1% (aim for near-zero)
+
+Performance below these benchmarks indicates configuration problems. Investigate before going live.
+
+## Production Checklist Before Deployment
+
+**Pre-Launch Validation**:
+- [ ] Load test at 2x expected peak traffic (don't just assume scaling works)
+- [ ] Verify monitoring dashboards display all metrics in real-time
+- [ ] Confirm alerting works (test by triggering alert manually)
+- [ ] Validate cost tracking and budget alerts (set at 80% of daily budget)
+- [ ] Document runbooks for common issues (stuck instance, memory leak, etc)
+- [ ] Create on-call rotation and escalation path (who gets paged when things break)
+- [ ] Test rollback procedure for new model versions (practice before production)
+- [ ] Verify data backup procedures work (actually restore from backup to confirm)
+- [ ] Set up customer status page (communicate outages proactively)
+- [ ] Document SLA commitments developers're making (write it down before launch)
+
+**Day 1 Monitoring**:
+- [ ] P99 latency trending and stable (expect some variance first day)
+- [ ] GPU utilization between 60-80% (not spiking to 95%+)
+- [ ] Zero error rate (aim for perfection on day 1; any errors get investigated)
+- [ ] Cost tracking matches projections (if off by >20%, investigate why)
+- [ ] No unexpected scaling events (scaling should match traffic patterns)
+- [ ] Customer-reported issues track closely to metrics (gut check reality vs dashboards)
+- [ ] Instance health checks passing consistently (all instances responsive)
+
+**Week 1 Validation**:
+- [ ] Latency stable across traffic variations (patterns repeat, not anomalies)
+- [ ] Scaling events correlate with traffic changes (no phantom scaling)
+- [ ] No provider issues (GPU node failures, network problems)
+- [ ] Cost trending within 10% of projections (if higher, optimize immediately)
+- [ ] Customer satisfaction metrics acceptable (support feedback positive)
+- [ ] Model output quality consistent (sample outputs spot-check)
+- [ ] No gradual performance degradation (memory leaks, etc)
+
+## Cost Optimization at Different Scales
+
+**For 1B tokens/month**:
+- Use 1-2 A100 instances on-demand
+- Cost: $350-500/month
+- Simple auto-scaling not critical
+
+**For 10B tokens/month**:
+- Use mixed A100/H100 infrastructure
+- Cost: $2,500-3,500/month
+- Implement basic auto-scaling
+- Consider 30% spot capacity
+
+**For 100B+ tokens/month**:
+- Use dedicated infrastructure with reserved instances
+- Cost: $15,000-25,000/month
+- Optimize through quantization and batching
+- Negotiate volume pricing with providers
+
+## Recommendation: Starting The Production Deployment
+
+Deploy through [RunPod](/articles/runpod-gpu-pricing) or [Lambda](/articles/lambda-labs-gpu-pricing) for initial testing: reserve 2x H100 instances to establish baseline performance metrics on the actual traffic patterns. Measure achieved throughput, latency distribution, and GPU utilization.
+
+After 1-2 weeks of data collection, make permanent infrastructure decisions:
+- If peak latency consistently under 500ms on 2 H100s, that's the baseline sizing
+- If GPU memory utilization averages 70%+, consider mixing in A100s for cost optimization
+- If error rates exceed 0.1%, investigate vLLM configuration or load balancer health
+
+Most teams find that 50% larger baseline capacity than theoretical minimum provides better economics through reduced scaling frequency and improved latency percentiles. The additional GPU cost is offset by fewer timeouts and better user experience.
+
+Establish feedback loops: measure actual performance against projections, adjust infrastructure based on real data. This empirical approach prevents both over-provisioning (wasting cost) and under-provisioning (creating reliability issues).
+
+## Contents
+
+- [Deploy LLM Production: Complete Architecture and Optimization Guide](#deploy-llm-production-complete-architecture-and-optimization-guide)
+- [Architecture Overview: Request Flow and Scaling Tiers](#architecture-overview-request-flow-and-scaling-tiers)
+- [Selecting GPU Hardware for Production Deployments](#selecting-gpu-hardware-for-production-deployments)
+- [vLLM Configuration for Production Workloads](#vllm-configuration-for-production-workloads)
+- [Load Balancing and Request Routing Patterns](#load-balancing-and-request-routing-patterns)
+- [Monitoring and Observability Implementation](#monitoring-and-observability-implementation)
+- [Auto-Scaling Implementation Strategies](#auto-scaling-implementation-strategies)
+- [Cost Optimization at Production Scale](#cost-optimization-at-production-scale)
+- [Deployment Checklist and Pre-Production Validation](#deployment-checklist-and-pre-production-validation)
+- [Advanced Configurations for Specific Workloads](#advanced-configurations-for-specific-workloads)
+- [Disaster Recovery and Failover Scenarios](#disaster-recovery-and-failover-scenarios)
+- [Benchmarking The Deployment](#benchmarking-the-deployment)
+- [Production Checklist Before Deployment](#production-checklist-before-deployment)
+- [Cost Optimization at Different Scales](#cost-optimization-at-different-scales)
+- [Recommendation: Starting The Production Deployment](#recommendation-starting-the-production-deployment)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## FAQ
+
+**Q: What's the minimum GPU setup for production?**
+A: Two H100 instances minimum for redundancy. Single GPU deployments lack failover capability. Expect 2-3K tokens/second throughput per H100.
+
+**Q: How do I handle model updates without downtime?**
+A: Use load balancer to drain traffic from old instances, update model, spin up new instances, verify health, shift traffic. Takes 5-10 minutes total.
+
+**Q: What's a reasonable uptime target for LLM inference?**
+A: Aim for 99.5% minimum. That's 36 minutes downtime monthly. Achieve it through redundancy, monitoring, and auto-recovery.
+
+**Q: How do I reduce latency below 500ms?**
+A: Use smaller models, quantization (int4/int8), and geographic load balancing. Also use edge processing where possible rather than central data centers.
+
+**Q: Should I deploy on Kubernetes or cloud VMs?**
+A: Kubernetes is better for complex multi-region deployments. Cloud VMs are simpler for single-region setups. Start with cloud VMs, migrate to Kubernetes if scaling requires it.
+
+**Q: How much spare capacity should I maintain?**
+A: Maintain 30-50% spare capacity for traffic spikes. This prevents immediate scaling and improves latency. It costs money but prevents timeout errors.
+
+**Q: What's the difference between batching and prefill optimization?**
+A: Batching combines multiple requests into single GPU execution. Prefill optimization processes prompt input faster. Both matter. Prefill optimization reduces time-to-first-token latency.
+
+## Related Resources
+
+- [vLLM Official Documentation](https://docs.vllm.ai) (external)
+- [RunPod GPU Infrastructure](/articles/runpod-gpu-pricing)
+- [Lambda Labs Professional Inference](/articles/lambda-labs-gpu-pricing)
+- [H100 Pricing Comparison](/articles/nvidia-h100-price)
+- [LLM API Pricing Comparison](/llms)
+- [OpenAI API Pricing Reference](/articles/openai-pricing)
+- [Anthropic API Pricing Reference](/articles/anthropic-pricing)
+
+## Sources
+
+- vLLM documentation and best practices (March 2026)
+- Production deployment case studies from DeployBase
+- GPU provider infrastructure documentation (March 2026)
+- Real-world latency and throughput measurements
+- Cost tracking data from deployed inference systems

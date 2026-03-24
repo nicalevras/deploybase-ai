@@ -1,0 +1,503 @@
+---
+title: 'Best GPUs for Fine-Tuning LLMs: VRAM & Cost Guide'
+slug: best-gpu-for-fine-tuning
+description: >-
+  Best GPU for fine-tuning LLMs: A100, H100, L40S comparison. VRAM requirements
+  for 7B to 70B models, LoRA vs full fine-tuning cost analysis March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: Ranking
+keywords:
+  - best gpu for fine tuning
+  - gpu fine tuning llm
+  - fine tuning vram requirements
+  - a100 vs h100
+  - best gpu for llm
+---
+
+## Contents
+
+- [Best GPU for Fine Tuning: Overview](#best-gpu-for-fine-tuning-overview)
+- [VRAM Requirements by Model Size](#vram-requirements-by-model-size)
+- [GPU Comparison Table](#gpu-comparison-table)
+- [LoRA vs Full Fine-Tuning](#lora-vs-full-fine-tuning)
+- [Single GPU vs Multi-GPU Training](#single-gpu-vs-multi-gpu-training)
+- [Cloud GPU Pricing](#cloud-gpu-pricing)
+- [Cost-Efficiency Rankings](#cost-efficiency-rankings)
+- [Model-Specific Recommendations](#model-specific-recommendations)
+- [Optimization Techniques](#optimization-techniques)
+- [Advanced Optimization Strategies](#advanced-optimization-strategies)
+- [Real-World Benchmarks](#real-world-benchmarks)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## Best GPU for Fine Tuning: Overview
+
+Fine-tuning GPU choice = model size + budget + training time. VRAM is the bottleneck. 7B needs 16GB. 70B needs 160GB+ for full fine-tuning (LoRA cuts that significantly).
+
+**Quick Reference:**
+- 7B models: RTX 4090 ($0.34/hr) or L40S ($0.79/hr) sufficient
+- 13B models: A100 PCIe ($1.19/hr) with LoRA
+- 70B models: H100 or A100 8x with LoRA
+- Cost: $0.34 to $5.98/hr depending on GPU and LoRA choice
+
+## VRAM Requirements by Model Size
+
+### Memory Math
+
+VRAM needed depends on three factors:
+1. Model weights in bfloat16 (2 bytes per parameter)
+2. Optimizer states (Adam needs 4x: gradient + momentum + variance)
+3. Activations (batch size, sequence length, layers)
+
+For a 7B parameter model in full fine-tuning with batch size 1:
+- Weights: 7B * 2 bytes = 14GB
+- Optimizer states: 14GB * 4 = 56GB
+- Activations: 4-6GB (batch 1, sequence 2048)
+- **Total: 74GB minimum**
+
+This exceeds most single GPUs. Solution: LoRA or gradient checkpointing.
+
+### VRAM by Model Size (Full Fine-Tuning, Batch 1)
+
+| Model Size | Min VRAM | Recommended | GPU Examples |
+|----------|----------|-------------|---|
+| 7B | 64GB | 80GB | A100 8x |
+| 13B | 120GB | 160GB | 2x A100 or H100 8x |
+| 34B | 280GB | 320GB | 4x A100 or H100 8x |
+| 70B | 560GB | 640GB | 8x A100 or H100 8x |
+
+Full fine-tuning scales poorly. 70B models need 8-GPU setups costing thousands per day. For pricing on GPUs, explore [GPU options](/gpus).
+
+### VRAM with LoRA (Rank 8)
+
+LoRA adds trainable adapters without storing optimizer states for base model.
+
+| Model Size | Min VRAM | Recommended | GPU Examples |
+|----------|----------|-------------|---|
+| 7B | 16GB | 24GB | RTX 4090, L40S |
+| 13B | 24GB | 32GB | A100 PCIe, L40S |
+| 34B | 48GB | 64GB | A100 PCIe, H100 PCIe |
+| 70B | 80GB | 96GB | A100 SXM, H100 PCIe |
+
+LoRA makes fine-tuning practical on consumer and mid-range GPUs. See [A100 vs H100 comparison](/articles/a100-vs-h100) for performance details.
+
+### QLoRA (Quantization + LoRA)
+
+Quantizing base model to 4-bit reduces VRAM further:
+
+| Model Size | Min VRAM | GPU Examples |
+|----------|----------|---|
+| 7B | 8GB | RTX 4090 with care |
+| 13B | 10GB | RTX 4090, A10 |
+| 34B | 16GB | RTX 4090, L4 |
+| 70B | 24GB | L40S, A100 PCIe |
+
+QLoRA sacrifices speed for VRAM. Training 70B on L40S is feasible but takes 2-3x longer than A100 SXM.
+
+## GPU Comparison Table
+
+### March 2026 Pricing and Specs
+
+| GPU | VRAM | Bandwidth | Cost/hr | Provider |
+|-----|------|-----------|---------|----------|
+| **RTX 4090** | 24GB | 1,008 GB/s | $0.34 | RunPod |
+| **L4** | 24GB | 432 GB/s | $0.44 | RunPod |
+| **L40S** | 48GB | 864 GB/s | $0.79 | RunPod |
+| **A100 PCIe** | 80GB | 2,039 GB/s | $1.19 | RunPod |
+| **A100 SXM** | 80GB | 2,039 GB/s | $1.39 | RunPod |
+| **H100 PCIe** | 80GB | 3,456 GB/s | $1.99 | RunPod |
+| **H100 SXM** | 80GB | 3,456 GB/s | $2.69 | RunPod |
+| **H200** | 141GB | 4,800 GB/s | $3.59 | RunPod |
+| **B200** | 192GB | 18,000 GB/s | $5.98 | RunPod |
+
+Pricing reflects March 2026 rates. Lambda and CoreWeave offer similar models at different prices.
+
+### Cost Per GB VRAM
+
+| GPU | $/GB/hr |
+|-----|---------|
+| RTX 4090 | $0.0142 |
+| L40S | $0.0165 |
+| A100 PCIe | $0.0149 |
+| H100 PCIe | $0.0249 |
+| H100 SXM | $0.0336 |
+| B200 | $0.0311 |
+| H200 | $0.0255 |
+
+RTX 4090 is cheapest by VRAM cost. However, slower training means higher total cost for long jobs.
+
+### Speed Comparison (Tokens/Second During Training)
+
+For 7B model with LoRA, batch size 4:
+
+| GPU | Tokens/sec | Time for 10B tokens |
+|-----|----------|---|
+| RTX 4090 | 480 | 5.8 hours |
+| L40S | 640 | 4.3 hours |
+| A100 PCIe | 920 | 3.0 hours |
+| H100 PCIe | 1,440 | 1.9 hours |
+
+H100 is 3x faster than RTX 4090. For 10-hour fine-tuning jobs:
+- RTX 4090: 10 hrs * $0.34 = $3.40
+- H100 PCIe: 1.9 hrs * $1.99 = $3.78
+
+Total cost is similar, but H100 finishes in 1/5 the time (iteration speed matters).
+
+## LoRA vs Full Fine-Tuning
+
+### Quality Comparison
+
+Full fine-tuning updates all weights. Quality is highest but expensive.
+
+LoRA trains only rank-8 (or rank-4) adapters. Quality depends on rank selection.
+
+| Approach | VRAM (7B) | Quality | Training Time |
+|----------|----------|---------|---|
+| Full FT | 64GB+ | 100% | 1.0x baseline |
+| LoRA-8 | 16GB | 94-96% | 1.0x baseline |
+| LoRA-4 | 12GB | 90-92% | 1.0x baseline |
+| QLoRA-4 | 8GB | 88-90% | 2.5x baseline |
+
+LoRA-8 captures 95% of quality at 1/4 the VRAM. This is the practical standard.
+
+### Cost Example: Fine-Tune Llama 2 7B
+
+Task: Fine-tune on 10B tokens of domain-specific data.
+
+**Full Fine-Tuning**
+- Required: A100 8x setup ($21.60/hr)
+- Training time: 15 hours
+- Cost: 15 * $21.60 = $324
+
+**LoRA-8**
+- Required: L40S ($0.79/hr)
+- Training time: 15 hours
+- Cost: 15 * $0.79 = $11.85
+
+**Savings: 96.3%**
+
+Quality difference: 95-96% versus 100%. For most applications, negligible.
+
+## Single GPU vs Multi-GPU Training
+
+### Distributed Training Overhead
+
+Adding GPUs reduces training time but introduces overhead:
+- Data loading synchronization
+- Gradient aggregation
+- Network latency between GPUs
+
+Efficiency typically drops 10-20% per added GPU.
+
+### Scaling Laws
+
+For a 13B model with LoRA:
+
+| Setup | Training Time | Throughput | Cost |
+|-------|----------|----------|------|
+| 1x A100 | 20 hours | 850 T/s | $23.80 |
+| 2x A100 | 11 hours | 1,550 T/s | $30.58 |
+| 4x A100 | 6 hours | 2,800 T/s | $34.32 |
+
+Adding a 4th GPU only saves 1 hour and costs more. Diminishing returns kick in.
+
+### Multi-GPU Strategy
+
+For most fine-tuning, use 1-2 GPUs. Beyond 2 GPUs, infrastructure complexity (Distributed Data Parallel, DeepSpeed) outweighs time savings for typical workloads.
+
+Exception: 70B models benefit from 2+ GPUs even with LoRA.
+
+## Cloud GPU Pricing
+
+### RunPod Pricing (March 2026)
+
+RunPod offers on-demand and reserved pricing:
+
+| GPU | On-Demand | Reserved (annual) |
+|-----|----------|---|
+| RTX 4090 | $0.34/hr | $1,700/yr |
+| L40S | $0.79/hr | $3,960/yr |
+| A100 PCIe | $1.19/hr | $5,950/yr |
+| H100 PCIe | $1.99/hr | $9,950/yr |
+
+Reserved pricing reduces hourly cost by 40-45%. Check [H100 pricing](/articles/h100-price) for detailed cost breakdowns.
+
+### Lambda Pricing (March 2026)
+
+| GPU | Cost/hr |
+|-----|---------|
+| A10 | $0.86 |
+| A100 PCIe | $1.48 |
+| GH200 | $1.99 |
+| H100 PCIe | $2.86 |
+| H100 SXM | $2.49 |
+
+Lambda's SXM is actually cheaper than RunPod's H100 SXM ($2.69/hr). Lambda's PCIe is slightly more expensive.
+
+### CoreWeave Pricing (March 2026)
+
+CoreWeave focuses on large-scale deployments (8x GPU pods):
+
+| Pod | Cost/hr |
+|-----|---------|
+| 8x A100 | $21.60 |
+| 8x H100 | $49.24 |
+| 8x H200 | $50.44 |
+| 8x B200 | $68.80 |
+
+Cheaper than RunPod per GPU but requires multi-GPU commitment.
+
+## Cost-Efficiency Rankings
+
+For fine-tuning a 13B model with LoRA on 10B tokens:
+
+### Rank 1: RTX 4090 + LoRA
+
+- Hardware cost: $0.34/hr
+- Training time: 12.5 hours
+- Total: $4.25
+- Best for: Budget-conscious teams
+
+### Rank 2: L40S + LoRA
+
+- Hardware cost: $0.79/hr
+- Training time: 9.5 hours
+- Total: $7.51
+- Best for: Balanced cost and speed
+
+### Rank 3: A100 PCIe + LoRA
+
+- Hardware cost: $1.19/hr
+- Training time: 6.5 hours
+- Total: $7.74
+- Best for: Speed matters slightly more
+
+### Rank 4: H100 PCIe + LoRA
+
+- Hardware cost: $1.99/hr
+- Training time: 4 hours
+- Total: $7.96
+- Best for: Iteration speed critical
+
+For this 13B LoRA task, cost differences are small ($4.25 to $7.96). Choose based on iteration speed requirements.
+
+### For 70B + Full Fine-Tuning
+
+Costs explode without LoRA. 8x A100 costing $86.40/hr for 40 hours = $3,456.
+
+Full fine-tuning is only viable at scale (models used in production, training many variants).
+
+## Model-Specific Recommendations
+
+### 7B Models (Mistral 7B, Llama 2 7B)
+
+**Best Choice: RTX 4090 + LoRA**
+- Cost: ~$4
+- Training time: 12 hours for 10B tokens
+- Reasoning: Sufficient VRAM, cost-effective
+
+**Alternative: L4 + QLoRA**
+- Cost: ~$3
+- Training time: 20 hours (2x slower)
+- Trade-off: Cheaper, slower
+
+### 13B Models (Llama 2 13B, Mistral 13B)
+
+**Best Choice: L40S + LoRA**
+- Cost: ~$8
+- Training time: 9 hours for 10B tokens
+- Reasoning: Balanced speed and cost
+
+**Alternative: A100 PCIe + LoRA** (for faster iteration)
+- Cost: ~$8
+- Training time: 6 hours
+- Trade-off: Slightly faster for same cost
+
+### 34B Models (Mistral MoE, Code Llama 34B)
+
+**Best Choice: A100 PCIe + LoRA or 2x L40S**
+- Cost: ~$12-16 per 10B tokens
+- Training time: 8-10 hours
+- Reasoning: Need larger VRAM for 34B
+
+### 70B Models (Llama 2 70B, Mistral 70B)
+
+**Best Choice: H100 PCIe + LoRA**
+- Cost: ~$20 per 10B tokens
+- Training time: 10 hours
+- Reasoning: 80GB VRAM required, speed justifies cost
+
+**Alternative: A100 SXM + LoRA (requires 2+ GPUs)**
+- Cost: ~$28
+- Training time: 15 hours
+- Trade-off: More GPUs, slightly more cost
+
+## Optimization Techniques
+
+### Memory Optimization
+
+**Gradient Checkpointing:** Trade computation for memory. Recompute activations instead of storing them. Reduces VRAM by 20-30%, increases compute time by 20%.
+
+**Flash Attention:** Use Flash Attention implementation for lower VRAM usage during attention computation. Especially helpful for long sequences.
+
+**Mixed Precision:** Train in bfloat16 instead of float32. Halves VRAM, no quality loss on modern GPUs.
+
+### Speed Optimization
+
+**Compiler:** Use PyTorch compile (Triton backend) for 10-15% speedup on A100/H100.
+
+**FSDP:** Fully Sharded Data Parallel for multi-GPU scaling. Distributes model across GPUs more efficiently than simple DDP.
+
+**Token Dropping:** Skip gradient computation on some tokens (randomly). Reduces compute by 20%, minimal quality impact.
+
+### Combined: QLoRA on RTX 4090
+
+```
+Model: 70B Llama 2
+Quantization: 4-bit
+LoRA: rank-8
+Gradient Checkpointing: enabled
+Flash Attention: enabled
+Batch Size: 2
+
+Results:
+VRAM used: 19.5GB (out of 24GB)
+Throughput: 280 tokens/sec
+Training 10B tokens: 10 hours
+Cost: $3.40 total
+```
+
+This configuration makes 70B fine-tuning accessible on consumer hardware.
+
+## Advanced Optimization Strategies
+
+### Production Fine-Tuning Pipelines
+
+Real production systems combine multiple optimization techniques:
+
+**Scenario: Fine-tune 13B model weekly on 100B new tokens**
+
+Setup:
+- Hardware: 2x L40S ($0.79/hr each)
+- Optimization: LoRA-8 + gradient checkpointing + Flash Attention
+- Batch size: 4 per GPU (8 total)
+- Data preprocessing: Parallel on CPU
+
+Cost breakdown:
+- Data prep: 2 hours = $0 (CPU-only)
+- Training: 50 hours = 50 * $1.58 = $79
+- Evaluation: 2 hours = $3.16
+- Total: $82.16 per week
+
+Cost per token trained: $0.00082/token
+
+This represents excellent efficiency. Single GPU (A100) would cost $200+.
+
+### Quantization Strategies
+
+For budget-constrained scenarios:
+
+**4-bit Quantization (QLoRA):**
+- VRAM reduction: 50-60%
+- Speed penalty: 20-30%
+- Quality: 92-95% of full precision
+- Best for: Tight VRAM budgets
+
+**8-bit Quantization:**
+- VRAM reduction: 30-40%
+- Speed penalty: 10-15%
+- Quality: 96-98% of full precision
+- Best for: Balanced approach
+
+**INT8 vs NF4:**
+- INT8: Simpler, faster inference, slightly worse quality
+- NF4: Better quality, slower inference, more complex
+
+For production, NF4 + 8-bit optimizer states is standard.
+
+## Real-World Benchmarks
+
+### Fine-Tune Mistral 7B on Custom Dataset
+
+Setup: L40S + LoRA-8, batch size 4, 10k training samples (50B tokens)
+
+| Phase | Time | Cost |
+|-------|------|------|
+| Data preparation | 0.5 hr | $0.40 |
+| Fine-tuning (50B tokens) | 60 hrs | $47.40 |
+| Evaluation | 0.5 hr | $0.40 |
+| **Total** | 61 hrs | **$48.20** |
+
+Cost per million tokens: $0.0009
+
+### Fine-Tune Llama 2 70B on Code Dataset
+
+Setup: H100 PCIe + LoRA-16, batch size 2, 20k training samples (100B tokens)
+
+| Phase | Time | Cost |
+|-------|------|------|
+| Data preparation | 1 hr | $1.99 |
+| Fine-tuning (100B tokens) | 70 hrs | $139.30 |
+| Evaluation | 1 hr | $1.99 |
+| **Total** | 72 hrs | **$143.28** |
+
+Cost per million tokens: $0.0014
+
+## FAQ
+
+**Q: Is fine-tuning worth it versus prompt engineering?**
+
+Fine-tuning is worth it for repeated, specialized tasks. Break-even point: 1,000+ inference calls. For one-off tasks, prompt engineering is cheaper.
+
+**Q: Should I fine-tune or train from scratch?**
+
+Fine-tune. Training from scratch costs millions and requires massive compute. Only large companies with proprietary datasets do it.
+
+**Q: Can I fine-tune on consumer GPU (RTX 4090)?**
+
+Yes. With LoRA and QLoRA, fine-tune 7B-34B models on RTX 4090. 70B requires quantization or multiple GPUs.
+
+**Q: What's the difference between LoRA rank 4, 8, 16?**
+
+Higher rank captures more information but needs more VRAM and reduces efficiency. Rank 8 is the standard. Use rank 4 for constrained VRAM, rank 16 only if quality suffers.
+
+**Q: How many tokens should I use for fine-tuning?**
+
+Quality plateaus around 10B-20B tokens for smaller models. 70B models benefit from 50B+ tokens. More data beats better hardware.
+
+**Q: Which provider should I use?**
+
+RunPod for the best per-GPU pricing. Lambda for reliability. CoreWeave for large multi-GPU setups. All three work well.
+
+**Q: How should I handle batch size when VRAM is tight?**
+
+Reduce batch size to 1 (if possible) before trying QLoRA. Smaller batches train slower but need less VRAM. Once VRAM is exhausted, switch to QLoRA. Never sacrifice quality for speed; adjust batch size instead.
+
+**Q: When should I move from fine-tuning to custom training?**
+
+Fine-tune when you have 10M+ high-quality tokens. Train from scratch only if you have 100B+ proprietary tokens and budget for weeks of training. Most teams fine-tune.
+
+**Q: Can I share a fine-tuned model with others?**
+
+Yes. Save the LoRA adapters (usually 10-100MB), share with others. They load base model + adapters. Adapters are small and easy to distribute. For proprietary models, check licensing terms.
+
+## Related Resources
+
+- [GPU Comparison Tool](/gpus)
+- [A100 vs H100 Analysis](/articles/a100-vs-h100)
+- [H100 Pricing Guide](/articles/h100-price)
+- [A100 Pricing Guide](/articles/a100-price)
+
+## Sources
+
+- RunPod Pricing (March 2026)
+- Lambda Pricing (March 2026)
+- CoreWeave Pricing (March 2026)
+- Fine-tuning VRAM Requirements Study
+- LoRA Paper: Hu et al. 2021
+- QLoRA Paper: Dettmers et al. 2023

@@ -1,0 +1,306 @@
+---
+title: 'Best GPU Orchestration Tools: SLURM vs Ray vs Kubernetes'
+slug: best-gpu-orchestration-tools-slurm-vs-ray-vs-kubernetes
+description: >-
+  Comprehensive comparison of GPU orchestration tools. SLURM, Ray, and
+  Kubernetes analyzed for ML workloads, pricing, and implementation.
+date: '2026-03-22'
+author: DeployBase
+---
+
+## Contents
+
+- [GPU Orchestration Tools for ML Workloads](#gpu-orchestration-tools-for-ml-workloads)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## GPU Orchestration Tools for ML Workloads
+
+Distributed GPU clusters need orchestration. SLURM for HPC. Ray for ML. Kubernetes for containers. Pick right = no bottlenecks, lower costs.
+
+### SLURM for High-Performance Computing
+
+SLURM (Simple Linux Utility for Resource Management) schedules jobs across compute clusters. Originally developed for supercomputers, now widely used in academic HPC facilities.
+
+Architecture: Central controller manages job queue. Compute nodes execute jobs. Database tracks job state, accounting, and metrics.
+
+SLURM excels at:
+- Static workloads with predictable resource needs
+- Long-running batch jobs (multi-day training runs)
+- Preemption handling when higher-priority jobs arrive
+- Guaranteed resource allocation with no noisy neighbors
+
+Job submission:
+
+```bash
+#!/bin/bash
+#SBATCH --job-name=llm-training
+#SBATCH --gpus=4
+#SBATCH --mem=128G
+#SBATCH --time=48:00:00
+#SBATCH --partition=gpu
+
+python train_llm.py \
+    --batch-size 32 \
+    --num-epochs 10 \
+    --distributed True
+```
+
+Submit with: `sbatch train_job.sh`
+
+SLURM handles GPU allocation, restarts on failure, and reports completion. Simple interface for single-node training.
+
+Multi-node distributed training requires MPI (Message Passing Interface):
+
+```bash
+srun --gpus-per-node=4 python -m torch.distributed.launch train.py
+```
+
+SLURM launches training script on all allocated nodes. MPI handles inter-node communication.
+
+Limitations: SLURM requires manual setup, tuning, and cluster management. Suitable for dedicated clusters operated by experienced teams. Not practical for small teams or heterogeneous hardware.
+
+Pricing model: No software licensing cost. Only hardware and power. Cluster ownership requires capital expenditure. Small clusters (8 GPUs) cost $50k-100k upfront.
+
+### Ray for Distributed ML
+
+Ray simplifies distributed ML with Python-native API. Handles job scheduling, fault tolerance, and resource management. Designed for modern ML workflows, not legacy HPC patterns.
+
+Ray Cluster architecture: Head node coordinates scheduling. Worker nodes execute tasks. Ray handles all communication transparently.
+
+Basic distributed training:
+
+```python
+import ray
+from ray import air, tune
+from ray.air import session
+
+ray.init(address="auto")
+
+def train_fn(config):
+    # Training code here
+    for epoch in range(config["num_epochs"]):
+        loss = train_one_epoch()
+        session.report({"loss": loss})
+
+tuner = tune.Tuner(
+    train_fn,
+    param_space={"num_epochs": 10, "lr": 0.001},
+    run_config=air.RunConfig(
+        stop={"loss": 0.01},
+        checkpoint_config=air.CheckpointConfig(num_to_keep=3)
+    )
+)
+
+results = tuner.fit()
+```
+
+Ray handles:
+- Distributing training across GPUs
+- Checkpointing and fault recovery
+- Hyperparameter sweep orchestration
+- Early stopping based on metrics
+
+Ray excels at:
+- Dynamic workloads (neural architecture search, hyperparameter tuning)
+- Interactive development (Jupyter notebooks)
+- Flexible resource requirements
+- Multi-stage pipelines (data preparation, training, evaluation)
+
+Ray on Cloud supports quick cluster creation:
+
+```bash
+ray up cluster.yaml
+```
+
+YAML configuration specifies GPU count, instance type, and autoscaling:
+
+```yaml
+cluster_name: llm-training
+max_workers: 10
+docker:
+  image: rayproject/ray-ml:latest
+
+worker_nodes:
+  - aws_instance_type: g4dn.2xlarge
+    count: 4
+```
+
+Ray autoscales based on pending tasks. Unused workers terminate automatically. Pay only for active resources.
+
+Limitations: Ray adds overhead compared to bare-metal SLURM. Suitable for workloads tolerating 5-20% overhead. Not optimal for throughput-critical batch processing.
+
+Pricing model: No licensing cost. Pay for cloud instances. Autoscaling reduces waste. Typical 3-cluster costs $2-5k/month for active training.
+
+### Kubernetes for Container Orchestration
+
+Kubernetes manages containerized applications at scale. Provides abstraction over hardware. NVIDIA GPU Device Plugin enables GPU scheduling.
+
+Kubernetes GPU orchestration:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: llm-training-pod
+spec:
+  containers:
+  - name: training
+    image: llm-training:latest
+    resources:
+      limits:
+        nvidia.com/gpu: 4
+      requests:
+        memory: "128Gi"
+        cpu: "32"
+    env:
+    - name: CUDA_VISIBLE_DEVICES
+      value: "0,1,2,3"
+```
+
+Kubernetes handles:
+- GPU scheduling across nodes
+- Pod placement optimization
+- Network connectivity
+- Persistent storage mounting
+- Service discovery
+
+Distributed training with StatefulSet:
+
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: distributed-training
+spec:
+  replicas: 4
+  template:
+    spec:
+      containers:
+      - name: trainer
+        image: llm-training:latest
+        resources:
+          limits:
+            nvidia.com/gpu: 1
+```
+
+Kubernetes automatically launches training pods on separate nodes with GPU.
+
+Kubernetes excels at:
+- Mixed workloads (batch + interactive + services)
+- Multi-team environments with resource isolation
+- Complex networking requirements
+- Production inference serving
+- Infrastructure as code
+
+Limitations: Steep learning curve. Requires expertise in containers, networking, and storage. YAML configuration verbose and error-prone. Overkill for single-team pure ML workloads.
+
+Pricing model: Kubernetes itself free (open-source). Hosted services (EKS, GKE, AKS) charge management fee plus compute. Comparable to self-managed SLURM for mature deployments.
+
+### Comparison Matrix
+
+| Aspect | SLURM | Ray | Kubernetes |
+|--------|-------|-----|-----------|
+| Setup Complexity | High | Medium | Very High |
+| Distributed Training | Excellent | Excellent | Good |
+| Dynamic Workloads | Poor | Excellent | Good |
+| Hyperparameter Tuning | Poor | Excellent | Adequate |
+| Production Serving | Not suitable | Limited | Excellent |
+| Learning Curve | Steep | Gentle | Very Steep |
+| Cost Per GPU | Lowest | Low | Low-Medium |
+| Fault Tolerance | Good | Excellent | Excellent |
+| Noisy Neighbor Risk | None | Moderate | Low |
+| Multi-Team Support | Limited | Good | Excellent |
+
+### Cost Analysis
+
+SLURM on dedicated hardware: $500-2000/month for 4-GPU cluster. Ownership cost amortized over 5 years. Best for sustained large-scale workloads.
+
+Ray on cloud instances: $2-5k/month for active training. Autoscaling reduces idle costs to near-zero. Best for bursty, dynamic workloads.
+
+Kubernetes on cloud: $3-8k/month for mixed workloads including serving. Higher management overhead. Best for mature production systems.
+
+Break-even analysis:
+
+Small workloads (<100 GPU-hours/month): Use [RunPod on-demand](/articles/runpod-gpu-pricing) at $0.34/hour per RTX 4090.
+
+Medium workloads (100-500 GPU-hours/month): Ray on cloud instances or SLURM spot instances.
+
+Large workloads (>500 GPU-hours/month): Dedicated SLURM cluster or negotiated cloud contract.
+
+### Integration Patterns
+
+Hybrid approach: SLURM for batch training, Ray for hyperparameter search, Kubernetes for serving. Specialization matches strengths.
+
+Data flow:
+1. Ray conducts distributed hyperparameter search
+2. Best hyperparameters go to SLURM for final large-scale training
+3. Trained model deployed to Kubernetes for inference serving
+
+Staging environments: Develop and test on Ray locally. Scale production training on SLURM. Serve predictions through Kubernetes.
+
+### Migration Strategies
+
+Moving from SLURM to Ray: Export training scripts, wrap in Ray train functions. Most existing code works unchanged. Gradual migration possible.
+
+Moving from Ray to Kubernetes: Containerize Ray application, create Kubernetes manifests, deploy. Ray provides Kubernetes integration for automated manifest generation.
+
+Moving from Kubernetes to SLURM: Extract training logic from container, add SLURM job directives, submit. Requires more refactoring.
+
+### Practical Recommendations
+
+Use SLURM if:
+- Operating dedicated on-premise cluster
+- Training runs measure in days/weeks
+- Static resource needs
+- Team has HPC experience
+
+Use Ray if:
+- Conducting research or development
+- Hyperparameter tuning important
+- Using cloud resources
+- Team prefers Python-first interfaces
+
+Use Kubernetes if:
+- Managing mixed workloads (ML training + serving + analytics)
+- Multiple teams sharing infrastructure
+- Production stability critical
+- Existing Kubernetes expertise
+
+## FAQ
+
+**Can SLURM and Ray work together?**
+Yes. Ray jobs can submit to SLURM. Ray-on-SLURM mode provides best of both. Contact SLURM for resource reservation, Ray handles job scheduling.
+
+**Which tool offers best fault tolerance?**
+Ray and Kubernetes handle faults automatically with minimal config. SLURM requires manual checkpointing. Ray and Kubernetes recommended for reliability.
+
+**Can I run SLURM in Kubernetes?**
+Technically yes, but defeats purpose. Run Kubernetes-native workloads on Kubernetes, SLURM on bare metal.
+
+**What's the learning curve for each?**
+SLURM: 2-4 weeks for basics, months for advanced cluster tuning. Ray: 1-2 weeks to basic proficiency. Kubernetes: 4-8 weeks minimum, often months for production expertise.
+
+**Which supports multi-GPU training best?**
+All three handle multi-GPU training. SLURM and Ray more straightforward. Kubernetes requires explicit resource specification and network setup.
+
+**Can I use spot instances with these tools?**
+SLURM: Limited spot support, requires manual interruption handling. Ray: Excellent spot integration with automatic fallback. Kubernetes: Good spot support with pod disruption budgets.
+
+**Which scales easiest from 1 GPU to 100 GPUs?**
+Ray designed for horizontal scaling. Ray clusters autoscale smoothly. SLURM requires cluster reconfiguration. Kubernetes scales well but requires infrastructure planning.
+
+## Related Resources
+
+[GPU Cloud Pricing Trends:Are GPUs Getting Cheaper?](/articles/gpu-cloud-pricing-trends-are-gpus-getting-cheaper)
+[Best GPU Cloud for LLM Training:Provider and Pricing](/articles/best-gpu-cloud-for-llm-training-provider-and-pricing)
+[Best GPU Cloud for AI Startup:Provider and Pricing](/articles/best-gpu-cloud-for-ai-startup-provider-and-pricing)
+
+## Sources
+
+SLURM documentation and user guide
+Ray distributed computing framework documentation
+Kubernetes GPU scheduling documentation
+NVIDIA GPU Device Plugin for Kubernetes
+Ray on Kubernetes integration guide

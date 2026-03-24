@@ -1,0 +1,288 @@
+---
+title: 'What is Speculative Decoding: Faster LLM Inference Explained'
+slug: what-is-speculative-decoding-faster-llm-inference-explained
+description: >-
+  Understand speculative decoding for LLM inference. How it speeds up token
+  generation 2-4x with minimal quality loss. Technical explanation and
+  implementation.
+date: '2026-03-22'
+author: DeployBase
+category: AI Infrastructure
+keywords:
+  - what is speculative decoding
+  - speculative decoding explained
+  - faster llm inference
+  - draft model verification
+---
+
+## Contents
+
+- [What Is Speculative Decoding: Overview](#what-is-speculative-decoding-overview)
+- [How Speculative Decoding Works](#how-speculative-decoding-works)
+- [Draft Model and Verifier Model](#draft-model-and-verifier-model)
+- [Token Acceptance and Rejection](#token-acceptance-and-rejection)
+- [Speedup Characteristics](#speedup-characteristics)
+- [Hardware Requirements](#hardware-requirements)
+- [Implementation Example](#implementation-example)
+- [Speculative Decoding Variants](#speculative-decoding-variants)
+- [When to Use Speculative Decoding](#when-to-use-speculative-decoding)
+- [Cost Impact](#cost-impact)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## What Is Speculative Decoding: Overview
+
+Speculative decoding is an inference optimization technique that accelerates large language model token generation by 2-4x without changing the output distribution. A small, fast draft model generates candidate tokens speculatively. A larger verifier model then validates those candidates in a single parallel forward pass, accepting or rejecting each one.
+
+The key insight: autoregressive LLM decoding is sequential by design (each token depends on all previous tokens), but verification can be parallelized. Rather than having the large model generate one token at a time, the draft model proposes a batch, and the verifier checks the entire batch simultaneously.
+
+This technique is output-identical to standard decoding when using exact verification. Users receive the same quality responses at significantly higher throughput.
+
+---
+
+## How Speculative Decoding Works
+
+Standard autoregressive decoding runs one forward pass of the large model per output token. A 70B model generating 200 tokens requires 200 sequential forward passes. Each pass takes time proportional to model size.
+
+Speculative decoding changes the flow:
+
+1. **Draft phase:** The small draft model (e.g., 7B parameters) generates K candidate tokens autoregressively. This is fast because the draft model is small.
+
+2. **Verification phase:** All K candidate tokens feed into the large verifier model (e.g., 70B parameters) in a single forward pass. The verifier computes the probability distribution for each position in parallel.
+
+3. **Acceptance step:** For each candidate token, compare the draft model's probability against the verifier's probability. Accept the token if the verifier agrees within a threshold; reject it otherwise.
+
+4. **Correction:** If a token is rejected at position i, discard tokens i through K and sample a corrected token from the verifier's distribution at position i. Resume drafting from there.
+
+5. **Repeat:** The draft model continues from the last accepted token.
+
+A single "speculative step" replaces K sequential verifier passes with one parallel verifier pass plus K fast draft passes. Since the draft model is 5-20x smaller than the verifier, the net result is significantly higher token throughput.
+
+---
+
+## Draft Model and Verifier Model
+
+The draft model must be from the same model family as the verifier to achieve high acceptance rates. A Llama 3 8B draft model paired with a Llama 3 70B verifier works well because both models share similar output distributions. Mismatched families (e.g., Mistral draft + Llama verifier) produce low acceptance rates, eliminating speedup gains.
+
+**Common pairings:**
+
+| Draft Model | Verifier Model | Expected Acceptance Rate |
+|-------------|----------------|--------------------------|
+| Llama 3 8B | Llama 3 70B | 70-85% |
+| Llama 3 1B | Llama 3 8B | 65-80% |
+| CodeLlama 7B | CodeLlama 34B | 75-90% (structured output) |
+| Mistral 7B | Mistral large | 70-80% |
+
+Higher acceptance rates produce greater speedup. Structured tasks (JSON, code, mathematical proofs) achieve the highest acceptance rates because output tokens are predictable. Open-ended generation has lower rates but still benefits.
+
+The draft model runs on the same GPU as the verifier. It must fit in remaining VRAM after the verifier occupies its share. For an H100 80GB running a 70B verifier (approximately 40GB in INT8), a 7B draft model requires about 7GB, leaving headroom for KV caches.
+
+---
+
+## Token Acceptance and Rejection
+
+The acceptance criterion uses a rejection sampling method that preserves the verifier's output distribution exactly. This guarantees that speculative decoding produces statistically identical outputs to standard decoding.
+
+For each candidate token at position i:
+- Let p(x) be the verifier's probability for that token
+- Let q(x) be the draft model's probability for that token
+- Accept with probability min(1, p(x)/q(x))
+
+If accepted, move to position i+1. If rejected, sample a new token from an adjusted distribution: max(0, p(x) - q(x)), normalized. This correction step ensures the output remains consistent with the verifier's true distribution.
+
+In practice, if the draft model is well-calibrated for the task, acceptance rates of 70-90% per token are typical. With K=5 draft tokens and an 80% acceptance rate, the expected number of accepted tokens per speculative step is approximately 3.4, compared to 1 token per verifier pass in standard decoding.
+
+---
+
+## Speedup Characteristics
+
+Throughput improvement depends on three factors: acceptance rate, draft model speed, and the ratio of draft-to-verifier model size.
+
+**Theoretical maximum speedup** with K draft tokens and acceptance rate α:
+
+Expected tokens per step = (1 - α^(K+1)) / (1 - α)
+
+For α = 0.8 and K = 5: expected ≈ 3.4 tokens per verifier pass versus 1.0 in standard decoding.
+
+**Real-world measurements:**
+
+| Model Pair | Task | Speedup |
+|-----------|------|---------|
+| Llama 3 8B → 70B | General text | 2.1-2.8x |
+| Llama 3 1B → 8B | General text | 1.8-2.5x |
+| CodeLlama 7B → 34B | Code generation | 2.5-3.5x |
+| Llama 70B → 405B | Reasoning | 1.9-2.6x |
+
+Speedup is measured in tokens per second on the same hardware. A 70B model generating at 50 tokens/second standard decoding may reach 120-140 tokens/second with speculative decoding.
+
+Memory bandwidth is often the binding constraint for inference. Speculative decoding does not reduce memory usage; it better utilizes available compute by batching verification.
+
+---
+
+## Hardware Requirements
+
+Speculative decoding requires fitting both the draft and verifier models in GPU memory simultaneously.
+
+**Minimum viable setup:**
+
+- Verifier: Llama 3 8B (INT8) = ~8GB VRAM
+- Draft: Llama 3 1B (INT8) = ~1GB VRAM
+- KV cache: ~8-16GB for typical context lengths
+- Total: ~20-25GB → fits on an A10 or L40S GPU
+
+**Common production setup:**
+
+- Verifier: Llama 3 70B (INT8) = ~70GB VRAM
+- Draft: Llama 3 8B (INT8) = ~8GB VRAM
+- KV cache: ~20-30GB for 4K context
+- Total: ~100GB → requires H100 SXM (80GB) with quantization, or H200 (141GB)
+
+For multi-GPU inference, the verifier distributes across GPUs via tensor parallelism. The draft model can run on a single GPU or replicated across GPUs alongside the sharded verifier.
+
+RunPod H100 SXM costs $2.69/hour. A single H100 handles a 70B verifier + 7B draft in INT8 quantization. H200 at $3.59-4.50/hour accommodates larger context lengths or FP16 precision.
+
+---
+
+## Implementation Example
+
+vLLM supports speculative decoding as a configuration option:
+
+```python
+from vllm import LLM, SamplingParams
+
+llm = LLM(
+    model="meta-llama/Meta-Llama-3-70B-Instruct",
+    speculative_model="meta-llama/Meta-Llama-3-8B-Instruct",
+    num_speculative_tokens=5,
+    tensor_parallel_size=2,
+)
+
+sampling_params = SamplingParams(
+    temperature=0.8,
+    max_tokens=512,
+)
+
+outputs = llm.generate(
+    ["Explain the causes of the French Revolution in detail."],
+    sampling_params,
+)
+
+print(outputs[0].outputs[0].text)
+```
+
+Key parameters:
+- `speculative_model`: Path or HuggingFace name of the draft model
+- `num_speculative_tokens`: Number of tokens to draft per speculative step (K). Typical range: 3-7
+- `tensor_parallel_size`: How many GPUs to shard the verifier across
+
+**Benchmarking speculative decoding:**
+
+```python
+import time
+
+# Standard decoding
+llm_standard = LLM(model="meta-llama/Meta-Llama-3-70B-Instruct")
+start = time.time()
+outputs = llm_standard.generate(prompts, sampling_params)
+standard_time = time.time() - start
+
+# Speculative decoding
+llm_spec = LLM(
+    model="meta-llama/Meta-Llama-3-70B-Instruct",
+    speculative_model="meta-llama/Meta-Llama-3-8B-Instruct",
+    num_speculative_tokens=5,
+)
+start = time.time()
+outputs_spec = llm_spec.generate(prompts, sampling_params)
+spec_time = time.time() - start
+
+print(f"Speedup: {standard_time / spec_time:.2f}x")
+```
+
+---
+
+## Speculative Decoding Variants
+
+**Medusa:** Adds multiple prediction heads to the verifier model itself, eliminating the need for a separate draft model. Each head predicts tokens at different future positions. Simpler to deploy but requires fine-tuning the verifier model to add heads. Speedup: 1.5-2.5x.
+
+**Eagle (and Eagle-2):** Trains a lightweight draft model that receives the verifier's hidden states as input, dramatically increasing acceptance rates. More accurate drafting compared to standard speculative decoding. Eagle-2 uses a dynamic draft tree rather than a fixed-length sequence, further improving efficiency.
+
+**Self-speculative decoding:** Uses early exit layers of the verifier model as the draft. No separate model required. The verifier's shallow layers generate candidates; the full model verifies. Memory-efficient but less flexible.
+
+**SpecInfer:** Extends speculative decoding to tree-structured speculation, exploring multiple token branches simultaneously. Increases throughput at the cost of additional memory for storing tree states.
+
+---
+
+## When to Use Speculative Decoding
+
+**Use speculative decoding when:**
+
+- Latency is the primary constraint (interactive chatbots, real-time APIs)
+- Running a model family that has both a small and large variant (Llama 1B/8B/70B)
+- Tasks produce predictable token sequences (code, JSON, structured output)
+- GPU memory can accommodate both draft and verifier models
+- Using a framework that supports it natively (vLLM, HuggingFace TGI, TensorRT-LLM)
+
+**Avoid speculative decoding when:**
+
+- Running at maximum batch sizes (speculative decoding trades throughput for latency at high batch sizes)
+- GPU memory is fully occupied by the verifier model alone
+- The task requires diverse, creative generation where draft acceptance rates drop below 50%
+- Operating budget models where draft model VRAM cost is significant relative to total capacity
+
+---
+
+## Cost Impact
+
+Speculative decoding reduces the wall-clock time per request on dedicated GPU hardware. For API providers, faster generation translates directly to more requests served per GPU-hour, reducing cost per token.
+
+**Example calculation:**
+
+- H100 at $2.69/hour
+- Standard decoding: 50 tokens/sec
+- Speculative decoding: 125 tokens/sec (2.5x speedup)
+- Standard cost per 1M tokens: $2.69 / (50 × 3600) × 1,000,000 = $14.94
+- Speculative cost per 1M tokens: $2.69 / (125 × 3600) × 1,000,000 = $5.98
+
+A 2.5x throughput improvement produces a proportional cost reduction per token for self-hosted inference. API providers using speculative decoding internally pass these savings through to lower per-token pricing, which is why providers like Groq (using custom hardware) and others competing on speed have driven down inference costs substantially since 2024.
+
+---
+
+## FAQ
+
+**Does speculative decoding change model outputs?**
+No, same distribution. Tokens verified against verifier model, ensuring consistency.
+
+**What if draft model is worse than verifier?**
+Performance degrades. Draft must be smaller but still capable. Llama 7B → 70B works. Random model doesn't.
+
+**Can we use speculative decoding with quantization?**
+Yes, both models can be quantized. INT8 draft with FP16 verifier common. Mixed precision works well.
+
+**How do we measure speculative speedup?**
+Tokens per second. Standard: 50 tps. Speculative: 130 tps = 2.6x speedup.
+
+**Does this work for fine-tuned models?**
+Yes, if draft is fine-tuned similarly. Otherwise acceptance rate drops.
+
+**Can we speculate with different tokenizers?**
+No, tokens must match exactly. Same tokenizer required.
+
+## Related Resources
+
+- [GPU Memory Requirements for LLMs](/articles/gpu-memory-requirements-for-every-popular-llm)
+- [Best Model Serving Platforms](/articles/best-model-serving-platforms-in-2026)
+- [Self-Hosting LLM Options](/articles/self-hosting-llm-docker-kubernetes-and-bare-metal-options)
+- [Lambda GPU Pricing](/articles/lambda-labs-gpu-pricing)
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+
+## Sources
+
+- Zhou et al., "Speculative Decoding with Attention Mechanisms" (arxiv.org)
+- vLLM Speculative Decoding PR (github.com/vllm-project/vllm)
+- Chen et al., "Accelerating Large Language Model Inference" (arxiv.org)
+- Medusa: Simple LLM Acceleration Framework (github.com)
+- vLLM Documentation (docs.vllm.AI)

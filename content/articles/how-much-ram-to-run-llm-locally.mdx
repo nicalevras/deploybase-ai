@@ -1,0 +1,173 @@
+---
+title: How Much RAM to Run LLM Locally?
+slug: how-much-ram-to-run-llm-locally
+description: >-
+  Calculate RAM requirements for running LLMs locally. Memory needs for Llama 2,
+  Mistral, Phi, and other open models. GPU vs CPU tradeoffs.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - how much ram run llm locally
+  - local LLM RAM requirements
+  - running LLM locally
+  - local AI model memory
+  - CPU GPU memory
+---
+
+## Contents
+
+- [How Much Ram Run LLM Locally: RAM Requirements](#how-much-ram-run-llm-locally-ram-requirements)
+- [Model Size and Memory](#model-size-and-memory)
+- [Quantization Impact](#quantization-impact)
+- [GPU vs CPU RAM](#gpu-vs-cpu-ram)
+- [Practical Examples](#practical-examples)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## How Much Ram Run LLM Locally: RAM Requirements
+
+How much RAM to run an LLM locally depends on model size, quantization method, and inference framework. As of March 2026, most modern LLMs range from 3 billion to 70 billion parameters. RAM consumption scales roughly with parameter count when using full precision.
+
+A general rule: 4 bytes per parameter in FP32 precision. A 7B parameter model requires approximately 28GB of RAM for weights alone. Activations, attention caches, and context windows add 20-50% overhead. Practical RAM needs reach 35-40GB for 7B models.
+
+Quantization dramatically reduces RAM requirements. 4-bit quantization uses 0.5 bytes per parameter, dropping 7B model memory to approximately 3.5GB. 8-bit quantization uses 1 byte per parameter, reaching 7GB.
+
+Context length affects RAM during inference. Longer contexts require larger KV caches. A 7B model with 2k context window needs less RAM than the same model with 32k context.
+
+## Model Size and Memory
+
+### Smaller Models (3-7B Parameters)
+
+3B parameter models like Phi 3 require approximately 12-15GB RAM in FP32. Quantized versions drop to 3-4GB with 4-bit quantization. CPU-only inference is feasible on modern laptops.
+
+5B models like Mistral Small need 20GB RAM in FP32. 8-bit quantization brings this to 10GB. 4-bit quantization reaches 5GB. These models run well on GPU-equipped laptops.
+
+7B models like Llama 2 7B require 28GB RAM in FP32. 8-bit quantization needs 7GB. 4-bit quantization needs 3.5GB. Consumer gaming GPUs with 8GB VRAM handle 8-bit quantized 7B models comfortably.
+
+### Medium Models (13-30B Parameters)
+
+13B parameter models require 52GB RAM in FP32. 8-bit quantization needs 13GB. 4-bit quantization needs 6.5GB. A100 with 80GB VRAM handles these comfortably. Consumer hardware can run 13B models in 8-bit on a 16GB GPU.
+
+20B models need 80GB RAM in FP32. These exceed consumer GPU VRAM. 4-bit quantization brings this to 10GB, fitting high-end gaming GPUs like RTX 4090 with 24GB VRAM.
+
+30B models require 120GB RAM in FP32. Serious infrastructure becomes necessary. 4-bit quantization needs 15GB. This fits in RTX 4090 (24GB) or high-end server GPUs.
+
+### Large Models (40B+ Parameters)
+
+40B and larger models exceed single GPU capacity in most cases. 40B requires 160GB FP32. 4-bit quantization needs 20GB. This fits in RTX 4090 (24GB) or A100 GPUs.
+
+70B parameters like Llama 2 70B requires 280GB FP32. 4-bit quantization needs 35GB. An A100 40GB GPU handles this. Smaller GPUs like RTX 4090 (24GB) require model sharding or more aggressive quantization.
+
+100B+ parameter models need distributed inference. These require specialized infrastructure rather than local deployment. See [self-hosted-llm](/articles/run-ai-locally) for distributed hosting options.
+
+## Quantization Impact
+
+### 8-bit Quantization
+
+8-bit quantization reduces memory by 75% compared to FP32. A 7B model drops from 28GB to 7GB. This fits most consumer GPUs with 8GB+ VRAM.
+
+Inference speed remains nearly identical to FP32. bitsandbytes library enables 8-bit inference efficiently. Framework support is excellent across LLaMA, LLaMA 2, and Mistral models.
+
+Quality degradation is imperceptible for most tasks. Generation quality scores match FP32 in comprehensive benchmarks. This makes 8-bit quantization the practical choice for single-GPU inference.
+
+### 4-bit Quantization
+
+4-bit quantization reduces memory by 87.5% compared to FP32. A 7B model drops from 28GB to 3.5GB. This fits consumer gaming GPUs like RTX 4090 and even older cards with 6GB VRAM.
+
+Inference speed remains reasonable with optimized implementations. Some frameworks see 10-20% slowdown compared to 8-bit. gptq and awq quantization methods minimize this penalty.
+
+Quality degradation becomes noticeable in tasks requiring precise language understanding. Translation accuracy, code generation, and factual reasoning show measurable drops. But general chat and summarization remain excellent.
+
+### 3-bit and Lower
+
+3-bit and sub-bit quantization achieve extreme compression. A 7B model fits in 3GB VRAM. This enables inference on older GPUs and mobile devices.
+
+Quality degradation is significant. Generation becomes noticeably worse. These methods suit applications where perfect quality doesn't matter. Experimentation and personal use become primary use cases.
+
+Framework support is still developing. Inference speed is slower due to unpacking overhead. Practical adoption remains limited for production workloads.
+
+## GPU vs CPU RAM
+
+### CPU Inference
+
+CPU inference uses system RAM entirely. A consumer laptop with 16GB RAM can run 3B models in 8-bit quantization. Inference is slow but functional for personal use.
+
+Inference speed on CPUs is 5-10x slower than GPU inference. An RTX 4090 generates 100+ tokens per second. The same model on CPU manages 10-15 tokens per second.
+
+CPU inference excels for privacy and cost. No GPU purchase necessary. Everything runs locally with no cloud costs. This appeals to privacy-conscious users.
+
+### GPU Memory
+
+GPU VRAM directly limits model size. An RTX 4090 with 24GB VRAM handles 13B models in 8-bit. Consumer GPUs with 8GB limit deployment to quantized 3-7B models.
+
+GPU inference is dramatically faster. The same 7B model generates 50-100+ tokens per second on RTX 4090. This enables real-time conversation and interactive use.
+
+GPU costs accumulate. An RTX 4090 costs $1,500-2,000. This one-time expense is reasonable for enthusiasts. For production deployments, cloud GPU rental via [gpu-pricing-guide](/gpus) often makes more sense.
+
+### Hybrid Approach
+
+CPU offloading enables running models larger than GPU VRAM. Model layers alternate between GPU and CPU. Accessing CPU-based layers is slower but functional.
+
+Offloading works best with 8-bit or 4-bit quantization. Full precision models become too slow. Framework support exists in llama.cpp and other inference engines.
+
+Practical limits sit around 1.5x GPU VRAM. An RTX 4090 with 24GB can offload to CPU for effective inference of 30-35B models. Speed is 30-50% slower than GPU-only but acceptable for single-user scenarios.
+
+## Practical Examples
+
+### Running Mistral 7B
+
+Mistral 7B requires 28GB RAM in FP32. With 8-bit quantization, 7GB suffices. An RTX 4090 or RTX 6000 provides this easily with room for batching. Consumer laptops with 32GB RAM can run it on CPU at slow speed.
+
+Installation requires CUDA toolkit and PyTorch. Ollama or llama.cpp simplify setup. Inference achieves 80-120 tokens per second on RTX 4090. Quality is excellent for chat and reasoning tasks.
+
+Total hardware cost: RTX 4090 at $1,500-2,000 or cloud GPU rental at $0.35/hour from [runpod-gpu-pricing](/articles/runpod-gpu-pricing).
+
+### Running Llama 2 13B
+
+Llama 2 13B requires 52GB RAM in FP32. 8-bit quantization brings this to 13GB. An RTX 4090 (24GB) handles this easily, as does an A100 or H100.
+
+4-bit quantization reduces to 6.5GB. This fits in most consumer GPUs with 8GB+ VRAM.
+
+Speed on RTX 4090 with 4-bit: approximately 40-60 tokens per second. Speed on A100 80GB: approximately 150-200 tokens per second. Quality with 4-bit quantization remains good for most tasks.
+
+### Running Llama 2 70B
+
+Llama 2 70B requires 280GB RAM in FP32. This is impossible on consumer hardware. 4-bit quantization brings this to 35GB, which fits on an A100 40GB or larger GPU. An RTX 4090 at 24GB is too small for 70B even at 4-bit without further compression.
+
+Multi-GPU setups with tensor parallelism enable inference on 2-4 consumer GPUs. This requires sophisticated setup and coordination. Cloud deployment becomes practical. See [self-host-llm](/articles/run-ai-locally) for deployment guidance.
+
+Cloud inference on H100 or A100: $2-3 per hour from top providers. For continuous deployment, this becomes expensive. Batch processing or sparse inference helps reduce costs.
+
+## FAQ
+
+**Can I run an LLM on a laptop?**
+Yes, smaller models like Phi 3 or Mistral Small can run on modern laptops in quantized form. 3-7B models quantized to 4-bit fit comfortably in 8-16GB RAM. Inference is slow but functional.
+
+**What's the RAM requirement for a 7B model?**
+A 7B model requires 28GB in FP32 full precision. 8-bit quantization reduces this to 7GB. 4-bit quantization brings it to 3.5GB. Practical deployment typically uses 8 or 4-bit quantization.
+
+**Does quantization hurt model quality?**
+8-bit quantization has negligible quality loss. 4-bit quantization shows measurable but acceptable quality degradation. Sub-4-bit quantization makes quality losses apparent in reasoning and factual accuracy tasks.
+
+**Should I buy a GPU or use cloud inference?**
+Buy for personal use and privacy needs. Cloud makes sense for production workloads or cost-sensitive experiments. Break-even is approximately 30-50 hours of continuous inference per month.
+
+**Can I run multiple models at once?**
+Yes, if total VRAM accommodates multiple models. Two 3.5B models fit in 14GB with 8-bit quantization. Larger models cannot run simultaneously on single GPU. CPU offloading enables mixing but with speed penalties.
+
+## Related Resources
+
+- [Self-Hosted LLM Deployment](/articles/run-ai-locally)
+- [Secure Compliant LLM Hosting Cloud](/articles/best-gpu-cloud-for-government-defense)
+- [GPU Pricing Guide](/gpus)
+- [Inference Optimization](/articles/what-is-llm-inference)
+- [H100 GPU Specs](/articles/nvidia-h100-price)
+
+## Sources
+
+- [Hugging Face Model Hub](https://huggingface.co/models)
+- [Ollama](https://ollama.ai)
+- [llama.cpp](https://github.com/ggerganov/llama.cpp)
+- [bitsandbytes](https://github.com/TimDettmers/bitsandbytes)
+- [GPTQ Quantization](https://arxiv.org/abs/2210.17323)

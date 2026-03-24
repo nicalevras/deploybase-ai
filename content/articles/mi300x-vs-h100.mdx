@@ -1,0 +1,375 @@
+---
+title: 'MI300X vs H100: AMD vs NVIDIA GPU Specifications and Performance'
+slug: mi300x-vs-h100
+description: >-
+  AMD MI300X vs NVIDIA H100 deep comparison. 192GB HBM3 vs 80GB HBM3, 5.3 TB/s
+  bandwidth, cloud pricing $1.99-$6.08/hr. Inference, training, and cost
+  analysis.
+date: '2026-03-21'
+author: DeployBase
+category: GPU Hardware
+keywords:
+  - mi300x vs h100
+  - amd mi300x price
+  - mi300x specifications
+  - h100 vs mi300x
+  - gpu memory bandwidth
+  - training vs inference gpu
+  - rocm vs cuda
+---
+
+## Contents
+
+- [Mi300X vs H100: Overview](#mi300x-vs-h100-overview)
+- [Specifications Deep Dive](#specifications-deep-dive)
+- [Memory and Bandwidth Analysis](#memory-and-bandwidth-analysis)
+- [Training Performance](#training-performance)
+- [Inference Performance](#inference-performance)
+- [Cloud Pricing Comparison](#cloud-pricing-comparison)
+- [Power Consumption and Infrastructure](#power-consumption-and-infrastructure)
+- [Software Ecosystem: ROCm vs CUDA](#software-ecosystem-rocm-vs-cuda)
+- [Migration and Compatibility](#migration-and-compatibility)
+- [Use Case Recommendations](#use-case-recommendations)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Mi300X vs H100: Overview
+
+MI300X vs H100 is AMD's first serious challenge to NVIDIA's dominance in AI accelerators. The MI300X ships with 192GB HBM3 memory. more than double the H100's 80GB. At 5.3 TB/s bandwidth, it's 58% faster than H100 SXM's 3.35 TB/s. But throughput on CPU cores and multi-GPU interconnect favor H100's NVLink, which sustains 900 GB/s per GPU in 8-GPU clusters.
+
+Cloud pricing reflects the reality: MI300X rents for $3.49/hr on RunPod, $6.50 for CoreWeave's single-GPU option. H100 spans $1.99 to $2.86/hr depending on provider and form factor. For inference where memory is the bottleneck, MI300X's density wins. For distributed training where NVLink dominates, H100 SXM prevails. The gap is not performance. it's maturity and ecosystem depth.
+
+---
+
+## Specifications Deep Dive
+
+| Spec | MI300X | H100 PCIe | H100 SXM | Winner |
+|------|--------|-----------|----------|--------|
+| Memory | 192GB HBM3 | 80GB HBM2e | 80GB HBM3 | MI300X (2.4x) |
+| Memory Bandwidth | 5.3 TB/s | 2.0 TB/s | 3.35 TB/s | MI300X (1.58x SXM) |
+| GPU-GPU Link | None (single) | PCIe 5.0 | 900 GB/s NVLink | H100 (multi-GPU) |
+| Compute Units | 304 CDNA3 cores | 14,080 CUDA cores | 14,080 CUDA cores | Different arch |
+| Peak FP32 | 364 TFLOPS | 20.1 TFLOPS | 20.1 TFLOPS | Similar |
+| Peak TF32 (fast mode) | 2.9 PFLOPS | 660 TFLOPS | 660 TFLOPS | MI300X (4.4x) |
+| Peak FP8 | 5.8 PFLOPS |. |. | MI300X only |
+| Power Draw | 750W | 350W | 700W | H100 PCIe efficient |
+| Node Scale | Single card | Cluster via PCIe | Cluster via NVLink | H100 SXM |
+| Form Factor | Single 350W | PCIe slot | SXM5 module | Different |
+| Transistor Count | 146B | 80B | 80B | MI300X (density) |
+
+**What these numbers mean**
+
+MI300X is a monolithic card. One GPU, one power connector, one slot. H100 comes in two variants: PCIe (works in standard servers) and SXM (requires special chassis but enables NVLink).
+
+Memory bandwidth is the story. MI300X's 5.3 TB/s means rapid data movement from HBM to compute cores. Critical for inference where token generation latency depends on memory throughput. H100 PCIe's 2.0 TB/s is the ceiling for standard servers. H100 SXM's 3.35 TB/s bridges the gap but still trails MI300X.
+
+---
+
+## Memory and Bandwidth Analysis
+
+### Single-GPU Inference Workloads
+
+**Llama 2 70B, int8 quantization, batch=1**
+
+MI300X: 192GB memory holds the model (70GB) + KV cache with room for optimization. Generates tokens at 85-95 tokens/sec.
+
+H100 PCIe: 80GB forces quantization or sharding. Generates tokens at 60-70 tokens/sec.
+
+H100 SXM: Same 80GB memory, slightly higher bandwidth (3.35 vs 2.0 TB/s). Generates at 65-75 tokens/sec.
+
+The gap is real. MI300X's 2x memory enables single-card inference where H100 requires model splitting across two GPUs or aggressive quantization that hurts accuracy.
+
+**Cost implication for Llama 2 70B serving**
+
+Option A (MI300X single card):
+- Rent: $3.49/hr
+- Model: Full precision or minimal quantization
+- Uptime: Single card, no distributed overhead
+
+Option B (H100 PCIe dual card):
+- Rent: 2 × $1.99 = $3.98/hr
+- Model: int8 or split sharding
+- Uptime: Requires distributed orchestration
+
+Both are close in price. MI300X is simpler (single card). H100 dual-GPU might be more reliable (load balancing, failover). The math is a tie; the operational complexity favors MI300X.
+
+### Large Batch Inference
+
+**Llama 2 7B, fp16, batch=64**
+
+MI300X: Compute becomes bottleneck. Generates 280-320 tokens/sec sustained. Memory bandwidth is saturated but not the limiting factor.
+
+H100 SXM: Compute is also bottleneck. Generates 350-400 tokens/sec. NVIDIA's CUDA kernels are more aggressively optimized for LLM inference. Higher peak throughput.
+
+H100 wins at scale. The gap reverses because MI300X's memory advantage only matters when memory bandwidth is the bottleneck (small batch, large models). At batch 64, both cards saturate on compute.
+
+---
+
+## Training Performance
+
+### Single-GPU Training
+
+MI300X can train Llama 2 7B with full precision and a reasonable batch size. H100 can too, but requires smaller batches or quantization to stay within 80GB.
+
+For gradient accumulation:
+- MI300X: 192GB lets teams accumulate gradients across larger micro-batches before backprop
+- H100: 80GB requires more frequent gradient updates, lower efficiency
+
+On paper, MI300X looks better. In practice, CUDA kernel optimizations for H100 offset the memory advantage.
+
+### Multi-GPU Distributed Training
+
+This is where H100 dominates.
+
+**8x H100 SXM cluster:**
+- NVLink connects all 8 GPUs at 900 GB/s per GPU (57.6 TB/s aggregate within the node)
+- All-reduce operations for gradient synchronization: ~100ms per step
+- Sustained training throughput: 2.8-3.2 petaFLOPS
+
+**8x MI300X cluster:**
+- No native multi-GPU interconnect. Infinity Fabric (PCIe-based) connects cards at ~64 GB/s aggregate
+- All-reduce operations: 200-300ms per step (estimate)
+- Sustained training throughput: unclear, not battle-tested at scale
+
+The H100 SXM cluster has roughly 10-14x better all-reduce bandwidth (900 GB/s NVLink vs ~64 GB/s PCIe-based Infinity Fabric). That matters for distributed training. Gradient synchronization dominates time when training large models across multiple GPUs.
+
+MI300X's lack of a high-bandwidth multi-GPU connection is a structural disadvantage. Teams can strap cards together via Infinity Fabric, but the latency and throughput gap is massive. Training Llama 3 100B on 8x MI300X would be impractical.
+
+---
+
+## Inference Performance
+
+### Latency (Time-to-first-token)
+
+Llama 2 70B, batch=1:
+
+MI300X: 80-120ms prefill (load tokens into KV cache), 12-15ms per token generation
+H100 SXM: 100-150ms prefill, 15-20ms per token
+
+MI300X is slightly faster on per-token latency due to higher bandwidth. For interactive chat applications, that 3-5ms per token advantage compounds. A 100-token response: MI300X 1.5 seconds, H100 2 seconds.
+
+Real-world impact: marginal. Both feel interactive. But MI300X has the edge.
+
+### Throughput (Tokens per second)
+
+Llama 2 70B int8, batch=1:
+
+MI300X: 85-95 tokens/sec (memory-bandwidth limited)
+H100 PCIe: 60-70 tokens/sec (memory-bandwidth limited)
+H100 SXM: 65-75 tokens/sec (memory-bandwidth limited)
+
+MI300X's bandwidth advantage (5.3 TB/s) directly translates to higher throughput. A 20% throughput advantage on a 10 QPS API: MI300X handles 12 QPS, H100 PCIe handles 10 QPS. The math favors MI300X for inference.
+
+---
+
+## Cloud Pricing Comparison
+
+As of March 2026, MI300X availability is limited. RunPod carries it. CoreWeave, Lambda focus on H100, A100, B200.
+
+**Single-GPU Monthly Cost (730 hours)**
+
+| Provider | GPU | Price/hr | Monthly |
+|----------|-----|----------|---------|
+| RunPod | MI300X | $3.49 | $2,548 |
+| RunPod | H100 PCIe | $1.99 | $1,453 |
+| RunPod | H100 SXM | $2.69 | $1,963 |
+| Lambda | H100 PCIe | $2.86 | $2,088 |
+| Lambda | H100 SXM | $2.49 | $1,818 |
+
+**Verdict:** H100 PCIe is 43% cheaper than MI300X on monthly spend. But remember: H100 PCIe can't fit Llama 2 70B full precision. Dual-card setup costs $2 × $1,453 = **$2,906/month** vs MI300X single card at **$2,548**. A single H100 setup requires quantization and quality tradeoff.
+
+**Cost per token for Llama 2 70B inference**
+
+H100 PCIe dual setup:
+- Monthly cost: $2,906
+- Throughput (two cards, no distributed overhead): 2 × 65 tokens/sec = 130 tokens/sec sustained
+- Tokens per month: 130 tokens/sec × 86,400 sec/day × 30 days = **336.4B tokens/month**
+- Cost per token: $2,906 / 336.4B = **$0.00000864/token**
+
+MI300X single setup:
+- Monthly cost: $2,548
+- Throughput: 85 tokens/sec sustained
+- Tokens per month: 85 × 86,400 × 30 = **220.6B tokens/month**
+- Cost per token: $2,548 / 220.6B = **$0.0000115/token**
+
+H100 dual-GPU: $0.00000864/token
+MI300X single: $0.0000115/token
+
+H100 wins on cost per token (38% cheaper). But requires dual-GPU setup and distributed orchestration. MI300X is simpler operationally and cheaper to rent ($2,548 vs $2,906), even if cost-per-token math favors H100.
+
+---
+
+## Power Consumption and Infrastructure
+
+MI300X draws 750W. H100 PCIe draws 350W. H100 SXM draws 700W.
+
+**Data center power costs**
+
+Assume $0.12/kWh (US average 2026):
+
+MI300X monthly power cost: 750W × 730 hours × $0.12/kWh ÷ 1000 = **$65.70/month**
+
+H100 SXM monthly power cost: 700W × 730 hours × $0.12/kWh ÷ 1000 = **$61.32/month**
+
+Difference: $4.38/month. Negligible. But for on-premises clusters, power adds up.
+
+**Thermal and infrastructure requirements**
+
+MI300X's 750W requires:
+- Dedicated liquid cooling loops (most air cooling can't handle 750W sustained)
+- Facility power delivery rated for 750W per slot
+- Redundant cooling systems with thermal monitoring
+- Dataroom modifications to support high-density cooling
+
+Boutique cloud providers often skip MI300X because power infrastructure investment is high. Lambda and RunPod support it where they've invested in the cooling. CoreWeave's focus on H100 clusters makes sense: 700W per GPU is more manageable, especially at scale.
+
+**Equipment amortization**
+
+MI300X card: $20,000 (MSRP)
+H100 card: $15,000-$18,000 (MSRP)
+
+Over 3 years:
+- MI300X: $20,000 ÷ (3 × 365 × 24) = $0.76/hour amortized
+- H100: $17,000 ÷ (3 × 365 × 24) = $0.65/hour amortized
+
+On-premises MI300X adds $0.11/hour overhead vs H100. For teams running 24/7 inference, that's significant.
+
+---
+
+## Software Ecosystem: ROCm vs CUDA
+
+MI300X uses AMD's ROCm stack. H100 uses NVIDIA's CUDA.
+
+**Framework support**
+
+PyTorch: Both have strong support. ROCm catches CUDA on features and performance in 2026.
+
+TensorFlow: CUDA-first. ROCm support exists but lags on optimization.
+
+JAX: CUDA-optimized. ROCm support is experimental (as of March 2026).
+
+Transformers (HuggingFace): Abstraction hides backend. Works on both, but CUDA kernels (Flash Attention, others) not available for ROCm.
+
+**Vendor lock-in implications**
+
+CUDA code doesn't run on MI300X without porting. HIP (ROCm's CUDA alternative) exists, but it's not a drop-in replacement. Tools like hipify attempt automated conversion; success rate varies.
+
+For teams with mature CUDA codebases, migration to MI300X means engineering investment. For greenfield projects, both are equivalent.
+
+**Performance optimization**
+
+CUDA has deeper optimization libraries (cuBLAS, cuDNN, cutlass). ROCm has rocBLAS, rocDNN, but they're newer and less battle-tested.
+
+For standard workloads (LLM inference, training), both are comparable. For bleeding-edge optimizations (Flash Attention v3, exotic quantization schemes), CUDA has the edge.
+
+---
+
+## Migration and Compatibility
+
+### From H100 to MI300X
+
+Effort: 2-4 weeks for a mature ML team.
+
+1. Change CUDA imports to HIP
+2. Recompile with ROCm
+3. Performance tune (rocBLAS kernels may require different heuristics)
+4. Validate numerics (HIP and CUDA may diverge on precision)
+
+Most teams report 90-95% code survives unchanged. The remaining 5-10% requires tuning.
+
+### From MI300X to H100
+
+Effort: 1-2 weeks.
+
+ROCm code using HIP APIs can be ported to CUDA more easily (HIP was designed as a CUDA alternative). But it's still not automatic.
+
+### Risk assessment for production
+
+**H100:** Battle-tested. NVLink ecosystem mature. Framework support deep. Low risk for production migration.
+
+**MI300X:** Newer. Framework support adequate but not optimized. Multi-GPU training unproven at scale. Medium-to-high risk for production.
+
+Teams should test MI300X on non-critical workloads first. Don't migrate the main production inference to MI300X without a trial period.
+
+---
+
+## Use Case Recommendations
+
+### Use MI300X for:
+
+**Single-GPU large model inference (>80GB).** Llama 2 70B, Mistral 34B, or larger models that don't fit on H100. One card instead of two. Simpler operations, less distributed overhead.
+
+**Memory-intensive offline processing.** Loading entire datasets, long-context analysis, document processing at scale. 192GB memory enables batch sizes impossible on H100 PCIe.
+
+**Benchmark testing and prototyping.** Try MI300X cheap on RunPod ($3.49/hr) to determine if the memory advantage justifies the workload. Compare results with H100 before committing to large deployments.
+
+### Use H100 SXM for:
+
+**Distributed training at any scale.** NVLink maturity and 900 GB/s per-GPU interconnect make H100 SXM the default for training 70B+ parameter models. MI300X training is unproven and impractical due to interconnect limitations.
+
+**Production inference with proven optimization.** Inference kernel libraries (TensorRT, vLLM, SGLang) are optimized for H100. Upgrading to MI300X risks losing 5-10% throughput unless the team re-optimize.
+
+**Multi-model serving clusters.** Amortizing infrastructure across multiple models. H100's wider availability and ecosystem make it a safer bet.
+
+### Use H100 PCIe for:
+
+**Cost-optimized inference on smaller models.** 7B, 13B models under 40GB. H100 PCIe's 80GB fits with room to spare. Cheapest option at $1.99/hr.
+
+**Experimentation and prototyping.** Lowest entry cost. RunPod's simplicity + H100 PCIe pricing is unbeatable for learning GPU infrastructure.
+
+---
+
+## FAQ
+
+**Is MI300X better than H100?**
+Context-dependent. MI300X excels at single-GPU large model inference (192GB memory). H100 SXM dominates distributed training (NVLink). For most production workloads, H100 has better availability, proven ecosystem, and lower costs.
+
+**Can I use MI300X for distributed training?**
+Technically yes, but impractical at scale. Infinity Fabric via PCIe (~64 GB/s aggregate) is roughly 10-14x slower bandwidth than NVLink at 900 GB/s per GPU. All-reduce operations become major bottlenecks for large distributed training. Proven 8+ MI300X training clusters are rare. Avoid for distributed training unless you have specific AMD commitments.
+
+**Which should I buy for an on-premises cluster?**
+H100 SXM. Ecosystem maturity, vendor support, engineer familiarity, and cost-of-ownership favor H100. MI300X is compelling for inference-only deployments but risky for production training.
+
+**Does MI300X work with NVIDIA's tools?**
+No. NVIDIA TensorRT, CUDA, cuBLAS don't work on MI300X. You need ROCm equivalents. Migration is possible but not zero-cost.
+
+**How much memory do I need for Llama 2 70B?**
+- Full precision (fp32): ~140GB (70GB model + 70GB KV cache at batch 4)
+- bfloat16: ~70GB
+- int8: ~35GB
+
+MI300X's 192GB handles fp32 with breathing room. H100's 80GB requires bfloat16 or quantization.
+
+**When will MI300X prices drop?**
+Supply ramps through 2026. Expect prices to approach H100's by late 2026 as MI300X availability improves. Currently 40-75% premium reflects scarcity.
+
+**Is ROCm production-ready?**
+For inference: yes. For training: yes with caveats. Distributed training is nascent. Multi-node training requires workarounds. Stick with H100 for mission-critical training.
+
+**Can I use both MI300X and H100 together?**
+Operationally complex. Requires separate deployments, orchestration across two architectures, porting between codebases. Not recommended unless you have a multi-GPU, multi-architecture strategy.
+
+---
+
+## Related Resources
+
+- [AMD MI300X Specifications](/gpus/models/amd-mi300x)
+- [NVIDIA H100 Specifications](/gpus/models/nvidia-h100)
+- [GPU Vram Requirements by Model](/articles/llm-vram-requirements)
+- [H100 vs A100 Comparison](/articles/h100-vs-a100)
+- [Cloud GPU Provider Comparison](/gpus)
+
+---
+
+## Sources
+
+- [AMD Instinct MI300X Datasheet](https://www.amd.com/content/dam/amd/en/documents/instinct-tech-docs/data-sheets/amd-instinct-mi300x-data-sheet.pdf)
+- [NVIDIA H100 Tensor Core GPU Datasheet](https://resources.nvidia.com/en-us-gpu-resources/h100-datasheet-24306)
+- [RunPod GPU Pricing](https://www.runpod.io/pricing)
+- [Lambda Labs Pricing](https://lambda.ai/pricing)
+- [CoreWeave Pricing](https://www.coreweave.com/pricing)
+- [ROCm Documentation](https://rocmdocs.amd.com/)
+- [DeployBase GPU Pricing Tracker](/gpus) (data observed March 21, 2026)

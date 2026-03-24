@@ -1,0 +1,364 @@
+---
+title: >-
+  H100 CoreWeave: Kubernetes-Native GPU Pricing, Clusters, and Reserved
+  Contracts
+slug: h100-coreweave
+description: >-
+  CoreWeave 8xH100 cluster costs $49.24/hr ($6.16/GPU). Master Kubernetes-native
+  deployment, reserved pricing, and API-driven scaling for production AI
+  workloads.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Providers
+---
+## Contents
+
+- [H100 CoreWeave: Kubernetes-Native Clusters](#h100-coreweave-kubernetes-native-clusters)
+- [CoreWeave Pricing Model and Cluster Configurations](#coreweave-pricing-model-and-cluster-configurations)
+- [Performance Benchmarks](#performance-benchmarks)
+- [Detailed Setup and Kubernetes-Native Architecture](#detailed-setup-and-kubernetes-native-architecture)
+- [Detailed Kubernetes Setup Walkthrough](#detailed-kubernetes-setup-walkthrough)
+- [API-Driven Autoscaling](#api-driven-autoscaling)
+- [Running Production Workloads](#running-production-workloads)
+- [Reserved Capacity and Cost Optimization](#reserved-capacity-and-cost-optimization)
+- [Comparing CoreWeave to Single-GPU Providers](#comparing-coreweave-to-single-gpu-providers)
+- [Production Deployment Patterns](#production-deployment-patterns)
+- [Monitoring and Cost Tracking](#monitoring-and-cost-tracking)
+- [FAQ](#faq)
+- [Sources](#sources)
+
+
+## H100 CoreWeave: Kubernetes-Native Clusters
+
+**H100 CoreWeave** ships as 8xH100 clusters at $49.24/hr ($6.16 per GPU). CoreWeave's main difference: Kubernetes-native orchestration, API-driven scaling, and persistent volumes. Good if developers're already running K8s. Overkill if developers just need raw GPU hours.
+
+This covers pricing, Kubernetes setup, reserved discounts, and production patterns.
+
+## CoreWeave Pricing Model and Cluster Configurations
+
+CoreWeave prices GPU clusters, not individual instances. The 8xH100 cluster is their standard H100 offering.
+
+**H100 Cluster Pricing and Monthly Analysis**
+
+| Configuration | Hourly | Monthly (730 hrs) | Annual | Per-GPU Rate |
+|---|---|---|---|---|
+| 8x H100 SXM On-Demand | $49.24 | $35,945 | $431,330 | $6.16 |
+| 8x H100 Reserved (3-month) | $44.32 | $32,354 | N/A | $5.54 |
+| 8x H100 Reserved (12-month) | $39.39 | $28,755 | $345,060 | $4.92 |
+
+On-demand pricing averages $6.16/GPU for 8x configurations. Reserved capacity provides 10% savings for 3-month terms and 36% savings for annual commitments, saving $86,270/year on sustained workloads.
+
+**Pricing Comparison Across Cluster Sizes**
+
+| Configuration | Per-GPU Cost | Monthly | Annual | Infrastructure Overhead |
+|---|---|---|---|---|
+| 2x H100 SXM | $6.85 | $10,010 | $120,120 | +11% overhead |
+| 4x H100 SXM | $6.43 | $18,753 | $225,036 | +4% overhead |
+| 8x H100 SXM | $6.16 | $35,945 | $431,330 | Baseline |
+
+Smaller clusters carry per-GPU infrastructure overhead. For cost-optimization, larger clusters (8x+) are more economical.
+
+**Custom Cluster Configurations**
+
+CoreWeave can provision non-standard setups (e.g., 2x H100, 4x H100) at per-GPU rates approximately 15-20% higher than 8x clusters due to fixed infrastructure overhead.
+
+## Performance Benchmarks
+
+**Inference Performance on 8xH100 Cluster**
+
+| Model | Batch Size | Throughput | Latency (TTFT) |
+|---|---|---|---|
+| 70B Llama-2 | 1 | 250-350 tokens/sec | 50-80ms |
+| 70B Llama-2 | 8 | 1,200-1,600 tokens/sec | 100-150ms |
+| 200B Model | 1 | 150-200 tokens/sec | 80-120ms |
+
+Tensor parallelism across 8 H100s provides linear throughput scaling for models exceeding single-GPU capacity.
+
+**Training Performance**
+
+| Task | Configuration | Throughput | Data Parallelism |
+|---|---|---|---|
+| 70B Model Fine-tuning | 8x H100 | 2,000-2,500 tokens/sec | DDP + Tensor Parallelism |
+| 200B Model Fine-tuning | 8x H100 | 1,200-1,600 tokens/sec | Tensor Parallelism |
+
+## Detailed Setup and Kubernetes-Native Architecture
+
+**Container Orchestration**
+
+CoreWeave deploys GPUs as Kubernetes resources. Applications request GPUs through standard K8s manifests:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: h100-inference
+spec:
+  containers:
+  - name: vllm-server
+    image: vllm:latest
+    resources:
+      limits:
+        nvidia.com/gpu: 2  # Request 2 GPUs
+    env:
+    - name: CUDA_VISIBLE_DEVICES
+      value: "0,1"
+```
+
+This means:
+- Infrastructure as code (no manual provisioning)
+- Pods auto-schedule across GPUs
+- CI/CD integration works out of the box
+- Built-in load balancing and discovery
+
+## Detailed Kubernetes Setup Walkthrough
+
+**Initial Cluster Provisioning**
+
+1. Access CoreWeave console at https://cloud.coreweave.com
+2. Handle to "Kubernetes" section
+3. Click "Deploy Cluster"
+4. Select configuration:
+   - GPU Type: H100 SXM
+   - Cluster Size: 8xH100 (standard), or custom 2x/4x
+   - Region: US-East, US-West, or EU
+   - Billing: On-Demand or Reserved (select 12-month for sustainability)
+5. Configure networking:
+   - Assign ingress domain (e.g., the-cluster.coreweave.com)
+   - Enable CoreWeave API access
+6. Validate specs and pricing preview
+7. Deploy cluster (7-10 minute provisioning)
+
+**Accessing Kubernetes Cluster**
+
+Once provisioned, download kubeconfig and access cluster:
+
+```bash
+mkdir -p ~/.kube
+cp ~/Downloads/coreweave-kubeconfig.yaml ~/.kube/config
+
+kubectl cluster-info
+kubectl get nodes  # Should show 8xH100 nodes
+
+kubectl apply -f https://nvidia.github.io/nvidia-docker/nvidia-docker.yaml
+kubectl apply -f https://nvidia.github.io/k8s-device-plugin/nvidia-device-plugin.yaml
+```
+
+**Storage Integration**
+
+CoreWeave offers persistent volumes through Kubernetes StorageClass. Mount persistent volumes containing model weights or datasets:
+
+```yaml
+volumeMounts:
+- name: model-storage
+  mountPath: /models
+volumes:
+- name: model-storage
+  persistentVolumeClaim:
+    claimName: model-pvc
+```
+
+Network-attached storage provides <10ms latency, suitable for training and inference workloads.
+
+## API-Driven Autoscaling
+
+**Programmatic Cluster Management**
+
+CoreWeave's API enables dynamic pod scaling based on queue depth or custom metrics:
+
+```bash
+kubectl scale deployment vllm-inference --replicas=4
+
+kubectl top pods -l app=vllm-inference
+```
+
+This programmatic approach supports:
+- Request queue monitoring with automatic scaling
+- Cost optimization through dynamic resource allocation
+- Multi-tenant workload isolation
+- Fine-grained GPU allocation (fractional GPU sharing via MIG)
+
+## Running Production Workloads
+
+**Large Language Model Inference**
+
+CoreWeave's 8xH100 cluster efficiently serves 70B-parameter models:
+
+```python
+from transformers import AutoModelForCausalLM
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Llama-2-70b-hf",
+    device_map="auto"  # Distributes across available GPUs
+)
+```
+
+Expected throughput: 300-500 tokens/second for batch inference, 8-15 tokens/second for streaming requests.
+
+**Distributed Training**
+
+Training multi-billion parameter models uses all 8 GPUs through distributed data parallelism (DDP) or tensor parallelism:
+
+```python
+import torch.nn.parallel as parallel
+model = parallel.DistributedDataParallel(
+    model,
+    device_ids=[0,1,2,3,4,5,6,7],
+    process_group=dist.init_process_group('nccl')
+)
+```
+
+Effective throughput for 70B-parameter fine-tuning: 1,200-1,800 tokens/second across 8 H100s.
+
+## Reserved Capacity and Cost Optimization
+
+**Annual Contracts**
+
+CoreWeave's 12-month reserved pricing saves $4,875/month versus on-demand ($49.24/hr → $39.39/hr). For sustained production workloads, annual contracts provide best ROI:
+
+| Commitment | Upfront Cost | Monthly Effective | Annual Savings |
+|---|---|---|---|
+| On-Demand | $0 | $35,945 | N/A |
+| 3-Month Reserved | $97,062 | $32,354 | $10,707 |
+| 12-Month Reserved | $345,060 | $28,755 | $86,270 |
+
+Break-even for 12-month reservation: 5.2 months continuous usage. For production workloads running 6+ months, 12-month reservation becomes optimal.
+
+**Partial Reservation Strategy**
+
+Reserve baseline capacity (e.g., 1x 8xH100 cluster for 12 months = $345K/year) covering expected average demand, then burst with on-demand capacity during peak periods. This hybrid approach reduces average cost while maintaining flexibility:
+
+- Reserved baseline: 1x 8xH100 = $39.39/hr
+- On-demand burst (3 months/year): 1x 8xH100 = $49.24/hr × 180 days × 24 hrs = $213K
+- Total hybrid cost: $345K + $213K = $558K vs full on-demand: $431K × 1.3x = $560K
+- Savings: Negligible cost premium for flexibility
+
+**Cost Optimization Through Batch Processing and Pod Consolidation**
+
+Queue inference requests into batches of 32-64 before launching pods. A batch-size 32 request on 8xH100 cluster processes faster and costs less per token than 32 sequential single-request pods:
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: batch-inference
+spec:
+  containers:
+  - name: vllm
+    image: vllm:latest
+    resources:
+      limits:
+        nvidia.com/gpu: 8  # Uses entire cluster
+env:
+  - name: GPU_BATCH_SIZE
+    value: "64"  # Process 64 requests in parallel
+```
+
+Batch processing cost: $49.24 / 64 requests × 1,600 tokens/request = $0.000481/token
+Single-request cost: $49.24 / 250 tokens/request = $0.197/token
+Savings: 99.76% cost reduction through batching.
+
+## Comparing CoreWeave to Single-GPU Providers
+
+**Cost Analysis Across Deployment Models**
+
+| Use Case | Optimal Provider | Cost | CoreWeave Cost | Cost Difference |
+|---|---|---|---|---|
+| Single-GPU inference | RunPod | $2.69/hr | N/A | RunPod 2.3x cheaper |
+| Distributed training (8x) | CoreWeave | $49.24/hr | $49.24/hr | Equivalent |
+| Kubernetes-native production | CoreWeave | N/A | $49.24/hr | N/A |
+| Ad-hoc multi-GPU | Lambda | $30.24/hr | $49.24/hr | Lambda 1.6x cheaper |
+
+CoreWeave's $6.16/GPU exceeds [RunPod at $2.69/GPU](/gpus/runpod) by 2.3x. But context matters:
+
+- **Single GPU work**: RunPod wins. Cheaper and simpler.
+- **Distributed training**: CoreWeave eliminates manual multi-GPU setup. Worth $3.47/GPU extra for teams doing this regularly.
+- **Kubernetes production**: CoreWeave handles scaling automatically. [AWS p5 at $12.27/GPU](/gpus/models/nvidia-h100) costs 2x more for less flexibility.
+- **Multi-tenant setups**: Namespaces let 4 teams share one 8xH100 cluster. Cost per team drops 50% vs standalone.
+
+**Multi-Tenant Cost Sharing Example**
+
+For organization with 4 teams sharing 1x 8xH100 CoreWeave cluster:
+
+- Total cluster cost: $49.24/hr = $359,633/year
+- Cost per team (equal split): $89,908/year
+- Equivalent single-team RunPod 8-GPU cost: $21.52/hr = $188,515/year (vs CoreWeave $49.24/hr alone)
+- Savings: 52% cost reduction through cluster sharing
+
+Want multi-GPU without Kubernetes? Check [Lambda Labs](/articles/lambda-labs-gpu-pricing) for simpler alternatives.
+
+## Production Deployment Patterns
+
+**Load Balancing and Service Discovery**
+
+Deploy Kubernetes Service in front of H100 pods for automatic load balancing:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: h100-inference
+spec:
+  selector:
+    app: vllm-inference
+  ports:
+  - port: 8000
+    targetPort: 8000
+  type: LoadBalancer
+```
+
+Clients send requests to single endpoint; Kubernetes distributes across available pods.
+
+**Multi-Tenant Isolation**
+
+Use Kubernetes namespaces to isolate workloads:
+
+```bash
+kubectl create namespace team-a
+kubectl apply -f team-a-workload.yaml -n team-a
+kubectl create namespace team-b
+kubectl apply -f team-b-workload.yaml -n team-b
+```
+
+Resource quotas prevent one team's jobs from starving others:
+
+```yaml
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: team-a-quota
+spec:
+  hard:
+    requests.nvidia.com/gpu: "4"  # Max 4 GPUs per team
+```
+
+## Monitoring and Cost Tracking
+
+CoreWeave's dashboard provides real-time cost monitoring per pod, namespace, or team. Track compute cost as engineering metric to identify optimization opportunities.
+
+## FAQ
+
+**When should I use CoreWeave versus RunPod for multi-GPU work?**
+
+Use CoreWeave if requiring Kubernetes orchestration, autoscaling, or multi-tenant isolation. Use RunPod if deploying simple single or dual-GPU experiments. CoreWeave's cost premium (~$3.47/GPU extra) is offset by eliminated manual scaling overhead in production systems.
+
+**How does CoreWeave's per-GPU pricing compare across cluster sizes?**
+
+Standard pricing assumes 8x clusters. Smaller clusters (2x or 4x) cost 15-20% more per GPU. If only requiring 4 H100s, a 4x cluster may cost $0.94-1.12/GPU extra versus requesting from an 8x cluster, making a single 8x cluster more economical if fully utilized.
+
+**Can I mix H100 and H200 in the same Kubernetes cluster?**
+
+CoreWeave supports heterogeneous clusters containing different GPU types. Schedule workloads appropriately: H200 (larger memory) for LLMs, H100 for general inference. Use pod affinity rules to specify GPU type requirements.
+
+**What reserved capacity term provides best ROI for my usage pattern?**
+
+Calculate break-even based on expected utilization: 3-month reservation pays off at 2.2 months usage ($10,707 savings / $3,590/month difference); 12-month at 5.2 months usage. If your workload runs 6-12 months continuously, 12-month reservation is optimal. For variable 3-6 month projects, 3-month reserved offers flexibility. Use CoreWeave's calculator: required_months = (reserved_cost - on_demand_cost) / (on_demand_rate - reserved_rate).
+
+**How does CoreWeave's per-GPU cost compare when consolidating workloads across smaller clusters?**
+
+CoreWeave charges per-cluster, not per-GPU. Running 1x 8xH100 cluster costs $6.16/GPU. Running 2x 4xH100 clusters costs $6.43/GPU due to infrastructure overhead. Single larger cluster is always more economical. Consolidate workloads (even from different teams) onto shared cluster via Kubernetes namespaces and resource quotas to minimize cost.
+
+## Sources
+
+- CoreWeave Pricing: https://www.coreweave.com/pricing
+- Kubernetes GPU Resource Management: https://kubernetes.io/docs/tasks/manage-gpus/
+- CoreWeave Documentation: https://docs.coreweave.com/
+- PyTorch Distributed Data Parallel: https://pytorch.org/docs/stable/notes/ddp.html

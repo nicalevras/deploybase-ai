@@ -1,0 +1,631 @@
+---
+title: 'MCP Servers Explained: Model Context Protocol for AI Agents'
+slug: what-is-mcp-server
+description: >-
+  MCP server explained: Model Context Protocol architecture, transport layers
+  (stdio/SSE/WebSocket), tool registration, security, and real-world examples.
+date: '2026-03-22'
+author: DeployBase
+category: AI Infrastructure
+keywords:
+  - what is mcp server
+  - model context protocol
+  - mcp server how it works
+  - mcp stdio transport
+  - mcp sse
+  - mcp security model
+---
+
+## Contents
+
+- [What Is MCP Server: Overview](#what-is-mcp-server-overview)
+- [What is MCP](#what-is-mcp)
+- [Why MCP Exists](#why-mcp-exists)
+- [Architecture & Components](#architecture-components)
+- [Transport Layers Explained](#transport-layers-explained)
+- [Tool Registration & Invocation](#tool-registration-invocation)
+- [Security Model](#security-model)
+- [Real-World MCP Servers](#real-world-mcp-servers)
+- [Building Your Own MCP Server](#building-your-own-mcp-server)
+- [MCP vs Other Protocols](#mcp-vs-other-protocols)
+- [Debugging & Testing](#debugging-testing)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## What Is MCP Server: Overview
+
+What is an MCP server? MCP (Model Context Protocol) is Anthropic's open standard for connecting AI models to external tools, data sources, and APIs. Think of it as a universal adapter layer between Claude (and eventually other LLMs) and the real world. Instead of embedding API call logic directly into model code, MCP defines how models request tools, how servers respond, and how permissions are managed.
+
+MCP is protocol-level, not API-specific. A single MCP server can work with Claude, GPT-5, future models, and even local LLMs with a compatibility layer. Protocol independence is the design goal.
+
+As of March 2026, MCP is the emerging standard for AI agent tooling. Not required (OpenAI function calling works without it). But teams building production agents are increasingly adopting MCP because it separates concerns: the AI platform doesn't need implementation details of databases or APIs. The server handles authentication, error handling, permission checks. Cleaner architecture, fewer bugs.
+
+---
+
+## What is MCP
+
+MCP is a protocol. Not a framework. Not an API. A protocol.
+
+It defines three things:
+
+1. **Message format:** JSON-RPC requests and responses. Standardized structure. Claude asks "run query X with parameters Y." Server responds with results or errors.
+
+2. **Transport mechanism:** How messages flow between Claude and the server. Options: stdio (local processes), SSE (server-sent events over HTTP), WebSocket (bidirectional HTTP).
+
+3. **Capability negotiation:** Server advertises what it can do ("I can query PostgreSQL, read files, call Slack API"). Client (Claude) decides which tools to use based on user request.
+
+### Protocol vs API
+
+OpenAI's function calling is integrated into the OpenAI API. Teams define function schema in the API request, OpenAI calls it, returns result. Tight coupling: API and function calling are one product.
+
+MCP is decoupled. Server doesn't care who calls it (Claude, GPT, local Llama). Client doesn't care what the server does (database, file system, API gateway). Protocol sits between them.
+
+Implication: MCP is protocol-level standard, portable. Function calling is API-specific, locked to OpenAI.
+
+---
+
+## Why MCP Exists
+
+### Problem 1: Tool Integration is Ad-Hoc
+
+Teams building agents typically build custom integrations for each tool:
+- Database connection in function A
+- File system handling in function B
+- API calling in function C
+
+Inconsistent error handling, inconsistent permission checking, scattered code. Nightmare to audit and maintain.
+
+### Problem 2: No Standard for Tool Discovery
+
+Models don't know what tools are available. Hand-craft the list into the system prompt. New tool? Update the prompt. Tool is removed? Update again. Manual synchronization is error-prone.
+
+MCP solves this: server advertises tools dynamically. Client discovers them at runtime. No manual prompt updates.
+
+### Problem 3: Security is Hard
+
+Giving a model access to a database is risky. Model could run DELETE queries, expose PII, execute injection attacks. How do teams restrict permissions? MCP has a security model (role-based access, input validation, error containment).
+
+Function calling (OpenAI) has no security model. Teams're responsible for all safety checks.
+
+### Problem 4: Portability
+
+If teams build on OpenAI's function calling, teams're locked into OpenAI. Switch to Claude? Rebuild everything. Switch to local Llama? Rebuild again.
+
+MCP is protocol-agnostic. Same MCP server works with Claude today, GPT-5 tomorrow, Grok next month. Build once, deploy to multiple LLMs.
+
+---
+
+## Architecture & Components
+
+### Three Main Pieces
+
+1. **Client:** The language model or application using it. Sends requests like "Execute this query." Implemented as part of the LLM platform or a thin integration layer.
+
+2. **MCP Server:** A standalone process or service exposing tools, resources, and prompts. Listens for requests, executes them safely, returns results.
+
+3. **Transport layer:** The wire protocol connecting client and server. Stdio, HTTP with SSE, or WebSocket.
+
+```
+Claude (Client)
+    |
+    | (MCP Protocol, JSON-RPC)
+    |
+Transport Layer (stdio | SSE | WebSocket)
+    |
+MCP Server (e.g., database-mcp, file-system-mcp, slack-mcp)
+    |
+Resource (PostgreSQL, file system, Slack API, custom service)
+```
+
+### Message Flow (Simple Example)
+
+1. **Initialization:** Client connects to server. Server sends: "Here's what I can do: query_database, list_tables, describe_schema."
+
+2. **Tool invocation:** User asks Claude: "Find all users from California." Claude decides to call query_database tool. Sends JSON-RPC request: `{"method": "call_tool", "params": {"name": "query_database", "arguments": {"sql": "SELECT * FROM users WHERE state='CA'"}}}`
+
+3. **Execution:** Server receives request. Validates arguments. Runs query. Catches errors gracefully.
+
+4. **Result:** Server returns: `{"result": {"rows": [...], "count": 42}}`
+
+5. **Context update:** Claude reads the result. May call another tool or respond to user.
+
+No magic. Synchronous request-response. JSON over the wire. Straightforward.
+
+---
+
+## Transport Layers Explained
+
+### Stdio (Process Communication)
+
+Client and server run as separate processes. Client writes JSON to server's stdin. Server writes JSON to stdout. Simplest transport.
+
+**Example:**
+```
+$ python mcp-server-database.py
+echo '{"method": "initialize"}' | stdin
+
+{"tools": ["query_database", "list_tables"]}
+```
+
+**Pros:**
+- No network overhead
+- No open ports (security benefit)
+- Works on any system with process spawning (Linux, Mac, Windows)
+- Debugging is simple (stdout/stderr are visible)
+
+**Cons:**
+- Only works locally (same machine)
+- One connection per process (no multiplexing)
+- Scaling to many concurrent clients is hard
+
+**Use case:** Development, local automation, single-machine setups, local testing.
+
+**Example:** Claude Code IDE running an MCP server for file access. Client (IDE) spawns server as subprocess. Communicates via stdio.
+
+### SSE (Server-Sent Events)
+
+Server exposes an HTTP endpoint. Client makes HTTP requests. Server streams responses via SSE (or responds with JSON).
+
+**Example:**
+```
+Client POST http://mcp-server:8000/call_tool
+  {"name": "query_database", "arguments": {"sql": "SELECT ..."}}
+
+Server responds:
+  {"result": {...}}
+```
+
+**Pros:**
+- Works over the network (local LAN or internet)
+- Multiple clients can connect simultaneously
+- Can be deployed as a microservice (Docker, Kubernetes, serverless)
+- Integrates with existing HTTP infrastructure (load balancers, firewalls)
+
+**Cons:**
+- Network latency (~50-200ms added per request)
+- Requires authentication (HTTP headers, tokens, OAuth)
+- Port exposure (security consideration if not firewalled)
+- SSE is streaming, adds complexity
+
+**Use case:** Production deployments, multi-user systems, cloud environments, multiple teams sharing one MCP server.
+
+**Example:** Production database MCP server. Deployed in cloud. Teams access it via HTTP. Single server serves 100+ users.
+
+### WebSocket
+
+Full-duplex communication over HTTP. Messages flow bidirectionally simultaneously. Lower latency than SSE.
+
+**Example:**
+```
+Client connects: ws://mcp-server:8000/ws
+
+Client sends (request):
+  {"method": "call_tool", ...}
+
+Server responds:
+  {"result": ...}
+
+Server can also push updates:
+  {"event": "tool_result_available", ...}
+```
+
+**Pros:**
+- Bidirectional (server can push updates to client)
+- Lower latency than request-response
+- Natural for real-time interactions
+- Good for high-volume message streams
+
+**Cons:**
+- More complex to implement (binary framing, protocol upgrade)
+- Harder to debug (not just HTTP text)
+- Requires WebSocket library on both sides
+
+**Use case:** Real-time applications, large message volume, interactive agents, live monitoring.
+
+---
+
+## Tool Registration & Invocation
+
+### How Server Advertises Tools
+
+Server starts, connects to client, sends capability list:
+
+```json
+{
+  "method": "initialize",
+  "result": {
+    "tools": [
+      {
+        "name": "query_database",
+        "description": "Execute a SQL SELECT query against PostgreSQL",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sql": { "type": "string", "description": "SQL SELECT query" },
+            "limit": { "type": "integer", "description": "Max rows to return" }
+          },
+          "required": ["sql"]
+        }
+      },
+      {
+        "name": "write_file",
+        "description": "Create or update a file",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string", "description": "File path (relative to workspace)" },
+            "content": { "type": "string", "description": "File content" }
+          },
+          "required": ["path", "content"]
+        }
+      },
+      {
+        "name": "list_directory",
+        "description": "List files in a directory",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "path": { "type": "string", "description": "Directory path" }
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+Claude reads this schema. Knows what tools are available. When user asks "Create a Python script for data processing," Claude uses write_file tool.
+
+### Tool Invocation
+
+Claude decides to call a tool:
+
+```json
+{
+  "method": "call_tool",
+  "params": {
+    "name": "query_database",
+    "arguments": {
+      "sql": "SELECT COUNT(*) FROM users WHERE state='CA'",
+      "limit": 1000
+    }
+  }
+}
+```
+
+Server validates the request:
+- Does tool exist? Yes (query_database is registered).
+- Are arguments valid? SQL is string (✓), limit is integer (✓), limit is optional (✓).
+- Are arguments safe? SQL doesn't contain DROP/DELETE (✓).
+
+Server executes:
+```json
+{
+  "result": {
+    "rows": [{"count": 42}],
+    "count": 1
+  }
+}
+```
+
+Claude receives result, continues conversation.
+
+### Argument Validation
+
+Server must validate all inputs against the schema. This prevents injection attacks, malformed queries, type errors.
+
+Example: If Claude sends `"limit": "invalid"` (string instead of integer), server rejects: `{"error": "Argument 'limit' must be integer, got string"}`. Claude sees the error, may retry with corrected arguments.
+
+---
+
+## Security Model
+
+MCP has a trust-but-verify architecture.
+
+### What MCP Enforces
+
+1. **Tool declaration:** Servers must declare what tools they offer. No surprises, no hidden capabilities.
+
+2. **Input validation:** Servers validate all arguments against the schema. Types, lengths, formats. Prevents injection attacks.
+
+3. **Error containment:** Servers don't leak internal errors to Claude. Stack traces, credentials, internal paths are hidden. Generic error messages only.
+
+4. **Audit logging:** Server logs all tool calls for compliance review. Who called what, when, with what arguments.
+
+### What MCP Does NOT Enforce
+
+1. **Authorization:** MCP doesn't define role-based access control. Teams decide: "Claude can call query_database, but only read-only queries." Teams implement it.
+
+2. **Rate limiting:** MCP doesn't prevent a runaway agent from making 10,000 queries in 1 minute. Teams implement rate limiting.
+
+3. **Data exfiltration:** MCP doesn't prevent Claude from sending data outside the system. Mitigations: restrict tool scope, use DLP tools upstream.
+
+4. **Time limits:** MCP doesn't timeout hanging tool calls. Teams implement timeouts.
+
+### Best Practices
+
+1. **Principle of least privilege:** Give Claude only the tools it needs. If agent only needs to read users table, don't expose a "DROP TABLE" tool.
+
+2. **Use views, not tables:** In database MCP servers, expose read-only views instead of raw tables. Prevents accidental schema exposure.
+
+3. **Sanitize responses:** Before returning data from tools, check for PII (personally identifiable information). Mask credit card numbers, SSNs, email addresses if not needed.
+
+4. **Timeout tool calls:** If a tool takes >60s, kill it. Prevents hanging agents, DoS.
+
+5. **Log everything:** Every call_tool, every result, every error. Audit trail is essential. Compliance teams will review logs.
+
+6. **Authenticate the client:** If server is exposed over HTTP, verify the client (token authentication, OAuth, API key).
+
+---
+
+## Real-World MCP Servers
+
+### Database MCP Server
+
+Connects Claude to PostgreSQL or MySQL. Exposes tools:
+
+- `query_select`: Execute SELECT queries (read-only)
+- `describe_table`: Fetch schema for a table
+- `list_tables`: List all tables in the database
+- `get_row_count`: Count rows in a table
+
+**Security:** Server runs with a read-only database user. Only SELECT allowed. Schema is public, but mutations are blocked. Claude can analyze data, cannot corrupt it.
+
+**Example use:** Data analysis, business intelligence, answering "How many customers in California?" without human intervention.
+
+### File System MCP Server
+
+Gives Claude access to a sandboxed file directory. Tools:
+
+- `read_file`: Read file content (text only, max 100MB)
+- `list_directory`: List files in a directory
+- `write_file`: Create or update a file (within sandbox)
+- `delete_file`: Remove a file
+
+**Security:** Server restricts all paths to a single directory (/home/claude/workspace). Symlinks are blocked (prevents escape). File size limits prevent DoS.
+
+**Example use:** Code generation, documentation writing, configuration management.
+
+### Slack MCP Server
+
+Connects to Slack API. Tools:
+
+- `send_message`: Post to a channel
+- `list_channels`: See available channels
+- `get_channel_history`: Fetch recent messages
+- `get_user_info`: Look up user by name
+
+**Security:** Uses Slack bot token with minimal scopes (chat:write, channels:read, users:read). Cannot delete messages, change user roles, or install apps.
+
+**Example use:** Notification bots, customer support routing, team communication.
+
+### Web Search MCP Server
+
+Wraps a search API. Tools:
+
+- `search`: Execute a web search
+- `fetch_webpage`: Get content from a URL (returns markdown, not HTML)
+
+**Security:** Rate-limits queries (prevent spam). Blocks certain domains (malware sites, adult content). Returns snippets, not full HTML.
+
+**Example use:** Research, fact-checking, keeping Claude updated on current events.
+
+---
+
+## Building Your Own MCP Server
+
+### Minimal Example: Calculator Server
+
+```python
+import json
+import sys
+
+TOOLS = {
+    "add": {
+        "description": "Add two numbers",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "a": {"type": "number"},
+                "b": {"type": "number"}
+            },
+            "required": ["a", "b"]
+        }
+    },
+    "multiply": {
+        "description": "Multiply two numbers",
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "a": {"type": "number"},
+                "b": {"type": "number"}
+            },
+            "required": ["a", "b"]
+        }
+    }
+}
+
+def handle_request(request):
+    method = request.get("method")
+
+    if method == "initialize":
+        return {"tools": list(TOOLS.keys()), "schemas": TOOLS}
+
+    elif method == "call_tool":
+        tool_name = request.get("params", {}).get("name")
+        args = request.get("params", {}).get("arguments", {})
+
+        if tool_name == "add":
+            result = args["a"] + args["b"]
+            return {"result": result}
+
+        elif tool_name == "multiply":
+            result = args["a"] * args["b"]
+            return {"result": result}
+
+    return {"error": "Unknown method"}
+
+while True:
+    line = sys.stdin.readline()
+    if not line:
+        break
+
+    try:
+        request = json.loads(line)
+        response = handle_request(request)
+        print(json.dumps(response))
+        sys.stdout.flush()
+    except Exception as e:
+        print(json.dumps({"error": str(e)}))
+        sys.stdout.flush()
+```
+
+This server:
+1. Listens on stdin (stdio transport)
+2. Handles "initialize" (list tools)
+3. Handles "call_tool" (execute tool)
+4. Returns JSON responses
+
+To use: Start the server, client sends JSON to stdin, server responds to stdout.
+
+### More Complex: Database Server
+
+Use a library like `mcp-server-python` (Anthropic's official library). Define tool handlers, input validation, error handling. Library handles JSON-RPC, stdio, schema management.
+
+```python
+from mcp.server import Server
+from mcp.types import Tool, TextContent
+
+server = Server("database-mcp")
+
+@server.tool()
+def query_database(sql: str, limit: int = 100) -> str:
+    # Validate SQL
+    if "DROP" in sql.upper() or "DELETE" in sql.upper():
+        return "Error: destructive queries not allowed"
+
+    # Execute query
+    connection = psycopg2.connect(...)
+    cursor = connection.cursor()
+    cursor.execute(sql)
+    rows = cursor.fetchall()
+
+    return json.dumps({"rows": rows, "count": len(rows)})
+
+server.run()
+```
+
+Library handles transport, schema generation, error logging.
+
+---
+
+## MCP vs Other Protocols
+
+### MCP vs OpenAI Function Calling
+
+| Aspect | MCP | OpenAI FC |
+|--------|-----|-----------|
+| Protocol | Standardized (open) | API-specific |
+| Portability | Works with any LLM | Locked to OpenAI |
+| Tool discovery | Dynamic (server advertises) | Manual (hand-craft prompt) |
+| Security model | Defined | User responsibility |
+| Transport options | Stdio, SSE, WebSocket | HTTP/API only |
+
+MCP is more portable and secure. OpenAI FC is simpler to get started.
+
+### MCP vs REST APIs
+
+MCP is not HTTP-first. Can run locally (stdio). REST APIs require HTTP endpoints. For local development, MCP is simpler.
+
+For production multi-tenant services, REST is more common. But MCP can run over HTTP (SSE/WebSocket).
+
+---
+
+## Debugging & Testing
+
+### Test The MCP Server
+
+1. **Start server:** `python mcp-server.py`
+
+2. **Send test requests:**
+```bash
+echo '{"method": "initialize"}' | python mcp-server.py
+
+echo '{"method": "call_tool", "params": {"name": "add", "arguments": {"a": 2, "b": 3}}}' | python mcp-server.py
+```
+
+3. **Verify responses:** Check stdout.
+
+4. **Check error handling:** Send invalid arguments, verify error messages.
+
+### Use mcp-cli for Testing
+
+Anthropic provides `mcp-cli` tool for testing servers:
+
+```bash
+mcp-cli --server python mcp-server.py
+> initialize
+> call add 2 3
+```
+
+---
+
+## FAQ
+
+**Is MCP required to use Claude for agents?**
+
+No. Claude's function calling works without MCP. MCP is an additional layer if you want protocol independence, better separation of concerns, or multi-model support.
+
+**Can I use MCP with GPT-5 or other models?**
+
+In theory, yes. MCP is protocol-based. Implementation is ongoing for OpenAI, Google, and open-source models. As of March 2026, Claude is the primary supported model.
+
+**How much latency does MCP add?**
+
+Stdio transport: none (local processes).
+
+SSE/HTTP: 50-200ms per request (network latency).
+
+WebSocket: 10-50ms per request (persistent connection, lower overhead).
+
+For batch processing: negligible. For real-time chat (<100ms latency requirement): stdio only.
+
+**Does MCP prevent Claude from abusing tools?**
+
+MCP doesn't prevent abuse, but enables prevention. You implement:
+- Read-only database users
+- Input validation
+- Rate limiting
+- Permission checks
+
+MCP provides the security model; you implement the policies.
+
+**Can I deploy MCP servers to AWS Lambda?**
+
+Yes, if you use HTTP transports (SSE, WebSocket). Stdio-based servers need long-running processes. Lambda is not suitable for stdio; use always-on containers (ECS, Kubernetes) instead.
+
+**Is MCP the future of AI tooling?**
+
+Likely. It's becoming the standard for agent frameworks (LangChain, LlamaIndex are adopting it). Major LLM platforms are supporting it. By 2027, most agent frameworks will support MCP natively.
+
+---
+
+## Related Resources
+
+- [AI Agent Frameworks & Tools](/tools)
+- [AI Agent Framework Comparison](/articles/ai-agent-framework)
+- [Agentic AI Frameworks Guide](/articles/agentic-ai-frameworks)
+- [LangChain vs LlamaIndex Comparison](/articles/langchain-vs-llamaindex)
+
+---
+
+## Sources
+
+- [Anthropic Model Context Protocol Specification](https://modelcontextprotocol.io)
+- [MCP Server Implementation Guide](https://modelcontextprotocol.io/servers)
+- [MCP Python Library](https://github.com/anthropics/model-context-protocol)
+- [Anthropic Claude API Documentation](https://docs.anthropic.com)
+- [OpenAI Function Calling Guide](https://platform.openai.com/docs/guides/function-calling)

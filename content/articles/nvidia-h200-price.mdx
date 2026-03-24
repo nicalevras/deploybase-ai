@@ -1,0 +1,335 @@
+---
+title: 'NVIDIA H200 Price: Next-Gen GPU Cloud Costs (2026)'
+slug: nvidia-h200-price
+description: >-
+  NVIDIA H200 cloud pricing ranges from $3.59 to $50.44 per GPU-hour as of March
+  2026. Compare H200 vs H100 costs, memory specs, and multi-GPU cluster pricing.
+date: '2026-03-21'
+author: DeployBase
+category: GPU Pricing
+keywords:
+  - nvidia h200 price
+  - h200 price
+  - nvidia h200 gpu price
+  - h200 cloud rental
+  - h200 vs h100 price
+---
+
+## Contents
+
+- [H200 Price Overview](#h200-price-overview)
+- [Cloud Provider Pricing](#cloud-provider-pricing)
+- [When H200 Makes Sense vs H100](#when-h200-makes-sense-vs-h100)
+- [H200 Specifications and Architecture](#h200-specifications-and-architecture)
+- [H200 vs H100 Performance](#h200-vs-h100-performance)
+- [H200 vs H100 Pricing](#h200-vs-h100-pricing)
+- [Form Factor Variants](#form-factor-variants)
+- [Spot vs On-Demand Pricing](#spot-vs-on-demand-pricing)
+- [Single GPU vs Multi-GPU Clusters](#single-gpu-vs-multi-gpu-clusters)
+- [Monthly and Annual Costs](#monthly-and-annual-costs)
+- [Cost Per Gigabyte](#cost-per-gigabyte)
+- [Use Case Cost Estimates](#use-case-cost-estimates)
+- [H200 Availability](#h200-availability)
+- [Total Cost of Ownership](#total-cost-of-ownership)
+- [Nvidia H200 Price: Pricing Outlook Through 2026](#nvidia-h200-price-pricing-outlook-through-2026)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+---
+
+## H200 Price Overview
+
+NVIDIA H200 cloud pricing ranges from $3.59 per GPU-hour on RunPod to $50.44 per GPU-hour on CoreWeave for 8-GPU clusters, as of March 2026. The massive price range reflects different deployment models: single-GPU rentals versus multi-GPU production clusters with NVLink interconnect and managed infrastructure.
+
+The H200 carries 141GB HBM3e memory with 4.8 TB/s bandwidth. For teams that hit the 80GB ceiling on the H100, the H200 doubles capacity without proportional cost increases. That makes it cost-effective for inference workloads and fine-tuning that previously required model parallelism across multiple GPUs. For detailed specifications and comparisons with other GPUs, see the [GPU specifications guide](/gpus/models/nvidia-h200).
+
+---
+
+## Cloud Provider Pricing
+
+| Deployment | Provider | $/GPU-hr | Total VRAM | Form Factor |
+|------------|----------|----------|-----------|-------------|
+| Single GPU | RunPod H200 | $3.59 | 141GB | 1x |
+| Single GPU | Lambda GH200 | $1.99 | 96GB | 1x |
+| 8-GPU Cluster | CoreWeave H200 | $50.44 | 1,128GB | 8x |
+
+The Lambda GH200 at $1.99/hr is technically a different chip (NVIDIA's Grace Hopper CPU-GPU combo), but it occupies the same market slot for inference. The H200's raw specs are superior: 141GB vs 96GB, 4.8 TB/s vs 3.0 TB/s bandwidth. However, GH200 availability is limited, and workload optimization for Grace CPU cores is a learning curve.
+
+RunPod's single H200 at $3.59/hr offers straightforward pricing. Rent by the hour, no multi-year commitments, no cluster complexity. For batch processing, fine-tuning, and single-instance inference, that's the entry point across major cloud providers as of March 2026.
+
+---
+
+## When H200 Makes Sense vs H100
+
+The decision tree for H200 vs H100:
+
+**Use H100 if:**
+- The models are under 70B parameters
+- Batch size 1-2 fits the use case
+- Budget is the primary constraint ($0.33 more per hour is significant at scale)
+- Teams are doing inference with short sequences (<2K tokens)
+
+**Use H200 if:**
+- Teams are currently hitting OOM errors on H100
+- Teams need batch sizes > 4 for standard 7B models
+- The models exceed 70B parameters in full precision
+- Teams are doing long-context inference (2K+ tokens per request)
+- Teams are fine-tuning large models and want to avoid multi-GPU synchronization
+
+**Use H200 if cost per token doesn't matter more than latency or throughput:**
+The H200's real value is eliminating complexity (no multi-GPU setup, no model parallelism tuning). For cost-per-token optimization on simple workloads, H100 is still the better value.
+
+---
+
+## H200 Specifications and Architecture
+
+The NVIDIA H200 is NVIDIA's answer to the memory ceiling. The H100 maxes out at 80GB. Real-world LLM workloads are pushing past that: full-precision 70B models, long-context retrieval-augmented generation, and large batch inference all hit the 80GB wall.
+
+The H200 specification sheet as of March 2026:
+- **Memory:** 141GB HBM3e
+- **Bandwidth:** 4.8 TB/s
+- **Compute:** 3,958 TFLOPS FP8, 1.979 TFLOPS FP64
+- **NVLink:** 900 GB/s per GPU when using NVLink 5
+- **TDP:** 500W typical operation
+- **Form Factor:** Single GPU card (fits standard PCIe slots)
+
+The 141GB is the key feature. HBM3e (next-generation high bandwidth memory) is denser and more power-efficient than the H100's HBM3. The jump from 80GB to 141GB is +76%, not a doubling, but enough to eliminate most model-parallelism headaches for models under 100B parameters.
+
+The bandwidth increase (4.8 TB/s vs H100's 3.35 TB/s) helps less than the memory increase. Bandwidth matters for long-sequence inference (4K+ token context). For standard batch processing, the memory is the constraint.
+
+---
+
+## H200 vs H100 Performance
+
+### Inference Throughput
+
+On LLM inference (Mistral 7B, batch size 4):
+- H100 (80GB): ~180 tokens/sec
+- H200 (141GB): ~185 tokens/sec
+
+Throughput gain: 3% (negligible).
+
+### Batch Size Support
+
+- H100 PCIe: batch size 2-4 on 7B models, batch size 1-2 on 13B models
+- H200: batch size 4-8 on 7B models, batch size 2-4 on 13B models
+
+The memory advantage translates to batch size gains, not single-request speed. This matters for inference serving where throughput (total tokens/second across all users) is the optimization target.
+
+### Training Speed
+
+Training a 7B parameter model with full precision:
+- H100 (80GB): requires 2 GPUs with model parallelism
+- H200 (141GB): fits on single GPU without parallelism
+
+Training on a single H200 vs two H100s with model parallelism synchronization overhead: H200 is 10-15% faster wall-clock time due to eliminated synchronization overhead.
+
+---
+
+## H200 vs H100 Pricing
+
+H200 runs roughly 80% more expensive than H100 on the same provider. At RunPod: H100 PCIe $1.99/hr vs H200 $3.59/hr. The premium is justified when 141GB solves a real memory constraint. When 80GB is sufficient, H100 is the better value.
+
+---
+
+## Form Factor Variants
+
+H200 ships in SXM5 (primary datacenter form factor) and PCIe variants. No NVL variant (dual H200 die) has been announced as of March 2026.
+
+- **Single GPU inference:** H200 PCIe available from boutique providers
+- **Multi-GPU training:** H200 SXM5 available on CoreWeave in 8-GPU NVLink clusters
+- **Large batch inference:** H200 single GPU beats H100 single GPU on memory; distributed 8x H200 SXM clusters offer full NVLink interconnect for training
+
+---
+
+## Spot vs On-Demand Pricing
+
+Spot pricing for H200 is not yet standardized across cloud providers. RunPod has not published spot discount rates. AWS and GCP don't offer H200 yet.
+
+When spot pricing lands (expected Q2-Q3 2026), expect 30-50% discounts similar to H100 spot rates.
+
+Provisional estimate (not confirmed): H200 spot on RunPod might reach $1.80-$2.00/hr if they follow H100's discount pattern.
+
+---
+
+## Single GPU vs Multi-GPU Clusters
+
+### Single-GPU Economics
+
+RunPod H200 at $3.59/hr for 730 monthly hours (24/7 continuous operation):
+- **Monthly:** $2,621
+- **Annual:** $31,450
+- **3-year:** $94,350
+
+This covers inference serving, fine-tuning with batch size 1-4, and research experiments. No orchestration complexity. No NVLink coordination overhead. Just rent GPU time and pay on exit.
+
+### Multi-GPU Cluster Economics
+
+CoreWeave 8x H200 at $50.44/hr for 730 monthly hours:
+- **Monthly:** $36,821
+- **Annual:** $441,852
+- **3-year:** $1,325,556
+
+This is for distributed training. Eight H200 GPUs connected via NVLink at 900 GB/s per GPU. The aggregate memory (1,128GB) allows training 70B+ parameter models without model parallelism reshuffling the model across GPUs. The bandwidth lets all eight GPUs saturate interconnect.
+
+The per-GPU cost ($50.44 / 8 = $6.31/GPU-hr) looks expensive versus RunPod's single-GPU price, but that misleads. CoreWeave's rate includes NVLink, power conditioning, SLA guarantees, and load-balanced networking. A single GPU without that support is worth $3.59. Eight coordinated GPUs with NVLink and power redundancy are worth significantly more.
+
+---
+
+## Monthly and Annual Costs
+
+### Single H200 (RunPod)
+
+| Hours/Month | Monthly Cost | Annual Cost |
+|-------------|--------------|------------|
+| 100 hrs | $359 | $4,308 |
+| 250 hrs | $898 | $10,740 |
+| 730 hrs (24/7) | $2,621 | $31,450 |
+
+---
+
+### 8x H200 Cluster (CoreWeave)
+
+| Hours/Month | Monthly Cost | Annual Cost |
+|-------------|--------------|------------|
+| 100 hrs | $5,044 | $60,528 |
+| 250 hrs | $12,610 | $151,320 |
+| 730 hrs (24/7) | $36,821 | $441,852 |
+
+---
+
+## Cost Per Gigabyte
+
+H200 memory premium versus older GPUs:
+
+| GPU | Memory | $/hr | Cost/GB |
+|-----|--------|------|---------|
+| H100 PCIe (80GB) | 80GB | $1.99 | $0.025/GB |
+| H200 (141GB) | 141GB | $3.59 | $0.025/GB |
+| GH200 (96GB) | 96GB | $1.99 | $0.021/GB |
+
+The H200 and H100 have nearly identical cost per gigabyte on RunPod. The GH200 is slightly cheaper per GB, but availability is sparse. For teams evaluating bang-for-buck on pure memory capacity, the H200 doesn't command a premium per gigabyte; the extra capacity costs proportionally.
+
+---
+
+## Use Case Cost Estimates
+
+### Fine-Tuning 70B Mistral (Full Training, 20 hours)
+
+RunPod H200 single GPU: 20 hours × $3.59 = **$71.80**
+
+Full fine-tuning a 70B model on H100 (80GB) requires model parallelism across 2-4 GPUs. On H200 (141GB), a single GPU usually handles it with medium batch sizes. One H200 for 20 hours beats two H100s at $5.38/hr for 10 hours ($53.80), and finishes in half the wall-clock time.
+
+### Inference Serving (2M tokens/day, ~4 hrs GPU/day)
+
+RunPod H200 at $3.59/hr: roughly 4 hrs × $3.59 × 30 days = **$431/month**
+
+The 141GB capacity handles any open-source LLM under 70B parameters at batch size 4-8. Quantized 70B models run at batch 16+. For long-running inference that previously required model parallelism, the H200 is a cost win despite the higher hourly rate.
+
+### Batch Workload (Document Processing, 500 tasks)
+
+RunPod H200 single GPU, estimated 40 hours of processing:
+40 × $3.59 = **$143.60**
+
+Compare to running the same job on H100 split across two GPUs: 40 hours × ($2.69 × 2) = **$215.20**. The H200 saves $71.60 on this batch, a 33% reduction in cost.
+
+---
+
+## H200 Availability
+
+H200 entered production in Q4 2025 and ramped through early 2026. Availability across major cloud providers as of March 2026:
+
+- **RunPod:** Full availability, all regions
+- **Lambda:** GH200 only (similar specs, different CPU), limited availability
+- **CoreWeave:** Available in select regions, 8-GPU clusters
+- **AWS:** Expected Q2 2026
+- **Google Cloud:** Expected Q2-Q3 2026
+- **Azure:** Expected Q3 2026
+
+Boutique providers (ORI, Nebius, Hyperstack) are not yet advertising H200 on public pricing pages. Expect rollout through Q2-Q3 2026.
+
+---
+
+## Total Cost of Ownership
+
+### Single H200 (3-Year Deployment)
+
+Purchase cost (H200 PCIe): $35,000
+Power (500W × 24/7 × 1,095 days at $0.12/kWh): $5,256
+Cooling/Facility (estimated $5,000/year): $15,000
+Depreciation (assume 3-year total loss): $0 (sunk cost)
+
+**Total 3-year cost:** $55,256
+**Equivalent monthly cloud cost:** $1,535 (continuous 24/7 operation)
+
+At RunPod's $3.59/hr:
+- 730 hrs/month × $3.59 × 36 months = $94,919
+- TCO crossover: 26 months of continuous operation
+
+For teams renting less than 26 months or using less than 24/7, cloud rental is cheaper. For teams planning 3+ years, ownership approaches parity when considering power/cooling.
+
+---
+
+## Nvidia H200 Price: Pricing Outlook Through 2026
+
+H100 and H200 pricing is shifting through early 2026. Predictions for Q2-Q4 2026:
+
+**H200 availability:** Ramp from 3 providers (RunPod, Lambda, CoreWeave) to 10+ by Q3 2026. Increased supply will drive modest price competition (expect 5-10% decrease by Q4).
+
+**H100 pricing pressure:** As H200 adoption grows, H100 demand drops. Expect H100 rates to drift down 10-20% through 2026. This isn't because H100s become cheaper to operate; it's because older-generation supply sits unsold.
+
+**Major cloud provider response:** AWS and GCP have announced H200 support for Q2 2026. Pricing will likely be 10-15% premium to boutique providers (RunPod, Lambda), consistent with their historical pattern. Expect AWS H200 at $4-4.50/hr.
+
+**B200 impact:** NVIDIA's B200 (192GB HBM3e, already available in cloud from Q1 2026) will further pressure H200 and H100 pricing. Teams with budgets will wait for B200 or negotiate deeper H100 discounts.
+
+---
+
+## FAQ
+
+**Is H200 worth the premium over H100?**
+If batch sizes or sequence lengths exceed 80GB, yes. The H200 avoids model parallelism overhead and eliminates multi-GPU synchronization. For single-GPU workloads hitting 80GB limits, the 33% cost premium is worth it. For workloads that fit comfortably on H100, stick with H100.
+
+**When will H200 be available on AWS and Google Cloud?**
+AWS expects to launch by June 2026. Google Cloud by September 2026. Early cloud availability is limited to RunPod and CoreWeave (March 2026). Expect major provider rollout through Q2-Q3 2026.
+
+**Can I use H200 for training?**
+Yes, but not cost-efficiently as a single GPU. Full H200 clusters (8 GPUs) are available on CoreWeave. The NVLink interconnect makes distributed training possible, but at $50.44/hr for the cluster, it's roughly equivalent to H100 clusters. Use H200 clusters only if you need the memory capacity for model parallelism at 70B+ scale.
+
+**How much faster is H200 compared to H100 for my workload?**
+For inference: 3-5% faster wall-clock time due to higher bandwidth. The real win is batching: H200 handles larger batches without OOM errors.
+For training: 10-15% faster if it eliminates model parallelism. Full fine-tuning of 70B models that required 2 H100s now fit in 1 H200 without synchronization overhead.
+For memory-constrained tasks: Up to 50% faster because you're no longer shuffling data between GPU and system RAM.
+
+**Will H200 price drop in 2026?**
+Unlikely to drop below $3.00/hr on single-GPU rentals. More likely: price stays stable while hyperscalers (AWS, GCP) enter the market at $3.50-4.00/hr in Q2-Q3. Competitive pressure will be modest. Core drivers (NVIDIA supply, datacenter costs) don't support sharp discounts.
+
+**What's the return on investment for buying H200 hardware?**
+Breakeven on ownership is 20-26 months of continuous operation at cloud prices. For teams planning 2+ years of steady inference or training, owning becomes cost-competitive. For projects under 18 months, renting is cheaper and carries less capital risk.
+
+**How does H200 compare to L40S?**
+L40S is inference-focused with 48GB memory. H200 is general-purpose with 141GB. For dense transformer serving, L40S is cheaper per GPU-hour. For fine-tuning, batch processing, and anything requiring more than 48GB, H200 is the right choice.
+
+**What's the H200 memory bandwidth advantage?**
+4.8 TB/s vs H100's 3.35 TB/s. That's 43% higher throughput. In practice, this matters for long-sequence inference (4K+ token context) where memory bandwidth becomes the bottleneck. For standard batch processing and short sequences, the difference is unnoticeable.
+
+---
+
+## Related Resources
+
+- [NVIDIA GPU Pricing Comparison](/gpus)
+- [H200 GPU Specifications](/gpus/models/nvidia-h200)
+- [H100 Cloud Pricing](/articles/nvidia-h100-price)
+- [A100 Cloud Pricing](/articles/nvidia-a100-price)
+
+---
+
+## Sources
+
+- [NVIDIA H200 Product Brief](https://www.nvidia.com/en-us/data-center/h200/)
+- [NVIDIA H200 Datasheet](https://resources.nvidia.com/en-us-gpu-resources/h200-datasheet)
+- [RunPod Pricing](https://www.runpod.io/pricing)
+- [Lambda Cloud H200 Pricing](https://lambda.ai/pricing)
+- [CoreWeave Pricing](https://www.coreweave.com/pricing)
+- [DeployBase GPU Pricing Tracker](https://deploybase.ai/gpus) (H200 rates observed March 21, 2026)

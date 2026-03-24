@@ -1,0 +1,643 @@
+---
+title: 'Google Vertex AI Pricing: Complete 2026 Price Guide'
+slug: vertex-ai-pricing
+description: >-
+  Google Vertex AI pricing guide: Gemini API rates, prediction endpoints, custom
+  training costs, AutoML pricing, cost optimization strategies as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: Pricing
+keywords:
+  - vertex ai pricing
+  - google vertex pricing
+  - gemini api cost
+  - vertex prediction endpoint
+  - google ai pricing
+---
+
+## Contents
+
+- [Vertex AI Pricing: Overview](#vertex-ai-pricing-overview)
+- [Gemini API Pricing](#gemini-api-pricing)
+- [Prediction Endpoints](#prediction-endpoints)
+- [Model Training Costs](#model-training-costs)
+- [AutoML Pricing](#automl-pricing)
+- [Storage & Compute Comparison](#storage-compute-comparison)
+- [Cost Optimization Strategies](#cost-optimization-strategies)
+- [Real-World Cost Examples](#real-world-cost-examples)
+- [Vertex vs Direct Gemini API vs OpenAI vs Anthropic](#vertex-vs-direct-gemini-api-vs-openai-vs-anthropic)
+- [Vertex AI Workbench Pricing](#vertex-ai-workbench-pricing)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Vertex AI Pricing: Overview
+
+Google Vertex AI pricing is complex because Vertex bundles multiple services. The Gemini API is the low-cost entry point for LLM inference. Prediction endpoints add hosting overhead. Custom training and AutoML stack on top.
+
+Gemini API costs $0.075 to $1.50 per 1M input tokens depending on model size. Prediction endpoints (managed hosting) add $5-20 per vCPU per day. AutoML training charges by compute hours ($10-50/hour).
+
+As of March 2026, Vertex is cheaper than AWS SageMaker for inference but pricier than RunPod or Replicate for serverless workloads.
+
+The decision: use Gemini API for cost-sensitive inference, use Vertex endpoints for teams already on Google Cloud, use serverless APIs (RunPod, Replicate) if lowest cost matters.
+
+---
+
+## Gemini API Pricing
+
+### Input & Output Token Rates (as of March 2026)
+
+| Model | Context | Input $/1M | Output $/1M |
+|-------|---------|-----------|-----------|
+| **Gemini 1.5 Flash** | 1M | $0.075 | $0.30 |
+| **Gemini 1.5 Pro** | 2M | $1.25–$2.50 | $5.00–$10.00 |
+| **Gemini 2.0 Flash** | 1M | $0.10 | $0.40 |
+| **Gemini 2.0 Pro** | 2M | $4.50 | $15.00 |
+| **Gemini 2.5 Flash (preview)** | 1M | $0.10 | $0.40 |
+| **Gemini 2.5 Pro (preview)** | 2M | $5.00 | $15.00 |
+| **Embedding 003** | - | $0.02 | $0.02 |
+
+Flash models are budget options for classification, summarization, and simple generation. Pro models handle complex reasoning, multimodal analysis, and extended context (good for RAG with large documents). Gemini 2.5 models are in preview; pricing subject to change at general availability.
+
+### Gemini 2.5 Pro Pricing Details
+
+Gemini 2.5 Pro is the newest flagship model with improved reasoning on code and math problems. Supports 200K context window and full multimodal capabilities (text, image, video, audio). Preview pricing (as of March 22, 2026):
+
+- Input: $5.00 per 1M tokens (2x more than 1.5 Pro at >128K tier; 4x more at ≤128K tier)
+- Output: $15.00 per 1M tokens (1.5x more than 1.5 Pro at >128K tier)
+
+For workloads requiring advanced reasoning, 2.5 Pro justifies the marginal cost over 1.5 Pro. Breakeven occurs after ~100M tokens/month where quality gains improve downstream task completion rates.
+
+### Batch Processing Discount
+
+Vertex offers 50% discount on batch inference (requests submitted via Batch API, processed asynchronously). Batch jobs are processed within 24 hours and incur no queuing charges.
+
+| Model | Batch Input $/1M | Batch Output $/1M |
+|-------|-----------------|------------------|
+| Gemini 1.5 Flash | $0.0375 | $0.15 |
+| Gemini 1.5 Pro (>128K) | $1.25 | $5.00 |
+| Gemini 2.5 Flash | $0.05 | $0.20 |
+| Gemini 2.5 Pro | $2.50 | $7.50 |
+
+For overnight jobs, batch API cuts costs in half. Teams running ETL pipelines, weekly reports, or bulk document processing should default to batch mode. Real-time APIs are costlier but necessary for user-facing features.
+
+### Cost Comparison: 10M Tokens
+
+Scenario: 10M input tokens (context), 1M output tokens (completions).
+
+**Gemini 1.5 Flash:**
+- Input: 10M × $0.075/1M = $0.75
+- Output: 1M × $0.30/1M = $0.30
+- Total: $1.05
+
+**Gemini 1.5 Pro (>128K tier):**
+- Input: 10M × $2.50/1M = $25.00
+- Output: 1M × $10.00/1M = $10.00
+- Total: $35.00
+
+**Gemini 2.5 Pro:**
+- Input: 10M × $5.00/1M = $50.00
+- Output: 1M × $15.00/1M = $15.00
+- Total: $65.00
+
+Flash is 33x cheaper than 1.5 Pro (at >128K tier) and 67x cheaper than 2.5 Pro. Use Flash for cost-sensitive workloads (classification, summarization, Q&A). Use 1.5 Pro for balance of quality and cost. Use 2.5 Pro when advanced reasoning quality directly impacts revenue (legal analysis, financial advice).
+
+### Direct Gemini API vs Vertex Integration
+
+Gemini API (AI.google.dev) and Vertex Gemini API (cloud.google.com/vertex) share identical token pricing but differ in integration:
+
+**Gemini API (AI.google.dev):** Standalone, no GCP account required, minimal setup. Best for rapid prototyping and teams not using other GCP services.
+
+**Vertex API (cloud.google.com/vertex):** Integrated with Vertex ML pipelines, model versioning, audit logging, and fine-tuning. Best for teams already on GCP or needing MLOps integration.
+
+Pricing is identical. Choose Vertex if model governance matters.
+
+### Free Tier
+
+Vertex offers 2M tokens/month free (input + output combined). Also includes:
+
+- 50 requests per minute rate limit
+- 1,500 requests per calendar day maximum
+- Full model access (1.5 Flash, 1.5 Pro, 2.0 Flash, 2.0 Pro)
+- No credit card required
+
+Good for prototyping, learning, small apps. Beyond 2M tokens, developers pay standard rates. Free tier is throttled; expect variable latency during peak hours.
+
+---
+
+## Prediction Endpoints
+
+Prediction endpoints are managed inference servers. Google provisions compute, handles scaling, load balancing.
+
+### Endpoint Pricing Structure
+
+**Compute costs:**
+- Per vCPU per day: $5 (on-demand) or $2-3 (commitment-based)
+- Per GB RAM per day: $0.50
+- Minimum: 1 vCPU + 4GB RAM = $7/day
+
+**GPU costs (optional):**
+- T4 GPU: $3/day
+- A100 GPU: $12/day
+- H100 GPU: $30/day
+
+**API request pricing:** Varies by model/config. Usually free or minimal ($0 for Vertex-hosted models).
+
+### Minimal Endpoint Cost
+
+1 vCPU + 4GB RAM (CPU-only):
+- Daily: $5 + ($0.50 × 4) = $7
+- Monthly: $210
+- Per 1K requests: $210 ÷ 1000 = $0.21 (low volume)
+
+That's the minimum even if developers get zero traffic.
+
+### Endpoint Cost: 1M Requests/Month
+
+Llama 2 70B on 2x A100 GPU cluster.
+
+**Hardware:**
+- 2x A100 GPU: $24/day
+- Compute (sufficient vCPU): $10/day
+- Memory (80GB): $40/day
+- Total: $74/day = $2,220/month
+
+**Per request (1M requests):**
+- $2,220 ÷ 1,000,000 = $0.00222 per request
+
+Compare to RunPod or Replicate ($0.0003-0.0010 per request for same model). Prediction endpoints are more expensive unless developers have committed compute discounts.
+
+### Commitment-Based Discount
+
+Vertex offers 1-year and 3-year commitments: 30-50% discount on compute.
+
+With 3-year commitment:
+- 2x A100 cluster: $37/day (50% off)
+- Monthly: $1,110
+- Per 1M requests: $0.00111
+
+Still pricier than RunPod but more predictable.
+
+---
+
+## Model Training Costs
+
+Custom training (fine-tuning, training from scratch) on Vertex.
+
+### Training Compute Rates
+
+| GPU | Cost/Hour |
+|-----|-----------|
+| Tesla K80 | $0.30 |
+| Tesla P4 | $0.35 |
+| Tesla T4 | $0.35 |
+| Tesla V100 | $1.08 |
+| Tesla A100 | $3.06 |
+| Tesla H100 | $8.00 |
+
+Plus per-vCPU cost: $0.04/hour for training.
+
+### LoRA Fine-Tuning Example
+
+Fine-tune Llama 2 70B with 100K examples, rank 64, 2 epochs.
+
+Estimated compute: 16 GPU-hours on A100.
+
+**Cost:**
+- 16 × $3.06 = $48.96 (GPU)
+- 16 × $0.04 = $0.64 (vCPU)
+- Total: ~$50
+
+Compare to RunPod: 16 × $0.66/hr (A100) = $10.56. Vertex is 5x more expensive.
+
+Why use Vertex for training? Integration with MLOps pipeline, model versioning, monitoring. For one-off fine-tuning, RunPod is cheaper.
+
+### Pre-Training Costs
+
+Training Mistral 7B from scratch (1T tokens) on 8x H100 cluster.
+
+Estimated compute: 8 GPUs × ~1,000 GPU-hours = 8,000 GPU-hours.
+
+**Cost:**
+- 8,000 × $8.00 = $64,000
+
+That's the GPU cost alone. Add storage, vCPU, data transfer, and expect $70-80K.
+
+For large models, teams use RunPod spot instances ($4-5/hr per H100) or cloud research programs (free credits). Vertex is expensive for this.
+
+---
+
+## AutoML Pricing
+
+AutoML is Vertex's no-code model training. Upload data, Vertex automatically trains, tunes, and deploys a model without custom code. Pricing is compute-hour based.
+
+### AutoML Training Costs
+
+Charged by compute hour. Rates vary by task type. Each task category has different compute requirements.
+
+| Task | Cost/Compute-Hour | Typical Training Time |
+|------|-------------------|----------------------|
+| Image Classification | $10 | 1-8 hours |
+| Image Object Detection | $20 | 4-40 hours |
+| Text Classification | $15 | 1-4 hours |
+| Text Entity Extraction | $12 | 1-6 hours |
+| Text Sentiment Analysis | $12 | 1-4 hours |
+| Tabular Data (Regression) | $25 | 2-20 hours |
+| Tabular Data (Classification) | $25 | 2-20 hours |
+| Time Series Forecasting | $18 | 2-12 hours |
+
+Training time depends on dataset size, class imbalance, and model complexity. Vertex provides estimates before training.
+
+**Example: NLP text classification (100K labeled examples)**
+- Task: Sentiment classification on product reviews
+- Estimated compute time: 8 hours
+- Cost: 8 × $15 = $120
+- Per-example cost: $120 ÷ 100K = $0.0012
+
+**Example: Tabular regression (50K rows)**
+- Task: Price prediction on historical sales data
+- Estimated compute time: 12 hours
+- Cost: 12 × $25 = $300
+- Per-row cost: $300 ÷ 50K = $0.006
+
+### AutoML Prediction Costs
+
+After training, deploy via prediction endpoint (see Prediction Endpoints section). Costs are:
+
+- Minimum 1 vCPU + 4GB RAM: $210/month
+- GPU option: T4 ($3/day), A100 ($12/day), H100 ($30/day)
+
+For 1M inference requests/month (100 byte payload):
+- Compute: $210
+- Total: $210/month = $0.00021 per request
+
+AutoML training + serving for moderate workloads (10K-100K inferences/month) typically runs $200-500/month.
+
+### AutoML vs Custom Training
+
+AutoML ROI cases:
+- Non-ML teams needing fast iteration ($120-500 per trained model, saves 2-4 weeks of data science time)
+- Rapid prototyping and MVP validation
+- Teams with limited ML expertise
+
+Custom training ROI cases:
+- Large teams with ML expertise (cost scales with team size, not model count)
+- Production workloads where fine control matters (hyperparameter tuning, custom loss functions)
+- Teams retraining models frequently (fixed setup cost amortized across retrains)
+
+Decision: AutoML if training cost < value of saved engineering time. Custom training if developers have in-house ML talent.
+
+---
+
+## Storage & Compute Comparison
+
+### Cloud Storage (for model artifacts, data)
+
+| Service | Cost/GB/Month | Notes |
+|---------|---------------|-------|
+| Google Cloud Storage (standard) | $0.020 | Regional, frequent access |
+| Google Cloud Storage (nearline) | $0.010 | Archival, infrequent access |
+| Vertex Model Registry | included in GCS | Version control, no extra cost |
+| AWS S3 (standard) | $0.023 | Baseline comparison |
+| Azure Blob Storage | $0.021 | Azure ecosystem |
+
+Google Cloud Storage is competitive on price and integrates smoothly with Vertex. For model artifacts (Llama checkpoints, fine-tuned weights), use standard storage. For training logs and intermediate outputs, use nearline (50% cheaper, 1-hour retrieval latency).
+
+Example: Store 200GB of model weights and training logs.
+- Model weights (200GB, standard): 200 × $0.020 = $4/month
+- Training logs (500GB, nearline): 500 × $0.010 = $5/month
+- Total: $9/month
+
+### VPC & Networking
+
+- Private Endpoint: $1/day ($30/month) for secure, internal-only access
+- Ingress (inbound data): free
+- Egress (outbound data): $0.12/GB (first 1GB free per day)
+
+For egress, downloading 1TB of training results = 1,024GB × $0.12 = $122.88. Plan accordingly. Keeping data in Google Cloud (not downloading) avoids egress fees.
+
+### Comparison: Total Monthly Cost for 1M Requests
+
+**Scenario: Serve Gemini 1.5 Flash at 1M requests/month**
+- Per request: 1K input tokens + 500 output tokens
+- Monthly volume: 1B input tokens, 500M output tokens
+
+**Gemini API (serverless, AI.google.dev):**
+- Input: 1B × $0.075/1M = $75
+- Output: 500M × $0.30/1M = $150
+- Infrastructure: $0 (fully managed)
+- Storage: $0 (no persistent state)
+- Total: $225/month
+
+**Vertex Prediction Endpoint (managed, cloud.google.com/vertex):**
+- Minimum endpoint: 1 vCPU + 4GB = $210/month
+- API calls: included (no per-request charge)
+- Storage (model weights): ~$5/month
+- Total: $215/month
+
+**AWS SageMaker (managed endpoint):**
+- Minimum endpoint: 1x ml.m5.large = $0.40/hour = $292/month
+- API inference: $0.00035 per request × 1M = $350/month
+- Storage: ~$10/month
+- Total: $652/month
+
+**Vertex API wins on cost.** Both Vertex API and endpoint are cheaper than SageMaker. Choose Vertex API for pure inference. Choose Vertex endpoint if integrating with ML pipelines (training, monitoring, versioning in same platform).
+
+---
+
+## Cost Optimization Strategies
+
+### 1. Batch API for Non-Real-Time Workloads
+
+Use batch API (50% discount) for batch jobs.
+
+**Example:** 100M tokens/month background summarization
+- Real-time API: $7.50
+- Batch API: $3.75
+- Savings: $45/month
+
+### 2. Embedding Models for Semantic Search
+
+Embedding 003: $0.02 per 1M tokens (extremely cheap).
+
+For RAG systems, use embeddings for retrieval + cheaper Flash model for generation.
+
+### 3. Commit to Cloud & Get Discounts
+
+Vertex offers:
+- 1-year compute commitment: 25-30% off
+- 3-year compute commitment: 50% off
+
+If running Vertex for 18+ months, commit to save.
+
+### 4. Use Flash for Cost Optimization
+
+Gemini 1.5 Flash: $0.075/1M input (vs 1.5 Pro at $1.25–$2.50 depending on context length).
+
+Flash is 17–33x cheaper. Use for:
+- Summarization
+- Classification
+- Q&A with small context
+
+Use Pro only when quality is critical.
+
+### 5. Pre-Filter to Reduce Token Count
+
+Every token costs money. Pre-process inputs:
+- Remove irrelevant documents from RAG context
+- Truncate long user histories
+- Compress context
+
+Reducing input by 10% = 10% cost savings.
+
+### 6. Cache Long Prompts
+
+Vertex (via Batch API) supports prompt caching: repeated prompts cached at lower cost.
+
+Example: If developers analyze the same document 100 times, first request pays full cost, next 99 pay cache hit rate (e.g., $0.01/1M instead of $0.075).
+
+### 7. Multi-Step Routing
+
+Route simple requests to Flash, complex to Pro.
+
+Example: 80% of requests → Flash ($0.075), 20% → Pro ($2.50, >128K tier).
+
+Average cost: 0.8 × $0.075 + 0.2 × $2.50 = $0.56 per 1M tokens (vs $2.50 if all Pro).
+
+---
+
+## Real-World Cost Examples
+
+### RAG Application (Customer Support Bot)
+
+Setup: Retrieve documents + generate response using Gemini.
+
+**Monthly workload:**
+- 10,000 queries/month
+- Retrieval: 5K tokens average context per query
+- Generation: 200 tokens average response
+
+**Cost breakdown:**
+- Input tokens: 10K × 5K = 50M tokens/month
+- Output tokens: 10K × 200 = 2M tokens/month
+
+Using Gemini 1.5 Flash:
+- Input: 50M × $0.075/1M = $3.75
+- Output: 2M × $0.30/1M = $0.60
+- Total: ~$4.35/month
+
+Plus: Embeddings for retrieval (stored embeddings ~$1/month for 50K documents).
+
+**Total: ~$5-6/month on Vertex API**
+
+With prediction endpoint instead:
+- Endpoint: $210/month
+- API: minimal
+- **Much more expensive for this use case.**
+
+Verdict: Use Gemini API, not endpoints.
+
+### Content Generation SaaS
+
+**Monthly workload:**
+- 1M completion requests
+- 100 input tokens (prompt)
+- 500 output tokens (generated content)
+
+**Cost breakdown:**
+- Input: 1M × 100 = 100M tokens/month
+- Output: 1M × 500 = 500M tokens/month
+
+Using Gemini 1.5 Flash:
+- Input: 100M × $0.075/1M = $7.50
+- Output: 500M × $0.30/1M = $150
+- Total: $157.50/month
+
+**Per request: $0.000158**
+
+Compare to alternatives:
+- Replicate: $0.00015/sec on H100, ~0.4sec per request = $0.00006 per request (cheaper)
+- RunPod: $0.00103/sec on H100, 0.4sec per request = $0.000412 (more expensive)
+- Together.AI: Similar to Groq pricing, ~$0.15/1M output tokens (cheaper)
+
+Vertex is mid-range on cost for this workload.
+
+### Fine-Tuning Pipeline
+
+**Setup:** Fine-tune Llama 2 70B on customer data weekly.
+
+Weekly workload:
+- Training compute: 8 GPU-hours on A100
+- Prediction serving: 100K requests/week on endpoint
+
+**Vertex costs:**
+- Training: 8 × $3.06 = $24.48/week
+- Endpoint (1x A100): $12/day = ~$84/week
+- Total: ~$109/week = $436/month
+
+**Alternative (RunPod):**
+- Training: 8 × $0.66 = $5.28/week
+- Serving: 100K × $0.00066 = $66/week
+- Total: ~$71/week = $284/month
+
+RunPod is ~35% cheaper, but Vertex gives integrated MLOps, versioning, monitoring.
+
+If monitoring/versioning is critical, Vertex premium is justified.
+
+## Vertex vs Direct Gemini API vs OpenAI vs Anthropic
+
+### Cost Comparison Matrix
+
+| Workload | Vertex API | OpenAI API | Anthropic | Winner |
+|----------|-----------|-----------|-----------|--------|
+| **Classification (100K requests)** | Flash: $37.50 | GPT-4o Mini: $45 | Claude Haiku: $25 | Claude 3 Haiku |
+| **Complex reasoning (10K requests)** | 2.5 Pro: $500 | GPT-4o: $250 | Claude Opus: $250 | GPT-4o / Claude (tied) |
+| **Code generation (1M output tokens)** | Flash: $300 | GPT-4o: $1,000 | Claude: $500 | Gemini Flash |
+| **Long-context RAG (100K tokens × 100 requests)** | Pro: $150 | GPT-4 Turbo: $300 | Claude: $250 | Gemini Pro |
+
+**Flash dominates cost-sensitive workloads.** GPT-4o and Claude are competitive on reasoning. For long-context, Gemini Pro's 2M token window and reasonable pricing make it the best choice.
+
+### When to Choose Each Provider
+
+**Choose Gemini (Vertex) if:**
+- Cost is primary concern (Flash is 2-10x cheaper)
+- Long-context RAG is the use case (Pro supports 2M context)
+- Already using GCP for data/ML pipelines
+- Multimodal (images/video) processing needed
+
+**Choose OpenAI if:**
+- Production safety and liability coverage matter (OpenAI has best track record)
+- GPT-4 reasoning quality is non-negotiable
+- Teams prefer OpenAI's feature maturity
+
+**Choose Anthropic Claude if:**
+- Constitutional AI safety is required
+- Long-form writing or analysis (Claude excels)
+- Agentic reasoning patterns (tool use, planning)
+
+### Token Cost Breakdown: Real Example
+
+**Scenario: Process 1M documents with sentiment analysis.**
+- Input per doc: 200 tokens (text content)
+- Output per doc: 20 tokens (sentiment label)
+- Total input: 200M tokens
+- Total output: 20M tokens
+
+**Gemini 1.5 Flash:**
+- Input: 200M × $0.075/1M = $15
+- Output: 20M × $0.30/1M = $6
+- **Total: $21**
+
+**OpenAI GPT-4o Mini:**
+- Input: 200M × $0.15/1M = $30
+- Output: 20M × $0.60/1M = $12
+- **Total: $42**
+
+**Anthropic Claude Haiku:**
+- Input: 200M × $1.00/1M = $200
+- Output: 20M × $5.00/1M = $100
+- **Total: $300**
+
+Gemini Flash is 2x cheaper than GPT-4o Mini and 14x cheaper than Claude Haiku on this workload. Choose based on accuracy requirements, not cost alone.
+
+## Vertex AI Workbench Pricing
+
+Vertex Workbench is the managed Jupyter notebook environment for data scientists and ML engineers. Separate from API pricing.
+
+### Notebook Instance Costs
+
+Pay for compute hours while notebook is running (including idle time if developers forget to stop it).
+
+| Machine Type | CPU | RAM | Cost/Hour |
+|--------------|-----|-----|-----------|
+| n1-standard-4 | 4 | 15GB | $0.19 |
+| n1-standard-8 | 8 | 30GB | $0.38 |
+| n1-standard-32 | 32 | 120GB | $1.51 |
+| n2-standard-4 | 4 | 16GB | $0.20 |
+| n2-highmem-8 | 8 | 64GB | $0.49 |
+
+GPU options cost extra. Adding 1x T4 GPU: +$0.25/hour. Adding 1x A100 GPU: +$3.06/hour.
+
+**Example: Data scientist working 8 hours/day on n1-standard-8 with 1x T4 GPU**
+- Machine: $0.38/hour
+- GPU: $0.25/hour
+- Hourly: $0.63
+- Weekly (5 days): $0.63 × 40 = $25.20
+- Monthly: ~$100
+
+### Workbench vs Colab
+
+Workbench provides persistent notebooks (files saved across sessions). Colab is free but limited to 12-hour sessions and lower memory. For production ML pipelines requiring persistent state, use Workbench. For learning and prototyping, Colab is free.
+
+---
+
+## FAQ
+
+**Is Vertex cheaper than AWS SageMaker?**
+
+For inference: Vertex Gemini API is cheaper ($0.075/M tokens vs SageMaker ~$0.50+/hour for instance).
+
+For training: Similar. Both expensive. RunPod is cheaper for both.
+
+**Should I move from OpenAI to Gemini?**
+
+If cost is primary: Yes, Gemini 1.5 Flash is significantly cheaper than GPT-4o (Flash $0.075/1M vs GPT-4o $2.50/1M input).
+If quality is primary: OpenAI still better on complex reasoning tasks.
+If flexibility is primary: Vertex integrates with GCP pipelines better.
+
+Most teams: use Gemini for cost-sensitive workloads, OpenAI for critical tasks.
+
+**What's the cheapest Vertex option for LLM inference?**
+
+Gemini 1.5 Flash via API. $0.075/1M input tokens. Lower cost than anything except DeepSeek.
+
+**Do I pay for endpoints if I don't get traffic?**
+
+Yes. Minimum $7/day ($210/month) even with zero requests. Plan accordingly.
+
+**Can I auto-scale endpoints down to zero?**
+
+No. Vertex keeps minimum 1 replica running. To avoid costs, delete endpoint or use Gemini API (serverless).
+
+**How do I estimate training time?**
+
+Vertex provides time estimates before training. Rule of thumb: 1M examples take 1-4 hours on A100.
+
+**Is batch API worth it?**
+
+Yes if you have non-real-time workloads (>1M tokens). 50% savings are substantial.
+
+**How do embeddings fit in RAG cost?**
+
+Embedding 003: $0.02/1M tokens. One-time cost to build index. Subsequent similarity search is free (local vector DB).
+
+For 100K documents: ~$1-2 per quarter.
+
+**What about token limits in requests?**
+
+Flash: up to 1M token context
+Pro: up to 2M token context
+
+Larger context = higher cost (more tokens charged). Optimize context size to reduce costs.
+
+---
+
+## Related Resources
+
+- [Google Vertex AI Platform](/llms/Google%20Vertex)
+- [OpenAI API Pricing Guide](/articles/openai-pricing)
+- [Anthropic Claude Pricing](/articles/anthropic-pricing)
+- [DeepSeek API Pricing](/articles/deepseek-pricing)
+- [DeployBase LLM Models Directory](/llms)
+
+---
+
+## Sources
+
+- [Google Vertex AI Pricing](https://cloud.google.com/vertex-ai/pricing)
+- [Gemini API Pricing](https://ai.google.dev/pricing)
+- [Google Cloud Storage Pricing](https://cloud.google.com/storage/pricing)
+- [Vertex AI Documentation](https://cloud.google.com/vertex-ai/docs)
+- DeployBase LLM Models API

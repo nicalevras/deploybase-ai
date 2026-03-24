@@ -1,0 +1,491 @@
+---
+title: 'Spot GPU Pricing: Discounts, Reliability Trade-Offs, and Savings Guide'
+slug: spot-gpu-pricing
+description: >-
+  Spot GPU and preemptible instance pricing across AWS, GCP, RunPod. Spot
+  discounts explained, reliability vs cost, when to use interruptible GPUs.
+  March 2026 rates.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Pricing
+keywords:
+  - spot gpu pricing
+  - spot instance gpu
+  - preemptible gpu
+  - gpu spot market
+  - spot gpu discounts
+---
+
+## Contents
+
+- [Spot GPU Pricing: Overview](#spot-gpu-pricing-overview)
+- [Spot vs On-Demand Pricing](#spot-vs-on-demand-pricing)
+- [Understanding Spot Pricing Mechanics](#understanding-spot-pricing-mechanics)
+- [Provider Comparison](#provider-comparison)
+- [Reliability and Interruption Rates](#reliability-and-interruption-rates)
+- [Workload Matching](#workload-matching)
+- [Cost Savings Analysis](#cost-savings-analysis)
+- [Best Practices](#best-practices)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Spot GPU Pricing: Overview
+
+Spot GPU Pricing is the focus of this guide. Spot: 30-70% discount. Catch: 2-30 second eviction notice. Fault-tolerant workloads win. Continuous availability? Avoid spot.
+
+Math: RunPod H100 on-demand $2.69/hr → spot $0.97/hr (64%). AWS H100 $6.98 → $3.50 (50%). A100s stable (2-5% interrupt rate). H100s volatile (8-12%).
+
+---
+
+## Spot vs On-Demand Pricing
+
+### Hourly Rate Comparison (as of March 2026)
+
+| GPU | Provider | On-Demand | Spot | Discount | Notes |
+|-----|----------|-----------|------|----------|-------|
+| **A100 PCIe** | RunPod | $1.19 | $0.42 | 65% | Stable spot market |
+| **A100 SXM** | RunPod | $1.39 | $0.59 | 58% | Popular, lower discount |
+| **H100 PCIe** | RunPod | $1.99 | $0.97 | 51% | Volatile spot market |
+| **H100 SXM** | RunPod | $2.69 | $1.29 | 52% | High demand, premiums |
+| **H200** | RunPod | $3.59 | $1.65 | 54% | Newer, less stable |
+| **L40S** | RunPod | $0.79 | $0.34 | 57% | Inference GPU, stable |
+| **RTX 4090** | RunPod | $0.34 | $0.14 | 59% | Consumer card, volatile |
+| **H100 PCIe** | AWS | $6.98 | $3.50 | 50% | Premium pricing |
+| **A100 PCIe** | AWS | $3.06 | $1.53 | 50% | Standard AWS markup |
+| **GH200** | Lambda | $1.99 | $0.72 | 64% | Limited availability, no formal spot program |
+
+RunPod has deeper spot discounts than AWS. For the same H100 PCIe, RunPod spot ($0.97) is 3.5x cheaper than AWS spot ($3.50). This is the hidden value in boutique cloud providers.
+
+---
+
+## Understanding Spot Pricing Mechanics
+
+### Why Spot Is Discounted
+
+Providers overprovision for spikes. Excess capacity goes to spot market cheap. Demand surges? Spot capacity shrinks, prices spike. Dec 2025: H100 spot doubled during finals season.
+
+Spot is dynamically priced. Prices fluctuate hourly, sometimes minute-by-minute. A $1 spot GPU might cost $2 the next hour.
+
+### Interruption Guarantees
+
+Spot instances can be reclaimed on short notice:
+
+- **AWS EC2 Spot:** 2-minute warning
+- **GCP Preemptible:** 30-second warning
+- **RunPod Spot:** 5-minute warning (highest notice window)
+- **Azure Spot:** 30-second warning
+
+Longer warning windows (RunPod) allow graceful shutdown of workloads. Shorter windows (GCP) force immediate termination.
+
+---
+
+## Provider Comparison
+
+### RunPod Spot Market
+
+**Best for:** Batch inference, training with checkpoints, fault-tolerant workloads.
+
+**Pricing:** 50-65% discount on on-demand rates (deeper discounts than AWS, more stable than GCP).
+
+**Interruption rate:** A100 (2-5% hourly), H100 (8-12% hourly), H200 (12-15% hourly).
+
+**Notice period:** 5 minutes (industry best, allows graceful shutdown).
+
+**Availability:** Stable for older GPUs (RTX 3090, A100), volatile for newer (H100, H200). During high-demand periods (research conferences, end of quarter), spot prices spike and availability plummets.
+
+**Infrastructure Support:**
+- API for spot price history (7-day rolling)
+- Price alerts via webhook
+- Auto-switching between spot and on-demand (no code changes)
+- Pre-built checkpoint integration with S3
+
+**Cost-Benefit Example: Fine-tuning a 7B Model**
+
+**On-Demand Scenario:**
+- Hardware: 1x RunPod A100 PCIe
+- Training time: 8 hours
+- Cost: 8 × $1.19 = $9.52
+- Guarantee: No interruptions, predictable cost
+
+**Spot Scenario (Conservative Estimate):**
+- Base cost: 8 hours × $0.42 = $3.36
+- Expected interruptions: 2 (at 5% hourly = 0.05 × 8 = 0.4 interruptions expected, round to 1-2)
+- Resume overhead: 2 interruptions × 4 hours overhead = 8 hours
+- Total compute: 8 + 8 = 16 hours
+- Total cost: 16 × $0.42 = $6.72
+
+**Comparison:**
+- On-demand: $9.52 (safe)
+- Spot: $6.72 (64% discount despite interruptions)
+
+**Scaling Impact:**
+At 10 fine-tuning jobs/month:
+- On-demand: $95.20/month
+- Spot: $67.20/month
+- **Monthly savings: $28/month**
+
+At 100 fine-tuning jobs/month:
+- On-demand: $952/month
+- Spot: $672/month
+- **Monthly savings: $280/month**
+
+At 1,000 jobs/month (large team):
+- On-demand: $9,520/month
+- Spot: $6,720/month
+- **Monthly savings: $2,800/month or $33,600/year**
+
+### AWS EC2 Spot
+
+**Best for:** Large-scale training, parallel jobs, fault-tolerant infrastructure with custom failure handling.
+
+**Pricing:** 50% discount (fixed percentage, less dynamic than RunPod, more predictable).
+
+**Interruption rate:** Variable by instance type, region, and time of day. p4d instances (A100): 5-10% hourly. p5 instances (H100): 10-15% hourly. Rates are published in AWS console and can be monitored in real-time.
+
+**Notice period:** 2 minutes (industry worst, forces immediate termination).
+
+**Availability:** Highly available in some regions (us-east-1, eu-west-1), scarce in others (us-west-2, ap-southeast-1). Multi-region failover is necessary for production.
+
+**Spot Price Volatility:**
+AWS spot prices fluctuate based on regional demand. During research conferences (NeurIPS, ICML), H100 spot prices can spike 2-3x. Planning ahead (book during off-season) is critical.
+
+**Cost-Benefit Example: Training a 70B Model**
+
+**On-Demand Cluster:**
+- Hardware: 8x AWS p5 (H100) instances
+- Cost per instance: $6.98/hour
+- Cluster cost: 8 × $6.98 = $55.84/hour
+- Training duration: 10 days (240 hours)
+- Total cost: 240 × $55.84 = $13,401.60
+
+**Spot Cluster (with interruption handling):**
+- Spot price: 50% discount = $3.49/hour per instance
+- Base cluster cost: 8 × 3.49 = $27.92/hour
+- Expected interruptions: 10% hourly × 240 hours = 24 interruptions
+- Resume overhead: 24 interruptions × 2 hours (checkpoint loading + data reloading) = 48 hours
+- Total compute: 240 + 48 = 288 hours
+- Total cost: 288 × $27.92 = $8,040.96
+
+**Comparison:**
+- On-demand: $13,401.60 (guaranteed completion)
+- Spot: $8,040.96 (40% savings, but 48 hours of extra overhead)
+
+**Hidden Costs (AWS Spot):**
+- Engineering time to implement spot restart logic: 40 hours = $4,000
+- Monitoring and alerting infrastructure: $500/month
+- Extra data transfer costs during frequent interruptions: ~$100
+- **Total operational overhead: $4,600**
+
+**True Cost-Benefit:**
+- Spot with overhead: $8,040 + $4,600 = $12,640 (6% cheaper than on-demand)
+- But adds engineering complexity and operational risk
+- Break-even is at 2-3 training runs (amortize engineering cost)
+
+AWS spot is only cost-effective at 100+ GPU-hour scale WITH dedicated engineering resources.
+
+### GCP Preemptible Instances
+
+**Best for:** Batch jobs, data processing, embarrassingly parallel tasks, jobs with no state.
+
+**Pricing:** 70% discount (deepest in industry, 20% deeper than RunPod).
+
+**Interruption rate:** 10-20% hourly (highest in industry, 2x higher than AWS spot).
+
+**Notice period:** 30 seconds (immediate termination, forces hard stops).
+
+**Availability:** Spotty by region. Some regions have no preemptible inventory. Availability varies wildly by time of day.
+
+**Strengths:**
+- Deepest discounts (70% vs 50-65% elsewhere)
+- Committed discounts available (30% off on-demand for 1-year commitment)
+- Integration with Google Cloud AI Platform (automatic experiment retries)
+
+**Weaknesses:**
+- 30-second warning is too aggressive for checkpoint-based workloads
+- Availability in many regions is poor
+- Interruption rate is volatile (10-20% is wide range)
+
+**Cost-Benefit Example: Data Processing Pipeline**
+
+Task: Process 1TB of unstructured data (extract features, tokenize, normalize).
+
+**On-Demand Setup:**
+- Hardware: 4x GCP A100 (on-demand)
+- Cost per instance-hour: $2.96 (GCP pricing)
+- Cluster cost: 4 × $2.96 = $11.84/hour
+- Processing time: 50 hours (data is split into 4 parallel jobs)
+- Total cost: 50 × $11.84 = $592
+
+**Preemptible Setup:**
+- Spot price: 70% discount = $0.89/hour per instance
+- Base cost: 4 × 0.89 = $3.56/hour
+- Expected interruptions: 15% hourly × 50 hours = 7.5 interruptions (assume 8)
+- Resume overhead: 8 interruptions × 1 hour (restart job, reload data) = 8 hours
+- Total compute: 50 + 8 = 58 hours
+- Total cost: 58 × $3.56 = $206.48
+
+**Comparison:**
+- On-demand: $592 (guaranteed)
+- Preemptible: $206.48 (65% savings)
+- Net savings: $385.52
+
+**Suitability:** GCP preemptible wins decisively for stateless batch jobs. The 30-second warning is only a problem if the job requires graceful shutdown. For "kill and restart" workloads, GCP is unbeatable.
+
+### Vast.AI (Spot-Only Provider)
+
+**Best for:** Short batch jobs, one-off training, price-sensitive experimentation.
+
+**Pricing:** Varies by seller. Typical: 40-60% below on-demand.
+
+**Interruption rate:** Seller-dependent. 1-15% hourly.
+
+**Notice period:** 5-10 minutes.
+
+**Availability:** Highly dynamic, pricing changes hourly.
+
+**Trade-off:** More GPUs available (sourced from individuals + providers), but less reliable tha production spot. GPUs can be withdrawn without warning if the owner recalls them.
+
+---
+
+## Reliability and Interruption Rates
+
+### GPU Model Reliability Tiers
+
+**Tier 1 (Stable, <5% hourly interruption):**
+- RTX 3090
+- A100 PCIe and SXM
+- L40 and L40S
+
+These are popular but older. Providers have deep inventory, spot capacity is plentiful.
+
+**Tier 2 (Moderate, 5-10% hourly):**
+- H100 PCIe
+- H100 SXM
+- RTX 4090
+
+These are current-generation. Demand is high, spot capacity is tight. Interruption spikes during high-demand periods (research quarters, month-end).
+
+**Tier 3 (Volatile, >10% hourly):**
+- H200
+- B200
+- GH200
+
+These are bleeding-edge. Capacity is scarce, spot spots out frequently. New models often have <1-month supply available on spot markets.
+
+### Estimating Real Interruption Cost
+
+Interruption cost is not just spot price × extra hours. It's cost + lost progress.
+
+Example: Training a model with 1-hour checkpoints.
+
+On-demand 10-hour job: 10 hours, 10 checkpoints, $11.90 (at $1.19/hr A100).
+
+Spot with 5% hourly interruption: Expected interruptions = 10 × 0.05 = 0.5 (statistically, one 50% chance of interruption).
+
+Worst case: Interruption at hour 9, resume from hour 8 checkpoint, re-run hours 8-10 (3 extra hours).
+
+Cost: 13 hours × $0.42 = $5.46.
+
+Savings: $6.44 (46% cheaper), plus time risk (3-hour resume time).
+
+Expected value favors spot. But variance is high. In 1 in 100 runs, 5+ interruptions could occur, wiping out savings.
+
+---
+
+## Workload Matching
+
+### Ideal for Spot (High Savings)
+
+**Batch inference:** Process a dataset overnight. Interruption is acceptable; re-run failed batches in the morning.
+
+Savings: 50-70% × 10,000 hours/month = $50-70k/month on RunPod H100.
+
+**Training with checkpoints:** Pre-training a model with hourly saves to S3. Resume from latest checkpoint on interruption.
+
+Savings: 50-65% × 2,000 hours/month = $25-65k/month on RunPod A100.
+
+**Data processing:** Extract features, transform data, ETL pipelines. Re-run failed jobs (idempotent).
+
+Savings: 60-70% × 5,000 hours/month = $30-70k/month on RunPod L40S.
+
+**Parallel experiments:** Run 1,000 hyperparameter searches in parallel. Individual jobs fail, that's fine; enough succeed for statistical significance.
+
+Savings: 55% × 3,000 hours/month = $22-33k/month on RunPod A100.
+
+### Unsuitable for Spot (Use On-Demand)
+
+**Real-time serving:** Chat API serving users. Interruptions cause downtime, lose customers.
+
+**Interactive workloads:** Jupyter notebooks, development, debugging. Manual re-runs are costly.
+
+**Time-sensitive inference:** API SLA requires <100ms latency, 99.9% uptime. Spot can't guarantee.
+
+**Long-running jobs without checkpoints:** Pre-training without saves. Interruption at hour 100 means restart from hour 0. Unacceptable.
+
+---
+
+## Cost Savings Analysis
+
+### Scenario 1: Small Research Lab (500 GPU-hours/month)
+
+Budget for 500 hours of A100 fine-tuning.
+
+**On-demand:** 500 × $1.19 = $595/month
+
+**Spot (55% discount, 1-2 interruptions expected):**
+- Base: 500 × $0.42 = $210
+- Interruptions: 2 interruptions × 10 hours/resume = 20 extra hours = $8.40
+- Total: $218.40
+
+**Savings:** $376.60 (63% total reduction)
+
+Effort: Set up checkpointing, automated resumption (1-2 hours one-time engineering).
+
+### Scenario 2: Startup Production Inference (100k GPU-hours/month)
+
+Budget for continuous H100 inference serving.
+
+**On-demand:** 100,000 × $2.69 = $269,000/month
+
+**Spot with redundancy:**
+- Primary: 50,000 hours spot H100 at $1.29/hr = $64,500
+- Fallback (on-demand for interruptions): 10,000 hours on-demand = $26,900
+- Total: $91,400
+
+**Savings:** $177,600 (66% reduction)
+
+Trade-off: Requires multi-region failover, real-time load balancing, 2-3 months engineering.
+
+### Scenario 3: Production Training (2,000 GPU-hours/month)
+
+Budget for continuous model training.
+
+**On-demand:** 2,000 × $2.69 (H100 SXM) = $5,380/month
+
+**Spot (52% discount, 3-5 interruptions expected):**
+- Base: 2,000 × $1.29 = $2,580
+- Extra compute (10% buffer): 200 hours = $258
+- Total: $2,838
+
+**Savings:** $2,542 (47% reduction)
+
+Effort: Checkpoint every 30 minutes, automated resumption.
+
+---
+
+## Best Practices
+
+### Practice 1: Hybrid Spot + On-Demand
+
+Don't go all-in on spot. Mix 70% spot + 30% on-demand.
+
+- Spot GPUs for batch and training (fault-tolerant)
+- On-demand for serving and interactive workloads
+
+Average discount: 40% (70% × 55% + 30% × 0%) vs 55% all-spot (but more reliable).
+
+### Practice 2: Checkpoint Every N Minutes
+
+Training without checkpoints on spot is a waste. Checkpoints should be frequent enough that no single interruption loses more than 1% of progress.
+
+Rule: Checkpoint interval = 1% of expected job duration.
+
+10-hour job: checkpoint every 6 minutes.
+100-hour job: checkpoint every 60 minutes.
+
+### Practice 3: Multi-Region Spot Fallback
+
+High-demand regions (us-east-1, us-west-1) have high interruption rates. Use lower-demand regions as fallback.
+
+Deploy priority:
+1. us-west-2 spot (cheaper, higher interrupt)
+2. eu-west-1 spot (fallback)
+3. us-east-1 on-demand (final fallback)
+
+This maximizes savings while minimizing interruption impact.
+
+### Practice 4: Price Monitoring
+
+Spot prices fluctuate hourly. Automated bidding strategies can help:
+
+- Monitor spot price history over past 7 days
+- Bid 10% below the 7-day average
+- Auto-trigger on-demand fallback if spot goes above average + 50%
+
+RunPod's API supports price alerts; use them.
+
+### Practice 5: Consolidate Smaller Jobs
+
+Running 100 one-hour jobs is riskier than running 10 ten-hour jobs on spot. Each job has independent interruption probability. Consolidation reduces variance.
+
+100 × 1-hour jobs: ~5 expected interruptions.
+10 × 10-hour jobs: ~5 expected interruptions, but same total compute (lower resume overhead).
+
+Batch smaller jobs when possible.
+
+---
+
+## FAQ
+
+**Is spot worth the engineering overhead?**
+
+Yes, if monthly GPU spend >$5,000. The break-even is 2-3 months of engineering time (which costs $20-40k in salaries). At $10k/month savings, ROI is 2-4 months.
+
+Below $5k/month, on-demand is simpler.
+
+**Can I use spot for inference at scale?**
+
+Only with multi-region failover and load balancing. A single spot H100 serving 100 requests/sec will cause cascading failures if interrupted. With 3 spot H100s + 1 on-demand fallback, you can absorb 1-2 interruptions without user impact.
+
+Cost: 3 × $1.29 + 1 × $2.69 = $6.56/hr (vs 4x on-demand at $10.76/hr). Still 39% cheaper.
+
+**What's the worst-case interruption scenario?**
+
+RunPod H100: 12% hourly interruption × 730 hours/month = 87 expected interruptions. But they're not evenly distributed. You might have 2 weeks with no interruptions, then 3 in one hour. Variance is high.
+
+Plan for 3-5x the expected rate during peak-demand periods.
+
+**Should I combine spot instances into a single cluster?**
+
+No. A single 8-GPU cluster is all-or-nothing. If one GPU is interrupted, the entire cluster stops (synchronization barrier). Better to run 8 independent single-GPU spot jobs + combine results.
+
+For distributed training, use spot with fault-tolerance built in (Horovod, DeepSpeed).
+
+**How do I handle multi-hour jobs on volatile spot markets?**
+
+Increase checkpoint frequency to 10-15 minutes. Expected loss from interruption: 15 minutes of compute (negligible). The trade-off is storage: more checkpoints = more S3 API calls ($0.0004/checkpoint, negligible).
+
+At 1,000 checkpoints/month per job, storage costs ~$0.40.
+
+**What's the spot price in my region?**
+
+RunPod publishes live pricing on runpod.io/pricing. AWS spot pricing is available on ec2instances.info (third-party tracker). GCP preemptible rates are fixed per-region.
+
+Prices change hourly. Check before starting long-running jobs.
+
+---
+
+## Related Resources
+
+- [GPU Pricing Comparison](/gpus)
+- [AI Cost Calculator](/articles/ai-cost-calculator)
+- [GPU Cloud Cost Comparison](/articles/gpu-cloud-cost-comparison)
+- [LLM Token Cost Comparison](/articles/llm-token-cost-comparison)
+- [RunPod Pricing](https://www.runpod.io/pricing)
+- [AWS EC2 Spot Pricing](https://aws.amazon.com/ec2/spot)
+- [GCP Preemptible Instances](https://cloud.google.com/compute/docs/instances/preemptible)
+
+---
+
+## Sources
+
+- [RunPod Pricing and Spot Market](https://www.runpod.io/pricing)
+- [AWS EC2 Spot Instance Pricing](https://aws.amazon.com/ec2/spot/pricing)
+- [GCP Preemptible VM Pricing](https://cloud.google.com/compute/pricing#preemptible_machine_types)
+- [Azure Spot Virtual Machine Pricing](https://azure.microsoft.com/en-us/pricing/details/virtual-machines/windows/#pricing)
+- [Vast.ai GPU Pricing](https://www.vast.ai)
+- [EC2 Instances Info (Spot Price Tracker)](https://ec2instances.info)
+- [DeployBase GPU Pricing Tracker](/gpus) (data observed March 22, 2026)

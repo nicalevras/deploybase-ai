@@ -1,0 +1,188 @@
+---
+title: 'GPU Cloud Egress Fees: The Hidden Cost Nobody Talks About'
+slug: gpu-cloud-egress-fees-the-hidden-cost-nobody-talks-about
+description: >-
+  Uncover GPU cloud egress fees and data transfer costs. Understand hidden
+  charges across AWS, Azure, Google Cloud, and other providers in 2026.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - gpu cloud egress fees
+---
+## Contents
+
+- [GPU Cloud Egress Fees](#gpu-cloud-egress-fees)
+- [Provider-Specific Charges](#provider-specific-charges)
+- [Hidden Costs Beyond Egress](#hidden-costs-beyond-egress)
+- [Real-World Cost Scenarios](#real-world-cost-scenarios)
+- [Optimization Strategies](#optimization-strategies)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+## GPU Cloud Egress Fees
+
+**GPU cloud egress fees**: The hidden killer.
+
+Data leaving the data center costs $0.02-0.30/GB. Download a 50GB model and pay $4.50-$15.
+
+Intra-region free. Cross-region and internet: expensive.
+
+A $2/hour H100 can waste hundreds on egress.
+
+- Downloading trained models or inference results
+- Uploading datasets to external APIs
+- Syncing checkpoints to S3 outside the region
+- Transferring outputs to client systems
+- Backing up results to separate cloud providers
+
+Egress structure varies dramatically by provider and region. Intra-region transfers often run free or cost 90% less than inter-region moves.
+
+## Provider-Specific Charges
+
+AWS egress rates depend heavily on destination and region. Standard pricing:
+
+- Intra-region transfer: Free (EC2 to S3 in same region)
+- Cross-region transfer: $0.02/GB
+- Internet egress: $0.09/GB (US regions)
+- Internet egress: $0.12-0.15/GB (Europe, Asia)
+
+A single 50GB model download to the internet costs $4.50 from US regions. The same transfer costs $6-7.50 from European data centers.
+
+Google Cloud egress mirrors AWS pricing:
+
+- Intra-region: Free
+- Cross-region: $0.01/GB
+- Internet egress: $0.12/GB (most regions)
+
+Azure rates differ significantly:
+
+- Intra-region: Free
+- Cross-region outbound: $0.02/GB
+- Internet egress: $0.087/GB (varies by region)
+- Special offers for Microsoft services reduce costs
+
+RunPod and specialized GPU platforms often include generous egress allowances or offer free inter-provider transfers within their ecosystem.
+
+CoreWeave pricing:
+
+- Outbound: $0.12/GB (standard)
+- Inbound: Free
+- API transfers: Reduced rates
+
+Vast.AI operates on market-based pricing with user-specified egress rates. Competition keeps costs low, typically $0.03-0.08/GB.
+
+## Hidden Costs Beyond Egress
+
+Egress fees represent one layer of hidden charges. Other costs accumulate quickly:
+
+**Data transfer within cloud ecosystems:**
+Moving data from GPU instances to storage (S3, Blob Storage, Cloud Storage) incurs charges even within the same region in some cases. AWS charges $0.01/GB for EC2 to CloudFront transfers.
+
+**Storage persistence:**
+Keeping training data in cloud storage adds $0.02-0.05 per GB monthly. A 1TB dataset costs $20-50/month just for storage.
+
+**Bandwidth for multi-GPU clusters:**
+Intra-cluster communication on some platforms (CoreWeave, Lambda) charges per GB. A synchronization pass across 8 GPUs can cost $2-5.
+
+**API request pricing:**
+Cloud providers charge per API call in some cases. Direct Connect and specialized network services cost thousands monthly if used.
+
+**Snapshots and backups:**
+EBS snapshots cost $0.05 per GB per month. A 500GB instance snapshot costs $25 monthly to maintain.
+
+**Reserved capacity charges:**
+Some providers charge upfront fees ($500-2000) to guarantee GPU availability. Reserved instances commit to multi-year terms.
+
+## Real-World Cost Scenarios
+
+Scenario 1: Training and deployment
+
+A team trains an LLM on H100s for one week:
+- Compute: 168 hours x $2/hour = $336
+- Storage (1TB training data): 7 days x $0.04/day = $0.28
+- Checkpoint egress: 50GB x $0.09 = $4.50
+- Final model download: 100GB x $0.09 = $9.00
+- Total: $349.78
+
+Egress accounts for 3.8% of costs but compounds over multiple training runs.
+
+Scenario 2: Inference serving
+
+A startup runs inference at scale for 30 days:
+- Compute: 720 hours x $1.50/hour = $1,080
+- API request handling: 10M requests x $0.0001 = $1,000
+- Data egress to clients: 5TB x $0.12 = $600
+- Storage: 100GB x $0.04/month = $4
+- Total: $2,684
+
+Egress jumps to 22% of monthly spend. Optimization here saves significant money.
+
+Scenario 3: Multi-region failover
+
+A company maintains H100 instances in three regions:
+- Compute (3x): 720 hours x 3 x $2 = $4,320
+- Data replication between regions: 500GB x $0.02 x 3 = $30
+- Client requests egress: 10TB x $0.12 = $1,200
+- Total: $5,550
+
+Egress reaches 22% of total spend in multi-region deployments.
+
+## Optimization Strategies
+
+Teams reduce egress costs through architectural choices:
+
+**Keep data inside the cloud:**
+Instead of downloading models, serve them directly from cloud storage. AWS Lambda@Edge, Google Cloud CDN, and Azure CDN distribute content without egress charges to edge locations.
+
+**Use spot instances strategically:**
+Spot GPU instances cost 50-70% less but add egress risk. Batch results and transfer them together, amortizing per-GB costs.
+
+**Compress outputs:**
+Model inference outputs can compress 10:1 with appropriate encoding. Transferring 10GB instead of 100GB saves $9 per operation.
+
+**Request batching:**
+Single large transfers cost the same per-GB as many small ones. Batch inference results and model downloads.
+
+**Regional clustering:**
+Keeping GPU instances, storage, and users in the same region eliminates inter-region transfer costs.
+
+**Dedicated connections:**
+Direct Connect (AWS) or Dedicated Interconnect (Google Cloud) offer fixed monthly costs for high-volume transfers. Break-even occurs around 10-20TB monthly.
+
+**Provider-specific features:**
+AWS offers free transfer to CloudFront. Google Cloud provides free transfer to Firebase. Azure reduces charges for Microsoft services.
+
+## FAQ
+
+**How can I estimate egress costs for my workload?**
+Calculate daily data movement (models downloaded, results uploaded, backups). Multiply by regional egress rates ($0.02-0.12/GB). Factor in compression and batching optimization.
+
+**Do intra-region transfers ever cost money?**
+Generally no, but some services charge. AWS EC2 to EFS costs $0.01/GB if not in the same availability zone.
+
+**Can I negotiate egress rates with cloud providers?**
+Large teams (10TB+ monthly) can negotiate AWS and Google Cloud rates. Standard discounts reach 20-40%.
+
+**What is the cheapest way to move data between cloud providers?**
+Dedicated fiber connections cost $1000-5000/month for sustained transfers. For episodic transfers, compress and batch to minimize per-GB charges.
+
+**Do free tiers include egress allowances?**
+AWS free tier includes 100GB outbound per month. Most providers count only a portion toward free tiers.
+
+## Related Resources
+
+- [GPU Pricing Guide](/gpus)
+- [GPU Cloud Cost Comparison](/articles/gpu-cloud-cost-calculator-compare-hourly-rates-across-providers)
+- [AWS GPU Pricing](/articles/aws-vs-azure-gpu-pricing)
+- [Google Cloud GPU Pricing](/articles/google-cloud-gpu-pricing)
+- [Azure GPU Pricing](/articles/aws-vs-azure-gpu-pricing)
+
+## Sources
+
+- AWS EC2 Pricing Documentation
+- Google Cloud Compute Pricing (official)
+- Microsoft Azure Virtual Machines Pricing
+- CoreWeave Pricing & Terms
+- Vast.AI Market-Based GPU Pricing Model

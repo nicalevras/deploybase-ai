@@ -1,0 +1,259 @@
+---
+title: 'H100 vs RTX 4090: Which GPU Is Better for AI Inference'
+slug: h100-vs-rtx-4090-which-is-better-for-ai-inference
+description: >-
+  Compare H100 and RTX 4090 for inference workloads. Analyze throughput,
+  cost-per-inference, and when each GPU excels.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - h100 vs rtx 4090 ai inference
+---
+
+## Contents
+
+- [H100 vs RTX 4090 AI Inference: H100 vs RTX 4090: Overview](#h100-vs-rtx-4090-ai-inference-h100-vs-rtx-4090-overview)
+- [H100 Specifications {#h100-specs}](#h100-specifications-h100-specs)
+- [RTX 4090 Specifications {#rtx-specs}](#rtx-4090-specifications-rtx-specs)
+- [Cost Comparison {#costs}](#cost-comparison-costs)
+- [Throughput Analysis {#throughput}](#throughput-analysis-throughput)
+- [When to Use Each {#decision}](#when-to-use-each-decision)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## H100 vs RTX 4090 AI Inference: H100 vs RTX 4090: Overview
+
+H100 vs RTX 4090 AI inference comes down to: H100 has 80GB memory and costs $2.69/hr. RTX 4090 has 24GB and costs $0.34/hr.
+
+Short answer: H100 for production. RTX 4090 for small models or hobby projects.
+
+## H100 Specifications {#h100-specs}
+
+H100 has 80GB HBM3 memory, 14,080 CUDA cores, and tensor units. Built for data center workloads at scale.
+
+70B models quantized to 4-bit fit comfortably in 80GB. Full-precision 70B needs ~140GB, so H100 forces quantization.
+
+H100's tensor cores crush matrix multiplication. Throughput hits 60 TFLOPS for FP32, 1,457 TFLOPS for TF32 (training). For inference, quantized models (FP8) hit 5,825 TFLOPS. This translates to token generation at 200-400 tokens/second depending on batch size.
+
+## RTX 4090 Specifications {#rtx-specs}
+
+RTX 4090 is a consumer GPU: 24GB GDDR6X, 16,384 CUDA cores. More cores than H100 but far less bandwidth and no specialized tensor units. Built for gaming, not AI inference.
+
+24GB is tiny for LLMs. Llama 70B needs ~140GB, so RTX 4090 forces heavy quantization (int8/int4). Quality loss is real: 5-15% on int8, 15-25% on int4.
+
+RTX 4090 tensor throughput is ~240 TFLOPS (FP8), about 6x slower than H100. Token generation hits 15-30 tokens/second on Llama 70B quantized. What takes 5ms on H100 takes 30-60ms on RTX 4090.
+
+## Cost Comparison {#costs}
+
+RTX 4090: $0.34/hr. H100: $2.69/hr. H100 is 8x more expensive.
+
+Monthly continuous: RTX 4090 is $245, H100 is $1,965.
+
+But hourly cost lies. H100 processes tokens faster, so cost-per-inference (not cost-per-hour) is what matters.
+
+## Throughput Analysis {#throughput}
+
+**H100**: 200-400 tokens/sec for Llama 70B (batch size dependent)
+**RTX 4090**: 15-30 tokens/sec for Llama 70B quantized
+
+Processing 1M tokens (10K requests × 100 tokens each):
+- H100: 1M / 300 = 3,333 seconds (~1 hour) → $2.69
+- RTX 4090: 1M / 20 = 50,000 seconds (~14 hours) → $4.76
+
+RTX 4090 costs more per batch despite lower hourly rate. Throughput gap kills the price advantage.
+
+### Real-World Inference Patterns
+
+Actual workload patterns rarely involve continuous operation. Inference requests arrive intermittently. During idle periods, expensive H100s generate wasted costs while cheaper RTX 4090s cost less.
+
+If requests cluster into 1-hour windows during business hours (8 hours daily), the economics shift:
+- H100: 8 hours × $2.69/hour = $21.52 daily
+- RTX 4090: 8 hours × $0.34/hour = $2.72 daily
+
+This pattern favors RTX 4090 dramatically. The high hourly cost amortized across low-utilization periods makes H100 uneconomical.
+
+### Batch Size Impact
+
+Inference systems handle variable batch sizes. Processing multiple requests simultaneously (batching) improves throughput efficiency.
+
+H100 throughput scales nearly linearly with batch size up to batch 32. RTX 4090 shows diminishing returns above batch 8 due to memory constraints. This architectural difference compounds the performance gap.
+
+Batch-4 inference favors RTX 4090 slightly (amortized memory overhead is lower). Batch-32+ inference heavily favors H100 (better parallelization).
+
+### Memory Bandwidth Implications
+
+Memory bandwidth determines data movement speed. H100 HBM3 memory provides 3.4TB/s bandwidth. RTX 4090 GDDR6X provides 936 GB/s bandwidth.
+
+For large language models, memory bandwidth bottlenecks inference throughput more than compute. Loading model weights and moving activations between layers depends on bandwidth. The H100's 3.6x bandwidth advantage directly translates to faster inference.
+
+Quantized models (int8, int4) reduce memory bandwidth requirements. RTX 4090 with quantization approaches H100 speeds for memory-bound operations. This partially explains why RTX 4090 works viable for inference with quantization despite other limitations.
+
+### Model Size Constraints
+
+Different models have different memory requirements:
+
+**Llama 7B**: 14GB (fits easily in RTX 4090 24GB)
+**Llama 13B**: 26GB (requires quantization on RTX 4090)
+**Llama 70B**: 140GB (H100+ only, or heavy quantization)
+**Mistral 8B**: 16GB (runs well on RTX 4090)
+
+RTX 4090 works best for small-to-medium models (7B-13B parameters). Large models favor H100 despite cost premium.
+
+### Quantization Trade-Offs
+
+Quantization reduces model precision to fit larger models in constrained memory. int8 quantization cuts memory by 50% with 5-10% quality loss. int4 quantization cuts memory by 75% with 15-25% quality loss.
+
+RTX 4090 with int8 quantization handles Llama 70B but slow (5-15 tokens/second). H100 with full precision handles same model rapidly (200-400 tokens/second).
+
+Quality-critical applications avoid heavy quantization despite memory pressure. This naturally biases toward H100 for production systems prioritizing quality.
+
+### Latency vs Throughput Trade-Off
+
+Inference systems optimize either for latency (fast response times) or throughput (maximum requests per unit time).
+
+Latency-optimized systems prioritize time-to-first-token. RTX 4090's per-token generation speed creates latency around 50-100ms per token. H100 achieves 2-5ms per token latency. For interactive applications requiring <1 second responses, this matters.
+
+Throughput-optimized systems batch requests and process in parallel. Batching increases latency but improves tokens-per-second. Both GPUs handle batching, but H100's superior performance makes batch processing more economical.
+
+### Scaling Multiple GPUs
+
+Production systems often use multiple GPUs. Comparing two RTX 4090s to one H100:
+
+**Cost**: 2 × $0.34/hour = $0.68/hour (RTX 4090) vs $2.69/hour (H100)
+**Throughput**: ~40-60 tokens/second (RTX 4090 pair) vs 300+ tokens/second (H100)
+
+Two RTX 4090s provide less throughput than one H100 but cost less. The multi-GPU approach suits low-to-moderate load applications. High-throughput systems justify single H100 or multiple H100s.
+
+### [GPU pricing](/gpus) Across Platforms
+
+Comparing pricing across providers:
+
+- **RunPod H100**: $2.69/hour
+- **Lambda H100**: $2.49/hour
+- **RunPod RTX 4090**: $0.34/hour
+- **Vast.AI RTX 4090**: $0.20-$0.40/hour (peer-to-peer variance)
+
+Platform choice matters less than GPU selection for cost. Consistency matters more: comparing apples-to-apples pricing reveals H100 remains 8-10x more expensive despite superior performance.
+
+### Inference Framework Considerations
+
+Different inference frameworks have different hardware requirements:
+
+**vLLM**: Optimized for H100/A100. RTX 4090 support works but less optimized. H100's memory bandwidth advantage fully utilized by vLLM's sophisticated batching.
+
+**TensorRT-LLM**: NVIDIA's framework, H100-native. RTX 4090 support limited. Better for teams committed to NVIDIA ecosystem.
+
+**llama.cpp**: CPU-GPU hybrid, works well on RTX 4090 with quantization. No special H100 optimization. Suitable for resource-constrained deployment.
+
+**Ollama**: Abstracts hardware details. Works on both H100 and RTX 4090. Easier setup for teams without infrastructure expertise.
+
+### Multi-GPU Scaling Considerations
+
+Production systems often use multiple GPUs. Comparing options:
+
+**RTX 4090 pair** ($0.68/hour): ~40-60 tokens/second
+**Single H100** ($2.69/hour): 300+ tokens/second
+
+Throughput differences favor H100 dramatically. However, RTX 4090 pair offers redundancy: if one GPU fails, system continues at half speed. H100 single point of failure.
+
+Infrastructure redundancy adds cost but increases reliability. Teams choosing RTX 4090 should deploy multiple GPUs for fault tolerance. H100 teams need backup instances.
+
+### On-Premises vs Cloud Considerations
+
+Purchasing GPUs for on-premises deployment changes economics:
+
+**H100 purchase cost**: $15,000-$40,000 per GPU
+**RTX 4090 purchase cost**: $1,600-$2,000 per GPU
+
+For projects exceeding 5,000 GPU-hours, purchasing becomes economical. A 5,000-hour project costs:
+- Cloud H100: 5000 × $2.69 = $13,450
+- Cloud RTX 4090: 5000 × $0.34 = $1,700
+- Purchased H100: $40,000 (higher upfront, lower per-hour)
+- Purchased RTX 4090: $2,000 (lower upfront, works out after ~2,000 hours)
+
+Purchased RTX 4090 breaks even after 2,000 hours (~$680 in cloud costs). Purchased H100 breaks even after 14,900 hours ($40,000 / $2.69). RTX 4090 purchase viability depends on high utilization.
+
+### Model Optimization Strategies
+
+Both H100 and RTX 4090 benefit from model optimization:
+
+**Quantization**: int8 reduces memory 50%, improves speed. int4 reduces memory 75%, trades more quality for efficiency.
+
+**Pruning**: Remove unnecessary weights. Smaller models run faster, use less memory. Quality impact varies by pruning strategy.
+
+**Distillation**: Train smaller models to mimic larger ones. 7B distilled from 70B matches 70B output quality better than base 7B.
+
+**Batching optimization**: Tune batch size for hardware. RTX 4090 optimal batch size differs from H100. Wrong batch size wastes capacity.
+
+Optimization effort pays dividends on both platforms. RTX 4090 with aggressive quantization may approach H100 quality. H100 with optimal batching maximizes throughput.
+
+### Energy and Cooling Implications
+
+Energy consumption impacts total cost of ownership:
+
+**H100**: 425W typical power draw
+**RTX 4090**: 320W typical power draw
+
+Monthly energy costs (electricity $0.12/kWh, continuous operation):
+- H100: 425W × 730 hours × $0.12/kWh = $37/month
+- RTX 4090: 320W × 730 hours × $0.12/kWh = $28/month
+
+Cloud providers build power costs into pricing. On-premises deployments include cooling and infrastructure overhead. Larger data centers recover 30-40% energy through efficiency, personal setups don't.
+
+Energy-constrained environments (remote, limited power) favor RTX 4090's lower consumption.
+
+## When to Use Each {#decision}
+
+**Use H100 when:**
+- Processing large models (70B+ parameters)
+- Requiring sub-50ms latency
+- Handling high-throughput workloads (>1000 requests/day)
+- Using full-precision models without quantization
+- Operating continuously (high utilization)
+- Willing to pay 8x hourly premium for superior performance
+
+**Use RTX 4090 when:**
+- Running small-to-medium models (7B-13B)
+- Accepting reasonable latency (50-100ms per token)
+- Handling low-to-moderate throughput (<1000 requests/day)
+- Accepting quantized models
+- Operating intermittently (low utilization)
+- Prioritizing cost efficiency over raw performance
+
+## FAQ
+
+**Q: Can RTX 4090 run large language models?**
+Yes, with quantization. Llama 70B in int4 format fits but generates tokens slowly (5-15/second). Production quality often requires full precision or lighter quantization.
+
+**Q: Is H100 worth 8x the cost?**
+For continuous high-throughput operations, yes. Cost-per-inference often favors H100 despite hourly premium. For intermittent usage, RTX 4090 typically costs less.
+
+**Q: What's the [H100 price](/articles/nvidia-h100-price) versus [RTX 4090 price](/articles/rtx-4090-cloud-price) for purchase?**
+H100 costs $15,000-$40,000 for on-premises purchase. RTX 4090 costs $1,600-$2,000. This 10-20x price difference compounds with operation costs.
+
+**Q: Can quantization make RTX 4090 production-ready?**
+For many applications, yes. Quality loss of 5-15% (int8) proves acceptable. Heavily quantized models (int4) show noticeable degradation for knowledge-intensive tasks.
+
+**Q: Should cloud inference use H100 or RTX 4090?**
+Depends on utilization. Low-utilization systems favor RTX 4090 costs. High-utilization systems favor H100 throughput economics. Hybrid approaches use both optimally.
+
+## Related Resources
+
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [Lambda GPU Pricing](/articles/lambda-labs-gpu-pricing)
+- [NVIDIA H100 Price](/articles/nvidia-h100-price)
+- [NVIDIA RTX 4090 Price](/articles/rtx-4090-cloud-price)
+- [GPU Pricing Comparison](/gpus)
+- [CoreWeave GPU Pricing](/articles/coreweave-gpu-pricing)
+
+## Sources
+
+- NVIDIA: H100 and RTX 4090 official specifications (as of March 2026)
+- RunPod: GPU pricing and performance documentation
+- Lambda Labs: H100 infrastructure and benchmarks
+- Hugging Face: Model memory requirements and quantization studies
+- LLM inference benchmarks: MLPerf, OpenLLM benchmarks
+- Real-world deployment case studies and inference logs

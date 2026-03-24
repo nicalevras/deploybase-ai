@@ -1,0 +1,200 @@
+---
+title: 'L4 on Google Cloud: Pricing, Specs & How to Rent'
+slug: l4-on-google-cloud-pricing-specs-how-to-rent
+description: >-
+  Google Cloud offers L4 GPUs through Compute Engine instances in multiple
+  regions as of March 2026. The L4 represents the most cost-effective inference
+  GPU.
+date: '2026-03-22'
+author: DeployBase
+---
+
+## Contents
+
+- [L4 GPU on Google Cloud: Availability & Pricing](#l4-gpu-on-google-cloud-availability-pricing)
+- [L4 Technical Specifications](#l4-technical-specifications)
+- [L4 on Google Cloud: Pricing Breakdown](#l4-on-google-cloud-pricing-breakdown)
+- [L4 vs. Larger GPUs: When to Choose L4](#l4-vs-larger-gpus-when-to-choose-l4)
+- [How to Rent L4 on Google Cloud](#how-to-rent-l4-on-google-cloud)
+- [L4 Performance for Common Inference Workloads](#l4-performance-for-common-inference-workloads)
+- [L4 Integration with Google Cloud Services](#l4-integration-with-google-cloud-services)
+- [Scaling L4 Deployment for Production](#scaling-l4-deployment-for-production)
+- [When L4 Makes Economic Sense](#when-l4-makes-economic-sense)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## L4 GPU on Google Cloud: Availability & Pricing
+
+Google Cloud offers L4 GPUs through Compute Engine instances in multiple regions as of March 2026. The L4 represents the most cost-effective inference GPU on the platform, designed specifically for batch processing and model serving workloads.
+
+L4 availability spans US, EU, and Asia-Pacific regions. Standard on-demand instances cost $0.35 per hour for GPU allocation, with additional charges for CPU, memory, and storage.
+
+The NVIDIA L4 GPU delivers 24 GB of GDDR6 memory, making it suitable for serving production models up to 8-13 billion parameters efficiently.
+
+## L4 Technical Specifications
+
+The L4 GPU contains 5,888 NVIDIA CUDA cores organized across 184 Streaming Multiprocessors. Peak theoretical performance reaches 130 teraflops in TF32 precision and 65 teraflops in FP32 standard floating-point operations.
+
+Memory capacity stands at 24 GB of GDDR6 with 432 GB/sec bandwidth. While lower bandwidth than HBM-equipped GPUs, GDDR6 proves adequate for inference where models remain constant and only input tokens change.
+
+The L4 features fourth-generation RT Cores specialized for ray-tracing workloads, though most ML inference doesn't utilize ray-tracing capabilities.
+
+Tensor Cores provide matrix acceleration across multiple precision levels including int8 for quantized inference, FP16 for mixed precision, and TF32 for efficient training at lower precision.
+
+Thermal design power reaches only 70W, the lowest among modern GPUs. This low power consumption enables dense deployment without requiring specialized cooling infrastructure.
+
+The GPU supports PCIe Gen4 with 64 GB/sec bandwidth sufficient for inference throughput demands.
+
+## L4 on Google Cloud: Pricing Breakdown
+
+Standard L4 compute instance pricing:
+- L4 GPU: $0.35/hour
+- 4 vCPU: $0.04/hour
+- 16 GB memory: $0.04/hour
+- 100 GB persistent disk: $0.02/hour
+- **Total: $0.45/hour ($10.80/day, $324/month)**
+
+Spot instances reduce L4 pricing to approximately $0.10/hour for GPU allocation, with total spot instance cost reaching $0.19/hour ($4.56/day, $136/month).
+
+Commitment discounts apply automatically when selecting 1-year or 3-year terms:
+- 1-year commitment: 25% discount to $0.34/month on-demand
+- 3-year commitment: 52% discount to $0.16/month on-demand
+
+For inference workloads running continuously, annual commitment delivers substantial savings. Monthly spend of $324 on-demand reduces to $195 with 1-year commitment and $155 with 3-year commitment.
+
+## L4 vs. Larger GPUs: When to Choose L4
+
+L4 excels at inference serving for models up to 13 billion parameters. Larger models like Llama 2 70B or Mistral 8x7B require multiple L4s or larger single-GPU solutions.
+
+Cost-per-inference metric favors L4 dramatically. A100 at $0.73/hour for similar compute delivers inferior throughput-per-dollar for inference workloads.
+
+Batch inference processing benefits from L4's low latency. Unlike training which maximizes batch size for throughput, inference serving optimizes for per-token latency where L4's capabilities exceed optimization needs.
+
+Real-time serving applications demand response time under 100 milliseconds. L4 delivers sub-50ms latency for most open-source models, sufficient for production applications.
+
+## How to Rent L4 on Google Cloud
+
+**Creating a Google Cloud Project:**
+- handle to Google Cloud Console
+- Create new project or use existing project
+- Enable Compute Engine API
+- Set up billing account
+
+**Launching L4 Instance:**
+- Go to Compute Engine > Instances > Create Instance
+- Configure instance name and region
+- Select Machine type: Custom
+- Set vCPU (2-8 recommended for inference serving)
+- Set memory (8 GB minimum, 16 GB recommended)
+- Expand GPU section
+- Select "NVIDIA L4" from dropdown
+- Set GPU count (1-2 for most cases)
+- Select boot disk: Ubuntu 22.04 LTS
+- Set disk size (100 GB minimum)
+- Click Create
+
+**Configuring L4 Instance:**
+- SSH into instance after provisioning
+- Run: `sudo apt update && sudo apt upgrade`
+- Install NVIDIA drivers: `curl -fsSL https://developer.download.nvidia.com/ | sudo bash`
+- Install CUDA toolkit: `sudo apt install nvidia-cuda-toolkit`
+- Verify installation: `nvidia-smi`
+
+**Running Inference:**
+- Install vLLM: `pip install vllm`
+- Launch model server: `python -m vllm.entrypoints.openai.api_server --model=meta-llama/Llama-2-7b-hf`
+- Create load balancer pointing to instance
+- Scale instances based on traffic with instance groups
+
+## L4 Performance for Common Inference Workloads
+
+Text generation using Llama 2 7B achieves 280 tokens/second throughput with batch size 16, enabling continuous inference for 10+ concurrent users per instance.
+
+Embedding generation for semantic search completes at 15,000 vectors/second with 384-dimensional embeddings.
+
+Image classification with ResNet152 achieves 450 images/second throughput, suitable for batch processing large image datasets.
+
+Speech recognition with Whisper large model processes audio at 8x real-time speed, handling 8 minutes of audio per minute of processing.
+
+Multi-model inference serving handles simultaneous workloads. Running Llama 7B alongside BLIP image-caption model consumes 18 GB memory total with minimal contention.
+
+## L4 Integration with Google Cloud Services
+
+[Google Cloud LLM API](/llms) provides managed inference without instance management. For cost-sensitive production workloads, direct L4 deployment on Compute Engine delivers 80-90% lower costs than managed APIs.
+
+Cloud Storage integration enables streaming training data directly to inference containers. Standard object storage API reduces latency compared to external data sources.
+
+Cloud Load Balancing distributes traffic across multiple L4 instances automatically. Health checks ensure failed instances receive no traffic.
+
+Cloud Monitoring captures GPU metrics: utilization, memory usage, temperature. Automated alerts trigger when metrics exceed thresholds.
+
+Cloud SQL integration enables model input/output logging for audit trails. Direct database connections from inference instances support operational needs.
+
+## Scaling L4 Deployment for Production
+
+Single L4 instances serve 20-50 concurrent users depending on model size and response latency targets.
+
+Two L4 instances in separate zones provide high availability with automatic failover through Cloud Load Balancing.
+
+Instance groups with autoscaling automatically add/remove L4 instances based on CPU utilization and custom metrics. Scaling policies can base decisions on request queue depth.
+
+Regional deployments span multiple zones within a region. Global load balancing distributes traffic across regions for geographic redundancy.
+
+Cache layers with Cloud Memorystore reduce inference load for repeated queries. Common prompts cache embedding results for near-instant retrieval.
+
+## When L4 Makes Economic Sense
+
+Batch processing of datasets completes cost-effectively on L4. Processing 1 million inference requests costs approximately $2-3 when running continuously on single L4.
+
+24/7 inference serving becomes economical on L4 compared to larger GPUs. Monthly $324 cost handles moderate traffic patterns efficiently.
+
+Model serving for multiple smaller models justifies L4 allocation. MPS (Multi-Process Service) enables running 3-4 distinct inference models simultaneously without performance degradation.
+
+Development and testing environments benefit from L4's low cost. DevOps teams rapidly provision instances for experimentation without budget constraints.
+
+## FAQ
+
+**Q: Can L4 run large language models like Llama 2 70B?**
+
+Llama 2 70B requires 140 GB memory for full precision. L4's 24 GB cannot accommodate this. Using int4 or int8 quantization requires 35-70 GB memory, still exceeding single L4 capacity. Multiple L4s or larger GPUs are necessary.
+
+**Q: What's the throughput for Llama 2 13B on L4?**
+
+Llama 2 13B generates approximately 80 tokens/second on L4 with batch size 4, or 180 tokens/second with batch size 16.
+
+**Q: Does Google Cloud offer committed pricing for L4?**
+
+Yes, 1-year and 3-year commitments provide 25-52% discounts. Commitment periods match reservation duration.
+
+**Q: How many L4 GPUs can single instance use?**
+
+Google Cloud supports up to 2 L4 GPUs per standard instance, 4 for specially configured instances. MIG partitioning enables further subdivision.
+
+**Q: Is L4 suitable for video processing?**
+
+L4 handles video encoding and transcoding efficiently. Typical throughput reaches 150 frames/second for 1080p H.264 encoding, suitable for live streaming backends.
+
+**Q: Can L4 handle fine-tuning of smaller models?**
+
+Yes, L4 fine-tunes models up to 7-13 billion parameters. Larger models require A100 or H100 due to memory constraints.
+
+## Related Resources
+
+[L4 Specs Guide](/articles/nvidia-l40s-price) - Technical specifications reference
+
+[GPU Pricing Guide](/gpus) - Compare all providers
+
+[LLM API Pricing](/llms) - Managed inference alternative
+
+[Inference Optimization](/articles/what-is-llm-inference) - Deployment best practices
+
+[RunPod GPU Pricing](/articles/runpod-gpu-pricing) - Alternative L4 provider
+
+## Sources
+
+- Google Cloud Compute Engine GPU Documentation
+- NVIDIA L4 GPU Technical Specifications
+- Google Cloud Pricing Calculator
+- vLLM Model Server Documentation
+- NVIDIA CUDA and NVML Documentation

@@ -1,0 +1,332 @@
+---
+title: 'LLM API Migration Guide: Switch Providers Without Downtime'
+slug: llm-api-migration-guide-switch-providers-without-downtime
+description: >-
+  Developers need to switch LLM API providers for cost, performance, features,
+  or reliability.
+date: 2026-03-22T00:00:00.000Z
+author: DeployBase
+---
+## Contents
+
+- [Why Migrate LLM API Providers](#why-migrate-llm-api-providers)
+- [Pre-Migration Planning](#pre-migration-planning)
+- [Setting Up Parallel Infrastructure](#setting-up-parallel-infrastructure)
+- [Testing & Validation](#testing-validation)
+- [Gradual Traffic Migration](#gradual-traffic-migration)
+- [Monitoring During Cutover](#monitoring-during-cutover)
+- [Rollback Procedures](#rollback-procedures)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## Why Migrate LLM API Providers
+
+Developers need to switch LLM API providers for cost, performance, features, or reliability.
+
+**Cost reduction:**
+- Existing provider raises prices mid-contract
+- Competitive provider offers 20-40% savings
+- Volume discounts from new provider improve ROI
+- Switching cost justified within 3-6 months
+
+**Performance needs:**
+- Latency requirements unmet by current provider
+- Throughput demands exceed provider capacity
+- Model availability or speed improvements elsewhere
+- Global availability improvements needed
+
+**Feature requirements:**
+- New models unavailable on current provider
+- Fine-tuning capabilities needed
+- Vision or multimodal model additions required
+- Custom endpoint or deployment options
+
+**Reliability concerns:**
+- Provider outages affecting business continuity
+- SLA misses prompting re-evaluation
+- Scaling issues during traffic spikes
+- Security or compliance gaps identified
+
+Zero downtime + validation. Planning prevents disasters.
+
+## Pre-Migration Planning
+
+Think before developers move.
+
+**Step 1: Audit current usage**
+- Document all API endpoints used
+- Record monthly volume and costs
+- Identify peak usage patterns
+- List all models currently deployed
+- Note any custom configurations or fine-tuned models
+
+**Step 2: Define success criteria**
+- Establish target latency requirements (e.g., <500ms p99)
+- Set error rate tolerance (e.g., <0.1%)
+- Determine cost targets
+- Plan ROI timeline
+- Document fallback criteria
+
+**Step 3: Select target provider**
+- Compare [LLM API pricing](/llms) across options
+- Validate model availability
+- Check regional endpoints
+- Review support SLAs
+- Confirm API compatibility
+
+**Step 4: Account setup & authentication**
+- Create accounts on target provider
+- Configure API keys and security
+- Set up billing and cost controls
+- Request rate limit increases if needed
+- Test basic connectivity
+
+**Step 5: Create migration timeline**
+- Estimate testing duration (typically 1-2 weeks)
+- Schedule migration window (off-peak hours)
+- Coordinate with stakeholders
+- Plan communication to users
+- Prepare rollback procedures
+
+## Setting Up Parallel Infrastructure
+
+Running both providers simultaneously enables safe validation before full cutover.
+
+**Architecture approach:**
+
+Create an abstraction layer handling provider routing:
+
+```
+Client Applications
+       ↓
+  Routing Layer
+   /          \
+Current API  New API Provider
+Provider
+```
+
+Implementation options:
+
+**Option 1: API Gateway (recommended)**
+- Use Kong, AWS API Gateway, or Apigee
+- Route percentage of traffic to new provider
+- Easy to adjust ratios gradually
+- Centralized logging and monitoring
+- Supports A/B testing
+
+**Option 2: Client-side routing**
+- Modify application code to support dual providers
+- Requires more development effort
+- Useful for multi-service architectures
+- Enables feature-flag based switching
+
+**Option 3: Proxy server**
+- Deploy custom load balancer (HAProxy, NGINX)
+- Route based on request characteristics
+- Maximum control over traffic shaping
+- Higher operational complexity
+
+**Configuration example:**
+
+Start with 1% traffic to new provider:
+- Monitor error rates and latency
+- Increase to 5% after 1 hour if successful
+- Jump to 25% after 4 hours of stable performance
+- Reach 50-50 split by end of day 1
+- Complete migration on day 2
+
+## Testing & Validation
+
+Thorough testing prevents production issues. Multiple validation layers catch problems early.
+
+**Phase 1: Basic connectivity (1 day)**
+- Test simple requests to new provider
+- Verify authentication works
+- Confirm response format compatibility
+- Check rate limit behavior
+- Validate error handling
+
+**Phase 2: Load testing (3-4 days)**
+- Run production-representative loads
+- Monitor latency percentiles (p50, p99)
+- Measure error rates under peak conditions
+- Test rate limit recovery
+- Verify auto-scaling behavior
+
+**Phase 3: Model compatibility (2-3 days)**
+- Test all models used in production
+- Validate output consistency
+- Confirm token counting accuracy
+- Test edge cases (very long inputs, special characters)
+- Validate cost calculations match
+
+**Phase 4: Integration testing (3-5 days)**
+- Test in staging environment mimicking production
+- Run full application test suites
+- Validate downstream systems handle responses correctly
+- Test error scenarios (provider timeouts, rate limits)
+- Confirm monitoring and alerting work
+
+**Phase 5: Canary deployment (2-3 days)**
+- Route 1% live traffic to new provider
+- Monitor for real-world issues
+- Review latency and error metrics
+- Gather user feedback if applicable
+- Prepare for rapid rollback
+
+Typical testing timeline: 2-3 weeks before confident migration.
+
+## Gradual Traffic Migration
+
+Progressive traffic shifting reduces risk dramatically. Gradual transitions identify problems before full cutover.
+
+**Migration schedule (example):**
+
+Day 1-2: 1% traffic to new provider
+- Monitor closely every 15 minutes
+- Quick rollback possible if issues detected
+- Focus on error rates and latency spikes
+
+Day 3: 5% traffic to new provider
+- Expand to representative user subset
+- Validate cost tracking accuracy
+- Check for model-specific issues
+
+Day 4-5: 25% traffic to new provider
+- Achieve statistical significance in metrics
+- Identify slow model endpoints
+- Test sustained load capacity
+
+Day 6: 50% traffic to new provider
+- Equal load distribution
+- Final opportunity for issue detection
+- Prepare final cutover communication
+
+Day 7: 100% traffic to new provider
+- Complete migration
+- Keep current provider active for 24 hours
+- Monitor for post-cutover issues
+
+**Traffic shifting implementation:**
+
+Using percentage-based routing simplifies gradual migration:
+
+```
+5% to new provider
+0-5 hash(request_id) → new provider
+5-100 hash(request_id) → current provider
+```
+
+This approach ensures consistent routing and prevents session splitting issues.
+
+## Monitoring During Cutover
+
+Real-time monitoring prevents silent failures. Comprehensive observability essential during migration.
+
+**Key metrics to track:**
+
+Error rates by provider:
+- HTTP 4xx errors (client issues)
+- HTTP 5xx errors (server issues)
+- Timeout errors (performance problems)
+- Rate limit errors (quota issues)
+
+Latency metrics:
+- p50, p95, p99 response times
+- Time to first token (TTFT)
+- End-to-end latency including queueing
+- Comparison before/after per provider
+
+Cost metrics:
+- Tokens used per model
+- Cost per request
+- Total daily costs
+- Projected monthly costs at current rate
+
+**Alert thresholds:**
+
+Configure alerts preventing undetected issues:
+- Error rate exceeds 1% (immediate alert)
+- Latency p99 exceeds baseline + 20% (warning)
+- Cost per token exceeds expected + 15% (investigation alert)
+- Provider unavailability for >30 seconds (critical)
+
+**Dashboarding:**
+
+Create dedicated migration dashboard showing:
+- Current traffic split (pie chart)
+- Error rates by provider (time series)
+- Latency comparison (box plots)
+- Cost tracking (time series)
+- Model availability (status table)
+
+Review dashboards every 15-30 minutes during cutover to catch emerging issues.
+
+## Rollback Procedures
+
+Prepare rollback procedures before starting migration. Quick recovery prevents extended outages.
+
+**Rollback triggers:**
+
+Automatically trigger rollback on:
+- Error rate exceeds 5% on new provider
+- p99 latency doubles from baseline
+- Provider completely unavailable (0% success rate)
+- Cost tracking shows 3x expected rate
+- Multiple models unavailable simultaneously
+
+**Rollback execution:**
+
+1. Reverse traffic shift immediately (100% to old provider)
+2. Alert incident commander
+3. Notify customer-facing teams
+4. Begin investigation
+5. Document issue for future reference
+6. Plan retry approach after remediation
+
+**Rollback timeline:**
+
+Initial rollback should complete within 5 minutes of trigger. Fast execution minimizes customer impact.
+
+Automated rollback preferred:
+- API gateway automatically switches on error threshold
+- No manual intervention required
+- Consistent decision criteria
+- Faster response than manual process
+
+Manual confirmation prevents accidental rollbacks while maintaining speed advantage of automation.
+
+## FAQ
+
+**How long should parallel testing run?**
+Minimum 2 weeks with production traffic. More complex applications may require 3-4 weeks. Skip testing shortcuts.
+
+**Can I migrate specific models separately?**
+Yes, migrate one model at a time if providers differ significantly. Easier troubleshooting and lower risk per model.
+
+**What if new provider has slightly different response formats?**
+Normalize responses at routing layer before sending to applications. Version your API to support both formats temporarily.
+
+**Should I keep redundancy after migration?**
+Maintain minimal fallback capacity on old provider (5-10% allocation) for 1-2 weeks post-migration. Improves reliability during stabilization.
+
+**How do I handle cached responses during migration?**
+Clear response caches 24 hours before migration. New provider responses may differ slightly (different default parameters, newer model versions).
+
+## Related Resources
+
+- [LLM API Pricing](/llms) - Compare costs across providers
+- [Compare LLM APIs](/llms) - Feature comparison guide
+- [AI Tool Stack for Startups](/articles/complete-ai-tool-stack-for-startups-from-gpu-to-production) - Infrastructure planning
+- [Compare GPU Cloud Providers](/gpus) - Self-hosted alternative
+
+## Sources
+
+- Kong API Gateway - https://konghq.com/
+- AWS API Gateway - https://aws.amazon.com/api-gateway/
+- Google Cloud API Gateway - https://cloud.google.com/api-gateway
+- Apigee - https://apigee.com/

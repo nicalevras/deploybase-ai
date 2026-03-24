@@ -1,0 +1,478 @@
+---
+title: 'H100 vs B200: Hopper vs Blackwell GPU Performance and Cost'
+slug: h100-vs-b200
+description: >-
+  NVIDIA H100 vs B200 comparison: architecture, performance, cloud pricing, and
+  upgrade strategy as of March 2026. Current pricing and data as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Comparison
+keywords:
+  - h100 vs b200
+  - b200 vs h100
+  - nvidia b200 performance
+  - h100 hopper vs b200 blackwell
+  - b200 gpu price
+---
+
+## Contents
+
+- [H100 vs B200: Overview](#h100-vs-b200-overview)
+- [Comparison Table](#comparison-table)
+- [Architecture Evolution](#architecture-evolution)
+- [Specifications Comparison](#specifications-comparison)
+- [Performance Benchmarks](#performance-benchmarks)
+- [Memory and Bandwidth](#memory-and-bandwidth)
+- [Cloud Pricing and Availability](#cloud-pricing-and-availability)
+- [Training Workloads](#training-workloads)
+- [Inference Workloads](#inference-workloads)
+- [Upgrade Decision Framework](#upgrade-decision-framework)
+- [Power and Thermal Considerations](#power-and-thermal-considerations)
+- [Real-World Scenarios](#real-world-scenarios)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## H100 vs B200: Overview
+
+The h100 vs b200 choice boils down to: B200 is 4-5x faster than H100 but costs 3x more. 192GB memory versus H100's 80GB. Essential for 200B+ model training. Achieves cost parity on batch inference through higher throughput. H100 still viable for research and smaller projects.
+
+---
+
+## Comparison Table
+
+| Aspect | H100 | B200 | Advantage |
+|--------|------|------|-----------|
+| **Architecture** | Hopper | Blackwell | B200 (newer) |
+| **Release Date** | March 2023 | October 2025 | B200 (newer, 2.5 years) |
+| **Memory (SXM)** | 80GB HBM3 | 192GB HBM3e | B200 (2.4x) |
+| **Memory Bandwidth** | 3.35 TB/s | 11.2 TB/s | B200 (3.35x) |
+| **Peak FP32** | 67 TFLOPS | 210 TFLOPS | B200 (3.1x) |
+| **Peak FP8 Tensor** | 5,825 TFLOPS | 52,800 TFLOPS | B200 (9x) |
+| **Peak TF32 Tensor** | 989 TFLOPS | 13,104 TFLOPS | B200 (13x) |
+| **NVLink Bandwidth (per GPU)** | 900 GB/s | 1,800 GB/s | B200 (2x) |
+| **Power Consumption (SXM)** | 700W | 1,000W | H100 (lower power) |
+| **Price/GPU-hr (Cloud)** | $1.99-$2.49 | $5.98-$6.08 | H100 (cheaper) |
+| **Price/GPU** | ~$40k | ~$120k | H100 (1/3 cost) |
+
+Data from NVIDIA datasheets and DeployBase pricing tracking (March 2026). B200 is 3-5x faster and 3x more expensive. Cost-per-task can favor either, depending on throughput requirements.
+
+---
+
+## Architecture Evolution
+
+### Hopper (H100, 2023)
+
+Hopper was designed for transformer workloads. The architecture introduced:
+
+- Transformer Engine: Hardware specialization for attention and FFN layers
+- FP8 support: Native 8-bit floating point inference
+- 3.35 TB/s memory bandwidth: 73% wider than A100
+- NVLink 4.0: 900 GB/s per GPU
+- Structured sparsity: Skips zero activations
+
+Hopper was the first GPU where the instruction set was explicitly designed for LLM training and inference. It dominated the market from 2023-2025.
+
+### Blackwell (B200, 2025)
+
+Blackwell takes Hopper's design further:
+
+- Blackwell Dual Transformer Engine: Two transformer engines per GPU (run two model instances in parallel or double throughput)
+- 192GB HBM3e: 2.4x more memory than H100
+- 11.2 TB/s memory bandwidth: 3.35x H100's bandwidth (critical for 200B+ model training)
+- NVLink 5.0: 1,800 GB/s per GPU (2x Hopper)
+- Sparsity Engine improvements: Skip even more zero activations
+- FP4 support: Quantization to 4-bit for inference
+
+The headline: 192GB memory opens the door to training 200B+ parameter models on a single GPU. H100's 80GB maxes out around 70B models.
+
+The bandwidth improvement (3.35x) is the key enabler for training larger models. Gradient accumulation, optimizer states, and layer updates all traverse the memory bus. Wider bandwidth = faster training.
+
+---
+
+## Specifications Comparison
+
+### Memory Hierarchy
+
+**H100 PCIe vs SXM:**
+- PCIe: 80GB HBM3, 2.0 TB/s bandwidth (slower, fits standard server slots)
+- SXM: 80GB HBM3, 3.35 TB/s bandwidth (faster, requires NVLink interconnect)
+
+**B200:**
+- No PCIe variant yet (as of March 2026). All B200 deployments are SXM form factor
+- 192GB HBM3e with 11.2 TB/s bandwidth
+
+Memory bandwidth is where it gets real. H100 PCIe maxes at 2.0 TB/s. That's the bottleneck for large models. B200 hits 11.2 TB/s. That's 5.6x wider.
+
+### Tensor Performance
+
+**Peak tensor operations per second (FP8, the most common inference precision):**
+
+H100: 5,825 TFLOPS
+B200: 52,800 TFLOPS
+
+B200 is 9x faster at FP8 operations. For inference with quantization, this is the relevant metric.
+
+**TF32 (training precision, reduced from FP32):**
+
+H100: 989 TFLOPS
+B200: 13,104 TFLOPS
+
+B200 is 13x faster.
+
+### Power and Thermal
+
+H100 SXM: 700W TDP
+B200 SXM: 1,000W TDP
+
+B200 consumes 43% more power. For a cluster of 8 GPUs, that's an additional 2.4 kW. Data center thermal and power overhead is significant.
+
+---
+
+## Performance Benchmarks
+
+### LLM Inference (Tokens per Second)
+
+**Scenario: Serving Llama 2 70B with batch size 32**
+
+H100 PCIe:
+- Throughput: ~850-950 tokens/second
+- Latency P50: 1.0-1.5ms per token
+- Cost per million tokens: $1.99/hr = $2.34 per million tokens (at 850 tok/s)
+
+B200 (estimated, based on 4.5x speedup):
+- Throughput: ~3,825-4,275 tokens/second (4.5x)
+- Latency P50: 0.25-0.35ms per token (4.5x faster)
+- Cost per million tokens: $5.98/hr = $1.56 per million tokens (at 3,825 tok/s)
+
+**Cost-per-token: B200 is 33% cheaper on large-batch inference despite 3x higher hourly rate.**
+
+### LLM Training (Throughput)
+
+**Scenario: Training a 70B parameter model on 8 GPUs, batch size 256**
+
+8x H100 SXM cluster:
+- Throughput: ~1,350 samples/second (aggregate from prior benchmarks)
+- Time to train 1T tokens: ~740,000 seconds (~8.5 days)
+- Cost: 8 GPUs × $2.69/hr × 730 hrs = $15,760/month
+
+8x B200 SXM cluster (estimated 4.5x speedup):
+- Throughput: ~6,075 samples/second (4.5x)
+- Time to train 1T tokens: ~164,500 seconds (~1.9 days)
+- Cost: 8 GPUs × $6.08/hr × 730 hrs = $35,468/month
+
+B200 finishes in 1/4 the time but costs 2.25x more. Cost-per-wall-clock-day: B200 is slightly cheaper ($4,434 vs $4,706 for H100 per wall-clock day).
+
+**The value: Train 70B models in 2 days instead of 8 days. Product iteration accelerates.**
+
+### 200B+ Model Training
+
+H100: Cannot train 200B models on a single GPU (80GB < 200GB weights + optimizer states). Requires 4+ GPUs per model.
+
+B200: Can fit 200B models with quantization, enabling single-GPU or 2-GPU training.
+
+**4x H100 cluster vs 1x B200:**
+- H100 cost: 4 × $2.69 × 730 = $7,876/month
+- B200 cost: 1 × $6.08 × 730 = $4,438/month
+
+B200 is 44% cheaper for 200B model training and eliminates distributed training complexity.
+
+### Fine-Tuning (LoRA)
+
+**Mistral 7B, 100K examples, batch size 32**
+
+H100:
+- Time: 6-7 hours
+- Cost: $12-14 (at $1.99/hr)
+
+B200 (estimated 4.5x faster):
+- Time: ~1.3-1.5 hours
+- Cost: $8-9 (at $5.98/hr)
+
+B200 is 20% cheaper on fine-tuning but finishes 4.5x faster. For developers waiting on results, B200's speed justifies the cost.
+
+---
+
+## Memory and Bandwidth
+
+### Memory Capacity
+
+H100: 80GB (PCIe and SXM forms)
+B200: 192GB (SXM only)
+
+The 112GB gap matters. Large models push H100's memory boundary. The 70B Llama model quantized to 4-bit needs ~35GB VRAM. 200B models quantized need ~100GB. B200's 192GB comfortably handles unquantized 200B models.
+
+### Memory Bandwidth Bottleneck
+
+Memory bandwidth is the critical difference for training large models.
+
+H100's 3.35 TB/s is sufficient for models up to ~70B parameters with batch size 256. Beyond that, the memory bus becomes the bottleneck. Gradient accumulation, optimizer states (Adam stores two states per parameter), and layer-wise updates all compete for bandwidth.
+
+B200's 11.2 TB/s is 3.35x wider. This enables:
+- Training 200B+ models on a single GPU
+- Higher batch sizes on the same GPU (better GPU utilization)
+- Faster gradient synchronization in multi-GPU setups (due to 2x NVLink bandwidth)
+
+### Caching and Locality
+
+B200's cache hierarchy is tighter than the raw specs suggest. Better prefetching and smarter memory access patterns mean the effective bandwidth exceeds the raw 3.35x number in practice. Real-world gains can push past 3.5x.
+
+---
+
+## Cloud Pricing and Availability
+
+### Hourly Rates (as of March 2026)
+
+| Provider | GPU | Form | $/hr | Monthly (730 hrs) |
+|----------|-----|------|------|---|
+| RunPod | H100 PCIe | 80GB | $1.99 | $1,453 |
+| RunPod | H100 SXM | 80GB | $2.69 | $1,964 |
+| Lambda | H100 PCIe | 80GB | $2.86 | $2,088 |
+| Lambda | H100 SXM | 80GB | $2.49 | $1,818 |
+| RunPod | B200 SXM | 192GB | $5.98 | $4,365 |
+| Lambda | B200 SXM | 192GB | $6.08 | $4,438 |
+
+B200 is 2.22-2.26x more expensive per GPU-hour than H100 SXM. Monthly costs roughly triple.
+
+### Cluster Costs
+
+**8-GPU clusters (standard for training):**
+
+- 8x H100 SXM at $2.69/hr: $15,764/month (continuous rental)
+- 8x B200 SXM at $5.98/hr: $34,909/month
+
+B200 clusters cost 2.2x more. But B200 trains 4.5x faster, compressing a 30-day training job into 7 days.
+
+### Availability and Lead Times
+
+H100 is widely available from multiple providers (RunPod, Lambda, CoreWeave, Vast.AI). Rental is immediate.
+
+B200 is newer and scarcer. As of March 2026, availability is limited to a few providers (RunPod, Lambda). Prices are higher due to supply constraints. Expect availability to improve and prices to drop throughout 2026.
+
+---
+
+## Training Workloads
+
+### When H100 is Sufficient
+
+- Models up to 70B parameters
+- Batch size under 512
+- Moderate time-to-completion (8-14 days acceptable)
+- Research and proof-of-concept (not production training)
+- Budget-constrained teams
+
+H100 remains the sweet spot for 7B to 70B model training. Maturity and availability make it the default.
+
+### When B200 is Necessary
+
+- Models 200B+ parameters
+- Pre-training large batches (1024+)
+- Time-to-completion matters (product iteration speed)
+- Production training pipelines (frequent model updates)
+- Single-GPU 200B model training (eliminates distributed complexity)
+
+B200 is mandatory for 200B+ models. For 70B models where time-to-completion justifies cost, B200 wins.
+
+---
+
+## Inference Workloads
+
+### When H100 is Sufficient
+
+- Batch inference (low latency not critical)
+- Serving models 70B or smaller
+- Cost-sensitive inference (thin margins)
+- Model serving < 1M tokens/day
+
+H100's cost-per-token is competitive at modest throughput. For many production deployments, H100 is the economical choice.
+
+### When B200 is Preferred
+
+- High-throughput inference (>10M tokens/day)
+- Latency-critical applications (real-time)
+- Serving multiple model instances on one GPU
+- Cost-per-token at scale (due to 4.5x throughput)
+
+B200's 4.5x throughput means fewer GPUs needed to meet throughput SLOs. Cost-per-token can favor B200 at scale.
+
+---
+
+## Upgrade Decision Framework
+
+**Upgrade to B200 if:**
+
+1. **Training models 200B+ parameters.** H100 lacks the memory and bandwidth. B200 enables single-GPU training, eliminating distributed complexity.
+
+2. **Time-to-completion has business value.** 4.5x faster training means 30-day jobs finish in 7 days. If product roadmap depends on faster iteration, B200 pays for itself in speed.
+
+3. **Inference throughput is the bottleneck.** Serving high-load models benefits from B200's 4.5x throughput. Cost-per-token may be lower despite higher hourly rate.
+
+4. **Running multiple model instances per GPU.** B200's dual transformer engines allow serving two models in parallel or interleaving inference from multiple requests.
+
+**Stay with H100 if:**
+
+1. **Models are 70B or smaller.** H100 has enough memory and bandwidth. The cost-to-performance ratio is better.
+
+2. **Cost-per-hour is the constraint.** H100 is 50% cheaper hourly. For budget-constrained teams, H100 wins.
+
+3. **Latency is not critical.** Batch processing and non-interactive workloads don't need B200's speed. H100 is sufficient.
+
+4. **Availability matters.** H100 is abundant. B200 is scarce as of March 2026. If needing GPUs immediately, H100 is more readily available.
+
+5. **Power and thermal constraints.** B200's 1000W TDP is demanding. Older data centers may lack sufficient power distribution for B200 clusters.
+
+---
+
+## Power and Thermal Considerations
+
+### Data Center Impact
+
+**8x H100 SXM cluster:**
+- Total power: 8 × 700W = 5.6 kW
+- Heat dissipation: ~19,000 BTU/hr
+- Cooling cost: ~$200-300/month (depends on data center efficiency)
+
+**8x B200 SXM cluster:**
+- Total power: 8 × 1,000W = 8 kW
+- Heat dissipation: ~27,400 BTU/hr
+- Cooling cost: ~$300-450/month
+
+B200's higher power draw adds ~$1,500-2,000/year in cooling costs for an 8-GPU cluster. Not negligible for cost-conscious deployments.
+
+**Single B200 vs H100 cluster for equivalent training:**
+- 1x B200: 1,000W, ~3,400 BTU/hr, easier to cool
+- 2x H100: 1,400W, ~4,780 BTU/hr, still higher power than single B200
+
+The advantage: B200 concentrates power, making cooling more efficient. Fewer GPUs mean simpler cooling infrastructure.
+
+---
+
+## Real-World Scenarios
+
+### Scenario 1: Startup Fine-Tuning Open-Source Models
+
+**Budget:** $1,000/month for compute
+**Model:** Mistral 7B
+**Frequency:** Daily fine-tuning runs
+
+H100 (1x PCIe, $1.99/hr):
+- Monthly cost: $1,453
+- Fine-tuning time: 6-7 hours
+- Can fit in budget with careful scheduling
+
+B200:
+- Monthly cost: $5,980
+- Fine-tuning time: 1.5 hours
+- Exceeds budget 5x
+
+Verdict: H100. Budget constraints favor cheaper GPU.
+
+### Scenario 2: AI Company Training Production Models
+
+**Budget:** Unlimited (ROI-driven)
+**Model:** 150B parameters
+**Frequency:** Monthly retraining
+
+H100 (8x SXM cluster, $2.69/hr):
+- Cannot fit 150B model (80GB < 150GB required)
+- Would require 4+ GPUs per model
+- 8x cluster monthly cost: $15,764
+
+B200 (2x SXM cluster, $5.98/hr):
+- Fits 150B model on 2x GPUs (192GB each)
+- 2x cluster monthly cost: $8,729
+- Training time: 2-3 days (vs 10-14 days on 4x H100)
+- Cost per training run: $1,091 (vs ~$1,576 on H100)
+
+Verdict: B200. Enables single training job on 2 GPUs. Faster iteration. Cheaper per job.
+
+### Scenario 3: API Company Serving 70B Models at 100M Tokens/Day
+
+H100 (5x SXM cluster, $2.69/hr):
+- Throughput: 5 × 850 tok/s = 4,250 tok/s
+- To serve 100M tokens/day: need 100M / 86,400 = 1,157 tok/s
+- Can use 1x H100 for the workload
+- Cost: $1,964/month
+- Cost per token: $1.96 per billion tokens
+
+B200 (1x SXM cluster, $5.98/hr):
+- Throughput: 1 × 3,825 tok/s = 3,825 tok/s
+- Comfortably handles 1,157 tok/s with spare capacity
+- Cost: $4,365/month
+- Cost per token: $4.37 per billion tokens
+
+Verdict: H100. At modest throughput, H100's low cost wins. B200's speed advantage doesn't translate to cost savings.
+
+### Scenario 4: GPU-Intensive Research Lab
+
+A university research lab trains models for multiple projects: 70B reasoning models, 13B vision models, and 200B language models. Budget is tight; they rent cloud GPUs for short-term projects. Time-to-publication matters.
+
+Project A (70B reasoning, 4-week deadline):
+- H100: 8x SXM cluster, $15,764/month, completes in 8.5 days. Can run multiple experiments within deadline.
+- B200: 2x SXM cluster, $8,729/month, completes in ~2 days. Provides more iteration time.
+
+B200 is cheaper, faster, and enables more experiments before the deadline.
+
+Project B (200B language, ambitious goal):
+- H100: Cannot run (model doesn't fit in 80GB). Would need to quantize heavily, degrading research quality.
+- B200: Single-GPU training with 192GB HBM3e. Maintains full precision, enabling better research.
+
+B200 is the only viable option for Project B.
+
+Verdict: Lab purchases 2x B200 GPUs. Covers Project A efficiently (faster, cheaper) and enables Project B (impossible on H100).
+
+---
+
+## FAQ
+
+**Is B200 worth the upgrade from H100?**
+
+Depends on model size and time-to-completion value. For 70B models where speed matters, B200's 4.5x faster training justifies the cost. For 200B+ models, B200 is mandatory. For budget projects, H100 is fine.
+
+**How much faster is B200?**
+
+4.5x on most tensor operations (FP8, TF32). For inference with quantization, throughput improvements are 4-5x. Latency per token improves by same factor.
+
+**Can I use H100 and B200 together in a cluster?**
+
+No. Multi-GPU training assumes homogeneous hardware. Mixing H100 (80GB, 3.35 TB/s) and B200 (192GB, 11.2 TB/s) causes synchronization overhead and performance degradation. Use homogeneous clusters.
+
+**What's the breakeven point between H100 and B200?**
+
+For 200B+ models: B200 is mandatory, no H100 alternative.
+For 70B models: B200 is faster but 2.2x more expensive. ROI depends on time-to-completion value.
+For inference at scale (>10M tokens/day): B200 may have lower cost-per-token.
+
+**When will B200 prices drop?**
+
+GPU pricing typically drops 10-20% year-over-year as supply increases. B200 is new; expect supply constraints through Q3 2026. Prices will likely normalize by Q4 2026. Current providers are charging premium rates.
+
+**Should I buy or rent B200?**
+
+Rent for now. B200 is new and may have revisions. Breakeven for purchase is 15k+ hours (~20 months continuous). For startups with 12-18 month timelines, renting is prudent.
+
+**What about B100 or B150 variants?**
+
+NVIDIA has not announced smaller Blackwell variants. B200 is the only Blackwell GPU for AI as of March 2026. Older variants (H100, A100) are available for lower-cost use cases.
+
+---
+
+## Related Resources
+
+- [NVIDIA GPU Models Comparison](/gpus/models/nvidia-b200)
+- [H100 GPU Specifications](/gpus/models/nvidia-h100)
+- [H100 vs A100 Performance Guide](/articles/h100-vs-a100)
+- [A100 vs H100 Cost Analysis](/articles/a100-vs-h100)
+
+---
+
+## Sources
+
+- [NVIDIA B200 Blackwell Datasheet](https://resources.nvidia.com/en-us-gpu-resources/b200-datasheet)
+- [NVIDIA H100 Hopper Datasheet](https://resources.nvidia.com/en-us-gpu-resources/h100-datasheet)
+- [NVIDIA Blackwell Architecture Blog](https://developer.nvidia.com/articles/nvidia-blackwell-architecture-performance)
+- [RunPod GPU Pricing](https://www.runpod.io/pricing)
+- [Lambda Cloud GPU Pricing](https://lambda.ai/pricing)
+- [DeployBase GPU Model Directory](/gpus/models/nvidia-b200) (pricing verified March 22, 2026)

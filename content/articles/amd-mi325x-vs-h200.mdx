@@ -1,0 +1,197 @@
+---
+title: 'AMD MI325X vs NVIDIA H200: GPU Comparison for Large-Scale AI'
+slug: amd-mi325x-vs-h200
+description: >-
+  Compare AMD MI325X and NVIDIA H200 specifications, memory, performance, and
+  pricing for production AI infrastructure and LLM deployment.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Comparison
+---
+
+MI325X vs H200 comes down to memory-bound inference. MI325X brings 288GB of HBM3e memory. H200 brings 141GB with proven CUDA optimization. AMD's betting on memory for future models. NVIDIA's betting on ecosystem stability. Both are viable for 100B+ parameter deployments - choice depends on whether software maturity or raw capacity matters more.
+
+## Contents
+
+- [Memory Capacity and Architecture](#memory-capacity-and-architecture)
+- [Memory Bandwidth and Throughput](#memory-bandwidth-and-throughput)
+- [GPU Compute and Tensor Capabilities](#gpu-compute-and-tensor-capabilities)
+- [Architecture and Manufacturing](#architecture-and-manufacturing)
+- [Software Ecosystem and Optimization](#software-ecosystem-and-optimization)
+- [Unified Memory and CPU Integration](#unified-memory-and-cpu-integration)
+- [Pricing and Cost Structure](#pricing-and-cost-structure)
+- [Target Use Cases](#target-use-cases)
+- [When H200 Wins](#when-h200-wins)
+- [Timeline](#timeline)
+- [Quick Decision Tree](#quick-decision-tree)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Memory Capacity and Architecture
+
+**Memory: The Core Difference**
+
+MI325X has 288GB HBM3e. H200 has 141GB. AMD doubled down on capacity; NVIDIA focused on incremental improvements.
+
+For models under 140GB, both work fine. Performance difference is negligible. For models 200GB+, MI325X is the only single-GPU option.
+
+MI325X uses six HBM3e stacks; H200 uses three. Each stack provides independent access paths - MI325X can sustain more concurrent memory requests without contention.
+
+Consider Claude Opus 4.6 (175B parameters in FP16 = 350GB). That's 2.4 H200s or one MI325X. Single-GPU deployment simplifies operations significantly.
+
+## Memory Bandwidth and Throughput
+
+**Memory Bandwidth**
+
+H200 has 4.8 TB/s. MI325X has 6.0 TB/s. That's 25% more bandwidth - which matters for memory-bound inference.
+
+For a 70B model in FP16 (140GB weights), token throughput scales with bandwidth:
+- H200: ~340 tokens/second
+- MI325X: ~425 tokens/second
+
+The MI325X's bandwidth advantage compounds with its capacity advantage. Both GPUs run memory-bound on large models, meaning bandwidth is the bottleneck. The extra 25% bandwidth translates directly to faster token generation.
+
+## GPU Compute and Tensor Capabilities
+
+**Compute**
+
+H200 delivers 9.9 TFLOPS of bfloat16. MI325X specs aren't public, but both likely have similar compute. Doesn't matter much.
+
+For inference on large models, memory bandwidth is the bottleneck, not compute. Both GPUs sit idle waiting for data from memory. The extra compute cores provide no advantage when memory can't feed them fast enough.
+
+## Architecture and Manufacturing
+
+**Architecture**
+
+H200 is incremental. NVIDIA added memory to the existing Hopper design. Safer bet - existing CUDA kernels, proven optimization paths.
+
+MI325X is new. AMD rewrote memory controllers, tensor units, everything. Riskier architecturally, but no legacy baggage. Fresh design means they could optimize for what actually matters (memory bandwidth, KV cache efficiency).
+
+Both use 5nm. MI325X might be on a slightly more advanced process node, but exact details stay quiet.
+
+## Software Ecosystem and Optimization
+
+**Software: This Is The Real Gap**
+
+H200 runs on proven CUDA tooling. vLLM, TensorRT-LLM, everything works out of the box. Code from H100 runs unchanged.
+
+MI325X runs on ROCm. vLLM has ROCm support but it lags behind CUDA versions. TensorRT-LLM doesn't support ROCm at all. Custom inference code? Developers'll write it yourself.
+
+The gap is narrowing. MI325X arrived in late 2025, and optimization work accelerated. By mid-2026, ROCm support will be solid. Solid, not great. Custom kernels will still need porting.
+
+This matters for the decision: If existing tools and optimizations are non-negotiable, H200 wins. If building custom serving code or contributing to ROCm, MI325X's hardware advantage pays off.
+
+## Unified Memory and CPU Integration
+
+**Host Integration**
+
+Neither GPU has an integrated CPU. Both use PCIe to talk to the CPU - 64-128 GB/s. Slow compared to GPU-to-GPU bandwidth.
+
+For inference, this doesn't matter. Load the model once, then everything happens on GPU. For workloads that need constant host-GPU communication, both are equally constrained.
+
+## Pricing and Cost Structure
+
+**Pricing**
+
+MI325X: $20,000-$25,000 per GPU (estimated, March 2026)
+H200: $30,000-$35,000 per GPU
+
+That's 25-35% cheaper for MI325X. Cloud instances reflect this: MI325X $8-$10/hour, H200 $10-$12/hour.
+
+At scale, this adds up. One million MI325X instance-hours monthly saves $1-2 million versus H200. At those volumes, ROCm optimization work (2-3 engineers for 6 months) becomes cheap.
+
+## Target Use Cases
+
+### Extreme Scale Inference
+
+200B+ parameter models fit on MI325X as single GPU. H200 requires distribution across two GPUs.
+
+Long-context inference (100K+ tokens) benefits from extra memory. Larger batch sizes without memory swaps.
+
+## When H200 Wins
+
+Existing TensorRT-LLM deployments stay on H200. No porting required. Framework support is proven.
+
+Production systems needing stability? H200 is the safer bet. Tons of optimizations, tons of operational experience.
+
+Models under 140GB that aren't pushing memory bandwidth hard? H200 costs less once developers factor in engineering time.
+
+## Timeline
+
+MI325X is AMD's real shot at competing in high-end inference. Aggressive specs, aggressive pricing.
+
+New infrastructure in 2026? Evaluate both. MI325X makes sense if the team can absorb ROCm work. H200 makes sense if stability matters more.
+
+By 2027-2028, ROCm will mature enough that hardware specs and cost become the primary decision drivers. Framework support will be solid.
+
+## Quick Decision Tree
+
+**Pick MI325X if:**
+- Models exceed 200GB (no choice)
+- Cost per token is the primary metric
+- Team has ROCm expertise or can build it
+- Long-context inference is core
+- Willing to wait on framework maturity
+
+**Pick H200 if:**
+- Using existing TensorRT-LLM code
+- Framework support is non-negotiable
+- Models fit in 141GB
+- Production stability is critical
+- ROCm porting is not an option
+
+For mid-sized deployments, pilot both on real workloads. Let the data guide the decision.
+
+## FAQ
+
+**Q: Can I run CUDA code directly on MI325X?**
+A: No. MI325X uses AMD's ROCm compute platform. CUDA code requires porting to ROCm. Most frameworks (PyTorch, TensorFlow) support ROCm, enabling simplified porting. Custom CUDA kernels require substantial rewriting.
+
+**Q: How does MI325X's 288GB memory versus H200's 141GB affect model serving?**
+A: MI325X serves models requiring 200+ GB memory on single GPUs. H200 requires multi-GPU distribution for equivalent models. Single-GPU simplicity favors MI325X for extreme-scale model serving. Multi-GPU H200 clusters may outperform MI325X for parallel inference across multiple models.
+
+**Q: What's the effective cost difference in cloud deployments?**
+A: MI325X cloud instances cost $8-10/hour versus H200 at $10-12/hour (25-35% premium). Over 1,000 GPU hours monthly, this reaches $2,000-4,000 cost difference. At massive scale (10,000+ hours), cumulative savings reach $20,000+/month.
+
+**Q: Which processor handles distributed training better?**
+A: H200's proven optimization ecosystem supports distributed training frameworks naturally. MI325X's distributed training requires new optimization efforts. For multi-node training, H200's maturity provides lower risk despite MI325X's raw capability.
+
+**Q: Can I mix MI325X and H200 in same cluster?**
+A: Technically possible but operationally unwise. Different architectures, memory, and bandwidth create uneven load distribution. Clusters benefit from homogeneous hardware. Teams requiring mixing should pick one platform exclusively.
+
+**Q: What timeline should I expect for MI325X software maturity?**
+A: Framework support (vLLM, PyTorch) reached basic functionality by Q2 2026. Mature optimization equivalents CUDA will likely take 12-18 months. Teams adopting MI325X should expect 6-12 months of infrastructure investment.
+
+**Q: How does MI325X's 6TB/s bandwidth advantage translate to practical inference speed?**
+A: For memory-bound inference (70B+ models), 6TB/s yields 15-25% faster token generation versus H200. For compute-bound workloads, bandwidth advantage provides minimal benefit. Benchmark on representative workloads.
+
+**Q: Will MI325X eventually replace H200 at equivalent cost?**
+A: No. NVIDIA's ecosystem lock-in lets them charge premiums forever. MI325X is a cost-competitive alternative for specific workloads. Pick it for cost savings, not performance superiority.
+
+**Q: What's the break-even for custom MI325X optimization?**
+A: ROCm optimization investments require 3-6 months of developer effort. Payback occurs at 1,000+ MI325X instance-hours monthly (typical large organization). Smaller deployments shouldn't attempt custom optimization.
+
+**Q: Does MI325X require different storage or networking infrastructure?**
+A: No. PCIe, networking, and storage integration works identically to H200. Existing data center infrastructure supports MI325X. Software infrastructure drives complexity, not hardware integration.
+
+**Q: Which processor works better for video processing and multimodal inference?**
+A: Both support multimodal models equivalently. MI325X's additional memory supports larger multimodal models without intermediate quantization. H200 requires more aggressive optimization. For multimodal at scale, MI325X provides simplicity advantage.
+
+## Related Resources
+
+- [NVIDIA H200 specifications](/articles/nvidia-h200-price)
+- [AMD MI325X specifications](/articles/amd-mi325x-price)
+- [GPU pricing comparison](/gpus)
+- [H100 vs H200 comparison](/articles/nvidia-h100-price)
+- [production GPU selection guide](/articles/best-gpu-for-llm-inference)
+- [LLM deployment on production GPUs](/articles/deploy-llm-to-production-platform-comparison-costs)
+
+## Sources
+
+- AMD MI325X architecture and specifications (2025-2026)
+- NVIDIA H200 architecture and specifications
+- ROCm ecosystem documentation (2025-2026)
+- CUDA framework maturity analysis
+- Cloud provider pricing and service offerings (March 2026)
+- production AI deployment case studies (2025-2026)

@@ -1,0 +1,342 @@
+---
+title: 'What Is Quantization in LLMs: Techniques, Trade-offs & GPU VRAM Savings'
+slug: what-is-quantization-llm
+description: >-
+  Understand LLM quantization techniques: INT8, INT4, GPTQ, AWQ. Quality vs
+  speed trade-offs and GPU memory savings explained.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - what is quantization llm
+  - llm quantization techniques
+  - int4 quantization
+  - model quantization
+---
+## Contents
+
+- [The Problem: Full-Precision Model Size](#the-problem-full-precision-model-size)
+- [Quantization Fundamentals](#quantization-fundamentals)
+- [Quantization Techniques for LLMs](#quantization-techniques-for-llms)
+- [Other Quantization Formats](#other-quantization-formats)
+- [KV Cache Quantization](#kv-cache-quantization)
+- [Quality vs Speed Trade-offs](#quality-vs-speed-trade-offs)
+- [When to Quantize](#when-to-quantize)
+- [Tools and Frameworks](#tools-and-frameworks)
+- [GPU VRAM Implications](#gpu-vram-implications)
+- [Implementation Decision Framework](#implementation-decision-framework)
+- [Practical Quantization Workflows for Production](#practical-quantization-workflows-for-production)
+- [Advanced Quantization Techniques](#advanced-quantization-techniques)
+- [Quantization Trade-offs Summary](#quantization-trade-offs-summary)
+- [When NOT to Quantize](#when-not-to-quantize)
+
+
+Quantization reduces LLM precision from full-precision floating point to lower bit-width integers, decreasing model size and inference latency by 50-75% with minimal quality loss. Understanding quantization techniques enables deployment of larger models on smaller GPUs while maintaining strong task performance.
+
+Production LLM deployment faces a fundamental tradeoff: larger models generate better outputs but require proportional GPU memory. Quantization shifts this frontier, enabling 405B parameter models to run on consumer hardware. This guide explains quantization mechanics, implementation approaches, and when to apply different techniques.
+
+## The Problem: Full-Precision Model Size
+
+Large language models store weights in BF16 (Brain Float 16) or FP32 (32-bit floating point) precision during inference. Each parameter requires 2-4 bytes of GPU memory.
+
+A 70B parameter LLM in BF16 requires 140GB VRAM (70 billion × 2 bytes). The largest consumer GPU, NVIDIA [H100](/articles/nvidia-h100-price), provides 80GB memory. Large models don't fit without quantization, distributed inference, or offloading strategies.
+
+**Memory Requirements by Format:**
+- FP32: 4 bytes per parameter (70B model = 280GB)
+- BF16/FP16: 2 bytes per parameter (70B model = 140GB)
+- INT8: 1 byte per parameter (70B model = 70GB)
+- INT4: 0.5 bytes per parameter (70B model = 35GB)
+- INT2: 0.25 bytes per parameter (70B model = 17.5GB)
+
+A 70B model in INT4 fits on a single [A100](/articles/nvidia-a100-price) 80GB GPU with room for batch processing and KV cache. The same model in BF16 requires two H100s or three A100s.
+
+Quantization trades computation and inference latency for memory savings. Selecting the right precision requires understanding performance vs size tradeoffs across different quantization schemes.
+
+## Quantization Fundamentals
+
+Quantization maps continuous floating-point values to discrete integer values. The simplest approach: scale floating-point weights to integer range, store integers, then rescale during computation.
+
+For INT8 (8-bit integers, range -128 to 127):
+1. Find min/max values in weight tensor
+2. Calculate scale factor: (max - min) / 255
+3. Quantize: integer = round((float_value - min) / scale)
+4. Dequantize during inference: float_value = integer * scale + min
+
+This simple quantization typically causes 5-15% accuracy loss due to rounding errors.
+
+**Symmetric vs Asymmetric Quantization:**
+Symmetric quantization assumes values distribute around zero, mapping to range [-128, 127]. Asymmetric quantization maps actual min/max to integer range, requiring separate scale and zero-point parameters. Asymmetric is slightly more accurate but adds computational overhead during dequantization.
+
+**Per-Channel vs Per-Tensor Quantization:**
+Per-tensor quantization uses single scale factor for entire weight matrix. Per-channel quantization calculates scale per output channel, capturing value distribution variance across matrix columns. Per-channel is more accurate but increases metadata overhead.
+
+## Quantization Techniques for LLMs
+
+Different quantization methods balance accuracy preservation with implementation complexity.
+
+### INT8 Quantization
+
+INT8 converts weights to signed 8-bit integers. Most implementations use per-channel quantization with asymmetric scaling to minimize accuracy loss.
+
+**Advantages:**
+- 2x memory reduction versus BF16
+- Native support in modern GPUs (NVIDIA Tensor Cores optimize INT8)
+- Inference 1.3-1.5x faster than FP8
+- Minimal quality loss (< 2% on benchmarks)
+- Simple implementation; many open-source tools support INT8
+
+**Disadvantages:**
+- Still large for very large models (70B INT8 = 70GB)
+- Activation values (intermediate computations) typically remain FP32, limiting speedup
+- CUDA kernels for INT8 less optimized than INT4
+
+**Use Case:** Fine-tuned models where slight quality loss is acceptable. Domain-specific models training on 1M-10M examples. INT8 is standard default for production inference when GPU memory is not the primary constraint.
+
+### INT4 Quantization (GPTQ and AWQ)
+
+INT4 converts weights to 4-bit integers (range -8 to 7). Two dominant approaches emerged: GPTQ and AWQ. Both preserve accuracy within 5-10% of full-precision despite extreme compression.
+
+**GPTQ (Gradient Quantization):**
+GPTQ quantizes weights using Hessian information from gradients. The algorithm identifies which weights matter most and preserves their precision while aggressively quantizing less important weights.
+
+Process:
+1. Calculate Hessian matrix (second-order gradient info)
+2. Quantize weights one layer at a time
+3. Update remaining weights to compensate for quantization error
+4. Repeat for next layer
+
+GPTQ requires access to calibration data (500-2000 tokens) but produces remarkably accurate quantization. A 70B model in GPTQ INT4 loses <5% accuracy on most benchmarks.
+
+**GPTQ Advantages:**
+- Extreme compression (70B model = 35GB)
+- Supports fine-grained quantization control per layer
+- Established open-source ecosystem (AutoGPTQ)
+- Works across architectures (Llama, Mistral, Qwen)
+
+**GPTQ Disadvantages:**
+- Requires calibration dataset
+- Quantization process is slow (1-2 hours for 70B model)
+- Inference kernels (CUDA) less optimized than AWQ
+- Inference speedup is 1.2-1.3x due to kernel overhead
+
+### AWQ (Activation-Aware Quantization)
+
+AWQ preserves weights that significantly affect activation values. Unlike GPTQ's post-hoc Hessian analysis, AWQ examines actual activation patterns during forward pass to identify important weights.
+
+Process:
+1. Run calibration data through model, recording activations
+2. Calculate per-channel activation scaling factors
+3. Move scaling from weights to activations
+4. Quantize weights aggressively where activations show stability
+5. Preserve precision where activations vary significantly
+
+**AWQ Advantages:**
+- 4x faster inference than GPTQ (optimized CUDA kernels)
+- Slightly better accuracy preservation than GPTQ
+- Smaller file sizes (same as GPTQ, but optimized runtime)
+- Inference 1.5-2x faster than FP16
+
+**AWQ Disadvantages:**
+- Newer than GPTQ; smaller library of models
+- Requires compatible hardware (recent NVIDIA/AMD GPUs)
+- Single quantization scheme per model (less flexibility than GPTQ)
+
+**Practical Comparison:**
+70B model inference on H100:
+- FP16: 5000 tokens/second
+- AWQ INT4: 8000-10000 tokens/second
+- GPTQ INT4: 6500 tokens/second
+
+AWQ's 1.5-2x speedup justifies adoption for inference-heavy workloads. GPTQ's flexibility benefits fine-tuning and training scenarios.
+
+## Other Quantization Formats
+
+**GGUF (GPT-Generated Unified Format):**
+GGUF provides a standardized quantization format for local inference via Ollama and llama.cpp. Supports multiple quantization levels (Q2, Q3, Q4, Q5, Q6, Q8) with variable accuracy-size tradeoffs.
+
+GGUF Q4 (4-bit) achieves similar accuracy to GPTQ but with broader compatibility. Inference runs on CPU, making it accessible without GPU hardware. However, CPU inference is 10-100x slower than GPU.
+
+**NF4 (Normal Float 4):**
+An emerging format using 4-bit floating point rather than integer quantization. Normal Float representation preserves gradient flow better during fine-tuning, enabling efficient training on quantized models. Currently mostly research; production adoption limited.
+
+**FP8 Quantization:**
+FP8 (8-bit floating point) uses floating-point representation instead of integers. Balances INT8 simplicity with better value range handling. NVIDIA added FP8 support to newer GPUs (H200, Hopper architecture improvements).
+
+FP8 provides 2x memory reduction with 1-2% accuracy loss, sitting between INT8 and INT4 in the accuracy-compression frontier.
+
+## KV Cache Quantization
+
+Inference latency depends not just on model weight precision but also on KV cache (key-value tensors stored during generation). For long context windows, KV cache consumes more memory than weights.
+
+A 70B model generating 2000 tokens with 4K context window requires:
+- Weights: 140GB (BF16) or 70GB (INT4)
+- KV cache: 32GB (BF16) or 8GB (INT4)
+
+Quantizing KV cache to INT8 is challenging because activation values have larger dynamic ranges than weights. Per-token scaling helps preserve accuracy. Some implementations achieve INT8 KV cache with < 3% accuracy loss.
+
+## Quality vs Speed Trade-offs
+
+Quantization creates predictable accuracy degradation as bit-width decreases:
+
+**Benchmark Results (MMLU):**
+- FP32: 70.2% (baseline)
+- BF16: 70.1% (negligible loss)
+- INT8: 69.8% (0.4% loss)
+- INT4 (GPTQ): 68.5% (1.7% loss)
+- INT4 (AWQ): 69.2% (1.0% loss)
+- INT2: 64.5% (5.7% loss, not recommended)
+
+Lower accuracy loss observed on factual recall and summarization tasks. Higher loss on complex reasoning and code generation tasks. For code tasks, INT4 loss increases to 3-5% depending on problem complexity.
+
+**Latency Improvements:**
+- INT8: 1.2-1.5x faster throughput
+- INT4 (GPTQ): 1.3-1.5x faster
+- INT4 (AWQ): 1.8-2.2x faster
+- Gains depend on batch size and hardware optimization
+
+Smaller batch sizes see larger latency improvements (quantization memory bandwidth advantage). Large batch sizes (128+) see smaller improvements (compute becomes bottleneck).
+
+## When to Quantize
+
+Quantization is not universally beneficial; selection depends on specific constraints:
+
+**Quantize When:**
+- GPU memory is primary constraint
+- Inference latency is critical (e.g., user-facing chatbots)
+- Cost per request matters more than marginal quality
+- Task is not highly sensitive to accuracy (summarization, translation, classification)
+
+**Avoid Quantization When:**
+- GPU memory is abundant (H100 cluster)
+- Quality is paramount (medical/legal analysis)
+- Training/fine-tuning required (use full precision, quantize only for inference)
+- Task requires complex reasoning (math, code, logic)
+
+**Hybrid Approach:**
+Quantize weights, keep activations in higher precision. This reduces memory to 50-60% of full-precision while preserving accuracy to within 1-2%. Trade-off: inference kernel optimization is lower priority than pure INT4.
+
+## Tools and Frameworks
+
+**AutoGPTQ:** Automates GPTQ quantization for any model. Easy interface, supports calibration dataset preparation. Widely used in production due to stability.
+
+**AutoAWQ:** Simpler than AutoGPTQ; focuses on AWQ quantization. Faster than GPTQ for quantization and inference. Good default choice for new deployments.
+
+**Ollama:** Manages GGUF models locally. Automatic quantization to selected bit-width. Excellent for consumer deployment and testing.
+
+**TensorRT-LLM:** NVIDIA's framework supporting INT8, INT4, and FP8 quantization with optimized inference kernels. State-of-the-art inference performance but requires NVIDIA GPU.
+
+## GPU VRAM Implications
+
+Quantization fundamentally increases GPU utilization and decreases cost:
+
+**Example: 70B Model Deployment**
+
+| Hardware | Format | Utilization | Cost/Hour |
+|----------|--------|-------------|-----------|
+| H100 (80GB) | INT4 | 43% (35GB) | $2.50 |
+| A100 (80GB) | INT4 | 43% (35GB) | $1.50 |
+| L40 (48GB) | INT4 | 73% (35GB) | $0.79 |
+| 2xA100 | BF16 | 88% (140GB) | $3.00 |
+
+Quantization enables deployment on cheaper, smaller GPUs. A 70B model in INT4 runs on L40 at $0.79/hour versus BF16 requiring 2xA100 at $3.00/hour. Cost reduction is 73%.
+
+For inference-heavy workloads processing millions of tokens daily, quantization combined with cheaper GPU selection drives operational costs down by 60-80%.
+
+## Implementation Decision Framework
+
+Select quantization based on this hierarchy:
+
+1. **Is GPU memory the primary constraint?** Yes -> INT4 (AWQ preferred)
+2. **Do developers need fine-tuning?** Yes -> Keep weights full precision, quantize only for inference
+3. **Is inference latency critical?** Yes -> INT4 (AWQ) for max throughput
+4. **Does quality matter greatly?** Yes -> INT8 or GPTQ with careful validation
+5. **Is cost per request paramount?** Yes -> INT4 to smallest GPU accommodating workload
+
+Production deployment of [large language models](/llms) increasingly assumes quantized weights as default. Full-precision models are reserved for latest research and specialized domains requiring maximal accuracy.
+
+Quantization represents maturation of LLM infrastructure, transitioning from research-scale (any precision works) to production-scale (optimized compression essential). Modern inference stacks treat it as prerequisite rather than optional optimization.
+
+## Practical Quantization Workflows for Production
+
+Real-world quantization deployment requires integration with existing ML pipelines and validation procedures.
+
+**Quantization Pipeline Integration:**
+Production workflows typically follow this sequence:
+1. Train full-precision model on training cluster (H100s, expensive)
+2. Evaluate on validation set; store full-precision checkpoint
+3. Quantize model using AutoGPTQ or AutoAWQ
+4. Evaluate quantized model; measure quality loss
+5. If quality loss < threshold, deploy quantized model
+6. If quality loss > threshold, use higher bit-width quantization
+7. Monitor production metrics; retrain if quality degrades
+
+This pipeline decouples training (expensive, done rarely) from quantization (cheap, done for each deployment).
+
+**Validation Procedures:**
+Quantization validation should not rely on single benchmark. Comprehensive evaluation requires:
+- Benchmark suite (MMLU, HumanEval, TruthfulQA for different task types)
+- Domain-specific evaluation (medical QA for healthcare, SQL generation for databases)
+- Edge-case testing (long sequences, unusual tokens)
+- User studies (human evaluation on actual use cases)
+
+10-15% quality loss on benchmarks sometimes translates to 0% quality loss on production tasks due to benchmark artifacts. Conversely, 2% benchmark loss sometimes impacts production significantly if loss concentrates on failure modes.
+
+**Rollout Strategies:**
+A/B testing quantized vs full-precision models identifies real production impact:
+- Deploy quantized model to 10% of traffic
+- Compare user-facing metrics (latency, cost, quality)
+- Gradually expand to 100% if metrics favorable
+- Maintain rollback capability (revert to full precision if issues emerge)
+
+This approach catches deployment surprises missed by offline benchmarking.
+
+## Advanced Quantization Techniques
+
+Research introduces continually-improving quantization methods. Newer techniques reduce quality loss further.
+
+**Outlier-Aware Quantization:** Certain dimensions in weight tensors have much larger magnitudes than others. Quantizing these outlier dimensions to lower bit-width introduces unacceptable errors. Outlier-aware methods preserve precision for outliers, quantize non-outliers. Reduces quality loss by 20-30% versus standard INT4.
+
+**Calibration Data Importance:** Quantization quality depends heavily on calibration data distribution. Data from the same domain as production workload gives better results than generic datasets. Fine-tuning calibration data improves INT4 quality by 10-20%.
+
+**Block-Wise Quantization:** Quantize weight tensor blocks (e.g., 128x128 submatrices) independently rather than entire tensor. Captures local variance, reducing quality loss. Implementation overhead is minimal; quality improvement is 5-10%.
+
+**Mixed-Bit Quantization:** Different layers use different bit-widths. Early transformer layers use INT8; later layers use INT4. Balances quality and size. Requires framework support; not all inference engines support mixed-bit models.
+
+**Activation Quantization:** Most quantization focuses on weights (static, known at compile-time). Activation quantization (dynamic, changes per batch) is harder but offers additional speedup. INT8 activations reduce memory 2x; quality impact is 5-15%. Emerging frameworks (NVIDIA TensorRT-LLM) support activation quantization.
+
+## Quantization Trade-offs Summary
+
+Quantization decisions involve multiple competing objectives:
+
+**Memory vs Quality:**
+- INT8: 2x compression, < 2% quality loss
+- INT4: 4x compression, 2-5% quality loss
+- INT2: 8x compression, 5-15% quality loss
+
+**Compression vs Speed:**
+- Weight compression reduces memory; less linear speedup improvement
+- Inference kernel optimization is crucial; poor kernels negate compression gains
+- Batching magnifies speedup (quantized models handle larger batches)
+
+**Implementation Complexity vs Gains:**
+- INT8: Simple, well-supported
+- INT4 (GPTQ): Medium complexity, established ecosystem
+- INT4 (AWQ): Medium complexity, excellent kernels
+- Advanced techniques (outlier-aware, mixed-bit): Complex, niche support
+
+For most teams, GPTQ or AWQ INT4 quantization is optimal default. Advanced techniques are specialized for particular workloads or constraints.
+
+## When NOT to Quantize
+
+Quantization is not universally beneficial; specific scenarios favor full precision.
+
+**Safety-Critical Applications:** Medical diagnosis, legal analysis, financial advising. Quality loss is unacceptable; full precision is mandatory.
+
+**Research and Development:** Training, fine-tuning, experimentation. Full precision provides clearest signal for debugging; quantization complicates analysis.
+
+**latest Models:** New models may not have published quantization schemes. Initial deployments use full precision until quantization is validated.
+
+**GPU Memory is Abundant:** Some teams have excess H100/A100 capacity. Quantization engineering effort exceeds hardware cost savings.
+
+**Sub-Second Latency Requirements:** Some inference kernels don't optimize well for quantized types. Full precision achieves better latency despite higher memory/compute requirements.
+
+Quantization should be adopted explicitly, not by default. Evaluation on the specific model and workload determines optimal precision.

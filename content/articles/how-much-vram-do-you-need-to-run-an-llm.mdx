@@ -1,0 +1,327 @@
+---
+title: 'How Much VRAM to Run an LLM: Complete Guide for Model Sizing'
+slug: how-much-vram-do-you-need-to-run-an-llm
+description: >-
+  Comprehensive analysis of VRAM requirements for language models. Calculate
+  memory needed for different model sizes, batch sizes, and inference
+  configurations.
+date: '2026-03-22'
+author: DeployBase
+category: LLM Infrastructure
+keywords:
+  - how much vram run llm
+  - VRAM requirements LLM
+  - GPU memory LLM
+  - model sizing VRAM
+  - LLM memory calculation
+---
+
+## Contents
+
+- [How Much VRAM Run LLM: Overview](#how-much-vram-run-llm-overview)
+- [Memory Calculation Fundamentals](#memory-calculation-fundamentals)
+- [VRAM Requirements by Model](#vram-requirements-by-model)
+- [Optimization Strategies](#optimization-strategies)
+- [GPU Selection by Model and Use Case](#gpu-selection-by-model-and-use-case)
+- [Performance Characteristics by Hardware](#performance-characteristics-by-hardware)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## How Much VRAM Run LLM: Overview
+
+How Much VRAM Run LLM is the focus of this guide. Determining VRAM requirements for language models involves understanding parameter counts, precision formats, and inference patterns. Correct sizing prevents expensive GPU underutilization and memory overflow failures.
+
+## Memory Calculation Fundamentals
+
+### Base Model Memory
+
+Each parameter in a neural network consumes memory proportional to the number format used. FP32 (full precision) requires 4 bytes per parameter. BF16 and FP16 reduce this to 2 bytes per parameter.
+
+Base memory formula:
+
+Model parameters × bytes per parameter = base model memory
+
+A 7 billion parameter model in FP32:
+
+7B parameters × 4 bytes = 28GB VRAM
+
+The same model in BF16:
+
+7B parameters × 2 bytes = 14GB VRAM
+
+This foundational calculation represents model weights only, excluding activations and working memory.
+
+### Activation Memory
+
+Forward and backward passes generate activation tensors. These activations consume additional memory beyond model weights, typically 2-3× base model memory during training.
+
+Training a 7B parameter model requires approximately:
+
+- Base model: 14GB (BF16)
+- Activations: 28-42GB
+- Optimizer states: 28GB (for AdamW)
+- Total: 70-84GB VRAM
+
+This explains why training large models demands H100 (80GB) or requires distributed training across multiple GPUs.
+
+### Inference Memory Overhead
+
+Inference has lower memory requirements than training. Single-batch inference on a 7B model needs:
+
+- Model weights: 14GB (BF16)
+- KV cache: 2-4GB (depends on sequence length)
+- Workspace: 1-2GB
+- Total: 17-20GB
+
+Multi-batch inference increases KV cache proportionally. Batch size 32 increases total requirements to 40-50GB for the same 7B model.
+
+## VRAM Requirements by Model
+
+### Small Models (1-3B Parameters)
+
+Smaller models like Phi 2 (2.7B), TinyLlama (1.1B), and MobileLLM (1.3B) optimize for edge devices and cost-conscious development.
+
+Memory requirements:
+
+- Phi 2.7B in FP32: 11GB VRAM
+- Phi 2.7B in BF16: 5.5GB VRAM
+- TinyLlama 1.1B in BF16: 2.2GB VRAM
+- MobileLLM 1.3B in BF16: 2.6GB VRAM
+
+These small models fit on consumer GPUs like RTX 4090 (24GB) or older A100 40GB, enabling development on commodity hardware. The trade-off: smaller models provide lower quality outputs for complex reasoning tasks. Phi 2 excels at code generation and math problems but underperforms on open-ended writing.
+
+Inference performance on RTX 4090:
+- Single-batch inference: 100-200 tokens/second
+- Batch size 4: 300-400 tokens/second aggregate
+- Batch size 8: 400-500 tokens/second aggregate
+
+For production inference, small models on consumer GPUs suit applications with modest throughput requirements (100-500 QPS maximum). Higher throughput demands scaling to specialized data center GPUs.
+
+Cost considerations for small model inference:
+- RTX 4090 inference on [Latitude](/articles/top-gpu-cloud-providers-2026): $0.90/hour
+- Monthly: $648
+- Cost per inference request (assuming 50 tokens/second, 1 QPS): $0.18/request
+
+### Mid-Range Models (7-13B Parameters)
+
+Llama 2 7B, Mistral 7B, and Code Llama 7B represent the efficiency frontier. These models balance capability and resource requirements, powering most production inference deployments in 2026.
+
+Memory requirements:
+
+- Llama 2 7B in FP32: 28GB
+- Llama 2 7B in BF16: 14GB
+- Mistral 7B in BF16: 14GB
+- Mistral 7B with Flash Attention: 11GB (33% reduction)
+- Llama 2 13B in BF16: 26GB
+- Code Llama 34B: 68GB BF16
+
+Hardware recommendations:
+
+- A100 40GB: Supports Llama 2 7B with batch size 8-16
+- A100 80GB: Supports Llama 2 13B with batch size 8-12
+- H100 80GB: Supports Llama 2 13B with batch size 32-64
+- [RunPod H100 SXM](/articles/runpod-gpu-pricing) at $2.69/hour: Ideal for mid-range model inference
+
+Inference performance on A100 40GB running Llama 2 7B:
+- Single-batch latency: 50ms per token
+- Batch size 8: 400-600 tokens/second aggregate throughput
+- Batch size 16: 700-900 tokens/second aggregate throughput
+
+Production economics for Llama 2 7B inference:
+- A100 40GB via [Latitude](/articles/top-gpu-cloud-providers-2026): $2.10/hour
+- Monthly cost: $1,512
+- Assuming 50 requests/hour average, 10 tokens/request: $0.0030 per inference request
+- Cost competitive with [LLM API pricing](/llms) for Claude 3 and GPT-4 alternatives
+
+Training considerations:
+- Fine-tuning Llama 2 7B requires 40GB minimum (16-bit precision)
+- Full training of 7B from scratch demands 80GB+ with optimizer states
+- Distributed training across 2-4 GPUs enables larger batch sizes and faster convergence
+
+### Large Models (34-70B Parameters)
+
+Llama 2 70B, Code Llama 34B, and Mistral Large (45B) require high-end GPUs. Training becomes impractical on single instances, requiring distributed approaches. These models achieve substantial quality improvements over 7B variants, justifying infrastructure complexity for production systems.
+
+Memory requirements:
+
+- Llama 2 34B in BF16: 68GB
+- Llama 2 70B in BF16: 140GB (FP32 would require 280GB)
+- Code Llama 34B in BF16: 68GB
+- Mistral Large 45B in BF16: 90GB
+
+Single-GPU inference challenges:
+
+Comparing [NVIDIA H100 specifications](/articles/nvidia-h100-price) at 80GB, Llama 2 70B in BF16 (140GB) cannot fit on single H100. Even 34B models strain H100's capacity with reasonable batch sizes.
+
+Multi-GPU inference solutions:
+
+Tensor parallelism distributes model layers across multiple GPUs:
+
+- 2×H100 cluster: Each GPU runs subset of layers sequentially. Llama 2 70B fits with 70GB per GPU
+- 4×H100 cluster: 35GB per GPU, enabling larger batch sizes
+- 8×H100 cluster: 17.5GB per GPU, achieving batch size 16-32 production inference
+
+Network overhead varies by clustering approach:
+- Ray Distributed: 5-10% overhead for GPUs on same machine
+- TCP networking (different machines): 15-25% overhead
+- [CoreWeave](/articles/coreweave-gpu-pricing) optimized networking: 5-8% overhead with 400Gbps fabric
+
+Production inference recommendations:
+
+For Llama 2 70B, 4×H100 cluster recommended for:
+- Batch size 4-8 inference
+- 50-100ms latency targets
+- 1,000+ concurrent users
+
+Cost via [CoreWeave](/articles/coreweave-gpu-pricing):
+- 4×H100: $24.62/hour
+- Monthly: $17,727
+- Cost per inference request (assuming 100 QPS, 10 tokens): $0.00024 per request
+
+This cost structure makes large model inference economically viable for applications with significant query volume.
+
+### Extra-Large Models (200B+ Parameters)
+
+GPT-3 (175B), Chinchilla (70B optimized training), and similar frontier models exceed any single GPU's memory. Production deployments require 16-32 GPU clusters with sophisticated distributed inference pipelines.
+
+## Optimization Strategies
+
+### Quantization for Memory Reduction
+
+Quantizing model weights from FP32 to INT8 reduces memory by 75%. Running Llama 2 70B in INT8 requires approximately 70GB instead of 280GB.
+
+Quantization trade-offs:
+
+- INT8: Smallest memory footprint, slight quality degradation
+- GPTQ: 4-bit quantization, maintains quality near FP16
+- NF4: 4-bit with better distribution for transformer models
+
+For production deployment on limited GPUs, quantization is essential. Testing on [Lambda at $2.49/hour (SXM) H100) or [RunPod GPU pricing](/articles/runpod-gpu-pricing) ($2.69/hour) allows rapid experimentation before production deployment.
+
+### KV Cache Optimization
+
+During inference, key-value caches for attention mechanisms consume 1-4GB per GPU for typical sequence lengths (2048 tokens). Techniques reducing cache size:
+
+- Flash Attention: Reduces memory by 40-60% through algorithmic improvements
+- Paged Attention: Virtual memory management reduces cache fragmentation
+- Offloading: Moving KV cache to system RAM saves GPU memory at latency cost
+
+Using Flash Attention on A100 enables Llama 2 7B batch size 16-32, producing 200+ tokens/second throughput on single GPU.
+
+### Model Sharding for Large Models
+
+Tensor parallelism distributes models across multiple GPUs. Llama 2 70B sharded across 8×H100 GPUs consumes 9GB per GPU instead of 70GB per GPU.
+
+The trade-off: 7×H100 communication overhead reduces throughput compared to single-GPU inference. Typical latency increases from 50ms to 75-100ms with 8-way parallelism.
+
+Production deployments typically shard across 4-8 GPUs, balancing memory efficiency and latency.
+
+## GPU Selection by Model and Use Case
+
+### Development and Prototyping
+
+For experimenting with models before production:
+
+- 1-3B models: RTX 4090 (24GB) via [Latitude](/articles/top-gpu-cloud-providers-2026) at $0.90/hour
+- 7B models: RTX 4090 (24GB) with quantization, or A100 40GB
+- 13B models: A100 40GB for comfortable batch sizes
+
+Development costs:
+- Prototyping Llama 2 7B: 100 hours × $0.90 = $90
+- Prototyping Llama 2 13B: 100 hours × $2.10 (A100) = $210
+
+This cost remains negligible compared to engineering time. Prototyping before production deployment prevents expensive scaling mistakes.
+
+### Single-GPU Production Inference
+
+Suitable for applications with <100 QPS requirement:
+
+- 7B models: H100 via [RunPod](/articles/runpod-gpu-pricing) at $2.69/hour
+- 13B models: H100 required for batch size 8+
+- 34B models: Impossible on single H100 with reasonable batch sizes
+
+Monthly costs:
+- H100 continuous: $1,944
+- Adding infrastructure overhead: $2,100-2,500 monthly
+
+Single-GPU inference makes economic sense when request volume justifies dedicating $2,500+ monthly to a single model.
+
+### Multi-GPU Training
+
+Recommended configurations by model size:
+
+- 7B model fine-tuning: 2×A100 for distributed fine-tuning
+- 7B model full training: 4-8×A100 or 2×H100
+- 34B model: 8×H100 minimum
+- 70B model: 16×H100 minimum for production training
+
+Training timeline estimates:
+
+- 7B model on 2×A100: 7,776 GPU-hours ÷ 2 = 3,888 hours ≈ 6.5 months continuous
+- 7B model on 8×A100: 3,888 ÷ 8 = 486 hours ≈ 20 days continuous
+- 70B model on 16×H100: ~200 hours with strong distributed training efficiency
+
+Cost-efficient training infrastructure:
+
+Using [Alibaba Cloud](/articles/top-gpu-cloud-providers-2026) with 1-year commitment:
+- 8×A100 continuous: $9.80/hour × 8 × 0.75 = $58.80/hour
+- 500-hour project cost: $29,400
+- Same project on [AWS](/articles/aws-vs-azure-gpu-pricing) on-demand: $43,680+ (49% more expensive)
+
+## Performance Characteristics by Hardware
+
+### GPU Memory Bandwidth Impact
+
+Memory bandwidth directly affects inference latency. Models with high compute-to-memory ratios (transformers) are memory-bandwidth-bound:
+
+- H100 3,350GB/sec: High throughput for bandwidth-intensive ops
+- A100 1,935GB/sec: 42% less bandwidth than H100
+- L40S 960GB/sec: 71% less bandwidth than H100
+- RTX 4090 936GB/sec: Comparable to L40S
+
+For batch size 32 inference of Llama 2 70B:
+- H100: 150ms latency
+- A100: 200ms latency (33% slower)
+- L40S: 280ms latency (87% slower)
+
+This performance differential justifies [H100 pricing premium](/articles/nvidia-h100-price) for production serving demanding latency targets.
+
+## FAQ
+
+**Q: Can GPT-3 size models run on A100 80GB?**
+A: No. GPT-3 175B requires distributed inference across 8+ H100 GPUs minimum. Single A100 lacks sufficient memory even with quantization.
+
+**Q: What's the minimum GPU for running Llama 2 7B?**
+A: A100 40GB or H100 can run single-batch inference. RTX 4090 (24GB) with quantization or int8 enables development workloads.
+
+**Q: How much VRAM improvement comes from BF16 versus FP32?**
+A: BF16 halves memory requirements compared to FP32 (2 bytes vs 4 bytes per parameter). FP8 reduces to 1 byte, achieving 75% memory savings but with quality trade-offs.
+
+**Q: Does increasing sequence length increase VRAM requirements?**
+A: Yes. KV cache scales linearly with sequence length. 4096-token sequences roughly double cache size compared to 2048 tokens.
+
+**Q: Can I run Llama 2 70B on RTX 4090?**
+A: No. RTX 4090 24GB is insufficient for 70B models. Quantization to INT4 reduces requirements to approximately 35GB, still exceeding RTX 4090's 24GB. A100 40GB is the practical minimum.
+
+## Related Resources
+
+- [GPU Pricing Comparison](/gpus)
+- [NVIDIA H100 Price Guide](/articles/nvidia-h100-price)
+- [NVIDIA A100 Price Guide](/articles/nvidia-a100-price)
+- [NVIDIA H200 Price Guide](/articles/nvidia-h200-price)
+- [NVIDIA B200 Price Guide](/articles/nvidia-b200-price)
+- [Lambda GPU Pricing](/articles/lambda-labs-gpu-pricing)
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [LLM API Pricing](/llms)
+
+## Sources
+
+- NVIDIA GPU memory specifications (as of March 2026)
+- Language model architecture documentation
+- Inference optimization research and benchmarks
+- DeployBase LLM infrastructure analysis
+- Hardware manufacturer specifications

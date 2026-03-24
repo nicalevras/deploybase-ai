@@ -1,0 +1,360 @@
+---
+title: 'Best GPU for LLM Inference: Speed vs Cost Analysis'
+slug: best-gpu-for-llm-inference
+description: >-
+  Compare GPUs for language model inference: RTX 4090, L40S, A100, H100. Cost
+  per token, throughput, and optimal model sizes.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Benchmarks
+keywords:
+  - best gpu for llm inference
+  - gpu for inference
+  - llm inference gpu comparison
+  - fastest gpu inference
+  - cheapest gpu for language models
+---
+
+## Contents
+
+- [Best GPU for LLM Inference: Overview](#best-gpu-for-llm-inference-overview)
+- [RTX 4090: Consumer GPU for Small Models](#rtx-4090-consumer-gpu-for-small-models)
+- [L40S: Professional Inference Optimized GPU](#l40s-professional-inference-optimized-gpu)
+- [A100: High-Capacity Inference Platforms](#a100-high-capacity-inference-platforms)
+- [H100: Production Reasoning and Large Batches](#h100-production-reasoning-and-large-batches)
+- [B200: Next-Generation Inference Performance](#b200-next-generation-inference-performance)
+- [Benchmark Comparison Table](#benchmark-comparison-table)
+- [GPU Selection Matrix by Model Size](#gpu-selection-matrix-by-model-size)
+- [Batch Size Optimization and GPU Selection](#batch-size-optimization-and-gpu-selection)
+- [Quantization Impact on GPU Selection](#quantization-impact-on-gpu-selection)
+- [Cost-Per-Token Optimization Strategies](#cost-per-token-optimization-strategies)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Best GPU for LLM Inference: Overview
+
+LLM inference GPU choice = model size + latency + batch size + budget.
+
+Inference differs from training. Latency matters more than peak compute. Memory bandwidth matters more than FLOPS.
+
+Pick based on model size, latency needs, batch size, total budget.
+
+## RTX 4090: Consumer GPU for Small Models
+
+The RTX 4090 costs $0.34/hour on RunPod and remains the most cost-effective GPU for inference under 7 billion parameters. The GPU features 24 GB GDDR6X memory and 16,384 CUDA cores.
+
+### Memory Constraints
+
+24 GB memory limits RTX 4090 to approximately 7B parameter models in FP16 format. For smaller models, this GPU provides excellent value. An RTX 4090 runs Mistral 7B, Llama 2 7B, and similar models efficiently.
+
+Loading an 8B parameter model in FP16 requires 16 GB memory plus 4-6 GB for attention cache and activations. RTX 4090 handles this within its 24 GB capacity but leaves minimal margin for batch processing.
+
+### Performance Characteristics
+
+RTX 4090 achieves approximately 100-150 tokens per second for Mistral 7B with batch size 1. Throughput scales linearly with batch size, reaching 800-1,200 tokens per second at batch size 8.
+
+Time to first token (latency to first output) ranges from 50-100ms depending on prompt length. This makes RTX 4090 unsuitable for interactive applications requiring sub-50ms latency.
+
+### Cost Analysis
+
+$0.34 per hour with 150 tokens per second throughput equals $0.00000227 per token for single-request inference. For continuous batch processing at 1,000 tokens/second, cost per token drops to $0.00000034.
+
+Monthly inference cost for 10 million tokens:
+- Interactive (150 tokens/sec): $22.70
+- Batch (1,000 tokens/sec): $3.40
+
+### Recommended Use Cases
+
+RTX 4090 suits:
+- Development and testing of inference pipelines
+- Small model fine-tuning validation
+- Personal projects and research
+- Batch processing with flexible deadlines
+- Cost-optimized applications with 100ms+ latency tolerance
+
+## L40S: Professional Inference Optimized GPU
+
+The L40S costs $0.79/hour on RunPod and specializes in inference workloads. The GPU features 48 GB GDDR6 memory optimized for dense model loading.
+
+### Memory and Architecture
+
+48 GB memory enables loading 30B parameter models in FP16 with reasonable batch size support. The L40S uses GDDR6 rather than HBM, providing sufficient bandwidth for inference (960 GB/s) while keeping costs lower than HBM-equipped alternatives.
+
+Memory capacity supports Mistral 34B, Code Llama 34B, and similar models. For 30-40B models, the L40S provides optimal price-to-performance.
+
+### Performance Characteristics
+
+L40S achieves 80-120 tokens per second for Code Llama 34B with batch size 1. Batch inference at size 8 reaches 600-900 tokens per second depending on context length.
+
+Memory bandwidth of 960 GB/s enables efficient throughput. The GPU does not suffer bandwidth starvation even with large batch sizes.
+
+### Cost Analysis
+
+$0.79 per hour with 90 tokens per second throughput equals $0.00000876 per token for interactive inference. Batch processing at 800 tokens/second achieves $0.00000099 per token.
+
+Monthly cost for 10 million tokens:
+- Interactive: $87.60
+- Batch: $9.90
+
+### Recommended Use Cases
+
+L40S suits:
+- Production inference for 13-40B parameter models
+- Batch processing with moderate latency tolerance
+- Applications requiring high memory capacity
+- Cost-optimized production deployments
+- Fine-tuning servers and multi-model endpoints
+
+## A100: High-Capacity Inference Platforms
+
+The A100 GPU costs $1.19/hour on RunPod and features 80 GB HBM2e memory. The large memory capacity and high bandwidth support large models and batch processing.
+
+### Memory and Bandwidth
+
+80 GB memory enables loading 70B parameter models in FP16 with reasonable batch support. Coherent tensor memory at 1.93 TB/s provides excellent throughput for batch processing.
+
+A100 handles Llama 2 70B, Code Llama 70B, and other 70B models efficiently. The bandwidth advantage becomes apparent in batch inference with multiple requests.
+
+### Performance Characteristics
+
+A100 achieves 60-80 tokens per second for Llama 2 70B with batch size 1. Batch inference at size 8 reaches 400-500 tokens per second depending on sequence length.
+
+The high bandwidth enables efficient batching. Unlike smaller GPUs, A100 demonstrates minimal slowdown when increasing batch size due to bandwidth abundance.
+
+### Cost Analysis
+
+$1.19 per hour with 70 tokens per second throughput equals $0.0000169 per token. Batch inference at 450 tokens/second achieves $0.00000264 per token.
+
+Monthly cost for 100 million tokens:
+- Interactive: $169
+- Batch: $26.40
+
+## H100: Production Reasoning and Large Batches
+
+The H100 SXM costs $2.69/hour on RunPod and features 80 GB HBM3 memory with 3.35 TB/s bandwidth. Superior bandwidth makes H100 optimal for batch processing and attention-heavy operations.
+
+### Memory and Advanced Features
+
+80 GB memory equals A100 capacity, but HBM3 bandwidth is 73 percent faster. This bandwidth advantage matters primarily for batch processing. For single-request inference, H100 provides marginal improvement over A100.
+
+H100 handles models up to 70-80B parameters efficiently. For models larger than 80B, distributed inference across multiple H100s becomes necessary.
+
+### Performance Characteristics
+
+H100 achieves 70-90 tokens per second for Llama 2 70B with batch size 1. Batch inference at size 16 reaches 800-1,000 tokens per second, substantially outperforming A100 at equivalent batch sizes.
+
+The bandwidth advantage compounds with batch size. Batches of 32+ requests show 1.5-2x throughput advantage over A100.
+
+### Cost Analysis
+
+$2.69 per hour with 80 tokens per second throughput equals $0.0000336 per token for interactive inference. Batch at 900 tokens/second achieves $0.00000299 per token.
+
+Monthly cost for 100 million tokens:
+- Interactive: $336
+- Batch: $29.90
+
+### Recommended Use Cases
+
+H100 suits:
+- Production inference for 40-70B parameter models
+- High-throughput batch processing
+- Applications serving multiple users simultaneously
+- Cost-optimized serving when amortized over many requests
+- Production deployments requiring maximum reliability
+
+## B200: Next-Generation Inference Performance
+
+The NVIDIA B200 costs $5.98/hour for single GPU and $47.84/hour for 8-GPU DGX B200 systems on RunPod. B200 features 192 GB HBM3e memory and 19.2 TB/s inter-GPU bandwidth in 8-GPU configurations.
+
+### Architecture and Advantages
+
+B200 represents Blackwell architecture optimized for both training and inference. The GPU excels at handling very large models and extreme batch sizes. For inference scenarios, B200 primarily benefits batch processing and multi-model serving.
+
+192 GB memory enables loading 671B parameter mixture-of-experts models locally, though sparse activation reduces effective size requirements.
+
+### Performance Characteristics
+
+Single B200 achieves approximately 120 tokens per second for Llama 2 70B. 8-GPU DGX B200 reaches 1,000+ tokens per second at batch size 8.
+
+The inter-GPU bandwidth in DGX configurations enables efficient distributed inference. Models exceeding 192 GB can be split across GPUs with minimal communication overhead.
+
+### Cost Analysis
+
+Single B200: $5.98/hour with 120 tokens/second throughput equals $0.0000499 per token.
+
+DGX B200: $47.84/hour with 1,200 tokens/second throughput equals $0.0000399 per token.
+
+Monthly cost for 1 billion tokens:
+- Single B200: $49.90
+- DGX B200: $39.90
+
+## Benchmark Comparison Table
+
+| Model Size | GPU | Hourly | Tokens/sec | Cost/Token | Monthly/10M |
+|-----------|-----|--------|-----------|-----------|------------|
+| 7B | RTX 4090 | $0.34 | 150 | $0.00000227 | $22.70 |
+| 13B | L40S | $0.79 | 100 | $0.00000876 | $87.60 |
+| 30B | L40S | $0.79 | 90 | $0.00000987 | $98.70 |
+| 70B | A100 | $1.19 | 70 | $0.0000169 | $169 |
+| 70B | H100 | $2.69 | 80 | $0.0000336 | $336 |
+| 671B MoE | B200 | $5.98 | 120 | $0.0000499 | $499 |
+
+## GPU Selection Matrix by Model Size
+
+### Models Under 7 Billion Parameters
+
+Use RTX 4090 for cost optimization. Cost per token reaches minimum values at this tier. Memory capacity is non-limiting. Batch sizes above 4 provide minimal additional benefit due to memory constraints.
+
+Alternative: Single H100 for latency-sensitive applications despite higher cost. H100 achieves 2x RTX 4090 throughput on small models due to superior memory bandwidth.
+
+### Models 7-13 Billion Parameters
+
+Use L40S for production deployments. 48 GB memory provides comfortable headroom. Cost per token remains low ($0.009/token in batch mode). This GPU tier offers the best price-performance for common open-source models.
+
+Alternative: RTX 4090 for cost-optimized applications accepting 30-40 percent throughput reduction. A100 for latency-sensitive applications where throughput is secondary.
+
+### Models 13-40 Billion Parameters
+
+Use L40S or A100 depending on throughput requirements. L40S costs 33 percent less but provides 30 percent lower throughput. A100 is preferred for batch processing and multi-model serving.
+
+Alternative: Multiple L40S GPUs for throughput scaling without latency degradation.
+
+### Models 40-70 Billion Parameters
+
+Use A100 or H100 depending on batch size. A100 provides adequate throughput for single-request inference. H100 delivers 1.5-2x throughput improvement for batch sizes exceeding 8 requests.
+
+A100 at $1.19/hour provides better single-request economics. H100 at $2.69/hour becomes cost-optimal only when amortized across batch requests.
+
+Alternative: Distributed inference across multiple L40S or A100 GPUs for cost optimization.
+
+### Models 70+ Billion Parameters
+
+Use H100 or DGX B200. Single H100 handles 70B models adequately. Multiple H100s enable 140B+ models. B200 enables very large models and extreme batch sizes.
+
+For models exceeding 160 GB memory requirement, DGX B200 becomes essential. Distributed H100s across multiple instances become expensive compared to consolidated B200 infrastructure.
+
+## Batch Size Optimization and GPU Selection
+
+Batch size dramatically affects GPU selection because different GPUs scale throughput differently.
+
+**RTX 4090 batch size progression (Mistral 7B):**
+- Batch 1: 150 tokens/sec
+- Batch 4: 420 tokens/sec (2.8x)
+- Batch 8: 650 tokens/sec (4.3x, approaching memory limit)
+
+RTX 4090 throughput scales linearly until memory exhaustion around batch 8. Beyond this point, batches fail due to insufficient memory or require spilling to CPU.
+
+**L40S batch size progression (Mistral 7B):**
+- Batch 1: 150 tokens/sec
+- Batch 8: 900 tokens/sec (6x)
+- Batch 32: 2,200 tokens/sec (14.7x)
+
+L40S scales to much larger batches due to 48GB memory. Applications expecting batch sizes 16+ should prefer L40S despite lower single-request throughput.
+
+**A100 batch size progression (LLaMA 70B):**
+- Batch 1: 70 tokens/sec
+- Batch 8: 400 tokens/sec (5.7x)
+- Batch 32: 1,400 tokens/sec (20x)
+- Batch 64: 2,200 tokens/sec (31.4x)
+
+A100's 80GB memory and superior bandwidth enable enormous batch sizes. Applications expecting batches 32+ demonstrate clear A100 advantage.
+
+**Implication for infrastructure:** Estimate expected batch size distribution, then select GPU accommodating typical batches with 20% headroom. Teams expecting variable batch sizes (1-32 range) need different approach than those with predictable batch patterns.
+
+## Quantization Impact on GPU Selection
+
+Quantization (INT8, FP8, INT4) dramatically changes GPU requirements and cost economics.
+
+**LLaMA 70B quantization options and GPU fit:**
+
+FP16 precision: 140GB (requires A100 or H100)
+
+INT8 quantization: 70GB (fits on A100, marginal fit on L40S)
+
+FP8 quantization: 70GB with quality improvement over INT8 (fits on A100, requires careful L40S configuration)
+
+INT4 quantization: 35GB (fits comfortably on L40S, 4 instances on single A100)
+
+**Cost implications with quantization:**
+
+Unquantized 70B deployment:
+- Single A100: $1.19/hour
+- Monthly cost: $871
+
+INT4 quantized 70B deployment:
+- Single L40S: $0.79/hour
+- Monthly cost: $578
+- Savings: 33%
+
+The quantization choice impacts GPU selection dramatically. Teams committed to INT4 quantization can downgrade to L40S and recover 30%+ cost savings. Teams unable to quantize must use A100 or H100.
+
+**Quantization quality trade-offs:**
+
+FP8: 1-2% quality loss (minimal impact on most tasks)
+INT8: 2-5% quality loss (acceptable for inference, marginal for reasoning)
+INT4: 5-15% quality loss (acceptable for basic generation, risky for reasoning/math)
+
+Evaluate quantized models on representative tasks before production deployment. A 5% quality reduction in reasoning tasks might reduce API customer satisfaction; the same reduction in summarization tasks might be imperceptible.
+
+## Cost-Per-Token Optimization Strategies
+
+### Batch Request Consolidation
+
+Combining 8-16 requests into a single batch improves cost-per-token by 4-6x compared to individual requests. Batch processing is optimal when latency tolerance permits 1-10 second delay.
+
+Practical example: Batching 16 requests overnight costs $0.12, whereas serving same requests individually costs $0.72.
+
+### Model Quantization
+
+Quantizing 70B models to INT8 enables deployment on L40S (48 GB) instead of A100 (80 GB). Cost reduces from $1.19/hour to $0.79/hour with 2-5% quality loss. For high-volume inference, quantization investment (engineering time validating quality) often recovers costs within weeks.
+
+### Mixture of Experts
+
+Deploying mixture-of-experts models reduces effective memory requirements and computation. DeepSeek R1 uses 671B total parameters but only activates 37B per token, fitting on smaller GPU configurations. Teams evaluating MoE deployments should compare activated parameter count rather than total parameter count.
+
+### Multi-Model Time Sharing
+
+Load different models on the same GPU sequentially rather than maintaining separate instances. For non-peak hours, running multiple small models on a single A100 reduces average cost significantly. Teams running inference 24/7 across multiple workloads benefit from model consolidation and time-division approaches.
+
+## FAQ
+
+**What GPU should I start with for inference?**
+
+Begin with RTX 4090 for development and cost optimization. As throughput requirements grow, graduate to L40S or A100 based on model size and batch requirements.
+
+**Does H100 provide better inference than A100?**
+
+H100 provides 15-20 percent better throughput than A100 for single-request inference. For batch sizes above 8, H100 advantage grows to 30-50 percent. The 2.26x cost difference makes A100 preferable for interactive applications.
+
+**Can I use multiple smaller GPUs instead of one large GPU?**
+
+Yes, multiple L40S GPUs can approximate A100 performance at lower cost. Two L40S ($1.58/hour) provide similar throughput to one A100 ($1.19/hour) at higher cost. This approach makes sense only when you need distributed inference for fault tolerance.
+
+**What is the maximum batch size for each GPU?**
+
+RTX 4090: 4-8 requests before memory exhaustion. L40S: 16-32 requests. A100: 32-64 requests. H100: 64-128+ requests. B200: 256+ requests in distributed configurations.
+
+**Should I optimize for throughput or latency?**
+
+If your application requires responses within 100ms, optimize for latency and choose smaller GPUs. If responses within 1-10 seconds are acceptable, optimize for throughput with larger batch sizes and larger GPUs.
+
+**How does quantization affect inference quality?**
+
+INT8 quantization causes 1-3 percent quality reduction on most tasks. INT4 quantization causes 5-15 percent reduction. For reasoning and mathematical tasks, quality loss increases. For general text generation, INT4 remains acceptable.
+
+## Related Resources
+
+For additional GPU and inference information:
+
+- View [GPU Pricing and Specifications](/gpus) for complete pricing across all available GPU models
+- Compare [H100 GPU Pricing](/articles/h100-price) for detailed H100 cost analysis
+- See [A100 vs H100 Comparison](/articles/a100-vs-h100) for detailed technical comparison
+
+## Sources
+
+- NVIDIA H100 and B200 official specifications
+- GPU provider pricing: RunPod, CoreWeave, Lambda Labs as of March 2026
+- vLLM and TensorRT-LLM benchmarking data
+- Industry analysis of inference performance across models
+- Cost calculations based on current market pricing

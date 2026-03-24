@@ -1,0 +1,372 @@
+---
+title: 'TensorDock GPU Pricing: Budget Marketplace for GPU Rentals'
+slug: tensordock-gpu-pricing
+description: >-
+  TensorDock GPU pricing: peer-to-peer marketplace, budget GPU rental, cost
+  comparison as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Pricing
+keywords:
+  - tensordock gpu pricing
+  - tensordock cost
+  - tensordock marketplace
+  - tensordock rtx 4090
+  - budget gpu cloud
+---
+
+## Contents
+
+- [TensorDock GPU Pricing: Overview](#tensordock-gpu-pricing-overview)
+- [Marketplace Model](#marketplace-model)
+- [Marketplace Model Pricing Dynamics](#marketplace-model-pricing-dynamics)
+- [Common GPUs on TensorDock](#common-gpus-on-tensordock)
+- [Cost Comparison: TensorDock vs RunPod vs Lambda vs Vast.ai](#cost-comparison-tensordock-vs-runpod-vs-lambda-vs-vastai)
+- [Reliability & Uptime Considerations](#reliability-uptime-considerations)
+- [Infrastructure Architecture Patterns](#infrastructure-architecture-patterns)
+- [Best Practices for Budget GPU Hunting](#best-practices-for-budget-gpu-hunting)
+- [FAQ](#faq)
+- [Advanced TensorDock Strategies](#advanced-tensordock-strategies)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## TensorDock GPU Pricing: Overview
+
+TensorDock is a peer-to-peer GPU marketplace, not a traditional cloud provider. Users list spare GPU capacity. Buyers rent by the hour. Pricing is 40-60% cheaper than RunPod or Lambda because sellers undercut established providers to fill idle capacity. Trade-off: less stability (renters can cancel with notice), slower support, heterogeneous hardware. Best for cost-sensitive teams, research budgets, and workloads that tolerate interruption. Typical rental: RTX 4090 at $0.18-$0.25/hr (vs $0.34 on RunPod), A100 at $0.65-$0.90/hr (vs $1.19 on RunPod).
+
+---
+
+## Marketplace Model
+
+### How TensorDock Works
+
+1. **GPU owners list spare capacity.** Home lab owner, data center with idle hardware, or company with off-peak utilization lists a GPU on TensorDock. Sets hourly rate, minimum rental duration, location, uptime guarantee.
+
+2. **Buyers search and rent.** Specify needed GPU, duration, price tolerance. Filter by location (latency), uptime SLA, reviews. One-click rental. Payment is per-hour, held in escrow, released to seller on completion.
+
+3. **Pricing is dynamic.** Unlike RunPod ($0.34/hr for RTX 4090, always), TensorDock has multiple sellers at different prices. Same GPU model might cost $0.18/hr or $0.28/hr depending on seller capacity and demand.
+
+4. **No guarantees (by default).** If the seller's hardware fails or they turn off the machine, rental ends. Escrow protects developers (refund minus cancellation fee), but developers lose work in progress. Premium sellers offer SLAs (99.5% uptime guarantee), but charge more.
+
+### Why It's Cheaper
+
+Traditional cloud: RunPod pays for data center space, power, bandwidth, 24/7 support. Charges accordingly.
+
+TensorDock: Sellers often have spare hardware already paid for (home lab, off-peak data center capacity). Marginal cost to rent it out is near-zero. Sellers undercut RunPod to attract volume, driving prices down.
+
+Consequence: Developers save 40-60% per GPU-hour, but give up: guaranteed uptime, premium support, SLA refunds, hardware consistency.
+
+---
+
+## Marketplace Model Pricing Dynamics
+
+### Price Ranges by GPU (March 2026)
+
+| GPU | Min $/hr | Median $/hr | Max $/hr | Uptime SLA |
+|-----|----------|-----------|---------|-----------|
+| RTX 4090 | $0.16 | $0.22 | $0.30 | None-99.0% |
+| RTX A6000 | $0.22 | $0.35 | $0.50 | None-99.0% |
+| A100 PCIe | $0.65 | $0.80 | $1.10 | None-99.5% |
+| A100 SXM | $0.75 | $0.95 | $1.35 | None-99.5% |
+| H100 PCIe | $1.20 | $1.55 | $2.10 | 99.0%-99.5% |
+| H100 SXM | $1.50 | $2.00 | $2.80 | 99.0%-99.5% |
+
+**Important:** These ranges reflect March 2026 typical pricing. TensorDock prices fluctuate daily based on supply/demand. Before renting, check current rates on the platform.
+
+**Trend observation:** RTX 4090 and RTX A6000 are plentiful (many home lab owners rent them out). Prices are highly competitive. A100 and H100 are scarcer. Prices approach RunPod/Lambda levels (less discount).
+
+---
+
+## Common GPUs on TensorDock
+
+### RTX 4090: The Workhorse
+
+RTX 4090 dominates TensorDock. 24GB VRAM. Consumer-grade, but sufficient for most inference and fine-tuning. Median price: $0.22/hr (vs $0.34 on RunPod). Savings: 35%. For production-grade alternatives with guaranteed uptime, see [Vast.ai GPU Pricing](/articles/vast-ai-pricing).
+
+**Why so cheap:** RTX 4090 is the de facto gaming GPU. Thousands of gamers have them. Mining boom led to massive overstock. Many owners now rent out during downtime to cover power costs.
+
+**Uptime stability:** Highly variable. Some renters are dedicated home labs (99%+ uptime). Others are "I'm using my gaming PC, rent my GPU when I'm asleep" (sporadic availability, frequent cancellations).
+
+**Best practice for RTX 4090:** Choose sellers with 100+ rentals and 4.8+ star rating. Filter for 99%+ uptime SLA. Expect 5-10% of rentals to be interrupted mid-training (seller's GPU turned off). Use checkpointing heavily.
+
+### RTX A6000: Professional Inference
+
+RTX A6000 is 48GB GDDR6X. Professional variant of RTX 4090. Median price: $0.35/hr (vs $0.92 on Lambda).
+
+Use: Large model inference (70B quantized), batch processing, dense tensor operations where A100 is overkill but RTX 4090 is tight on VRAM.
+
+Uptime: Better than consumer RTX 4090. A6000 renters tend to be smaller data centers or professional studios. 99%+ uptime more common.
+
+### A100: Emerging Standard on Marketplace
+
+A100 is less common on TensorDock than on RunPod. Sellers are mostly data centers with spare capacity, not individuals. Median price: $0.80/hr (vs $1.19 on RunPod). Savings: 33%.
+
+A100 typically comes with SLA (99%+ uptime). Price-wise, TensorDock A100 is only slightly cheaper than RunPod, but consistency is lower.
+
+### H100: Premium, Rarely Discounted
+
+H100 is expensive and new. Sellers have limited incentive to undercut RunPod (hardware pays for itself faster at full price). TensorDock H100 median: $1.55/hr vs $1.99 on RunPod. Only 22% savings (vs 35% for RTX 4090).
+
+When H100 prices drop to $1.20/hr on TensorDock, it's usually because: seller has a seasonal glut of capacity, or pricing strategy is aggressive to attract volume. These deals often come with lower SLA (no guaranteed uptime).
+
+---
+
+## Cost Comparison: TensorDock vs RunPod vs Lambda vs Vast.AI
+
+### Budget-Sensitive Scenario: Fine-tune a 7B Model
+
+Requirements: 24GB VRAM, 6 hours, $50 budget. Which provider?
+
+| Provider | GPU | Price/hr | Total Cost | Risk |
+|----------|-----|----------|-----------|------|
+| TensorDock | RTX 4090 | $0.22 | $1.32 | High (interruption) |
+| RunPod | RTX 4090 | $0.34 | $2.04 | Low |
+| Lambda | A100 PCIe | $1.48 | $8.88 | Low |
+| Vast.AI | RTX 4090 | $0.25 | $1.50 | Medium |
+
+**Winner: TensorDock.** 35% cheaper than RunPod, minimal risk on a 6-hour job (interruption mid-training is rare, and developers have checkpoints).
+
+### Production Scenario: Continuous Inference on A100
+
+Requirements: 24/7 inference, 10 days, need SLA.
+
+| Provider | GPU | Price/hr | Monthly Cost | SLA |
+|----------|-----|----------|--------------|-----|
+| TensorDock | A100 (SLA) | $0.95 | $695 | 99%-99.5% |
+| RunPod | A100 SXM | $1.39 | $1,014 | Implicit (high) |
+| Lambda | A100 SXM | $1.48 | $1,080 | Implicit (high) |
+| Vast.AI | A100 PCIe | $1.08 | $788 | Implicit |
+
+**Winner: TensorDock (with SLA).** If developers choose a TensorDock seller with explicit 99.5% SLA and good reviews, developers save $300+ per month vs RunPod, with comparable reliability.
+
+**Caveat:** Research the specific seller. A seller with 50 rentals and 4.5 stars is risky. A seller with 500+ rentals and 4.9 stars is safer.
+
+### Training Large Models: Multi-GPU Cluster
+
+Requirements: 8x H100 SXM, 14 days (standard for 70B pre-training).
+
+| Provider | GPU Count | Price/hr | Total Cost |
+|----------|-----------|----------|-----------|
+| TensorDock | 8x H100 (mixed sellers) | $1.60 avg | $4,480 |
+| RunPod | 8x H100 SXM | $2.69 | $6,349 |
+| Lambda | 8x H100 SXM | $2.49 | $5,879 |
+
+**Winner: TensorDock by ~$1,400.** But: managing 8 different sellers, dealing with potential cancellations, slower support if issues arise. Not recommended for production critical training.
+
+---
+
+## Reliability & Uptime Considerations
+
+### TensorDock Uptime Reality
+
+**Best-case (99.5% SLA seller):** Interruptions: ~3.6 hours per month. For a 30-day training run, expect 3-4 restarts. Manageable with checkpointing.
+
+**Typical (no SLA):** Interruptions: 5-10% of rental duration. For a 24-hour job, expect 1-2.4 hours of downtime. Risk is moderate.
+
+**Worst-case (low-rated seller):** Interruptions: 20-30% of time. Avoid these.
+
+### When Interruption is Catastrophic
+
+1. **Long training runs without checkpoints.** 72 hours into a 100-hour training job, GPU drops, and that's all wasted. Always checkpoint on TensorDock.
+
+2. **Real-time inference without fallback.** A user waiting for a response, GPU goes offline, request times out. Use TensorDock for batch processing, not real-time services.
+
+3. **Time-sensitive deadlines.** If the model training MUST complete by Friday, TensorDock's interruption risk is too high.
+
+### Recommended Filters
+
+**If uptime is critical (production inference, deadlines):**
+- Filter for sellers with explicit SLA (99%+)
+- Minimum 200 rentals
+- Minimum 4.8 star rating
+- Accept 10-20% price premium vs the cheapest options
+
+**If uptime is flexible (research, experimentation):**
+- 50+ rentals, 4.5+ stars is acceptable
+- Monitor rentals actively (watch for restarts)
+- Budget 10% extra time for potential re-runs
+
+---
+
+## Infrastructure Architecture Patterns
+
+### Pattern 1: Experimentation on TensorDock, Production on RunPod
+
+Strategy: Use TensorDock for 95% of experiment runs (cheap, tolerates interruption), production inference on RunPod (stable, professional SLA).
+
+Cost breakdown for an ML team:
+- Training (hyperparameter search): 100 experiments × 6 hours × $0.25/hr (TensorDock RTX 4090) = $150
+- Same on RunPod: 100 × 6 × $0.34 = $204
+- Savings: $54 per experiment phase
+
+- Production inference: 24/7 on A100, 730 hours/month
+- RunPod: 730 × $1.19 = $869/month (guaranteed uptime)
+- TensorDock (with SLA): 730 × $0.80 = $584/month (99% SLA)
+
+Trade-off: Lose $285/month on production to gain reliability. Interruption risk: 1% = 7 hours/month of potential downtime. If downtime causes customer churn, RunPod is worth it.
+
+### Pattern 2: Multi-vendor Failover
+
+Rent the same GPU from 2-3 sellers on TensorDock simultaneously. If one drops, the job continues on another. Cost: 2x GPU cost, but 95% uptime without managing custom failover code.
+
+Example: 8x H100 cluster for 14-day training run.
+- Single seller: 1 interruption risk, $4,480 total cost
+- 2 sellers (4 GPUs each): Very low interruption risk, $8,960 cost
+- AWS cluster: Zero interruption risk, $8,914 cost (similar cost, higher reliability)
+
+AWS wins on peace-of-mind. TensorDock multi-vendor redundancy is cheaper but operationally complex.
+
+## Best Practices for Budget GPU Hunting
+
+### 1. Checkpoint Everything
+
+TensorDock's main risk is interruption. Mitigate it:
+
+```python
+if step % 100 == 0:
+    torch.save({
+        'model': model.state_dict(),
+        'optimizer': optimizer.state_dict(),
+        'step': step,
+        'loss': loss
+    }, 'checkpoint.pt')
+```
+
+On resumption, load the checkpoint and continue from `step`.
+
+### 2. Monitor Rental in Real-Time
+
+TensorDock dashboard shows GPU status. Check it hourly during early phases. If GPU is offline or unstable, request cancellation and switch to another seller (refund minus $1-2 cancellation fee).
+
+### 3. Start with Short Rentals
+
+Rent for 2-4 hours before committing to 24-hour job. Test seller's stability. If stable, extend the rental or re-book with the same seller.
+
+### 4. Prefer Sellers with Review Comments
+
+Read recent reviews. Look for comments like:
+- "Rock solid, never interrupted" (good)
+- "Stable for 48 hours" (good)
+- "Dropped after 6 hours" (bad)
+- "Server offline twice during rental" (bad)
+
+Star rating alone is insufficient.
+
+### 5. Use TensorDock for Workloads That Tolerate Interruption
+
+**Good fit for TensorDock:**
+- Fine-tuning (checkpointable)
+- Batch inference (re-runnable)
+- Experimentation (low stakes)
+- Research prototyping
+
+**Bad fit for TensorDock:**
+- Critical production inference
+- Deadline-driven training
+- Sensitive customer data (less vetting of infrastructure)
+- Uninterruptible long-running jobs
+
+### 6. Combine Providers by Workload
+
+Strategy: TensorDock for cheap experimentation, RunPod/Lambda for production.
+
+Example: Budget-conscious team trains 10 model variations on TensorDock (cheap, experimental). Winner model deployed on RunPod for production inference (reliable, professional).
+
+---
+
+## FAQ
+
+**Is TensorDock safe for sensitive data?**
+
+No. Hardware vetting is minimal. Sellers could theoretically inspect data on their GPUs. If you're processing confidential customer data or proprietary training data, use established providers (RunPod, Lambda) with infrastructure audits. TensorDock is better for non-sensitive workloads (research, open-source models, general-purpose inference).
+
+**Can I get a refund if a rental is interrupted?**
+
+Partial refund. TensorDock's policy: if a rental ends early due to hardware failure, you're refunded for the unused time (minus ~$1-2 platform fee and seller cancellation fee). If you cancel early (your choice), you lose the rental fee.
+
+**How do I avoid bad sellers?**
+
+Filter by: 4.8+ star rating, 200+ rentals, recent reviews mentioning stability. Avoid sellers with <50 rentals (insufficient history). Avoid reviews mentioning "downtime," "cancelled," "offline."
+
+**Is there a minimum rental duration?**
+
+Varies by seller. Most allow 1-hour rentals. Some enforce 4-hour minimums. Check the listing before renting.
+
+**Do I lose my work if the GPU is interrupted?**
+
+You lose unsaved work (model weights, training progress) since your last checkpoint. Saved checkpoints survive (they're on your storage, not the GPU). Always checkpoint to external storage (Google Drive, GitHub, S3) or persistent volume.
+
+**Can I run multiple jobs on one TensorDock rental?**
+
+Depends on VRAM. RTX 4090 24GB can run multiple small models in parallel. A100 80GB can run several larger models. TensorDock doesn't prevent it, but if one job crashes, it may kill the entire rental.
+
+**Which GPU should I rent if I'm on a budget?**
+
+RTX 4090. Most abundant, cheapest ($0.18-$0.25/hr), sufficient for most inference and fine-tuning. If you need more VRAM, RTX A6000 (48GB, $0.30-$0.40/hr) is the next tier. Only rent A100 if you genuinely need 80GB and can't quantize your model.
+
+**Does TensorDock offer bulk discounts?**
+
+No formal discounts, but some sellers negotiate on multi-hour rentals (e.g., rent for 20 hours, get 10% off). Message the seller before renting if you need extended duration.
+
+**What if the seller's GPU is much slower than advertised?**
+
+TensorDock doesn't guarantee clock speeds (some sellers downclock GPUs to save power). If performance is significantly worse than expected, request a refund citing "performance issue." TensorDock usually approves if you have evidence (benchmark results, timing data).
+
+## Advanced TensorDock Strategies
+
+### Dynamic Pricing Arbitrage
+
+TensorDock prices fluctuate hourly based on supply. Advanced users monitor price feeds and launch jobs when prices dip.
+
+Example: RTX 4090 prices vary 15-25% daily (some sellers drop rates when capacity is high). Waiting for a 20% price drop on a 20-hour job saves: 20 × $0.25 × 0.20 = $1 per job. Negligible per job, but significant at scale (500+ jobs/month).
+
+Tools: TensorDock API, simple monitoring script that alerts when price drops below threshold. Moderate complexity; mainly useful for large compute-hungry teams.
+
+### Seller Reputation Scoring
+
+Sophisticated buyers track seller history over multiple rentals and build reputation scores:
+
+- Uptime: count actual rental hours vs scheduled hours
+- Cancellation rate: how often rentals end early?
+- Performance variance: does GPU deliver consistent throughput?
+- Support responsiveness: how quickly do sellers respond to issues?
+
+Scoring formula (simplified):
+```
+Score = (Uptime × 0.4) + (Cancellation_Inverse × 0.3) + (Performance × 0.2) + (Support × 0.1)
+```
+
+Filter for Score > 95. Adds 10-15% to rental cost but reduces interruption risk significantly.
+
+### Regional Price Patterns
+
+TensorDock sellers cluster by geography (US, Europe, Asia). Prices vary:
+
+- US sellers: RTX 4090 $0.18-$0.25/hr (abundant supply)
+- European sellers: RTX 4090 €0.20-€0.30/hr (~$0.22-$0.33/hr)
+- Asia sellers: RTX 4090 $0.16-$0.22/hr (lowest prices, latency risk)
+
+US-based teams benefit from US sellers (no latency). EU teams benefit from EU sellers (local support, regulatory simplicity).
+
+Latency matters: training, batch inference don't care. Real-time inference does. If serving EU users, Asia RTX 4090 is cheap but might deliver 150ms latency per request - not worth it.
+
+---
+
+## Related Resources
+
+- [NVIDIA GPU Pricing Comparison](/gpus)
+- [Vast.ai GPU Pricing Guide](/articles/vast-ai-pricing)
+- [Lambda Cloud GPU Pricing](/articles/lambda-cloud-gpu-pricing)
+- [JarvisLabs GPU Pricing](/articles/jarvislabs-gpu-pricing)
+
+---
+
+## Sources
+
+- [TensorDock Marketplace](https://www.tensordock.com/)
+- [TensorDock GPU Pricing (daily tracking)](https://www.tensordock.com/gpu/)
+- [GPU Cloud Provider Comparison (2026)](https://www.tensordock.com/)
+- [PyTorch Checkpoint and Resume Training](https://pytorch.org/docs/stable/generated/torch.save.html)
+- [DeployBase GPU Pricing Dashboard](/gpus) (TensorDock rates verified March 21, 2026)

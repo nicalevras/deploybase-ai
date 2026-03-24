@@ -1,0 +1,264 @@
+---
+title: 'How to Fine-Tune on RunPod: Complete GPU Guide'
+slug: how-to-fine-tune-on-runpod-complete-gpu-guide
+description: >-
+  Fine-tuning LLMs eats serious compute. RunPod offers GPU cloud infrastructure
+  with hourly billing and no lock-in contracts. As of March 2026, this guide.
+date: '2026-03-22'
+author: DeployBase
+---
+
+## Contents
+
+- [Introduction](#introduction)
+- [Getting Started with RunPod](#getting-started-with-runpod)
+- [GPU Selection for Fine-Tuning](#gpu-selection-for-fine-tuning)
+- [Setting Up The Fine-Tuning Environment](#setting-up-the-fine-tuning-environment)
+- [Running Fine-Tuning Jobs](#running-fine-tuning-jobs)
+- [Cost Optimization](#cost-optimization)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Introduction
+
+Fine-tuning LLMs eats serious compute. RunPod offers GPU cloud infrastructure with hourly billing and no lock-in contracts. As of March 2026, this guide walks through fine-tuning workflows on RunPod - from account setup to deployed models.
+
+## Getting Started with RunPod
+
+### Account Setup
+
+Go to RunPod.io and create an account. Skip the credit card verification - developers get immediate access. Deposit funds or add a payment method to start renting.
+
+RunPod offers two GPU types: on-demand and spot. On-demand guarantees availability. Spot instances cost 40-70% less but terminate without warning. For fine-tuning, spot works fine if developers checkpoint regularly.
+
+### Pod Configuration
+
+Pods are RunPod's GPU rental units. Pick a template (PyTorch, TensorFlow, or Jupyter) that fits the project. RunPod pre-installs the base OS and libraries.
+
+Developers'll configure:
+- GPU type and count
+- vCPU (8-16 cores is solid)
+- RAM (32-64GB)
+- Storage (100-500GB based on dataset)
+
+Prices run $0.22/hour for RTX 3090 up to $5.98/hour for B200. RTX 4090 at $0.34/hour hits the sweet spot for most fine-tuning work.
+
+### Network Configuration
+
+Every pod gets a public IP. SSH works right away. This means remote terminals, SFTP file transfers, and IDE connections all just work.
+
+Forward ports 6006 (TensorBoard), 8888 (Jupyter), 5000 (APIs) for monitoring. If SSH dies, RunPod has a web terminal fallback.
+
+## GPU Selection for Fine-Tuning
+
+Pick a GPU based on model size, batch size, and deadline. Smaller models need less VRAM. Larger models need more compute power and memory.
+
+### Small Models (7B Parameters)
+
+Llama 2 7B or Mistral 7B fit on single GPUs. RTX 4090 (24GB) does batch 4-8 at full precision. L40 (48GB) handles batch 16-32.
+
+Cost per epoch:
+- RTX 4090: $0.34/hour × 8 hours = $2.72
+- L40: $0.69 × 5 hours = $3.45
+
+RTX 4090 trains faster but costs about the same per epoch. Pick based on deadline.
+
+### Medium Models (13-34B Parameters)
+
+Llama 2 13B or Code Llama need more memory. A100 PCIe (40GB) barely fits batch 2-4. A100 SXM (80GB) runs batch 8-16.
+
+Per-epoch cost:
+- A100 PCIe: $1.19/hour × 20 hours = $23.80
+- H100: $1.99/hour × 12 hours = $23.88
+
+H100 trains 40% faster. For urgent projects, the speed win justifies the cost.
+
+### Large Models (70B+ Parameters)
+
+Llama 2 70B and larger need multi-GPU training. Four A100 SXM or two H100 80GB minimum for full fine-tuning. With QLoRA, a single A100 80GB can handle training. [RunPod pricing](/articles/runpod-gpu-pricing) lists H100 SXM at $2.69/hour.
+
+Budget 50-100 training hours for 70B. Total: $135-270 for single-GPU, $200-400 for multi-GPU with overhead.
+
+## Setting Up The Fine-Tuning Environment
+
+### Installing Dependencies
+
+PyTorch templates on RunPod come with CUDA, cuDNN, and torch pre-installed. Check it works:
+
+```bash
+python -c "import torch; print(torch.cuda.is_available())"
+```
+
+Then install the core libraries:
+
+```bash
+pip install transformers datasets peft bitsandbytes
+```
+
+PEFT (Parameter Efficient Fine-Tuning) adds LoRA, slashing costs by 90%. BitsAndBytes does 8-bit quantization, cutting VRAM in half.
+
+### Data Preparation
+
+Upload data to RunPod or mount S3/GCS. Datasets under 10GB fit fine via SFTP.
+
+Use JSON Lines format for efficient loading:
+
+```json
+{"text": "the training text here"}
+{"text": "another example"}
+```
+
+Load with HuggingFace Datasets:
+
+```python
+from datasets import load_dataset
+dataset = load_dataset("json", data_files="train.jsonl")
+```
+
+Split 90% train, 10% validation. The validation set catches overfitting and shows when training plateaus.
+
+### Model Loading
+
+Load pretrained models with transformers AutoModel:
+
+```python
+from transformers import AutoModelForCausalLM, AutoTokenizer
+
+model = AutoModelForCausalLM.from_pretrained(
+    "meta-llama/Llama-2-7b-hf",
+    torch_dtype=torch.bfloat16,
+    device_map="auto"
+)
+tokenizer = AutoTokenizer.from_pretrained("meta-llama/Llama-2-7b-hf")
+```
+
+Set `torch_dtype=torch.bfloat16`. Memory usage drops by half with no real accuracy hit on modern GPUs.
+
+## Running Fine-Tuning Jobs
+
+### Training Script Structure
+
+```python
+from transformers import Trainer, TrainingArguments
+
+training_args = TrainingArguments(
+    output_dir="./output",
+    num_train_epochs=3,
+    per_device_train_batch_size=4,
+    per_device_eval_batch_size=4,
+    save_strategy="epoch",
+    learning_rate=2e-4,
+    warmup_steps=100,
+    logging_steps=10,
+)
+
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=dataset["train"],
+    eval_dataset=dataset["validation"],
+    data_collator=DataCollatorForLanguageModeling(tokenizer),
+)
+
+trainer.train()
+```
+
+For bigger models, enable gradient checkpointing:
+
+```python
+model.gradient_checkpointing_enable()
+```
+
+This cuts peak memory usage at a small compute cost, letting teams use bigger batches.
+
+### Monitoring Training
+
+Spin up TensorBoard to watch loss curves:
+
+```bash
+tensorboard --logdir output --port 6006
+```
+
+Forward port 6006 in RunPod, then hit http://localhost:6006 in the browser.
+
+Watch validation loss. Kill training when it plateaus or climbs (that's overfitting). Good datasets converge in 2-4 epochs.
+
+### Checkpoint Management
+
+Save the final model:
+
+```python
+model.save_pretrained("final_model")
+tokenizer.save_pretrained("final_model")
+```
+
+Grab it via SFTP. Test on held-out examples before shipping.
+
+## Cost Optimization
+
+### Using Spot GPUs
+
+Spot costs 60% less. Enable checkpointing every 500 steps. If the instance dies, resume from the checkpoint:
+
+```python
+training_args = TrainingArguments(
+    ...
+    save_steps=500,
+    resume_from_checkpoint=True,
+)
+```
+
+Spot drops fine-tuning cost from $25 to $10 per model - huge for iteration.
+
+### Quantization and LoRA
+
+8-bit quantization (bitsandbytes) cuts VRAM by half, opening cheaper GPUs. LoRA cuts trainable params by 99%, speeding training 2-3x.
+
+Together, quantization + LoRA run 13B models on RTX 3090 ($0.22/hour). Per-model cost: $2-5.
+
+### Batch Size Tuning
+
+Smaller batches use less memory but train slower. Try batch size 1 if tight on VRAM. Gradient accumulation compensates:
+
+```python
+gradient_accumulation_steps=4,
+per_device_train_batch_size=1,
+```
+
+This mimics batch 4 with only 1 example in memory at a time.
+
+## FAQ
+
+### How long does fine-tuning take?
+
+7B models: 4-8 hours. 13-34B: 15-30 hours. Time depends on dataset size, learning rate, and convergence speed.
+
+### Can I use multiple GPUs on RunPod?
+
+Yes. Request multi-GPU pods at setup. Distributed training frameworks (Hugging Face Distributed, Ray, Megatron) handle orchestration. Extra config needed.
+
+### What's the cheapest way to fine-tune on RunPod?
+
+Spot RTX 3090 with LoRA quantization. Cost: $0.22/hour × 8 hours = $1.76 per model. Add checkpointing for recovery.
+
+### Should I use RTX 4090 or A100?
+
+RTX 4090 trains 7B faster and cheaper. A100 only makes sense for 13B+ or high batch sizes. Start with RTX 4090.
+
+### How do I deploy the fine-tuned model?
+
+Download locally. Deploy via vLLM, TGI, or FastAPI. RunPod has serving pods too. Or push to [Lambda](/articles/lambda-labs-gpu-pricing) or other inference platforms.
+
+## Related Resources
+
+- [Fine-Tune on RunPod Guide](/articles/how-to-fine-tune-on-runpod-complete-gpu-guide)
+- [Deploy Stable Diffusion on Vast AI](/articles/best-gpu-for-stable-diffusion)
+- [Deploy Mistral on Lambda Labs](/articles/how-to-deploy-mistral-on-lambda-labs)
+- [Fine-Tuning Guide](/articles/what-is-fine-tuning-llm)
+
+## Sources
+
+- Hugging Face Transformers Documentation: https://huggingface.co/docs/transformers
+- RunPod Documentation: https://docs.runpod.io
+- PEFT (Parameter Efficient Fine-Tuning): https://github.com/huggingface/peft

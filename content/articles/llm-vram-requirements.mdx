@@ -1,0 +1,417 @@
+---
+title: 'LLM VRAM Requirements: How Much GPU Memory for AI Models?'
+slug: llm-vram-requirements
+description: >-
+  Calculate VRAM for LLM inference and training. Llama 3 70B needs 80GB (int8)
+  or 40GB (int4). Full breakdown for popular models and quantization methods.
+date: '2026-03-21'
+author: DeployBase
+category: LLM Hardware
+keywords:
+  - llm vram requirements
+  - gpu memory for llm
+  - llama 3 vram
+  - model quantization memory
+  - inference vram calculator
+---
+
+## Contents
+
+- [LLM VRAM Requirements: Overview](#llm-vram-requirements-overview)
+- [Quick Reference Table](#quick-reference-table)
+- [Inference Memory Calculation Formulas](#inference-memory-calculation-formulas)
+- [Training Memory Calculation Formulas](#training-memory-calculation-formulas)
+- [Quantization Comparison](#quantization-comparison)
+- [KV Cache and Batch Size Impact](#kv-cache-and-batch-size-impact)
+- [Popular Model VRAM Breakdown](#popular-model-vram-breakdown)
+- [Multi-GPU Considerations](#multi-gpu-considerations)
+- [Cost Implications](#cost-implications)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## LLM VRAM Requirements: Overview
+
+LLM VRAM requirements depend on three variables: model size in parameters, quantization method, and usage pattern (inference vs training), as of March 2026.
+
+The core formula: **VRAM (GB) = (Parameters × Bytes per Parameter) / 1 billion**
+
+Llama 3 70B uncompressed in full precision (fp32) = (70B × 4 bytes) / 1B = 280GB. That's before KV cache, workspace buffers, or attention tensors. Impractical.
+
+In production, no team runs full precision. int8 quantization cuts this to 140GB. int4 cuts it further to 70GB. For inference, KV cache adds 20-40% overhead depending on batch size and sequence length. For training, optimizer state (Adam or AdamW) can double or triple memory usage.
+
+The goal: fit the model in available VRAM with headroom for intermediate tensors. Run out of memory and training crashes or inference latency spikes catastrophically.
+
+---
+
+## Quick Reference Table
+
+**Inference (single batch, seq_len=2048 tokens)**
+
+| Model | Params | FP32 | FP16 | int8 | int4 |
+|-------|--------|------|------|------|------|
+| Llama 3 8B | 8B | 32GB | 16GB | 8GB | 4GB |
+| Mistral 7B | 7B | 28GB | 14GB | 7GB | 3.5GB |
+| Llama 3 70B | 70B | 280GB | 140GB | 70GB | 35GB |
+| Llama 3 405B | 405B | 1,620GB | 810GB | 405GB | 202.5GB |
+| Qwen 72B | 72B | 288GB | 144GB | 72GB | 36GB |
+
+Add KV cache: 15-30% depending on batch size and sequence length. These are model weights only.
+
+**Training (full fine-tuning, batch_size=4)**
+
+| Model | Params | Optimizer | Total with Optimizer | Multi-GPU (H100 SXM) |
+|-------|--------|-----------|----------------------|-----------------|
+| Llama 3 8B | 8B | Adam | ~96GB | Not needed (fits 1x) |
+| Llama 3 70B | 70B | Adam | ~560GB | 8x H100 SXM (640GB) |
+| Llama 3 405B | 405B | Adam | ~3.2TB | 8+ GPUs, sharding required |
+
+Gradient checkpointing enabled (standard practice). Without it, multiply by 1.5-2x.
+
+---
+
+## Inference Memory Calculation Formulas
+
+The formula for inference VRAM is:
+
+**VRAM = Model Weights + KV Cache + Workspace Buffers**
+
+### Model Weight Memory
+
+**Memory = (Parameters × Bytes per Parameter) / 1 billion**
+
+| Quantization | Bits per Param | Bytes per Param | Llama 3 70B Example |
+|--------------|---|---|---|
+| FP32 (full precision) | 32 | 4 | 280GB |
+| FP16 / BF16 (half precision) | 16 | 2 | 140GB |
+| int8 (8-bit quantization) | 8 | 1 | 70GB |
+| int4 with grouping | 4 | 0.5 | 35GB |
+| int2 (extreme, rare) | 2 | 0.25 | 17.5GB |
+
+Example calculation: Llama 3 70B in int8.
+- Parameters: 70 billion
+- Bytes per parameter: 1
+- Memory: (70B × 1) / 1B = 70GB
+
+### KV Cache Memory
+
+KV cache stores intermediate key and value tensors used during token generation.
+
+**KV Cache = 2 × (batch_size × sequence_length × hidden_dim × bytes_per_param)**
+
+For Llama 3 70B with hidden_dim=8192:
+
+| Batch | Seq Length | KV Cache Size | Total with Model |
+|-------|------------|---------------|------------------|
+| 1 | 2048 | 64MB | 70.06GB |
+| 4 | 2048 | 256MB | 70.25GB |
+| 8 | 2048 | 512MB | 70.5GB |
+| 16 | 2048 | 1GB | 71GB |
+| 32 | 2048 | 2GB | 72GB |
+
+KV cache grows linearly with batch size. At batch 64, add 4GB. Teams serving many concurrent requests face KV cache explosions.
+
+### Workspace and Temporary Buffers
+
+Activations, attention computations, and temporary buffers during inference: roughly 10-20% of model weight memory.
+
+Example: Llama 3 70B in int8.
+- Model weights: 70GB
+- Workspace (15%): 10.5GB
+- KV cache (batch 4): 0.25GB
+- **Total: ~80.75GB**
+
+Fits on a single H100 PCIe (80GB) with minimal headroom. Batch larger than 8 and VRAM exceeds 80GB.
+
+---
+
+## Training Memory Calculation Formulas
+
+Training is memory-intensive. Must track:
+1. Model weights (fp16): 140GB for Llama 3 70B
+2. Gradients (same size as weights): 140GB
+3. Optimizer state (Adam: 2x weights): 280GB
+4. Activations (with gradient checkpointing): 70GB
+
+**Full Training VRAM = Weights + Gradients + Optimizer + Activations**
+
+For Llama 3 70B with Adam optimizer:
+- Weights (fp16): 140GB
+- Gradients (fp16): 140GB
+- Optimizer state (moment, variance): 280GB
+- Activations (gradient checkpointing enabled): 70GB
+- **Total: 630GB**
+
+This requires 8x H100 GPUs (8 × 80GB = 640GB) just to hold the model and optimizer.
+
+### Gradient Checkpointing
+
+Recompute activations during backward pass instead of storing them. Trade compute (recomputation) for memory (less storage).
+
+**Impact:** Reduces activation memory 5-10x. Increases training time 20-40% due to recomputation overhead.
+
+Most teams use gradient checkpointing by default. It's a standard trade-off.
+
+### Memory-Efficient Training Techniques
+
+**LoRA (Low-Rank Adaptation):**
+- Only fine-tune small adapter weights, not full model
+- Base model in fp16: 140GB
+- LoRA adapters: 2-4GB
+- Optimizer state for adapters only: 4-8GB
+- **Total: ~150GB for Llama 3 70B**
+
+Fit on 2x H100 SXM instead of 8x. Massive cost savings.
+
+**QLoRA (Quantized LoRA):**
+- Load base model in int4: 35GB
+- LoRA adapters in fp16: 2-4GB
+- Optimizer for adapters: 2-4GB
+- **Total: ~40-45GB for Llama 3 70B**
+
+Fits on a single A100 PCIe or H100. Extreme cost efficiency at slight quality cost.
+
+**DeepSpeed Zero-3:**
+- Partition optimizer state, gradients, and weights across GPUs
+- With 8 GPUs: 630GB / 8 ≈ 79GB per GPU
+
+Enables training on consumer-grade GPU clusters by distributing memory horizontally across devices.
+
+---
+
+## Quantization Comparison
+
+Quantization trades precision for memory and speed.
+
+### int8 Quantization (1 byte per parameter)
+
+Memory: 50% of fp16. Quality loss: negligible for inference. Speed: slightly faster due to smaller model.
+
+Example: Llama 3 70B in int8 = 70GB. Fits on single H100 with room for KV cache and batching.
+
+Suitable for production inference. Standard choice for inference-only deployments.
+
+### int4 Quantization (0.5 bytes per parameter)
+
+Memory: 25% of fp16. Quality loss: detectable but acceptable on most tasks. Speed: faster memory bandwidth, often faster inference than int8.
+
+Example: Llama 3 70B in int4 = 35GB. Fits comfortably on any H100 or A100 with massive KV cache headroom.
+
+Trade: slight quality drop (1-3% accuracy loss on benchmarks). Worth it for cost/speed gains.
+
+### GPTQ (Grouped Quantization)
+
+Quantizes weights in groups, not globally. Better quality than naive int4.
+
+Memory: ~35GB for Llama 3 70B. Speed: slower than int8 but better accuracy than naive int4.
+
+Tooling: HuggingFace Transformers includes GPTQ loaders. vLLM supports GPTQ natively.
+
+### AWQ (Activation-Weighted Quantization)
+
+Prioritizes important weight values. Best int4 quality.
+
+Memory: ~35GB for Llama 3 70B. Speed: comparable to GPTQ.
+
+Tooling: good support in vLLM and SGLang. Slightly faster than GPTQ on hardware with custom kernels.
+
+### Real-World Example: Llama 3 70B on H100 PCIe (80GB)
+
+- FP16: 140GB (doesn't fit, OOM immediately)
+- int8: 70GB weights + 10GB cache/workspace = **fits**
+- int4 (GPTQ): 35GB weights + 10GB overhead = fits with **45GB headroom for large batches**
+
+The choice: int8 for quality, int4 for throughput. Both fit on single H100.
+
+---
+
+## KV Cache and Batch Size Impact
+
+### Inference Batch Size Effects
+
+Batch size dominates inference VRAM usage and throughput.
+
+**Llama 3 70B on H100 PCIe (80GB total, int8 weights)**
+
+| Batch | KV Cache | Total VRAM | Practical? | Risk |
+|-------|----------|-----------|-----------|------|
+| 1 | 64MB | 70.1GB | Yes | 10GB headroom |
+| 4 | 256MB | 70.3GB | Yes | 9.7GB headroom |
+| 16 | 1GB | 71GB | Tight | 9GB headroom |
+| 32 | 2GB | 72GB | Risky | May OOM |
+| 64+ | 4GB+ | 74GB+ | OOM | Will crash |
+
+Batch 32+ causes OOM on single H100. Workaround: **continuous batching** or **sequence packing**.
+
+Continuous batching: don't wait for all tokens in a batch to complete. Process tokens individually, scheduling new work as old completes. KV cache is shared across in-flight tokens. Effective batch drops from 32 to 4-8 without exceeding VRAM.
+
+### Training Batch Size Effects
+
+Training uses gradient checkpointing. Batch size doesn't change per-GPU VRAM in distributed training (DeepSpeed handles sharding). Instead, batch size affects gradient noise and convergence.
+
+Typical sweet spot: batch 4-8 per GPU for 70B models on H100 clusters.
+
+| Batch | Per-GPU Memory | H100 Count for Llama 70B |
+|-------|---|---|
+| 1 | ~630GB unsharded | 8x |
+| 4 | ~630GB unsharded | 8x |
+| 8 | ~630GB unsharded | 8x |
+
+Batch size scales gradient accumulation steps, not per-GPU VRAM.
+
+---
+
+## Popular Model VRAM Breakdown
+
+### Llama 3 8B
+
+- Weights (int8): 8GB
+- Inference KV cache (batch 4): 0.25GB
+- **Total inference: 8.25GB** (fits A10, L40, A6000, H100)
+- Training (single GPU, gradient checkpointing): ~96GB
+
+### Mistral 7B
+
+- Weights (int8): 7GB
+- Inference KV cache (batch 4): 0.2GB
+- **Total inference: 7.2GB** (fits A10, RTX 4090, L40)
+- Training (single GPU): ~84GB with gradient checkpointing
+
+### Llama 3 70B
+
+- Weights (int8): 70GB
+- Inference KV cache (batch 4): 0.25GB
+- **Total inference: 70.25GB** (fits H100 PCIe, L40S, GH200)
+- Training: ~630GB (8x H100 SXM recommended)
+
+See [GPU models](/gpus) for cloud provider pricing on suitable hardware.
+
+### Llama 3 405B
+
+- Weights (int8): 405GB
+- Inference KV cache (batch 4): 1.5GB
+- **Total inference: 406.5GB** (requires 5-6x H100 SXM or MI300X multi-GPU)
+- Training: impossible on current single-GPU hardware. Requires distributed training at scale.
+
+### Qwen 72B
+
+- Weights (int8): 72GB
+- Inference KV cache (batch 4): 0.3GB
+- **Total inference: 72.3GB** (fits H100, close to limit)
+- Training: ~570GB (8x H100 SXM)
+
+### GPT-4 (Estimated)
+
+Specifications are not public. Assumed ~1.76T parameters (mixture-of-experts architecture).
+
+- Full-precision inference: ~7TB (impossible on cloud hardware)
+- int4 inference: ~440GB (requires 5-6x MI300X or 8-10x H100 SXM)
+- Training: not available for cloud rental (proprietary)
+
+---
+
+## Multi-GPU Considerations
+
+### Tensor Parallelism
+
+Split model across multiple GPUs. Each GPU holds 1/N of the model. Requires fast inter-GPU communication (NVLink or high-speed Ethernet).
+
+Example: Llama 3 70B across 2x H100 SXM.
+- Per-GPU model size: 35GB (int8)
+- Per-GPU KV cache (batch 8): 0.5GB
+- Per-GPU total: 35.5GB (fits comfortably)
+
+Requires NVLink for <1ms inter-GPU latency. Standard in professional GPU clusters.
+
+### Pipeline Parallelism
+
+Split model into sequential stages, each on a different GPU. Slower than tensor parallelism due to pipeline bubbles, but works on heterogeneous hardware.
+
+Less common in practice. Tensor parallelism is preferred.
+
+### Data Parallelism with DeepSpeed
+
+Shard optimizer state, gradients, and weights across GPUs. Each GPU holds partial weights.
+
+Example: Llama 3 70B training across 8x H100 with DeepSpeed Zero-3.
+- Per-GPU unsharded memory: 630GB / 8 ≈ 79GB
+- Fits on each H100 (80GB) with 1GB headroom
+
+Standard approach for distributed fine-tuning. Requires Hugging Face Transformers + DeepSpeed integration.
+
+---
+
+## Cost Implications
+
+VRAM drives GPU selection, which drives cost.
+
+### Llama 3 70B Inference Cost
+
+Serving 1M tokens/day, batch 4:
+
+**Option 1: Dual H100 PCIe (for model sharding)**
+- Cost: 2 × $1.99/hr = $3.98/hr
+- 30% utilization: 30% × $3.98 × 730 hrs/month = **$870/month**
+- Per token: $870 / (30M tokens/month) = **$0.000029/token**
+
+**Option 2: Single MI300X (fits Llama 70B int8 without sharding)**
+- Cost: $3.49/hr (RunPod pricing)
+- 50% utilization: 50% × $3.49 × 730 = **$1,274/month**
+- Per token: $1,274 / (50M tokens/month) = **$0.000025/token**
+
+MI300X's extra memory eliminates dual-GPU overhead. At equivalent throughput, the larger card is cheaper.
+
+### Fine-Tuning Llama 3 70B with LoRA
+
+LoRA approach (parameter-efficient):
+- Llama 3 70B int4 (QLoRA): 45GB
+- Single H100 on RunPod: $1.99/hr × 10 hours training = **$19.90**
+
+vs full fine-tuning:
+- 8x H100 on RunPod: $2.69 × 8 × 10 = **$215.20**
+
+**LoRA saves $195 (91% cheaper)** while maintaining near-original quality.
+
+---
+
+## FAQ
+
+**What happens if I run out of VRAM?**
+PyTorch throws `RuntimeError: CUDA out of memory`. Inference crashes immediately. Training loses all progress (unless using checkpointing for emergency swap to CPU RAM, which is 10-100x slower). Prevention: calculate VRAM upfront, test with smaller batch sizes, enable gradient checkpointing.
+
+**Should we use mixed precision (fp16) or quantization?**
+For inference: quantization (int8 or int4) is preferable. Smaller model, faster memory bandwidth, negligible quality loss. For training: mixed precision (fp16 + fp32) is standard. Faster than fp32 alone, maintains numerical stability better than pure fp16.
+
+**Can Llama 2 70B fit on an A100?**
+A100 has 80GB HBM2e. Llama 2 70B (older than Llama 3) in FP16: 140GB (doesn't fit). int8: 70GB (fits with 10GB headroom, tight for batching). Training: impossible (requires 560GB+ with optimizer).
+
+**What's the difference between KV cache and activations?**
+KV cache: stored intermediate key/value tensors used during token generation. Grows with batch and sequence length. Activations: temporary tensors computed during forward pass. Recomputed during backward (gradient checkpointing) or stored (memory-hungry, faster).
+
+**How do I estimate VRAM for a custom model?**
+Count parameters: `model.num_parameters()` in PyTorch. Multiply by bytes per parameter (0.5 for int4, 1 for int8, 2 for fp16, 4 for fp32). Add 20% for workspace and activations. For training, multiply by 3-4 (gradients + optimizer + activations).
+
+**Can we use CPU RAM as swap for VRAM?**
+Yes, but catastrophically slow. Useful for development, not production. SwiftTransformer and DeepSpeed support offloading, but throughput drops 10-50x depending on PCIe bandwidth. Only use in emergency or development.
+
+---
+
+## Related Resources
+
+- [GPU Hardware Specifications and Pricing](/gpus)
+- [GPU vs CPU for AI Workloads](/articles/gpu-vs-cpu-for-ai)
+- [What is a Cloud GPU](/articles/what-is-cloud-gpu)
+- [AI Tokens Explained](/articles/what-are-ai-tokens)
+
+---
+
+## Sources
+
+- [Meta Llama 3 Model Card](https://huggingface.co/meta-llama/Meta-Llama-3-70B)
+- [Mistral 7B Model Card](https://huggingface.co/mistralai/Mistral-7B-v0.1)
+- [vLLM Memory Planning Guide](https://docs.vllm.ai/en/latest/)
+- [HuggingFace Transformers Quantization](https://huggingface.co/docs/transformers/main/en/quantization/gptq)
+- [DeepSpeed Memory Optimization](https://github.com/microsoft/DeepSpeed)
+- [QLoRA: Efficient Fine-Tuning Paper](https://arxiv.org/abs/2305.14314)

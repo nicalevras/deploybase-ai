@@ -1,0 +1,467 @@
+---
+title: What Is AI Infrastructure? The Full Technical Stack Explained
+slug: what-is-ai-infrastructure
+description: >-
+  AI infrastructure explained: GPUs, cloud platforms, storage, networking, and
+  software layers. How the entire stack works together from silicon to API.
+date: '2026-03-22'
+author: DeployBase
+category: Educational
+keywords:
+  - what is ai infrastructure
+  - ai infrastructure stack
+  - ai infrastructure components
+  - ai compute infrastructure
+  - ai infrastructure architecture
+---
+
+## Contents
+
+- [What is AI Infrastructure: Overview](#what-is-ai-infrastructure-overview)
+- [Layer 1: Silicon & Processors](#layer-1-silicon-processors)
+- [Layer 2: Compute Platforms](#layer-2-compute-platforms)
+- [Layer 3: Cloud & Networking](#layer-3-cloud-networking)
+- [Layer 4: Storage & Data Pipeline](#layer-4-storage-data-pipeline)
+- [Layer 5: Software & Frameworks](#layer-5-software-frameworks)
+- [Layer 6: Applications & APIs](#layer-6-applications-apis)
+- [How the Layers Fit Together](#how-the-layers-fit-together)
+- [Infrastructure Costs Breakdown](#infrastructure-costs-breakdown)
+- [Real-World Infrastructure Examples](#real-world-infrastructure-examples)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## What is AI Infrastructure: Overview
+
+What is AI infrastructure? The full stack of hardware, cloud platforms, networking, storage, and software that powers machine learning training, inference, and deployment.
+
+Think of it like building a power plant. Silicon is the generator (produces compute). Cloud platforms are the grid (distributes compute). Networking is the transmission line (moves data). Storage is the fuel source (feeds the generator). Software is the control room (orchestrates everything).
+
+Most teams don't build AI infrastructure from scratch. They rent compute, use cloud storage, and rely on framework libraries. But understanding each layer clarifies tradeoffs: why GPUs are expensive, why latency matters, why data centers exist.
+
+---
+
+## Layer 1: Silicon & Processors
+
+### GPUs (Graphics Processing Units)
+
+GPUs are the core of modern AI. They have thousands of tiny cores optimized for parallel matrix multiplication. Training a language model on a GPU is 100x faster than a CPU.
+
+**Major GPU families (as of March 2026):**
+
+**NVIDIA (80% market share):**
+- H100/H200: training, large model serving
+- A100: inference, older workloads
+- L40S: fine-tuning, mixed workloads
+- RTX 4090/5090: consumer cards, research
+
+**AMD CDNA:**
+- MI300X: 192GB memory, inference at scale
+- MI300: older, similar specs
+
+**Custom chips:**
+- Google TPU: proprietary, in-house only
+- AWS Trainium/Inferentia: AWS-only, specific workloads
+- Tesla Dojo: Tesla's in-house training
+
+**Why GPUs dominate:** tensor cores (specialized circuits for matrix math) make them 10-100x faster than CPUs for AI. A single H100 trains a 7B model in days. A CPU would take months.
+
+### Specialized Processors
+
+**TPUs (Tensor Processing Units):** Google's custom silicon. Only available on Google Cloud. Optimized for inference. Cheaper than GPUs for large-scale serving but locked to Google's ecosystem.
+
+**Inference accelerators:** NVIDIA L4, AWS Neuron, Cerebras. Optimized for inference (lower latency, lower power). Cheaper than training GPUs but can't handle training workloads.
+
+### Memory Hierarchy
+
+GPUs have three types of memory:
+
+1. **HBM (High-Bandwidth Memory):** 40-192GB on a GPU. Extremely fast. Expensive. This is where model weights and intermediate activations live.
+2. **VRAM (Video RAM):** Synonym for HBM on GPUs. Same memory pool.
+3. **CPU RAM (System Memory):** 256GB-2TB on servers. Connected to GPU via PCIe or NVLink. Slower than HBM but cheaper per gigabyte.
+
+Model loading is the first bottleneck: moving weights from system memory to GPU memory via PCIe takes seconds to minutes. That's why PCIe Gen5 and NVLink (direct GPU-to-GPU fabric) matter.
+
+---
+
+## Layer 2: Compute Platforms
+
+### Cloud GPU Providers
+
+Companies rent GPUs from providers instead of buying hardware.
+
+**RunPod:** Peer-to-peer GPU marketplace. Cheapest rates ($0.22-$5.98/hr). Less reliable. Good for non-critical workloads.
+
+**Lambda:** Reliable cloud GPU provider. Higher prices ($1.48-$6.08/hr). SLA guarantees. Good for production inference.
+
+**CoreWeave:** GPU-first cloud platform. Competitive pricing, deep optimization for AI workloads. Growing fast.
+
+**AWS:** Expensive GPU instances (EC2 P4/P5) but integrated with other AWS services (S3, RDS, monitoring).
+
+**Google Cloud:** TPU-first pricing. Cheaper if using TPUs. GPU instances are pricier than CoreWeave.
+
+**Microsoft Azure:** Production GPU instances. Bundled with Azure ecosystem. Most expensive option.
+
+### Clusters & Distributed Setup
+
+Single GPUs train small models. Large models (70B+) need multiple GPUs in a cluster.
+
+**Multi-GPU setups (March 2026 costs):**
+
+- 8x H100 SXM: CoreWeave $49.24/hr, RunPod $21.52/hr (2 GPUs, scales to 8)
+- 8x A100 SXM: CoreWeave $21.60/hr, RunPod $11.12/hr (2 GPUs, scales to 8)
+- 8x MI300X: CoreWeave ~$28/hr (192GB × 8)
+
+Cluster interconnect matters. NVLink (NVIDIA, 900 GB/s per GPU) is faster than Infinity Fabric (AMD, 400 GB/s) for synchronized training. For inference (embarrassing parallelism), the difference is smaller.
+
+---
+
+## Layer 3: Cloud & Networking
+
+### Data Centers & Connectivity
+
+GPUs live in data centers. Data centers are connected via fiber optic cables.
+
+**Typical setup:**
+- Data center houses thousands of GPUs across multiple racks.
+- Racks have 8-16 GPUs per rack connected via PCIe or NVLink.
+- Racks are connected via 100 Gbps Ethernet.
+- Data centers are connected to the internet via multiple 400+ Gbps pipes.
+
+**Latency implications:**
+- Single GPU communication: 0 latency (same circuit).
+- Multi-GPU same rack: <1ms (direct interconnect).
+- Multi-GPU different rack: 1-5ms (network hop).
+- Multi-GPU across data centers: 50-200ms (long distance, physics).
+
+Training large models requires <5ms latency between GPUs. That's why distributed training clusters are always in the same data center. Gradient synchronization across 50+ ms latency becomes the bottleneck.
+
+For inference, latency tolerance is higher. Serving a model from Europe to US users is acceptable (50-100ms additional latency).
+
+### Networking Architecture
+
+**Collective communication patterns:**
+- AllReduce: synchronize gradients across all GPUs (used in training). Requires low latency.
+- Point-to-point: send data from one GPU to another. Used in pipeline parallelism.
+- Broadcast: send model weights to all GPUs at once. Used when starting training.
+
+NVIDIA's NCCL (NVIDIA Collective Communications Library) optimizes these operations. ROCm's equivalent is RCCL (ROCm Collective Communications Library).
+
+---
+
+## Layer 4: Storage & Data Pipeline
+
+### Model Storage
+
+Pre-trained model weights are stored in:
+
+- **Object storage (S3, GCS, Azure Blob):** Accessible from any GPU globally. Read bandwidth: 1-100 MB/s. Used for model downloads, snapshots.
+- **Local NVMe SSD:** Attached to GPU servers. 3-7 GB/s. Used for temporary checkpoints during training.
+- **Network-attached storage (NFS, Ceph):** Shared file systems. 100-500 MB/s. Used for distributed checkpointing.
+
+**Example:** A 70B model is ~350GB quantized to 16-bit (2 bytes per parameter × 70B = 140GB... wait, 70B params × 2 bytes = 140GB unquantized). Uploading 140GB to S3 takes hours. Downloading to GPU takes 20-30 minutes. That's why models are cached on fast local storage during training.
+
+### Training Data Pipeline
+
+Training requires streaming data from disk to GPU continuously. Bottleneck: disk I/O speed.
+
+**Typical setup:**
+1. Data stored on cloud object storage (S3, GCS) as .parquet or .tfrecord.
+2. Data loader (PyTorch DataLoader, TensorFlow Dataset) fetches batches.
+3. Batches are preprocessed (tokenization, augmentation) on CPU.
+4. Batches are sent to GPU at ~1-10 GB/s.
+
+If GPU compute finishes before next batch arrives, the GPU stalls. Data loading is often the bottleneck. Solutions: better prefetching, larger batches, faster storage (NVMe), data compression.
+
+### Checkpointing & Snapshots
+
+Training a 70B model takes 5-10 days. Failure midway is catastrophic. Checkpointing saves model weights every 10-30 minutes.
+
+**Checkpointing overhead:**
+- Save 140GB to NVMe SSD: ~1 minute.
+- Save 140GB to network storage: ~5 minutes.
+- Save 140GB to S3: ~30 minutes (slow, used for long-term backup).
+
+Frequent checkpointing (every 10 min) to slow storage means 30% of training time is I/O. Fast local storage is mandatory.
+
+---
+
+## Layer 5: Software & Frameworks
+
+### Deep Learning Frameworks
+
+Frameworks abstract away GPU programming. Instead of writing CUDA (NVIDIA) or HIP (AMD) code, teams write in Python.
+
+**PyTorch (most popular for research & startups):**
+- Pythonic API. Easy debugging.
+- CUDA optimized (NVIDIA bias).
+- Auto-differentiation (automatic gradient calculation).
+- Distributed training via DistributedDataParallel (DDP).
+
+**TensorFlow (enterprise, production):**
+- Lower latency inference via TFLite, TF Serving.
+- Production-ready (Google's internal backbone).
+- Steeper learning curve.
+
+**JAX (research):**
+- Functional programming. Composable transformations (JIT, vmap).
+- Faster research iteration. Slower production deployment.
+
+**LLaMA, Mistral, Hugging Face Transformers:**
+- Pre-built model architectures and training scripts.
+- Most teams start here instead of reimplementing Transformers from scratch.
+
+### Distributed Training Systems
+
+Multi-GPU training requires coordination.
+
+**Data Parallelism:** Split training data across GPUs. Each GPU trains on a batch, then gradients are averaged. Simplest, most common.
+
+**Model Parallelism:** Split model weights across GPUs. If a model is 1.4TB and only 4x H100 GPUs (640GB total) are available, weights live on different GPUs. Gradient updates require GPU-to-GPU communication. Harder to implement, slower.
+
+**Pipeline Parallelism:** Split model layers across GPUs. GPU 1 runs layers 1-10, GPU 2 runs layers 11-20, etc. Reduces total memory per GPU but adds communication overhead.
+
+**Tensor Parallelism:** Split matrices across GPUs. If a matrix is 100K x 100K, split it into 4x 50K x 50K. Adds per-operation communication. Rarely used.
+
+Most teams use data parallelism. Distributed training frameworks (DeepSpeed, PyTorch Lightning, Megatron-LM) handle the complexity.
+
+---
+
+## Layer 6: Applications & APIs
+
+### Model Serving (Inference)
+
+Once trained, models are served to end users via APIs.
+
+**Serving frameworks:**
+- vLLM: fastest open-source LLM serving, batching optimization, 10x faster than base PyTorch.
+- TensorFlow Serving: production-grade inference from Google.
+- Hugging Face Text Generation Inference (TGI): optimized for transformers.
+- Ray Serve: distributed serving on Ray clusters.
+
+**Deployment patterns:**
+1. Single-GPU inference: serve 1 model on 1 GPU. Batch size 1-32. Latency 10-500ms per request.
+2. Multi-GPU inference: replicate model across GPUs, load-balance requests. Throughput-optimized.
+3. Speculative decoding: generate multiple candidate tokens, verify with smaller model, skip invalid tokens. 2-4x faster for certain workloads.
+
+### Fine-Tuning & Customization
+
+Teams often fine-tune pre-trained models on custom data.
+
+**Parameter-efficient fine-tuning:**
+- LoRA (Low-Rank Adaptation): add tiny matrices, freeze base weights. 99.9% fewer parameters.
+- QLoRA: LoRA + quantization. Fit 70B model on single 24GB GPU.
+- Prefix tuning, adapter modules: alternatives to LoRA.
+
+Fine-tuning costs 1/10th the training cost. A 7B model LoRA fine-tune on 100K examples costs $10-30, not $1,000.
+
+### API & Pricing Models
+
+**Pay-per-token:** Claude ($3 input, $15 output per million), GPT-4o ($2.50 input, $10 output).
+
+**Pay-per-hour:** GPU rentals (RunPod $1.99/hr for H100).
+
+**Subscription:** ChatGPT Plus ($20/month). Anthropic Claude Pro ($20/month).
+
+**On-premise:** Buy hardware, run locally. $50K for 1 H100 machine, $500K for an 8-GPU cluster.
+
+Most startups use API (pay-per-token). Scale startups run on-premise clusters or rent bulk GPU capacity.
+
+---
+
+## How the Layers Fit Together
+
+### Training Pipeline
+
+1. **Data** (Layer 4): stored in S3, 1TB+ dataset.
+2. **Data loader** (Layer 5): fetches batches, streams to GPU at 10 GB/s.
+3. **GPU** (Layer 1): runs forward pass (compute), backward pass (gradient), optimizer step.
+4. **NVLink** (Layer 3): if multi-GPU, synchronizes gradients across GPUs (<5ms).
+5. **Checkpointing** (Layer 4): saves weights to NVMe every 10 minutes, backup to S3.
+6. **Framework** (Layer 5): PyTorch handles auto-differentiation, distributed coordination.
+
+Total time: 5-10 days for 70B model.
+
+### Inference Pipeline
+
+1. **Model weights** (Layer 4): stored in S3, loaded to GPU memory (20-30 min).
+2. **User request** (Layer 6): sent to API endpoint.
+3. **Tokenization** (Layer 5): convert text to tokens on CPU.
+4. **Forward pass** (Layer 1): GPU generates next token.
+5. **Token streaming** (Layer 3): send tokens back to user as they're generated.
+6. **Batching** (Layer 5): vLLM merges multiple requests, batches on same GPU.
+
+Total latency: 50-500ms per request, depending on batch size and model size.
+
+### Multi-Tenant Inference at Scale (Example: OpenAI's Infrastructure)
+
+1. User sends request to API.
+2. **Load balancer** (Layer 3) routes to nearest data center.
+3. **Request queue** (Layer 5) batches requests from multiple users.
+4. **GPU** (Layer 1) processes batch of 32-128 requests in parallel.
+5. **Tokens streamed** (Layer 3) back to users in real-time.
+6. **Logging** (Layer 4) records costs per request for billing.
+
+One H100 can serve 1,000+ users concurrently if batch size is 128 and average response is 100 tokens. That's why inference is cheaper than training: amortization.
+
+---
+
+## Infrastructure Costs Breakdown
+
+Typical cost structure for an AI startup running production inference:
+
+| Component | Cost/month | % of Total |
+|-----------|-----------|-----------|
+| GPU compute (1x H100, 70% utilization) | $1,000 | 27% |
+| Data egress (S3 to users, 100 TB/month) | $900 | 25% |
+| Data storage (S3, 50TB) | $1,150 | 32% |
+| Networking & load balancing (CloudFront, etc) | $200 | 5% |
+| Monitoring & logging (Datadog, etc) | $400 | 11% |
+| **Total** | **$3,650** | **100%** |
+
+Note: Data egress is the hidden cost. If serving models globally, data transfer between continents adds up fast.
+
+---
+
+## Real-World Infrastructure Examples
+
+### Example 1: Fine-Tuning a 7B Model (Small Team)
+
+**Hardware:**
+- 1x H100 GPU ($2,000/month on RunPod)
+- 1 compute node (GPU + CPU + RAM)
+
+**Storage:**
+- Base model weights (14GB) on NVMe SSD
+- Fine-tuning data (100K examples, 50GB) on object storage
+- Checkpoints every 30 min (1 checkpoint = 14GB, kept for 1 day = 48 checkpoints = limited storage)
+
+**Networking:**
+- Download model from S3 (20-30 min, 1-2 Mbps average)
+- Upload checkpoints to S3 (5 min per checkpoint)
+- No multi-GPU sync needed
+
+**Cost breakdown:**
+- GPU: $2,000/month
+- Storage: $50/month
+- Egress (checkpoints + logs): $20/month
+- Total: $2,070/month
+
+**Timeline:** Fine-tune a 7B model on 100K examples (100 epochs) = 5-10 days continuous = 10K GPU-hours (theoretical max). Assuming 50% utilization: 20K GPU-hours needed. Real world: 2 weeks calendar time, 10K GPU-hours = $2,000 per job.
+
+### Example 2: Training a 70B Model from Scratch (Large Team)
+
+**Hardware:**
+- 32x H100 SXM GPUs (4 nodes, 8 GPUs per node)
+- Each node: dual-socket EPYC CPU, 1.5TB system RAM, 10TB NVMe storage
+- NVLink fabric connecting GPUs
+- 100 Gbps Ethernet between nodes
+
+**Storage:**
+- Training dataset (1T tokens = ~500GB text, compressed) on NFS
+- Checkpoints every 6 hours (1 checkpoint = 1.4TB, kept for 1 week = 28 checkpoints = 40TB total checkpoint storage)
+
+**Networking:**
+- NVLink: 900 GB/s per GPU (internal GPU-to-GPU sync)
+- Node-to-node: 100 Gbps Ethernet (slow for gradient sync, requires optimization)
+- Data ingest: 10x 100 Mbps pipes = 1 GB/s from data center storage
+
+**Cost breakdown (CloudProvider, e.g., CoreWeave):**
+- GPU cluster: 32 × $6.155/hr × 730 hrs = $143,936/month
+- Networking: included in cluster rate
+- Storage: $5,000/month (NFS + checkpoint S3)
+- Data egress: $500/month (model snapshots to S3)
+- Total: $149,436/month
+
+**Timeline:** Train 70B model on 1T tokens = ~1 million GPU-hours total. 32 GPUs running in parallel ≈ 31,250 GPU-hours at 100% utilization. Reality: 40% efficiency (due to I/O, synchronization, communication overhead) = 78,125 actual GPU-hours = 3,255 cluster-hours = ~3.7 continuous months. Cost: 3,255 × $154 (per-hour cluster cost) = ~$500K per 70B model.
+
+### Example 3: Inference at Scale (100K Users)
+
+**Scenario:** Serve a 70B model to 100K concurrent users globally.
+
+**Hardware:**
+- Regional deployment: 5 regions (US-East, US-West, EU, APAC, Brazil)
+- Per region: 4x H100 (inference optimized, vLLM with batching)
+- Each H100 serves 20K concurrent users via request batching
+- Replication: 4 GPUs handle 80K users; need 5 GPUs to reach 100K capacity per region
+- Total across all regions: 5 × 5 = 25 GPUs
+
+**Storage:**
+- Model weights (350GB quantized) cached on each region's NVMe
+- Weights on S3 (1 copy for backup)
+
+**Networking:**
+- Global load balancer (CloudFront or equivalent): directs users to nearest region
+- Inter-region sync: replicate user engagement logs to central analytics DB (~100 GB/day)
+- User-to-GPU latency: <50ms for US, <100ms for EU
+
+**Cost breakdown (monthly):**
+- GPU compute: 25 × $2,000 = $50,000
+- Data egress (model distribution + inference logs): $15,000
+- Load balancing & CDN: $10,000
+- Storage (S3, checkpoints): $2,000
+- Monitoring & logging: $5,000
+- Total: $82,000/month
+
+**Revenue model:** Charge $0.10 per million tokens. Inference rate: 25 GPUs × 1,000 tok/s × 86,400 seconds = 2.16 billion tokens/day = 64.8 billion tokens/month. Revenue: 64.8B × $0.10 / 1M = $6,480/month.
+
+**Problem:** Revenue $6,480 < costs $82,000. Not viable. Need to increase pricing (charge customers) or reduce costs (use cheaper GPUs, consolidate regions).
+
+**Revised model:** Charge $0.50 per million tokens → $32,400/month revenue. Still below costs. This is why inference margins are thin and consolidation is happening (everyone runs inference on a few large platforms, not distributed).
+
+## FAQ
+
+**What's the minimum infrastructure to train a model?**
+
+1 GPU (H100: $2,000/month rental) + data storage ($50-500/month) + framework ($0, open-source). Minimum: $2,050/month for small experiments.
+
+**Why are GPUs so expensive?**
+
+Demand exceeds supply. AI boom spiked GPU demand 10x. NVIDIA can't scale production fast enough. Supply will normalize by 2028 when AMD and others ramp.
+
+**Can I train models on CPUs?**
+
+Technically yes. Practically no. A 7B model takes 30 days on a CPU, 6 days on H100. The 5x slowdown costs $5,000 in electricity, not including engineer time.
+
+**How much data do I need to train a useful model?**
+
+For base pre-training: 10-100 billion tokens (10^10 to 10^11). For fine-tuning: 1,000-100,000 examples. For few-shot learning: 0-10 examples. More data helps but faces diminishing returns.
+
+**What's the carbon footprint of training a large model?**
+
+Rough estimate: training a 70B model for 1T tokens (4 days on 32x H100) = 500-600 MWh = 300-400 metric tons CO2 (depends on grid carbon intensity). Equivalent to 60-80 cross-country flights.
+
+**How often should I retrain models?**
+
+For base models (like Claude, GPT): every 3-6 months as new training data emerges. For fine-tuned models: quarterly for production, weekly for research. Depends on data freshness requirements.
+
+**What's the tradeoff between buying and renting GPUs?**
+
+Buy if: training continuously 6+ months, utilization >80%. Rent if: experimental, sporadic use, variable demand. Breakeven: 12,000-15,000 GPU-hours (~18 months continuous). Most startups rent.
+
+**How does quantization (INT8, INT4) affect infrastructure?**
+
+Quantization reduces model size by 4-8x and inference latency by 2-4x. Smaller models fit on cheaper GPUs (A100 instead of H100). Trade-off: slight accuracy loss (typically <1% on benchmarks).
+
+---
+
+## Related Resources
+
+- [AI Infrastructure Companies](/articles/ai-infrastructure-companies)
+- [AI Infrastructure Stocks](/articles/ai-infrastructure-stocks)
+- [Top AI Infrastructure Tools](/articles/top-ai-stocks)
+- [DeployBase GPU Pricing Dashboard](/gpus)
+
+---
+
+## Sources
+
+- [NVIDIA GPU Architecture Guides](https://developer.nvidia.com/articles/)
+- [PyTorch Distributed Training Documentation](https://pytorch.org/docs/stable/distributed.html)
+- [vLLM Inference Framework](https://github.com/vllm-project/vllm)
+- [AWS EC2 GPU Instance Pricing](https://aws.amazon.com/ec2/pricing/on-demand/#gpu)
+- [Google Cloud TPU Documentation](https://cloud.google.com/tpu/docs)
+- [CoreWeave Cloud Infrastructure Docs](https://docs.coreweave.com)
+- DeployBase Infrastructure Tracking (March 2026)

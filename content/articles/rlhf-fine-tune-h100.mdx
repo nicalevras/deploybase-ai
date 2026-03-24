@@ -1,0 +1,674 @@
+---
+title: 'RLHF Fine-Tuning on Single H100: Step-by-Step Guide'
+slug: rlhf-fine-tune-h100
+description: >-
+  Complete RLHF fine-tuning workflow on single H100 GPU. TRL library, reward
+  modeling, PPO/DPO, VRAM budgets, LoRA. Hands-on tutorial as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: Tutorial
+keywords:
+  - rlhf fine tune llm single h100
+  - rlhf fine tuning
+  - fine tune llm h100
+  - dpo training
+  - ppo reward model
+  - llm alignment
+---
+
+## Contents
+
+- [RLHF Fine Tune LLM Single H100: Overview](#rlhf-fine-tune-llm-single-h100-overview)
+- [Hardware and Cost](#hardware-and-cost)
+- [RLHF Architecture](#rlhf-architecture)
+- [Setup and Dependencies](#setup-and-dependencies)
+- [Step 1: Prepare Training Data](#step-1-prepare-training-data)
+- [Step 2: Build Reward Model](#step-2-build-reward-model)
+- [Step 3: Implement PPO Training](#step-3-implement-ppo-training)
+- [Step 4: DPO Alternative (Recommended)](#step-4-dpo-alternative-recommended)
+- [Step 5: Validate and Deploy](#step-5-validate-and-deploy)
+- [VRAM Optimization Strategies](#vram-optimization-strategies)
+- [Training Tips and Tricks](#training-tips-and-tricks)
+- [Troubleshooting Guide](#troubleshooting-guide)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## RLHF Fine Tune LLM Single H100: Overview
+
+Rlhf Fine Tune LLM Single H100 is the focus of this guide. RLHF on a single H100 is practical now thanks to LoRA and TRL. RLHF (Reinforcement Learning from Human Feedback) is how OpenAI, Anthropic, and Mistral align models to what humans prefer. The workflow: train a reward model (learns which outputs humans like), then use PPO (Proximal Policy Optimization) to push the LLM toward higher rewards. Alternative: DPO (Direct Preference Optimization) skips the reward model, learns directly from preference pairs.
+
+A single [H100](/gpus/models/nvidia-h100) fits 7B-13B models with LoRA. 70B models need distributed training or aggressive quantization. This guide trains Mistral 7B with both PPO and DPO on one H100, with costs and VRAM budgets.
+
+Cost: H100 at $1.99/hr × 24 hours = $47.76 per full RLHF run. Buying an H100 ($330K) breaks even after 6.8 years continuous use. Cloud rental or shared providers (RunPod, Lambda) make sense.
+
+---
+
+## Hardware and Cost
+
+### Single H100 Configuration
+
+- **GPU:** NVIDIA H100 PCIe, 80GB HBM2e memory
+- **System RAM:** 128GB minimum (preferably 256GB for data pipeline)
+- **Storage:** 100GB free (model weights, datasets, checkpoints)
+- **Network:** 10Gbps+ for downloading models from Hugging Face
+- **Cloud Cost:** [RunPod H100 PCIe at $1.99/hr](/gpus/models/nvidia-h100), [Lambda H100 PCIe at $2.86/hr](/articles/best-gpu-for-stable-diffusion)
+
+### VRAM Breakdown (Mistral 7B, RLHF Workflow)
+
+| Stage | Memory Usage | Notes |
+|-------|--------------|-------|
+| Base model (Mistral 7B, FP16) | 14GB | Weights + activations |
+| Optimizer states (Adam) | 28GB | 2x model size for momentum + variance |
+| Batch size 16, seq length 512 | 18GB | Gradient computation |
+| LoRA adapters | 1GB | Rank 32, 64 alpha |
+| **Total active during training** | 61GB | Fits on H100 with margin |
+
+H100's 80GB handles this configuration with reasonable headroom. Peak usage is approximately 61GB during gradient updates.
+
+### Alternative: Quantized Setup
+
+Use bitsandbytes 4-bit quantization to reduce VRAM by 50%:
+
+| Stage | Quantized VRAM |
+|-------|---|
+| Base model (Mistral 7B, 4-bit) | 3.5GB |
+| Optimizer states | 21GB (3x model, but smaller model) |
+| Batch, adapters | 15GB |
+| **Total** | ~40GB |
+
+Quantized training trades some quality but fits comfortably. 4-bit quantization costs 1-3% accuracy; usually acceptable for alignment work.
+
+---
+
+## RLHF Architecture
+
+### Three-Stage Workflow
+
+**Stage 1: Supervised Fine-Tuning (SFT)**
+Start with base model (Mistral 7B). Train on instruction-response pairs (1-10K examples). Objective: make model follow instructions well. VRAM: 45GB. Time: 2-8 hours on 1K-10K examples.
+
+**Stage 2: Reward Model Training**
+Train separate classifier to predict human preference. Input: (prompt, response_A, response_B). Output: which response is better? This is binary classification. Use preference pairs from dataset (1K-10K pairs). VRAM: 30GB. Time: 1-4 hours.
+
+**Stage 3: PPO Optimization**
+Use reward model to score model generations. Run inference on base model, collect samples, score them, compute PPO loss, update base model. Most VRAM-intensive (maintains base model + reward model simultaneously). VRAM: 70GB. Time: 8-24 hours.
+
+### DPO as Faster Alternative
+
+**Direct Preference Optimization** (DPO) skips the reward model entirely. Directly train base model on preference pairs: (prompt, preferred_response, rejected_response). Loss function directly optimizes for preference without intermediate reward model.
+
+Advantages: single model in memory, faster convergence, simpler pipeline. Disadvantages: direct optimization can be noisier if preference data is poor quality.
+
+VRAM: 40GB (one model). Time: 2-6 hours. Quality: similar to PPO, sometimes better on subjective tasks.
+
+For resource-constrained setups (single H100), DPO is preferred over PPO due to lower VRAM and faster convergence.
+
+---
+
+## Setup and Dependencies
+
+### Python Environment
+
+```bash
+python -m venv rlhf-env
+source rlhf-env/bin/activate
+
+pip install torch torchvision torchaudio \
+    --index-url https://download.pytorch.org/whl/cu121
+
+pip install transformers datasets peft trl \
+    bitsandbytes wandb numpy scikit-learn
+```
+
+Key packages:
+- **torch:** Deep learning framework (CUDA 12.1 for H100)
+- **transformers:** Hugging Face models and tokenizers
+- **peft:** LoRA and quantization (LoRA config, get_peft_model)
+- **trl:** RLHF training loops (PPOTrainer, DPOTrainer)
+- **bitsandbytes:** 4-bit quantization
+- **wandb:** Experiment tracking and visualization
+
+### Model Imports
+
+```python
+from transformers import AutoTokenizer, AutoModelForCausalLM
+from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+from trl import PPOTrainer, PPOConfig, DPOTrainer, DPOConfig
+from datasets import load_dataset
+import torch
+```
+
+### Configuration Template
+
+```python
+MODEL_ID = "mistralai/Mistral-7B-v0.1"
+LEARNING_RATE = 1e-4
+BATCH_SIZE = 16
+EPOCHS = 3
+LORA_RANK = 32
+LORA_ALPHA = 64
+
+lora_config = LoraConfig(
+    r=LORA_RANK,
+    lora_alpha=LORA_ALPHA,
+    target_modules=["q_proj", "v_proj"],
+    lora_dropout=0.05,
+    bias="none",
+    task_type="CAUSAL_LM"
+)
+```
+
+---
+
+## Step 1: Prepare Training Data
+
+### Instruction-Response Format (SFT Stage)
+
+Create dataset with instruction, input, output fields:
+
+```json
+{
+  "instruction": "Summarize the following article in 3 sentences.",
+  "input": "Article text here...",
+  "output": "Summary here..."
+}
+```
+
+Save as JSONL (one JSON object per line). Load and tokenize:
+
+```python
+from datasets import load_dataset
+
+dataset = load_dataset("json", data_files="training_data.jsonl")
+
+def tokenize_function(examples):
+    texts = [
+        f"{ex['instruction']}\n{ex['input']}\n{ex['output']}"
+        for ex in examples
+    ]
+    tokenized = tokenizer(
+        texts,
+        max_length=512,
+        truncation=True,
+        padding="max_length",
+        return_tensors="pt"
+    )
+    return tokenized
+
+tokenized_dataset = dataset.map(
+    tokenize_function,
+    batched=True,
+    remove_columns=dataset.column_names
+)
+```
+
+### Preference Pairs Format (PPO/DPO)
+
+Format for preference pairs:
+
+```json
+{
+  "prompt": "Summarize this article",
+  "chosen": "Long, detailed summary with key points",
+  "rejected": "Short, vague summary"
+}
+```
+
+Expectation: >1K preference pairs for meaningful training. 10K+ pairs for production quality. Each pair should represent genuine preference (better/worse based on quality, safety, relevance).
+
+Preference data sources:
+- The own annotation (expensive, ~$0.50 per pair via Mechanical Turk)
+- Open datasets (OpenOrca, Anthropic HH, UltraFeedback on Hugging Face)
+- Synthetic pairs (use GPT-4o to rank model outputs, create weak labels)
+
+---
+
+## Step 2: Build Reward Model
+
+Skip this section for DPO (uses no reward model). Include for PPO.
+
+### Reward Model Architecture
+
+Classification head on language model. Input: prompt + response. Output: scalar score (1-5) or binary (preferred/rejected).
+
+```python
+from transformers import AutoModelForSequenceClassification
+import torch
+
+class RewardModel(torch.nn.Module):
+    def __init__(self, model_id="mistralai/Mistral-7B-v0.1"):
+        super().__init__()
+        self.model = AutoModelForSequenceClassification.from_pretrained(
+            model_id,
+            num_labels=1,  # Binary reward: 0-1
+            torch_dtype=torch.float16
+        )
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id)
+
+    def score_response(self, prompt, response):
+        text = f"{prompt}\n{response}"
+        inputs = self.tokenizer(
+            text,
+            return_tensors="pt",
+            truncation=True,
+            max_length=512
+        ).to("cuda")
+
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+            score = torch.sigmoid(outputs.logits[0][0]).item()  # Sigmoid for [0, 1]
+
+        return score
+
+    def score_pair(self, prompt, response_a, response_b):
+        score_a = self.score_response(prompt, response_a)
+        score_b = self.score_response(prompt, response_b)
+        return score_a, score_b
+```
+
+### Training Reward Model
+
+```python
+from torch.optim import AdamW
+from torch.nn import MarginRankingLoss
+
+def train_reward_model(model, train_loader, epochs=3, learning_rate=1e-4):
+    optimizer = AdamW(model.parameters(), lr=learning_rate)
+    loss_fn = MarginRankingLoss(margin=0.5)  # Margin loss: chosen > rejected + margin
+
+    for epoch in range(epochs):
+        total_loss = 0
+        for batch in train_loader:
+            prompts = batch['prompt']
+            chosen = batch['chosen']
+            rejected = batch['rejected']
+
+            scores_chosen = []
+            scores_rejected = []
+
+            for prompt, c, r in zip(prompts, chosen, rejected):
+                s_c, s_r = model.score_pair(prompt, c, r)
+                scores_chosen.append(s_c)
+                scores_rejected.append(s_r)
+
+            scores_chosen = torch.tensor(scores_chosen, requires_grad=True)
+            scores_rejected = torch.tensor(scores_rejected, requires_grad=True)
+
+            # Loss: we want chosen > rejected
+            loss = loss_fn(
+                scores_chosen,
+                scores_rejected,
+                torch.ones_like(scores_chosen)  # All chosen should be > rejected
+            )
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+            total_loss += loss.item()
+
+        avg_loss = total_loss / len(train_loader)
+        print(f"Epoch {epoch}: Avg Loss {avg_loss:.4f}")
+
+    return model
+```
+
+VRAM usage during reward training: ~30GB. Time: 1-4 hours on 5K-10K pairs.
+
+---
+
+## Step 3: Implement PPO Training
+
+### PPO Trainer Setup
+
+```python
+from trl import PPOTrainer, PPOConfig
+
+ppo_config = PPOConfig(
+    model_name=MODEL_ID,
+    learning_rate=1e-5,
+    batch_size=16,
+    mini_batch_size=4,
+    ppo_epochs=4,
+    gradient_accumulation_steps=1,
+    max_new_tokens=128,
+)
+
+ppo_trainer = PPOTrainer(
+    config=ppo_config,
+    model=model,
+    tokenizer=tokenizer,
+    dataset=train_dataset,
+    data_collator=data_collator,
+    reward_model=reward_model,
+)
+```
+
+### PPO Training Loop
+
+```python
+def train_with_ppo(trainer, reward_model, num_steps=1000):
+    for step in range(num_steps):
+        # Sample batch from dataset
+        batch = next(iter(train_loader))
+        query_tensors = batch['input_ids'].to("cuda")
+
+        # Generate responses from model
+        response_tensors = trainer.generate(
+            query_tensors,
+            length_sampler=trainer.config.max_new_tokens,
+            temperature=0.7,
+            do_sample=True,
+        )
+
+        # Decode for readability
+        batch_size = len(query_tensors)
+        responses = [
+            tokenizer.decode(response_tensors[i], skip_special_tokens=True)
+            for i in range(batch_size)
+        ]
+
+        # Score responses with reward model
+        rewards = []
+        for i, response in enumerate(responses):
+            prompt = tokenizer.decode(query_tensors[i], skip_special_tokens=True)
+            score = reward_model.score_response(prompt, response)
+            rewards.append(score)
+
+        rewards = torch.tensor(rewards)
+
+        # PPO update step
+        stats = trainer.step(
+            query_tensors,
+            response_tensors,
+            rewards
+        )
+
+        if step % 100 == 0:
+            print(f"Step {step}: Reward {stats['env/reward_mean']:.4f}, "
+                  f"Loss {stats['ppo/loss/total']:.4f}")
+
+    return trainer.model
+```
+
+VRAM peak: 75GB during gradient computation and reward scoring. Training time: 8-24 hours for 1,000-5,000 PPO steps (until convergence).
+
+---
+
+## Step 4: DPO Alternative (Recommended)
+
+DPO is faster and simpler. Directly trains on preference pairs without reward model.
+
+```python
+from trl import DPOTrainer, DPOConfig
+
+dpo_config = DPOConfig(
+    output_dir="./dpo_output",
+    learning_rate=5e-4,
+    num_train_epochs=3,
+    per_device_train_batch_size=4,
+    gradient_accumulation_steps=2,
+    max_prompt_length=256,
+    max_completion_length=256,
+    beta=0.1,  # DPO parameter (higher = stronger preference signal)
+)
+
+dpo_trainer = DPOTrainer(
+    model=model,
+    ref_model=None,  # Trainer creates frozen reference internally
+    args=dpo_config,
+    train_dataset=train_dataset,
+    tokenizer=tokenizer,
+    peft_config=lora_config,
+)
+
+dpo_trainer.train()
+```
+
+DPO training time: 2-6 hours (3 epochs). VRAM: 40GB. No separate reward model. Convergence: often faster than PPO (fewer moving parts).
+
+---
+
+## Step 5: Validate and Deploy
+
+### Generate and Evaluate Samples
+
+```python
+def evaluate_model(model, test_prompts, num_samples=2):
+    model.eval()
+
+    for prompt in test_prompts:
+        inputs = tokenizer(prompt, return_tensors="pt").to("cuda")
+
+        print(f"\nPrompt: {prompt}")
+
+        for i in range(num_samples):
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=256,
+                do_sample=True,
+                temperature=0.7,
+                top_p=0.9,
+                pad_token_id=tokenizer.eos_token_id,
+            )
+
+            response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+            response_only = response[len(prompt):].strip()
+            print(f"Sample {i+1}: {response_only}\n")
+```
+
+### Save LoRA Adapter
+
+```python
+model.save_pretrained("./lora_adapter")
+
+from peft import PeftModel
+
+base_model = AutoModelForCausalLM.from_pretrained(MODEL_ID, torch_dtype=torch.float16)
+model = PeftModel.from_pretrained(base_model, "./lora_adapter")
+merged_model = model.merge_and_unload()  # Merges LoRA into base
+merged_model.save_pretrained("./merged_model")
+```
+
+File sizes:
+- Base model (Mistral 7B FP16): 14GB
+- LoRA adapter: 50MB
+- Merged model: 14GB
+
+---
+
+## VRAM Optimization Strategies
+
+### 1. Gradient Checkpointing
+
+Save intermediate activations instead of storing them. Reduces VRAM by 20-30%, adds 10-20% training time.
+
+```python
+model.gradient_checkpointing_enable()
+```
+
+### 2. 4-Bit Quantization (bitsandbytes)
+
+Reduce model VRAM by 75%. Training speed: 5-10% slower. Quality: negligible loss.
+
+```python
+from transformers import BitsAndBytesConfig
+
+bnb_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_compute_dtype=torch.bfloat16,
+    bnb_4bit_use_double_quant=True,
+    bnb_4bit_quant_type="nf4",
+)
+
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_ID,
+    quantization_config=bnb_config,
+    device_map="auto",
+)
+```
+
+### 3. Flash Attention 2
+
+Faster and more memory-efficient attention. Requires FA2 support (H100 supports it).
+
+```python
+model.config.attn_implementation = "flash_attention_2"
+```
+
+### 4. Reduce Batch Size
+
+Trade throughput for VRAM. Batch 16 to 8 saves ~10GB, increases training time 2x.
+
+### 5. Reduce Context Length
+
+Truncate sequences to 256-512 tokens instead of 2K. Saves ~30% VRAM per batch.
+
+### 6. Distributed Training (if 2+ GPUs available)
+
+Use DeepSpeed or Fully Sharded Data Parallel (FSDP). Reduces per-GPU VRAM.
+
+### Combined Optimization
+
+Quantized (4-bit) + gradient checkpointing + flash attention + batch 4 + context 256 = 20GB VRAM (works on RTX 4090). Trade-off: 3-4x slower training.
+
+---
+
+## Training Tips and Tricks
+
+### Data Quality
+
+Preference data quality is critical. Bad pairs (chosen not actually better than rejected) leads to misalignment. Spend time curating.
+
+Signs of bad preference data:
+- Chosen and rejected responses are nearly identical
+- Rejected is objectively better (rare, but happens with synthetic data)
+- No clear preference signal
+
+### Learning Rate Scheduling
+
+PPO is sensitive to learning rate. Start with 1e-5, monitor loss. If diverging (loss increasing), reduce to 5e-6. If not converging (loss stagnant), increase to 2e-5.
+
+DPO is less sensitive; 5e-4 is standard.
+
+### Monitoring and Logging
+
+Use WandB (Weights & Biases) for experiment tracking:
+
+```python
+from wandb import login
+login()  # Authenticate with WandB API key
+
+```
+
+Watch for:
+- Reward increasing (good)
+- KL divergence from reference model (should stay < 5 bits/token)
+- Loss decreasing (good)
+
+### Checkpoint Frequency
+
+Save checkpoints every 100-200 steps. Don't overwrite; keep all checkpoints. Evaluate on validation set at each checkpoint. Pick best checkpoint (highest reward + quality).
+
+---
+
+## Troubleshooting Guide
+
+### OOM (Out of Memory) Error
+
+1. Verify VRAM with `nvidia-smi`. Peak should be <80GB.
+2. Enable gradient checkpointing: `model.gradient_checkpointing_enable()`
+3. Reduce batch size (16 to 8 or 4).
+4. Enable 4-bit quantization.
+5. Reduce max sequence length (512 to 256).
+
+### Training Loss Not Decreasing
+
+1. Check learning rate. PPO: 1e-5 typical. DPO: 5e-4 typical.
+2. Verify reward model is working (test manually on known good/bad pairs).
+3. Check preference data quality (sample and review pairs).
+4. Increase training steps/epochs.
+5. Check for NaNs in loss (indicator of numerical instability).
+
+### Reward Model Scores All Same
+
+1. Reward model may be randomly initialized. Test on known pairs first.
+2. Verify loss function (should be margin loss, not MSE).
+3. Check tokenizer compatibility between base and reward models.
+4. Train reward model for more epochs.
+
+### Divergence During PPO
+
+1. Reduce PPO learning rate by 2-4x (1e-5 to 5e-6).
+2. Reduce PPO epochs (ppo_epochs=2 instead of 4).
+3. Increase mini_batch_size (gradient accumulation).
+4. Verify reward model is not over-confident (check score ranges: should be 0.3-0.7 typically, not 0-1 extremes).
+
+---
+
+## FAQ
+
+**How long does full RLHF take on H100?**
+
+SFT: 2-8 hours (1K-10K examples). Reward model: 1-4 hours (5K-10K preference pairs). PPO: 8-24 hours (1K-5K steps). DPO: 2-6 hours (3 epochs). Total: 12-36 hours (PPO) or 5-18 hours (DPO).
+
+**Can I train 13B or 70B models on single H100?**
+
+13B: Yes, with quantization and LoRA. 70B: Not practical on single H100. Use distributed training (8xH100) or quantization + offloading (very slow).
+
+**Is RLHF worth it for small datasets?**
+
+Yes if dataset is high-quality (100+ preference pairs). Marginal gains with <50 pairs. SFT (supervised fine-tuning) is more efficient for small data.
+
+**Where do I get preference data?**
+
+- OpenOrca (Hugging Face): 1M preference pairs
+- Anthropic HH: 160K preference pairs
+- UltraFeedback: 64K preference pairs
+- Annotate yourself (expensive, $0.50 per pair)
+- Synthetic (use GPT-4o to rank outputs, create weak labels)
+
+**How do I evaluate if RLHF improved the model?**
+
+A/B test: generate samples from original and RLHF-trained models, have humans rate. Or use automatic metrics: BLEU, ROUGE, BERTScore (check if preferred outputs score higher).
+
+**Should I use PPO or DPO?**
+
+DPO is simpler and faster. Use DPO for 90% of cases. PPO is slower but may have slight quality advantage if reward model is well-trained. Start with DPO; switch to PPO only if quality plateaus.
+
+**How do I merge LoRA adapter with base model?**
+
+```python
+from peft import PeftModel
+base = AutoModelForCausalLM.from_pretrained(MODEL_ID)
+model = PeftModel.from_pretrained(base, "./lora_adapter")
+merged = model.merge_and_unload()
+merged.save_pretrained("./final_model")
+```
+
+**Can I deploy LoRA separately (without merging)?**
+
+Yes. Load base model + LoRA adapter at inference time: `PeftModel.from_pretrained(base, adapter_path)`. Saves storage but requires larger inference VRAM.
+
+---
+
+## Related Resources
+
+- [NVIDIA H100 Specifications and Models](/gpus/models/nvidia-h100)
+- [Best GPU for Stable Diffusion](/articles/best-gpu-for-stable-diffusion)
+- [Fine-Tune Llama 3](/articles/fine-tune-llama-3)
+- [Fine-Tuning vs RAG](/articles/rag-vs-fine-tuning)
+
+---
+
+## Sources
+
+- [Hugging Face TRL Documentation](https://huggingface.co/docs/trl)
+- [PEFT (Parameter-Efficient Fine-Tuning)](https://huggingface.co/docs/peft)
+- [DeepSpeed Documentation](https://www.deepspeed.ai/)
+- [NVIDIA H100 Datasheet](https://resources.nvidia.com/en-us-gpu-resources/h100-datasheet)
+- [PPO Paper: Proximal Policy Optimization Algorithms](https://arxiv.org/abs/1707.06347)
+- [DPO Paper: Direct Preference Optimization](https://arxiv.org/abs/2305.18290)
+- [DeployBase GPU Pricing](/gpus/models/nvidia-h100) (March 2026)

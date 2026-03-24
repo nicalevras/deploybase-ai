@@ -1,0 +1,371 @@
+---
+title: 'How to Build a RAG App: Complete Infrastructure Guide'
+slug: build-rag-application
+description: >-
+  RAG application guide: embedding selection, vector databases, retrieval
+  strategies, LLM generation, production deployment, evaluation, and cost
+  optimization.
+date: '2026-03-22'
+author: DeployBase
+category: Guides
+keywords:
+  - build rag application
+  - rag tutorial infrastructure
+  - retrieval augmented generation
+  - rag application architecture
+  - how to implement rag
+---
+## Contents
+
+- [Build RAG Application: Overview](#build-rag-application-overview)
+- [RAG Architecture Overview](#rag-architecture-overview)
+- [Step 1: Choosing an Embedding Model](#step-1-choosing-an-embedding-model)
+- [Step 2: Selecting a Vector Database](#step-2-selecting-a-vector-database)
+- [Step 3: Implementing the Retrieval Pipeline](#step-3-implementing-the-retrieval-pipeline)
+- [Step 4: LLM Selection for Generation](#step-4-llm-selection-for-generation)
+- [Step 5: Connecting Retrieval to Generation](#step-5-connecting-retrieval-to-generation)
+- [Advanced Retrieval Strategies](#advanced-retrieval-strategies)
+- [Production Considerations](#production-considerations)
+- [Cost Analysis for RAG Systems](#cost-analysis-for-rag-systems)
+- [FAQ](#faq)
+- [RAG Quality Evaluation Framework](#rag-quality-evaluation-framework)
+- [Common RAG Failure Modes and Fixes](#common-rag-failure-modes-and-fixes)
+- [Production RAG Checklist](#production-rag-checklist)
+- [RAG System Performance at Scale](#rag-system-performance-at-scale)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Build RAG Application: Overview
+
+Build RAG Application is the focus of this guide. RAG grounds LLMs in facts by fetching documents first. Query → retrieve matching chunks → feed to LLM → answer. This guide covers production RAG: embeddings, vector storage, retrieval, generation. March 2026, RAG is the move for knowledge apps:support bots, document analysis, research assistants.
+
+The mess: RAG needs three separate systems with different costs and ops requirements. Understanding each piece is how developers avoid bill shock and latency nightmares.
+
+## RAG Architecture Overview
+
+Two phases: indexing and retrieval.
+
+**Indexing (Offline)**:
+1. Ingest documents (PDFs, web, databases)
+2. Chunk into passages (256-1024 tokens)
+3. Embed each chunk
+4. Store in vector DB with metadata
+5. Asynchronous, no latency pressure
+
+**Retrieval (Runtime)**:
+1. User submits query
+2. Embed the query (same model)
+3. Vector DB search for similar chunks
+4. Retrieve top-k (typically 5-20)
+5. LLM reads query + chunks
+6. LLM generates answer grounded in retrieved context
+
+The critical architectural decision: which components do developers pay for per query versus which developers prepay for? Embeddings computed at indexing time are free at retrieval time (already stored). LLM inference happens at retrieval time (per-query cost). Vector database lookups cost depends on scale and vendor.
+
+## Step 1: Choosing an Embedding Model
+
+Embedding models transform text into vectors capturing semantic meaning. Two implementation choices: API-based or self-hosted.
+
+**API-Based Embeddings**:
+
+OpenAI text-embedding-3-small ($0.02 per 1M tokens): 512 dimensions, fast, widely compatible. Recommended default for most RAG applications.
+
+OpenAI text-embedding-3-large ($0.13 per 1M tokens): 1536 dimensions, higher quality for specialized domains (legal, medical, technical). Cost-benefit analysis: 6.5x more expensive. The 15-25% quality improvement justifies only when accuracy significantly impacts application value.
+
+Cohere embed-english-v3 ($0.10 per 1M tokens): 1024 dimensions, supports both dense and sparse embeddings simultaneously. Useful for hybrid retrieval combining semantic and keyword matching.
+
+**Self-Hosted Embeddings**:
+
+Sentence-Transformers all-mpnet-base-v2: 768 dimensions, open-source, runs locally. Zero API cost. Requires GPU compute (GPU costs $50-200/month depending on volume). Quality approaches OpenAI's small model.
+
+**Cost Comparison**:
+- Document corpus: 10M tokens (roughly 1.3M documents at 7.7 tokens average)
+- OpenAI small embeddings: 10M tokens * $0.02/1M = $200 one-time
+- Self-hosted on modest GPU: $50-100/month in compute costs
+- Break-even: roughly 2.5 months of continuous GPU rental
+
+For most RAG applications, API embeddings remain cheaper. Self-hosting becomes economical only if the team is already running GPU infrastructure for other purposes or has extremely high embedding volume.
+
+**Selection Criteria**:
+- General purpose RAG: OpenAI text-embedding-3-small
+- Specialized domains: OpenAI text-embedding-3-large
+- Cost-sensitive at scale: Sentence-Transformers self-hosted
+- Hybrid retrieval required: Cohere embed-english-v3
+
+## Step 2: Selecting a Vector Database
+
+Vector databases store embeddings with metadata and enable efficient similarity search. Three implementation approaches: managed services, self-hosted open-source, or traditional databases with vector extensions.
+
+**Managed Vector Databases**:
+
+Pinecone: Fully managed, no infrastructure overhead. Free tier handles 100K vectors. $70/month starter pods ($0.07 per million vector dimensions per month). Scales to billions of vectors. Operational simplicity makes this the default choice for early-stage RAG applications.
+
+Weaviate Cloud: Similar to Pinecone, $20/month minimum for managed instances. Open-source option available for self-hosting.
+
+Supabase with pgvector: PostgreSQL with vector extension. $25/month standard tier. Lower cost than specialized vector databases if developers already use PostgreSQL.
+
+**Self-Hosted Vector Databases**:
+
+Qdrant: Open-source, runs in Docker. Zero hosting cost if deployed on existing infrastructure. Requires operational management: backups, scaling, monitoring. Suitable only if developers already manage Kubernetes or similar.
+
+Milvus: Distributed vector database, complex to operate. Worth exploring only at massive scale (billions of vectors).
+
+Weaviate Open Source: Self-hosted option of Weaviate. Good middle ground between managed and highly complex.
+
+**Cost Analysis**:
+100K document corpus (1.3M chunks at typical 256-token sizes):
+- Pinecone free tier: $0 (fits comfortably)
+- Pinecone if scaling beyond free tier: $70-200/month
+- Supabase: $25/month
+- Self-hosted on small VM: $10-30/month + operational overhead
+
+For most RAG applications, Pinecone's free tier or Supabase's standard tier covers initial needs. The $25-70/month cost is negligible compared to LLM inference costs.
+
+**Recommendation**: Pinecone for simplicity, Supabase for cost-consciousness, Qdrant for ultimate control.
+
+## Step 3: Implementing the Retrieval Pipeline
+
+Retrieval architecture determines accuracy and latency. Basic pattern: embed query, search vector database, return top-k results. Advanced patterns add sophistication.
+
+**Basic Retrieval**:
+```
+Query -> Embed (0.1 seconds) -> Vector Search (0.05 seconds) -> Return top-k
+```
+
+Total latency: 0.15 seconds. Cost: one embedding (negligible if batched).
+
+**Retrieval Quality Factors**:
+
+Chunking strategy: Split documents into 256-1024 token chunks. Smaller chunks (256 tokens) enable precise retrieval but require more lookups. Larger chunks (1024 tokens) enable fewer lookups but may include irrelevant text. Most applications use 512-token chunks as default. Test with the dataset.
+
+Chunk overlap: Use 50-100 token overlap between chunks to prevent semantic breaks. A chunk boundary in the middle of a sentence harms relevance.
+
+Number of results (k): Retrieve top-5 by default, top-10 if query semantics are ambiguous. Retrieving top-100 doesn't improve quality meaningfully and wastes context.
+
+**Similarity Threshold**: Return only chunks with cosine similarity above threshold (typically 0.6-0.7). Prevents irrelevant results from being included.
+
+**Advanced: Hybrid Retrieval**:
+
+Combine dense semantic embeddings with sparse keyword embeddings. A query for "contract termination" might have low semantic similarity to documents using phrase "ending agreements" (synonymous, but different vectors), but high keyword overlap. Hybrid retrieval catches both.
+
+Implementation:
+- Compute dense embedding vector (semantic search)
+- Compute sparse embedding (keyword matching, BM25)
+- Retrieve top results from both
+- Rank combined results using weight (e.g., 80% semantic, 20% keyword)
+
+Hybrid retrieval improves recall 15-25% at typical cost: slightly slower retrieval, no additional LLM cost.
+
+**Advanced: Multi-Query Retrieval**:
+
+For ambiguous queries, generate multiple reformulations, retrieve for each, combine results. Query "best practices for distributed systems" might reformulate as "consistency vs availability", "CAP theorem", "eventual consistency", etc. Search for all variants.
+
+Cost tradeoff: One query becomes 3-4 API calls. More comprehensive retrieval. Increases latency 3-4x. Worth using only for complex queries where accuracy matters significantly.
+
+## Step 4: LLM Selection for Generation
+
+The LLM generates the final answer given retrieved context. Selection depends on accuracy requirements, context length, and cost.
+
+**Recommended Models**:
+
+GPT-4o ($0.0025 input, $0.01 output): Reliable, strong instruction following, cost-effective for production.
+
+GPT-4.1 ($0.002 input, $0.008 output): Higher quality reasoning, good for complex RAG tasks. Moderate cost increase over GPT-4o.
+
+Gemini 2.5 Pro ($1.25 input, $10 output): Includes 1M token context window. Useful when concatenating many retrieved chunks without truncation concerns.
+
+Claude Sonnet 4.6 ($3 input, $15 output): Strongest instruction-following, best for nuanced generation. Justified if generation quality is critical.
+
+**Context Budget**:
+Retrieved chunks consume context. A query plus top-10 chunks (512 tokens each) = 5,120 tokens. GPT-4 handles this easily (8K context limit). If the system retrieves top-50 chunks, context fills quickly. Gemini's 1M context eliminates concerns entirely.
+
+**Cost Per Query**:
+Query (100 tokens) + top-10 chunks (5,120 tokens) + answer (400 tokens) = 5,620 tokens total
+GPT-4o: 5,620 * $0.0000025 = $0.014 per query
+Gemini 2.5 Pro: 5,620 * $0.00000125 = $0.007 per query
+
+The token cost of generation dwarfs embedding cost. Choosing the cheapest LLM that meets quality requirements matters significantly.
+
+## Step 5: Connecting Retrieval to Generation
+
+Integration follows this pattern: embedding model + vector database + LLM + orchestration framework.
+
+**Orchestration Frameworks**:
+
+LangChain: Largest ecosystem, most integrations. Flexible chains and agents. Steeper learning curve.
+
+LlamaIndex: Purpose-built for RAG. Simpler than LangChain for RAG-specific use cases. Less flexible for non-RAG patterns.
+
+Haystack: German-developed, strong retrieval focus. Balanced approach between simplicity and power.
+
+**Implementation Pattern** (pseudocode):
+```
+function RAG(user_query):
+  // 1. Embed the query
+  query_embedding = embedding_model.embed(user_query)
+
+  // 2. Retrieve similar documents
+  results = vector_db.search(query_embedding, k=10)
+  retrieved_docs = [r.text for r in results]
+
+  // 3. Build prompt with context
+  context = "\n\n".join(retrieved_docs)
+  prompt = f"Context:\n{context}\n\nQuestion: {user_query}\n\nAnswer:"
+
+  // 4. Generate answer
+  answer = llm.generate(prompt, max_tokens=500)
+
+  return answer
+```
+
+This basic pattern covers most use cases. Frameworks abstract over implementation details but follow this logical flow.
+
+## Advanced Retrieval Strategies
+
+**Metadata Filtering**:
+Store metadata with embeddings (document category, date, source). Filter results before ranking. Retrieve only documents from past year, or only legal documents, or only specific product category. Reduces hallucination by limiting scope.
+
+**Reranking**:
+Retrieve top-50 by semantic similarity, then rerank using more expensive metric (cross-encoder embeddings or LLM-based ranking), keep top-10. More expensive but improves quality for high-stakes queries. Cost tradeoff: pay for two embedding calls per query.
+
+**Query Expansion**:
+Generate related queries programmatically, retrieve for all, combine results. Catches documents missed by single query formulation. Cost: 3-5x more retrieval calls. Typically used only for difficult queries requiring comprehensive coverage.
+
+**Semantic Caching**:
+Cache results for semantically similar queries. Query 1: "How does retirement planning work?" Query 2: "What's the best way to plan for retirement?" Same semantics, should share cache. Reduces LLM cost on similar queries. Implementation complex but impactful at scale.
+
+## Production Considerations
+
+**Latency Requirements**: RAG adds latency from embedding and vector search. Typical: 200-400ms per query. This is acceptable for most applications. If developers need sub-100ms response, RAG may not be suitable (consider simpler keyword search with no embedding).
+
+**Accuracy Monitoring**: Track whether retrieved documents actually answer user queries. Implement feedback loops: user says "that answer was wrong," flag the retrieval result for analysis. Iterate retrieval strategy based on failures.
+
+**Cost Monitoring**: Measure tokens consumed per query, total monthly spend, breakdown by component. RAG systems often consume more tokens than expected (multiple retrievals, prompt engineering overhead). Monitor continuously.
+
+**Scaling Patterns**:
+- Up to 1M queries/month: Single machine suffices
+- 1M-10M queries/month: Load balance embeddings, distributed vector search
+- 10M+ queries/month: Dedicated embedding cluster, distributed vector database, LLM inference optimization
+
+Most RAG applications operate at <1M monthly queries and never need advanced scaling.
+
+## Cost Analysis for RAG Systems
+
+Building a RAG system serving 100K documents, 10K daily queries:
+
+**Monthly Costs**:
+- Embeddings (one-time for 100K docs): $10 for OpenAI small
+- Embeddings updates (assume 10% docs change monthly): $1/month
+- Vector database (Pinecone free tier): $0 (includes 100K vectors comfortably)
+- LLM (GPT-4o, 5,620 tokens/query, 10K queries/day * 30 days): 300M tokens/month * $0.0000025 = $750/month
+- Hosting application logic: $500-2,000/month
+- Framework/orchestration: $0 (open source)
+
+Total monthly cost: approximately $1,250-2,250
+
+Cost breakdown: 40-60% LLM inference, 30-50% hosting, <5% embeddings and vector storage.
+
+**Cost Optimization**:
+1. Reduce retrieved chunks (top-5 vs top-10): saves 50% LLM tokens
+2. Implement caching for common queries: saves 20-30% LLM calls
+3. Switch to Gemini 2.5 Pro: saves roughly 50% on LLM costs at comparable quality
+4. Use GPT-4.1 Mini or Claude Haiku for lower-stakes queries: 5-10x cheaper per token
+
+All of these optimizations happen at the LLM level because that's where money is spent.
+
+## FAQ
+
+**How many documents can a RAG system handle?**
+Technically unlimited. Vector databases scale to billions of vectors. Practical limit is cost and retrieval latency. Searching 10M document embeddings takes 50-100ms (still acceptable). Searching 1B embeddings might take 500ms. Chunking (splitting documents into passages) increases practical corpus size. 10M documents becomes 100M chunks. Cost scales linearly with search latency requirements but not with corpus size.
+
+**Should we fine-tune embeddings for our domain?**
+Fine-tuning improves embeddings 10-20% for specialized domains only if you have labeled relevance pairs. Typical requirement: 1000+ pairs of (query, relevant_document) relationships. Effort rarely justifies 10-20% improvement. Skip fine-tuning initially.
+
+**How do we handle documents longer than context windows?**
+Chunk long documents into passages, embed each passage separately. Vector search retrieves relevant passages, not full documents. This is standard practice, not a limitation.
+
+**What about security and private documents?**
+Ensure embeddings are stored securely (encryption at rest, access controls). Use private LLM deployments if documents are sensitive. Consider edge deployment (embeddings and inference locally) if data cannot leave your infrastructure.
+
+**How do we test RAG quality?**
+Build test set: 50-100 queries with correct answers. Run through RAG system, measure answer correctness. Measure precision (retrieved documents are relevant) and recall (relevant documents are retrieved). Iterate on retrieval strategy based on failures.
+
+**Should we use semantic or keyword search?**
+Use semantic search (embeddings) by default. It's more accurate for meaning-based queries. Use keyword search only for exact phrases or technical terms. Hybrid search combines both strengths.
+
+## RAG Quality Evaluation Framework
+
+**Retrieval Precision**: What fraction of retrieved documents are relevant? High precision means minimal irrelevant results. Measure by having humans rate retrieved results. Target: 80%+ of top-10 results rated relevant.
+
+**Retrieval Recall**: What fraction of relevant documents does the system retrieve? High recall means missing few relevant documents. Measure against gold standard document lists. Target: 70%+ recall at top-20 results.
+
+**Answer Quality**: Does the generated answer correctly use retrieved context? Measure by human evaluation and automated metrics (ROUGE, BERTScore). Track whether answers are factually grounded in retrieved documents.
+
+**Latency**: End-to-end query to answer latency including embedding, retrieval, and generation. Target: 500ms-2 seconds depending on application.
+
+**Token Efficiency**: Total tokens consumed per query. Track separately for embedding, retrieval overhead, and generation. Benchmark against baseline (single LLM call without retrieval) to measure efficiency gains.
+
+## Common RAG Failure Modes and Fixes
+
+**Failure: Retrieved documents don't answer the query.**
+Root cause: Embedding model quality insufficient for your domain, or chunking strategy misaligned with questions.
+Fix: Fine-tune embeddings on labeled domain-specific pairs, or adjust chunking strategy (smaller chunks, different overlap).
+
+**Failure: LLM hallucinates despite retrieved context.**
+Root cause: Retrieved documents poor quality, or LLM generating from training data instead of context.
+Fix: Improve retrieval quality, or refine prompt to explicitly require grounding in retrieved documents.
+
+**Failure: Retrieval latency exceeds budgets.**
+Root cause: Vector database overloaded, or retrieving too many documents.
+Fix: Implement caching, reduce number of retrieved documents, or scale vector database.
+
+**Failure: Cost per query too high.**
+Root cause: Retrieving too many documents, using expensive embedding/LLM models.
+Fix: Reduce retrieved documents (top-5 vs top-20), or switch to cheaper models (GPT-4o vs Claude Sonnet, text-embedding-3-small vs large).
+
+## Production RAG Checklist
+
+Before deploying RAG system:
+
+1. Evaluate baseline: Measure how well GPT-4o or Gemini 2.5 Pro performs on your task without retrieval. RAG adds complexity; only adopt if it improves results meaningfully.
+
+2. Test on representative queries: Don't evaluate on subset of queries. Test on diverse sample reflecting actual user questions.
+
+3. Implement monitoring: Track retrieval quality, answer quality, latency, cost per query. Monitor continuously post-launch.
+
+4. Plan for updates: How will you update embeddings when documents change? Implement automated reindexing pipelines.
+
+5. Design graceful degradation: If embedding model or vector database fails, system should serve LLM-only results (no retrieval) rather than hard-failing.
+
+6. Document decisions: Record why you chose specific embedding model, chunk size, retrieval count, LLM. Future maintainers need this context.
+
+## RAG System Performance at Scale
+
+Typical production RAG systems supporting 100K+ daily queries exhibit:
+
+- P50 latency: 400-600ms (embedding + retrieval + generation)
+- P99 latency: 1-2 seconds (tail requests with larger documents or batch processing)
+- Retrieval quality: 75-85% precision, 60-75% recall (varies by task)
+- Cost per query: $0.02-0.10 (varies by LLM choice and document count)
+
+These metrics represent mature systems after optimization. Initial deployments often 2-3x higher latency and cost. Plan for optimization cycles.
+
+## Related Resources
+
+- [LLM Pricing Comparison](/llms)
+- [AI Tools and Frameworks](/tools)
+- [Best RAG Tools and Frameworks](/articles/best-rag-tools)
+- [Best Vector Databases for RAG](/articles/best-vector-database)
+
+## Sources
+
+- OpenAI Embeddings API Documentation (2026)
+- Pinecone Documentation and Pricing (2026)
+- Weaviate Documentation (2026)
+- LangChain Documentation (2026)
+- LlamaIndex (formerly GPT Index) Documentation (2026)
+- "Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks" (Lewis et al., 2020)
+- DeployBase RAG Architecture Research (2025-2026)
+- Production RAG deployment patterns and case studies

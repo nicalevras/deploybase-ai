@@ -1,0 +1,420 @@
+---
+title: 'Best GPU for LLM Inference 2026: Cloud and Local Options Compared'
+slug: best-gpu-for-llm-inference-2026-cloud-and-local-options
+description: >-
+  Comprehensive guide to selecting optimal GPUs for LLM inference including
+  cloud providers, self-hosted options, and cost-per-token analysis.
+date: '2026-03-22'
+author: DeployBase
+category: Hardware Selection
+---
+
+## Contents
+
+- [Selecting Hardware for LLM Inference](#selecting-hardware-for-llm-inference)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Selecting Hardware for LLM Inference
+
+LLM inference hardware depends on workload. Real-time chat = latency matters. Batch processing = throughput matters. Cloud vs self-hosted tradeoffs vary wildly based on scale.
+
+### Understanding Inference Workload Types
+
+**Latency-Sensitive Inference (Chat, Real-Time Queries):**
+
+Users expect responses within 500ms-1 second. Single-token latency matters more than maximum throughput. Batch size is typically 1-4.
+
+GPU selection prioritizes: Memory bandwidth (reduces per-token latency), clock speed, and availability of latest optimizations.
+
+**Throughput-Optimized Inference (Batch Processing):**
+
+Processing thousands of requests batched together overnight. Total time matters, not per-token latency.
+
+GPU selection prioritizes: Maximum throughput (tokens per second), memory capacity (larger batch sizes), and cost-per-token.
+
+**Streaming Inference (Real-Time Generation):**
+
+User sees tokens generated over time. First-token latency is critical (perceived responsiveness), but token generation can be slower.
+
+GPU selection balances: First-token latency optimization and sustained throughput.
+
+### Cloud GPU Providers for Inference
+
+**RunPod RTX 4090 ($0.34/hour):**
+
+Excellent for small models (7B, 13B). Throughput roughly 80-150 tokens/second for 13B model. Cost-per-1M tokens (100K tokens × $0.34/hour ÷ 3600 ÷ 120 tokens/sec ≈ $0.78/1M tokens).
+
+Best for: Cost-sensitive applications, small models, development and testing.
+
+Limitations: Can't efficiently serve larger models (70B+) requiring batching of multiple users simultaneously.
+
+**RunPod A100 ($1.39/hour):**
+
+Handles 13B-30B models comfortably at 250-400 tokens/second depending on batch size. Cost-per-1M tokens: roughly $1.39 per million (same units:slightly more expensive than 4090 per token but handles larger models and batches).
+
+Best for: Medium-scale inference (100-1000 daily requests), balanced latency/throughput.
+
+Limitations: 70B models require careful optimization or multiple GPUs.
+
+**RunPod H100 ($2.69/hour):**
+
+Achieves 500-800 tokens/second for 70B models. Cost-per-1M tokens: roughly $1.21/million. Superior cost-per-token than A100 at scale.
+
+Best for: Large model serving (70B+), high-volume inference (5K+ daily requests), latency-critical large model applications.
+
+**CoreWeave L40S ($0.71/hour):**
+
+Alternative to 4090 with different memory layout. Roughly equivalent performance for most inference workloads. Cost advantage over RunPod 4090.
+
+**CoreWeave A100 ($1.33/hour):**
+
+More cost-efficient than RunPod A100 while maintaining similar performance.
+
+**CoreWeave H100 ($2.51/hour):**
+
+Most cost-efficient H100 offering.
+
+### Self-Hosted Inference Hardware
+
+**Nvidia RTX 4090 (24GB VRAM):**
+
+Consumer GPU around $1,600 retail. Serving via platforms like Ollama or vLLM.
+
+Economics: $1,600 amortized over 3 years (26,280 hours) = $0.061/hour. Dramatically cheaper than cloud rentals.
+
+However: Requires home/office electricity ($0.10-0.20/hour), network infrastructure, operational overhead, and home internet reliability.
+
+Effective cost: ~$0.16-0.26/hour (electricity + overhead). Still cheaper than cloud ($0.34/hour), but operational burden significant.
+
+Best for: Personal projects, home labs, low-traffic applications (under 100 daily queries).
+
+**Nvidia RTX 6000 Ada (48GB VRAM):**
+
+Production GPU around $3,000. Supports simultaneous users better than consumer GPUs.
+
+Effective cost: ~$0.25-0.35/hour amortized.
+
+Best for: Small teams, modest traffic (100-1000 daily queries), where infrastructure control is valuable.
+
+**GPU Cluster (8x H100):**
+
+$10,000 hardware cost + $5,000 networking/setup = $15,000 CapEx.
+Operational cost: ~$8,000/year electricity, cooling.
+
+Effective cost: ~$0.90/hour amortized over 3 years + $0.40/hour operational = $1.30/hour.
+
+Competitive with cloud providers while offering architectural control.
+
+Best for: High-volume inference (50K+ daily requests), teams committed to AI infrastructure.
+
+### Cost-Per-Token Analysis Across Options
+
+**Scenario 1: Serving a 13B Model (Real-Time Chat)**
+
+Assumption: Average 500 input tokens, 150 output tokens per request, sustained 50 requests daily.
+
+**Using RunPod 4090:**
+- Throughput: ~120 tokens/second
+- Requests per second: 120 / 650 = 0.185 req/sec
+- With 50 requests daily, utilization: 50 / (86,400 sec × 0.185) = 0.3% (vastly underutilized)
+- Cost per token: $0.34/hour × 3600 ÷ (86,400 × 0.185 × 650) ÷ 50 requests ≈ $2.80/request or $0.0043 per token
+
+For low-traffic workloads, cloud becomes inefficient due to low utilization.
+
+**Using Self-Hosted RTX 4090:**
+- Same throughput
+- Amortized cost: $0.16/hour
+- Cost per token: $0.16 × 3600 ÷ (86,400 × 0.185 × 650) ÷ 50 requests ≈ $1.33/request
+- Savings vs. cloud: 53%
+
+**Scenario 2: High-Volume Inference (70B Model)**
+
+Assumption: 2,000 daily requests, 500 input + 200 output tokens.
+
+**Using RunPod H100:**
+- Throughput: 600 tokens/second at optimal batch
+- Cost: $2.69/hour
+- Cost per 1M tokens: ($2.69/3600) × 1M / 600 = $1.24/million tokens
+
+**Using Self-Hosted H100 Cluster (4x H100):**
+- Throughput: 2,400 tokens/second (4 GPU linear scaling)
+- Amortized hardware: $3,600 ÷ 26,280 hours = $0.137/hour per GPU = $0.55/hour for 4
+- Electricity/cooling: $0.80/hour
+- Total: $1.35/hour
+- Cost per 1M tokens: ($1.35/3600) × 1M / 2,400 = $0.156/million tokens (8.7x cheaper than cloud)
+
+### Inference Optimization Strategies
+
+**Quantization:**
+
+Reducing model precision (float16 to int8 or int4) reduces memory footprint and increases speed without major quality loss.
+
+- 13B float16 model: 26GB VRAM, 150 tokens/sec
+- 13B int8 model: 13GB VRAM, 200 tokens/sec (33% faster, half memory)
+- 13B int4 model: 7GB VRAM, 250 tokens/sec (67% faster, minimal quality loss)
+
+Quantized models fit on smaller GPUs (RTX 4090 instead of A100 for many applications), reducing costs significantly.
+
+**Batching Strategy:**
+
+Accumulating requests and batching improves GPU utilization but increases latency for individual requests.
+
+- Batch size 1: 200 tokens/second per user (low latency, low throughput)
+- Batch size 8: 1,000 tokens/second total (500 more users served, higher latency for each)
+
+For throughput optimization, batch aggressively. For latency, batch minimally.
+
+**Model Caching:**
+
+Keeping models in VRAM between requests eliminates load time. Model-loading takes 1-5 seconds, important if requests are sparse.
+
+**Speculative Decoding:**
+
+Draft smaller model tokens, then verify with larger model. Reduces latency 20-30% for single-token generation.
+
+### Model Size vs. GPU Matching
+
+**7B Models:**
+- Cloud: RTX 4090 adequate, minimal cost
+- Self-hosted: RTX 4090 or better for local serving
+
+**13B Models:**
+- Cloud: RTX 4090 or L40S
+- Self-hosted: RTX 4090, RTX 6000
+
+**30B Models:**
+- Cloud: A100 recommended
+- Self-hosted: A100 or RTX 6000 Ada
+
+**70B Models:**
+- Cloud: H100 or A100 with careful optimization
+- Self-hosted: H100, dual A100, or A100-class GPU
+
+**405B Models:**
+- Cloud: H100 cluster (4+) or B200
+- Self-hosted: 4-8x H100, B200
+
+### When to Use Each Option
+
+**Choose Cloud for:**
+- Highly variable traffic (spikes unpredictable)
+- Multiple model serving with frequent changes
+- No operational infrastructure expertise
+- Short-term projects (under 6 months)
+- Traffic under 10K requests daily
+
+**Choose Self-Hosted for:**
+- Stable, predictable traffic (10K+ daily requests)
+- Long-term deployments (2+ years)
+- Privacy/data residency requirements
+- Cost-critical applications
+- Need for infrastructure customization
+
+**Choose Hybrid for:**
+- Baseline load on self-hosted, burst capacity on cloud
+- Different workloads on different infrastructure
+- Gradual scaling from cloud to self-hosted
+
+### Real Provider Comparison
+
+For detailed provider rankings, see [cheapest GPU cloud 2026](/articles/cheapest-gpu-cloud-in-2026-provider-pricing-ranked).
+
+Check [RunPod GPU pricing](/articles/runpod-gpu-pricing), [CoreWeave GPU pricing](/articles/coreweave-gpu-pricing), and [Lambda GPU pricing](/articles/lambda-labs-gpu-pricing) for current rates.
+
+Understand hardware costs with [NVIDIA A100 price](/articles/nvidia-a100-price), [NVIDIA H100 price](/articles/nvidia-h100-price), and [NVIDIA B200 price](/articles/nvidia-b200-price).
+
+For API alternatives to self-hosted inference, review [LLM API pricing](/articles/llm-api-pricing-comparison-cost-per-million-tokens-all).
+
+### Infrastructure Monitoring
+
+Use [GPU cloud price tracker](/articles/gpu-cloud-price-tracker-weekly-update-template) to monitor provider pricing changes. Infrastructure costs change monthly; quarterly reviews ensure developers're not paying more than necessary.
+
+### Advanced Inference Optimization Techniques
+
+**Flash Attention:**
+
+Recent algorithm improvement reducing attention computation complexity. On A100/H100, Flash Attention V2 provides 2-3x speedup for long sequences without accuracy loss. B200 potentially improves further due to larger memory bandwidth.
+
+Impact: For long-context queries (RAG with large documents), Flash Attention enables serving larger batch sizes or longer contexts on same hardware.
+
+**Continuous Batching:**
+
+Traditional batching requires all requests finish together. Continuous batching (available in vLLM, TGI) removes completed requests and adds new ones mid-iteration.
+
+Impact: Utilization improves 30-50%, enabling serving 2-3x more concurrent users on same GPU.
+
+**Token Streaming and Speculative Decoding:**
+
+Generating draft tokens with smaller model, verifying with large model. Reduces effective generation latency 20-30%.
+
+Impact: Chat applications feel more responsive despite same underlying throughput.
+
+**Dynamic Batching:**
+
+Adjusting batch size based on queue depth and latency targets. Automatically balances throughput and latency.
+
+Impact: Reduces manual tuning, improves user experience adaptively.
+
+### Inference Server Comparison
+
+**vLLM:**
+
+Gold standard for LLM serving. Implements continuous batching, flash attention, speculative decoding. Supports all major frameworks and models.
+
+Best for: Production deployments prioritizing performance and flexibility.
+
+**TensorRT-LLM:**
+
+NVIDIA's optimized inference engine. Excellent performance on NVIDIA hardware through kernel fusion and optimization.
+
+Best for: Maximum performance on NVIDIA GPUs, especially H100/B200.
+
+**HuggingFace Text Generation Inference (TGI):**
+
+Designed for Hugging Face models. Good performance, straightforward API.
+
+Best for: Teams already using Hugging Face ecosystem.
+
+**LiteLLM:**
+
+Lightweight, supports multiple providers through unified API. Good for development.
+
+Best for: Prototyping and testing multiple backends.
+
+### Inference Cost Optimization Strategies
+
+**Request Batching:**
+
+Accumulating requests before inference. Tradeoff: increased latency for users for better hardware utilization.
+
+Example: Batching 8 requests increases per-request latency 100ms but reduces cost-per-request 40%.
+
+**Model Quantization:**
+
+4-bit or 8-bit quantization reduces memory footprint and increases speed. Quality impact 1-5% for most tasks.
+
+Cost impact: 50% smaller model fits on smaller GPU. Cost savings often 30-50%.
+
+**Model Distillation:**
+
+Training smaller model to mimic larger model. Requires investment but yields smaller models with 85-95% of larger model quality.
+
+Cost impact: Smaller model serves same quality on cheaper GPU. 50-80% cost reduction possible.
+
+**Layer Pruning:**
+
+Removing less-important layers or neurons. 10-30% reduction with minimal quality loss.
+
+**Token Pruning:**
+
+Not processing tokens below importance threshold. Reduces computation 15-30% with minimal quality loss on long-context tasks.
+
+### Inference Scaling Patterns
+
+**Single-GPU Inference:**
+
+Optimal for latency-sensitive low-volume traffic. Single RTX 4090 serves 10-50 concurrent users depending on model and batch size.
+
+**Multi-GPU Inference (Tensor Parallelism):**
+
+Sharding large model across GPUs. Increases latency slightly (network communication) but enables serving large models and higher throughput.
+
+Break-even: At 50+ concurrent users or >30B models, tensor parallelism becomes necessary.
+
+**Multi-GPU Inference (Pipeline Parallelism):**
+
+Sharding model by layers. Higher latency than tensor parallelism but better throughput. Less commonly used for inference than training.
+
+**Distributed Inference (Multiple Machines):**
+
+Multiple independent inference servers behind load balancer. Excellent for scaling but adds operational complexity.
+
+Best for: 1000+ concurrent users, mission-critical availability requirements.
+
+### Practical Selection Flowchart
+
+1. **Traffic Volume:** <100 daily requests → Cloud GPU. >10K daily requests → Self-hosted.
+2. **Model Size:** <13B → RTX 4090. 13-30B → A100. 30-70B → H100. 70B+ → B200/Multi-GPU.
+3. **Latency Requirements:** <100ms SLA → Optimize hardware choice and batching carefully. >500ms SLA → Less hardware-sensitive, focus on cost.
+4. **Availability Requirements:** 99%+ → Redundant cloud or premium provider. >90% → Self-hosted or basic cloud acceptable.
+5. **Privacy Requirements:** Sensitive data → Self-hosted. Standard data → Cloud acceptable.
+
+### Real-World Deployment Patterns
+
+**Pattern 1: Startup with Variable Traffic**
+
+Start: Cloud (RunPod H100) for operational simplicity and flexibility.
+Transition: Self-hosted (H100 cluster) when traffic exceeds 10K daily requests and growth stabilizes.
+Timeline: 6-12 months typical transition.
+
+**Pattern 2: Production with Predictable Traffic**
+
+Start: Lambda Labs for SLA guarantees and dedicated support.
+Growth: Multi-region Lambda or custom infrastructure if demand requires.
+Timeline: 12-24 months before internal infrastructure makes sense.
+
+**Pattern 3: Cost-Optimized Batch Processing**
+
+Use: CoreWeave or RunPod with committed capacity for baseline.
+Burst: Spot pricing or cheaper providers for peaks.
+Monitoring: Automatic failover to alternative providers if primary unavailable.
+
+**Pattern 4: Hybrid Local + Cloud**
+
+Local: Small RTX 4090 for development and low-priority inference.
+Cloud: Lambda or CoreWeave for production traffic and latency-sensitive requests.
+Economics: Reduced cloud cost through offloading non-critical work.
+
+## FAQ
+
+**What's the best GPU for local LLM serving on a PC?**
+
+RTX 4090 serves up to 30B models well at acceptable latency for single-user scenarios. RTX 6000 Ada (if available) serves up to 70B efficiently. For 7-13B models, RTX 4090 is optimal cost-per-performance. For 70B+, self-hosting requires 2+ GPUs or accepting reduced batch sizes and latency.
+
+**How much faster is H100 than A100 for inference?**
+
+Memory bandwidth difference (3.35 TB/s vs. 1.935 TB/s) translates to roughly 1.5-2x throughput improvement on LLMs at moderate batch sizes. For single-token latency (batch size 1), improvements are more modest (20-30%) because computation becomes bottleneck rather than memory bandwidth. At high batch sizes (8-32), H100 advantage reaches 2x or more.
+
+**Should I quantize models to fit smaller GPUs?**
+
+Quantization to int8 or int4 typically reduces output quality by 1-5% while speeding inference and reducing memory 50%. Quality cost is usually worthwhile given cost savings. For creative writing, translation, or other quality-sensitive tasks, test empirically before quantizing. For classification or straightforward Q&A, quantization is almost always worth it.
+
+**What's the break-even for self-hosting versus cloud?**
+
+For H100-equivalent hardware ($10,000 CapEx + $500/month operating), break-even is roughly 8,000-10,000 GPU-hours. If you're using 1 GPU 24/7 for 15+ months, self-hosting is cheaper. For episodic or shorter-term use (under 6 months), cloud is better due to no CapEx.
+
+**How does multi-user inference work with single GPU?**
+
+Modern inference servers (vLLM, TGI) handle multi-user batching automatically through continuous batching and dynamic scheduling. Per-user latency increases slightly with concurrent users (additional queue wait), but total system throughput improves significantly. At 8 concurrent users on a single H100, latency increases ~100ms per user but GPU throughput improves 5-6x.
+
+**Should I use API services (OpenAI) or self-hosted inference?**
+
+APIs cost $0.50-15 per 1M input tokens depending on model. Self-hosted infrastructure costs $0.15-2.00 per 1M depending on hardware and utilization. For small applications (under 100M tokens monthly), APIs are often simpler and less expensive. For larger applications (1B+ tokens), self-hosting becomes cheaper and provides more control over data privacy and latency.
+
+**How often should I refresh GPU hardware?**
+
+Technology improvements average 1.5-2x per 2 years. After 3 years, hardware reaches diminishing returns. For continuous deployments, plan refresh cycles every 3-4 years or when cost-per-token drops below 50% of current hardware.
+
+**How do I choose between different cloud providers?**
+
+Rank by: (1) cost per GPU type, (2) availability in your region, (3) support quality, (4) framework optimization. CoreWeave leads on cost, RunPod on flexibility, Lambda on support.
+
+## Related Resources
+
+- [Best GPU for AI Training](/articles/best-gpu-for-ai-training-h100-vs-a100-vs-b200-compared) - Training vs. inference hardware differences
+- [Cheapest GPU Cloud 2026](/articles/cheapest-gpu-cloud-in-2026-provider-pricing-ranked) - Provider rankings
+- [LLM API Pricing Comparison](/articles/llm-api-pricing-comparison-cost-per-million-tokens-all) - API alternative costs
+- [GPU Pricing Guide](/gpus) - Comprehensive hardware and cloud pricing
+- [NVIDIA H100 Price](/articles/nvidia-h100-price) - Premium inference GPU
+- [NVIDIA A100 Price](/articles/nvidia-a100-price) - Mid-range inference GPU
+
+## Sources
+
+- NVIDIA GPU specifications (as of March 2026)
+- Cloud provider pricing documentation (as of March 2026)
+- DeployBase.AI inference cost benchmarks (as of March 2026)
+- vLLM and TGI framework optimization documentation
+- Community benchmarks on quantization and inference optimization
+- Case studies on inference infrastructure scaling from 2025-2026

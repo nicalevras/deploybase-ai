@@ -1,0 +1,433 @@
+---
+title: 'Ollama vs Llama: Understanding the Difference'
+slug: ollama-vs-llama
+description: >-
+  Ollama vs Llama: Ollama is inference runner, Llama is model family. Complete
+  comparison with setup differences, performance benchmarks, and when to use
+  each.
+date: '2026-03-21'
+author: DeployBase
+category: Model Tools
+keywords:
+  - ollama vs llama
+  - what is ollama
+  - what is llama
+  - ollama vs llama.cpp
+---
+
+## Contents
+
+- [Ollama vs Llama: Overview](#ollama-vs-llama-overview)
+- [Category Difference](#category-difference)
+- [Ollama: What It Does](#ollama-what-it-does)
+- [Llama: What It Is](#llama-what-it-is)
+- [Installation and Setup](#installation-and-setup)
+- [Feature Comparison](#feature-comparison)
+- [Performance](#performance)
+- [Use Case Matching](#use-case-matching)
+- [Advanced Topics](#advanced-topics)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## Ollama vs Llama: Overview
+
+Ollama and Llama are not competitors. They're different categories entirely.
+
+Llama is a family of language models created by Meta. Examples: Llama 3.1, Llama 4, Llama 3.2. These are neural networks.
+
+Ollama is an open-source inference runner. It downloads models (Llama or others), optimizes them for single-GPU inference, and provides a local API endpoint. Think: Docker for language models.
+
+The confusion: Ollama's website is ollama.com. Ollama can run Llama models. People assume they're the same thing.
+
+**Key insight:** Ollama runs Llama models, but it can also run Mistral, Qwen, and other models. Llama models can be run on Ollama, vLLM, LM Studio, or other inference engines. They're orthogonal.
+
+---
+
+## Category Difference
+
+| | Ollama | Llama |
+|---|--------|-------|
+| **Type** | Software / Inference framework | Model / Weights |
+| **Creator** | Open-source community (main contributor: Jonathan Leung) | Meta (Facebook) |
+| **License** | MIT | Meta Community License |
+| **What it does** | Downloads, quantizes, and serves language models locally | Defines a neural architecture and contains learned parameters |
+| **Can be replaced with** | vLLM, LM Studio, llama.cpp, Hugging Face Transformers | Other models: Mistral, Qwen, DeepSeek, etc. |
+| **Installation** | `brew install ollama` or download binary | Download weights from Hugging Face, use with any inference engine |
+| **Output** | Local API server on localhost:11434 | Not applicable (it's data, not software) |
+
+**Analogy:** Ollama is like Docker. Llama is like an application image teams run in Docker.
+
+---
+
+## Ollama: What It Does
+
+Ollama is a command-line tool that:
+
+1. **Downloads models** from Hugging Face or other registries
+2. **Quantizes them** (converts FP32 to INT4/INT8 for memory efficiency)
+3. **Runs inference locally** on a single GPU or CPU
+4. **Exposes a REST API** (compatible with OpenAI's chat API format)
+
+### Installation
+
+Mac:
+```bash
+brew install ollama
+```
+
+Linux:
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+Windows: Download from ollama.com.
+
+### Running a Model
+
+```bash
+ollama run llama2
+```
+
+First run downloads the model (5-40 GB depending on model). Subsequent runs load from cache.
+
+### Local API
+
+Ollama starts a server on localhost:11434:
+
+```bash
+curl http://localhost:11434/api/generate \
+ -d '{"model":"llama2","prompt":"What is AI?","stream":false}'
+```
+
+Output: JSON with the model's response.
+
+### Quantization
+
+Ollama automatically quantizes large models:
+- Llama 2 70B (full FP32): 140 GB
+- Llama 2 70B (Q4 quantized via Ollama): 40 GB
+- Inference speed difference: 5-10% slower due to quantization
+
+Quantization is the key feature. It enables 70B parameter models to run on GPUs with 24GB VRAM (RTX 4090, RTX 3090).
+
+### Limitations
+
+- Single GPU only. Can't distribute across multiple GPUs.
+- Inference speed is slower than optimized frameworks like vLLM.
+- No batching support for multiple concurrent requests.
+- Limited customization (no easy way to modify training procedure or model architecture).
+
+---
+
+## Llama: What It Is
+
+Llama is a family of language models. The models are:
+
+| Model | Parameters | Released | Context | License |
+|-------|-----------|----------|---------|---------|
+| Llama 1 | 7B, 13B, 33B, 65B | February 2023 | 2K | Non-commercial initially, now open |
+| Llama 2 | 7B, 13B, 70B | July 2023 | 4K | Meta Community License |
+| Llama 3 | 8B, 70B | April 2024 | 8K | Meta Community License |
+| Llama 3.1 | 8B, 70B, 405B | July 2024 | 128K | Meta Community License |
+| Llama 3.2 | 1B, 3B, 11B, 90B | September 2024 | 128K | Meta Community License |
+| Llama 4 | Scout, Maverick, Behemoth | Q1 2026 | 10M (Maverick) | Meta Community License |
+
+Each model has associated weights (the learned parameters). The weights are files teams download and load into an inference engine.
+
+### Using Llama Models
+
+Teams can run Llama with:
+- **Ollama:** `ollama run llama2`
+- **vLLM:** `python -m vllm.entrypoints.openai_api_server --model meta-llama/Llama-2-70b`
+- **LM Studio:** Download weights, click play
+- **Hugging Face Transformers:** Load with `transformers.AutoModelForCausalLM.from_pretrained()`
+- **Llama.cpp:** `./main -m llama2.gguf -p "Hello world"`
+- **Cloud APIs:** Together.AI, Groq, Replicate all serve Llama models
+
+Llama is a model. Ollama is just one way to run it.
+
+### Llama Performance
+
+Benchmarks (March 2026):
+
+| Model | Task | Score | Inference Speed (H100) |
+|-------|------|-------|------------------------|
+| Llama 3.1 70B | MMLU | 85% | 80-100 tok/s |
+| Llama 4 Maverick (400B) | MMLU | 92% | 45-65 tok/s |
+| Llama 3 8B | MMLU | 66% | 150-200 tok/s |
+
+Llama 4 is stronger but slower. Llama 3.1 is well-balanced. Llama 3 8B is fast and compact.
+
+---
+
+## Installation and Setup
+
+### Ollama Setup (5 minutes)
+
+```bash
+brew install ollama
+
+ollama run mistral # or llama2, neural-chat, etc.
+
+curl http://localhost:11434/api/generate -d '{"model":"mistral","prompt":"Hi"}'
+```
+
+That's it. Fully working local inference with one command.
+
+### Llama Setup (manual, 30+ minutes)
+
+```bash
+pip install transformers torch
+python -c "from transformers import AutoModelForCausalLM; model = AutoModelForCausalLM.from_pretrained('meta-llama/Llama-2-7b')"
+
+pip install vllm
+python -m vllm.entrypoints.openai_api_server --model meta-llama/Llama-2-7b
+
+git clone https://github.com/ggml-org/llama.cpp
+make
+./main -m llama2.gguf
+```
+
+Each approach has different dependencies, setup, and configurations.
+
+**Ollama abstracts this complexity.** It's a pre-configured inference runner.
+
+---
+
+## Feature Comparison
+
+| Feature | Ollama | vLLM | LM Studio | Llama.cpp |
+|---------|--------|------|-----------|-----------|
+| **Setup time** | 1 min | 10 min | 2 min (GUI) | 5 min (compile) |
+| **API support** | REST (port 11434) | OpenAI-compatible | Built-in | Not built-in |
+| **Multi-GPU** | No | Yes | No | No (CPU only) |
+| **Batching** | No | Yes | No | No |
+| **Model variety** | Llama, Mistral, Qwen, etc. | Any HF model | Any quantized model | Any GGUF format |
+| **Inference speed** | Moderate | Fastest | Moderate | Moderate (CPU-focused) |
+| **Quantization support** | Q4, Q5, Q8 | FP16, INT8 | Q4, Q5 | Q4, Q5, Q8 |
+| **License** | MIT | Apache 2.0 | Closed | MIT |
+
+**Ollama:** Best for quick local inference, ease of use, no configuration.
+
+**vLLM:** Best for production, multi-GPU, throughput-optimized serving.
+
+**LM Studio:** Best for non-technical users (GUI).
+
+**Llama.cpp:** Best for CPU inference or embedded systems.
+
+---
+
+## Performance
+
+### Inference Speed Comparison
+
+Llama 2 70B on RTX 4090, Q4 quantization:
+
+| Tool | Tokens/sec | Notes |
+|------|-----------|-------|
+| Ollama | 45-60 | Baseline, single request |
+| vLLM | 90-120 | 2-2.5x faster, batches 4 requests |
+| LM Studio | 50-65 | Similar to Ollama |
+| Llama.cpp | 5-15 | CPU-focused, on Apple Silicon |
+
+Ollama is competitive for single-user, single-request workloads. For production (batching, multi-user), vLLM is faster.
+
+### Memory Usage
+
+Llama 2 70B on RTX 4090:
+
+| Format | Memory Required |
+|--------|-----------------|
+| FP32 (no quantization) | 140 GB |
+| FP16 | 70 GB |
+| Q8 (8-bit quantization) | 35 GB |
+| Q5 (5-bit quantization) | 22 GB |
+| Q4 (4-bit quantization) | 15 GB |
+
+Ollama defaults to Q4. A 70B model fits on a 24GB RTX 4090 comfortably.
+
+---
+
+## Use Case Matching
+
+### Use Ollama When
+
+- Running models locally for personal use or development
+- Don't need multi-GPU distributed inference
+- Want the simplest possible setup (brew install, done)
+- Using standard models (Llama, Mistral, Qwen)
+- Single-user or low-throughput (under 10 concurrent requests)
+
+Example: Developer running Llama 3.1 70B locally for experimentation. `ollama run llama3.1:70b` (or `ollama run llama3:70b` for Llama 3).
+
+### Use vLLM When
+
+- Running production inference serving
+- Need high throughput (100+ requests/second)
+- Want multi-GPU support
+- Need model-specific optimizations (speculative decoding, etc.)
+- Want full OpenAI API compatibility with batching
+
+Example: Startup serving a Llama-based chatbot to 100k users. Use vLLM with 8x H100 GPUs, load-balanced.
+
+### Use LM Studio When
+
+- Non-technical user who wants a GUI
+- Running Llama locally without command line
+- Want to download and manage models visually
+
+Example: Creator managing a local AI assistant without touching terminal.
+
+### Use Llama.cpp When
+
+- Running on CPU (no GPU available)
+- Deploying on embedded systems (mobile, edge devices)
+- Want fastest inference for small models on constrained hardware
+
+Example: Deploying a 7B model on an Apple MacBook Pro.
+
+---
+
+## Advanced Topics
+
+### Quantization and GGUF Format
+
+Ollama handles quantization automatically. When teams run `ollama run llama2`, it downloads a pre-quantized GGUF file.
+
+**GGUF format:**
+- Binary format optimized for single-GPU inference (llama.cpp)
+- Supports multiple quantization levels: Q2 (3.5 bits), Q4 (4 bits), Q6 (6 bits), Q8 (8 bits)
+- Trade-off: Lower bits = faster + smaller, but quality loss
+
+**Quantization impact on Llama 3.1 70B:**
+
+| Quantization | File Size | Memory Required | Tokens/sec | Quality Loss |
+|--------------|-----------|-----------------|-----------|--------------|
+| FP32 (no quant) | 140 GB | 140 GB | 30 tok/s | None |
+| FP16 | 70 GB | 70 GB | 45 tok/s | None |
+| Q8 | 35 GB | 35 GB | 55 tok/s | <1% |
+| Q5 | 22 GB | 22 GB | 70 tok/s | ~2% |
+| Q4 (Ollama default) | 15 GB | 15 GB | 80 tok/s | ~4-5% |
+
+Ollama defaults to Q4 (4-bit quantization). For Llama 70B, this fits on RTX 4090 (24GB VRAM) with room to spare.
+
+### Custom Model Support
+
+Ollama's model library is curated, but teams can import any GGUF-format model.
+
+**Adding a custom model:**
+```bash
+echo "FROM ./llama3.1-70b.gguf" > Modelfile
+
+ollama create my-custom-model -f Modelfile
+
+ollama run my-custom-model
+```
+
+This lets teams use fine-tuned models, private models, or alternative architectures (Mistral, Qwen, etc.) if they're in GGUF format.
+
+### Scaling Ollama Beyond Single GPU
+
+Ollama is single-GPU only. For multi-GPU or production inference at scale, teams need alternatives.
+
+**Scaling strategy:**
+1. Ollama for development + local testing
+2. Load balance across multiple Ollama instances (one per GPU) for production
+3. Use Nginx or HAProxy to distribute requests
+
+Example: 4x Ollama instances on 4x RTX 4090s:
+```
+Nginx (port 80)
+ → Instance 1 (RTX 4090, port 11434)
+ → Instance 2 (RTX 4090, port 11435)
+ → Instance 3 (RTX 4090, port 11436)
+ → Instance 4 (RTX 4090, port 11437)
+```
+
+Nginx round-robins requests. Each Ollama instance handles ~2,500 requests/day at full capacity.
+
+Total throughput: 10,000 requests/day across the fleet.
+
+**Note:** This is manual load balancing. For production, vLLM or other frameworks handle batching and load balancing automatically.
+
+### When to Stick with Ollama (Production)
+
+Ollama is suitable for production if:
+- Single model, single GPU
+- Low concurrency (< 10 simultaneous requests)
+- Offline/air-gapped environment (no cloud APIs allowed)
+- Cost-critical (free software, no API payments)
+
+Example: large-scale deploying Llama locally for compliance reasons. Use Ollama, no dependencies, no data leaving the network.
+
+### When to Migrate Away from Ollama
+
+Move to vLLM or other frameworks when:
+- Need multi-GPU or distributed inference
+- Throughput requirements exceed 100 requests/minute per GPU
+- Model serving with batching/continuous batching
+- Advanced optimizations (speculative decoding, etc.)
+
+Example: Startup scaling from 10k to 100k inference requests/day. Ollama can't scale horizontally without manual load balancing. vLLM handles this natively.
+
+## FAQ
+
+**Can Ollama run non-Llama models?**
+
+Yes. Ollama supports any GGUF-format model: Mistral, Qwen, Neural Chat, Orca, Hermes, etc. Not limited to Llama.
+
+**Is Ollama slower than running Llama directly?**
+
+Not significantly. Ollama uses llama.cpp under the hood. Speed is within 5-15% of optimized inference engines. Overhead is minimal.
+
+**Can I use Llama without Ollama?**
+
+Yes. Use vLLM, LM Studio, Hugging Face Transformers, llama.cpp, or other frameworks. Ollama is the most beginner-friendly, not the only option.
+
+**What's the difference between Ollama and Ollama Web UI?**
+
+Ollama is the command-line inference engine (official, maintained by core team). Ollama Web UI is a separate GUI project (community-built) that wraps Ollama's API. Both use the same inference core, different interfaces.
+
+**Can I fine-tune a model in Ollama?**
+
+Not directly. Ollama is inference-only. For fine-tuning, use Hugging Face Transformers, axolotl, or other frameworks. Import the fine-tuned weights into Ollama as a custom GGUF model.
+
+**Which Llama version should I use?**
+
+Llama 3.1 70B is best all-around for March 2026 (128K context, strong benchmarks). Llama 4 Scout/Maverick are newer but bleeding-edge. Llama 3.1 8B if you need speed on consumer GPUs.
+
+**How much VRAM do I need?**
+
+- Llama 3.1 8B quantized: 8-10 GB
+- Llama 3.1 70B quantized: 24-32 GB
+- Llama 4 Maverick quantized: 40-60 GB
+
+Q4 quantization (Ollama default) is the sweet spot: good quality, fits on consumer GPUs.
+
+**What about Llama 1 or Llama 2?**
+
+Obsolete for new projects. Llama 3.1 is better on all benchmarks and cheaper per API call. Use older versions only if you have legacy dependencies or version-locked requirements.
+
+---
+
+## Related Resources
+
+- [LLM Model Catalog](/llms)
+- [Together.ai LLM Provider](/llms/Together)
+- [Ollama vs Llama.cpp](/articles/llama-cpp-vs-ollama)
+- [LM Studio vs Ollama](/articles/lm-studio-vs-ollama)
+- [How to Use Ollama](/articles/how-to-use-ollama)
+
+---
+
+## Sources
+
+- [Ollama Official Site](https://ollama.com/)
+- [Ollama GitHub Repository](https://github.com/ollama/ollama)
+- [Meta Llama Model Documentation](https://www.llama.com/)
+- [Llama 3.1 Model Card](https://huggingface.co/meta-llama/Llama-3.1-70b)
+- [vLLM Documentation](https://docs.vllm.ai/)
+- [Llama.cpp GitHub](https://github.com/ggml-org/llama.cpp)

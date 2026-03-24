@@ -1,0 +1,121 @@
+---
+title: 'GB200 vs H200: Specs, Benchmarks & Cloud Pricing Compared'
+slug: gb200-vs-h200-specs-benchmarks-and-cloud-pricing-compared
+description: >-
+  GB200 replaces H200 for inference. 480GB unified memory vs H200s 141GB HBM.
+  Cloud pricing delayed to Q3 2026.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - gb200 vs h200
+---
+
+## Contents
+
+- [GB200 vs H200 Specs: Unified Memory Changes Everything](#gb200-vs-h200-specs-unified-memory-changes-everything)
+- [Memory and Bandwidth: The Real Story](#memory-and-bandwidth-the-real-story)
+- [Inference Benchmarks: GB200 Dominates at Scale](#inference-benchmarks-gb200-dominates-at-scale)
+- [Training: H200 and GB200 differ less](#training-h200-and-gb200-differ-less)
+- [Cloud pricing timeline for GB200](#cloud-pricing-timeline-for-gb200)
+- [When to use each chip](#when-to-use-each-chip)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## GB200 vs H200 Specs: Unified Memory Changes Everything
+
+Gb200 vs H200 is the focus of this guide. GB200 = 2x Grace CPUs + 1 Blackwell GPU. 480GB unified memory, cache-coherent.
+
+H200 = 1x Hopper GPU. 141GB HBM. Separate memory space from the host.
+
+This matters. With H200, developers need multiple GPUs for 405B models. With GB200, one unit. Unified memory = no round-tripping data between CPU and GPU.
+
+GPU performance is similar (GB200's Blackwell ≈ H100's Hopper). The memory is the story.
+
+GB200 is production hardware as of March 2026 but scarce. Cloud availability is coming Q2-Q3 2026.
+
+## Memory and Bandwidth: The Real Story
+
+GB200: 480GB unified. H200: 141GB. That's the difference.
+
+405B model: 3 H200s needed. 1 GB200 fits it. Unified memory also means GPU can read CPU data directly-no copying embeddings back and forth. Latency drops 40% for inference that touches both CPU and GPU.
+
+Bandwidth is identical (960 GB/s both). Power is identical (~700W). Per-token cost winds up similar, but GB200 handles way bigger models.
+
+## Inference Benchmarks: GB200 Dominates at Scale
+
+405B model (4-bit):
+- 1x H200: ~18 tokens/sec (need 3 for real throughput)
+- 1x GB200: ~24 tokens/sec (fits entirely, handles batching alone)
+
+First-token latency matters more. GB200 is 40% faster due to unified memory (no inter-GPU communication overhead). Smaller models (13B-70B) show little advantage.
+
+## Training: H200 and GB200 differ less
+
+For training, H200 and GB200 are similar performers. Training benefits less from unified memory because training already communicates heavily between components.
+
+Distributed training across multiple GPUs: both use [NVIDIA H200 pricing](/articles/nvidia-h200-price) strategy - multiple units working in parallel, not unified memory.
+
+GB200 offers advantage during model serving after training. Train on H200 or H100 clusters. Serve on GB200.
+
+## Cloud pricing timeline for GB200
+
+No cloud provider offers GB200 yet as of March 2026. CoreWeave indicated Q3 2026 launch. Lambda Labs likely Q2 2026.
+
+Estimated pricing based on hardware cost and performance:
+
+- GB200 (2 Grace + 1 Blackwell): $8-12/hour expected
+- That's $4-6 per GPU equivalent in paired setup
+
+Compare to [H200 pricing](/articles/nvidia-h200-price) at $3.59-4.50/hour per GPU. GB200 costs more per unit but handles 3x the model size, so per-token cost improves.
+
+Wait and see makes sense. H200 is available now. GB200 comes Q3 2026 likely. By then, pricing becomes clearer.
+
+## When to use each chip
+
+Choose H200 [via Lambda](/articles/lambda-labs-gpu-pricing) when:
+
+- Production hardware is needed today
+- Model fits within 141GB HBM limits
+- Cost optimization ranks below availability concerns
+
+Choose GB200 when:
+
+- Serving massive models (405B+) is the priority
+- Unified memory APIs are available
+- Cost per inference token improves at scale
+
+## FAQ
+
+**Q: Is GB200 really twice as fast as H200?**
+Not twice as fast. Same tensor throughput roughly. Advantage comes from unified memory reducing communication overhead. 15-25% speedup for large model inference.
+
+**Q: Can I run H200 optimized code on GB200 unmodified?**
+Yes, most code. CUDA code that assumes separate memory spaces needs refactoring to use unified memory. VRAM limiting code becomes less common.
+
+**Q: What's a Grace CPU doing in there anyway?**
+Grace handles host-side compute, CPU workloads. If your inference uses CPU components (feature engineering, embedding lookups), Grace reduces data movement.
+
+**Q: Should I buy GB200 or rent it?**
+Rent it. Availability is scarce. By the time you get hardware, better chips exist. Cloud pricing will settle in Q3 2026.
+
+**Q: Does GB200 have hardware issues like early H100s?**
+Blackwell had good launches. No major issues reported. Grace CPU integration adds complexity. Early versions may have quirks but production units ship stable.
+
+**Q: What about power consumption differences?**
+GB200 system: 700-800W. H200: 700W. Nearly identical. Your facility power costs don't change much between them.
+
+## Related Resources
+
+- [NVIDIA H200 price comparison](/articles/nvidia-h200-price)
+- [NVIDIA H100 pricing](/articles/nvidia-h100-price)
+- [CoreWeave GPU pricing](/articles/coreweave-gpu-pricing)
+- [GPU pricing comparison](/gpus)
+- [Lambda GPU pricing](/articles/lambda-labs-gpu-pricing)
+
+## Sources
+
+- NVIDIA Blackwell Architecture: https://www.nvidia.com/en-us/data-center/blackwell/
+- NVIDIA Grace Hopper: https://www.nvidia.com/en-us/data-center/grace/
+- NVIDIA GB200 Specs: https://www.nvidia.com/en-us/data-center/gb200/
+- NVIDIA H200 Datasheet: https://www.nvidia.com/en-us/data-center/h200/

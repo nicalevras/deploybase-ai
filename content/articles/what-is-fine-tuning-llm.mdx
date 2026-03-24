@@ -1,0 +1,549 @@
+---
+title: What Is Fine-Tuning? LLM Customization Explained
+slug: what-is-fine-tuning-llm
+description: >-
+  Fine-tuning explained: full fine-tuning, LoRA, QLoRA methods. Learn when to
+  fine-tune vs RAG vs prompting, with cost breakdown by GPU as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: LLM Fundamentals
+keywords:
+  - what is fine tuning llm
+  - fine tuning explained
+  - LLM fine-tuning
+  - LoRA
+  - QLoRA
+---
+
+## Contents
+
+- [What is Fine Tuning LLM: Overview](#what-is-fine-tuning-llm-overview)
+- [Quick Decision Tree](#quick-decision-tree)
+- [Comparison Table: Customization Methods](#comparison-table-customization-methods)
+- [Full Fine-tuning Explained](#full-fine-tuning-explained)
+- [LoRA: Low-Rank Adaptation](#lora-low-rank-adaptation)
+- [QLoRA: Quantized LoRA](#qlora-quantized-lora)
+- [When to Fine-tune: Decision Framework](#when-to-fine-tune-decision-framework)
+- [Cost Analysis: Full Fine-tuning](#cost-analysis-full-fine-tuning)
+- [Cost Analysis: LoRA Fine-tuning](#cost-analysis-lora-fine-tuning)
+- [Cost Analysis: QLoRA Fine-tuning](#cost-analysis-qlora-fine-tuning)
+- [Training Data Requirements](#training-data-requirements)
+- [Hardware Requirements Comparison](#hardware-requirements-comparison)
+- [Fine-tuning Process Walkthrough](#fine-tuning-process-walkthrough)
+- [Evaluation and Testing](#evaluation-and-testing)
+- [Deployment Considerations](#deployment-considerations)
+- [Advanced Topics](#advanced-topics)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## What is Fine Tuning LLM: Overview
+
+Fine-tuning is the process of updating a pre-trained language model's weights using custom training data, teaching it domain-specific language, behavior, and output formats. Unlike prompting (which adds context to a single request) or RAG (which retrieves documents before generation), fine-tuning permanently alters how the model processes information across all future requests. As of March 2026, fine-tuning costs have decreased with better tooling and GPU availability.
+
+This guide explains fine-tuning fundamentals, compares it to alternative customization approaches, details three implementation methods (full fine-tuning, LoRA, QLoRA), and provides cost calculations for different GPU configurations. Understanding when to fine-tune versus using simpler alternatives determines both AI capability and infrastructure budget.
+
+## Quick Decision Tree
+
+**Use prompting (in-context learning) if:**
+- Needs vary significantly per request
+- Examples fit in context window
+- Task requires up-to-date information
+- Cost-sensitive applications
+- Quick iteration needed
+
+**Use RAG (retrieval-augmented generation) if:**
+- Information frequently changes
+- Knowledge base is very large (100K+ documents)
+- Want interpretable data source attribution
+- Low latency not critical
+- Maintaining knowledge separately from model preferred
+
+**Use fine-tuning if:**
+- Consistent domain-specific knowledge
+- Behavior patterns must be consistent
+- Inference latency matters (smaller model post-tuning)
+- Output format strict and complex
+- Cost of repeated expensive queries exceeds tuning cost
+- Task fundamentally differs from pre-training distribution
+
+## Comparison Table: Customization Methods
+
+| Factor | Prompting | RAG | Fine-tuning |
+|--------|-----------|-----|-------------|
+| Setup Time | Minutes | Hours | Days |
+| Training Data | 0-10 examples | 100-100K documents | 100-10K examples |
+| Inference Cost | Baseline | Baseline + retrieval | Lower (smaller model) or same (larger) |
+| Latency | +retrieval time | +retrieval time | Baseline |
+| Knowledge Updates | Realtime (new prompts) | Realtime (reindex) | Requires retraining |
+| Model Size Post | Unchanged | Unchanged | Can reduce 30-70% |
+| Consistency | Varies by prompt | Depends on retrieval | High |
+| Interpretability | High (examples visible) | High (sources visible) | Black box |
+| Failure Mode | Hallucinations | Retrieval errors | Wrong predictions |
+| Best For | Flexible tasks | Knowledge bases | Fixed behavior |
+
+## Full Fine-tuning Explained
+
+Full fine-tuning updates all model parameters during training. Every weight in the neural network can change based on the data.
+
+**How It Works:**
+
+1. Load pre-trained model (e.g., Llama 2 7B)
+2. Prepare training data in pairs: (instruction, desired_output)
+3. Run forward pass: compute logits, compare to expected output
+4. Compute loss (difference between predicted and actual)
+5. Backpropagate: gradient flows through all layers
+6. Update all weights using gradient descent
+7. Repeat for multiple epochs until convergence
+
+**Advantages:**
+
+- Maximum capability improvement (5-30% performance gains)
+- Can learn arbitrary patterns
+- Model becomes smaller and cheaper post-tuning (via quantization)
+- Best for fundamental behavior change (language, style, domain expertise)
+
+**Disadvantages:**
+
+- Expensive computationally (requires large GPUs)
+- Risk of catastrophic forgetting (loses pre-trained knowledge on unrelated tasks)
+- Slow (typically 1-7 days for 7B model depending on data size and GPU)
+- Requires many training examples (1,000+ typically)
+- Risk of overfitting on small datasets
+
+**Hardware Requirements:**
+
+A100 40GB: trains 7B model, requires batch size 4-8
+H100 80GB: trains 13B model, batch size 8-16
+Multiple H100s: distributed training, 30-70B models
+B200: trains 70B full precision
+
+## LoRA: Low-Rank Adaptation
+
+LoRA solves fine-tuning expense by freezing most weights and training only small adapter layers.
+
+**How LoRA Works:**
+
+Instead of updating all weights in a linear layer, LoRA adds a low-rank factorization:
+
+```
+weight_update = A × B
+```
+
+Where A and B are tiny matrices (rank r, typically 8-64) compared to the original weight matrix.
+
+Example: update a 4096x4096 weight matrix (16M parameters)
+- Full fine-tuning: train all 16M parameters
+- LoRA with rank 16: train 4096×16 + 16×4096 = 131K parameters (99.2% reduction)
+
+**Advantages:**
+
+- 10-100x cheaper than full fine-tuning
+- Same quality improvement (usually 4-15% performance gains)
+- Run on consumer GPUs (RTX 4090 with 24GB)
+- Trains in hours instead of days
+- Can merge adapter weights back into base model
+- Run multiple LoRA adapters simultaneously for different tasks
+
+**Disadvantages:**
+
+- Slightly lower peak performance than full fine-tuning
+- Rank selection affects quality (requires experimentation)
+- More hyperparameters to tune
+- Adapter overhead at inference (small, ~<1% latency increase)
+
+**Hardware Requirements:**
+
+RTX 4090 ($0.34/hr on RunPod): trains 7B-13B, batch size 2-4
+L4 ($0.44/hr on RunPod): trains 7B with batch size 1-2
+H100: trains 70B, batch size 8-16
+
+## QLoRA: Quantized LoRA
+
+QLoRA combines LoRA with quantization, reducing memory further by storing base model weights in low-precision (4-bit).
+
+**How QLoRA Works:**
+
+1. Quantize base model to 4-bit (divide by 16 in memory)
+2. Apply LoRA adapters (trainable)
+3. During backprop, dequantize just needed weights temporarily
+4. Keep most memory savings of quantization
+
+Example: 7B model at 4-bit
+- Full precision: 7B × 2 bytes (float16) = 14GB
+- 4-bit quantized: 7B × 0.5 bytes = 3.5GB
+- LoRA adapters: +131K parameters (negligible)
+- Total: ~4GB VRAM for training
+
+**Advantages:**
+
+- Runs on small GPUs (8GB VRAM for 13B model)
+- Marginally slower than LoRA (5-10%)
+- Allows fine-tuning where LoRA won't fit
+
+**Disadvantages:**
+
+- Slightly slower training than LoRA
+- Quality occasionally 2-5% lower due to quantization
+- Requires careful hyperparameter tuning
+
+**Hardware Requirements:**
+
+L4 (24GB): trains 13B easily, 30B with batch size 1
+RTX 4090 (24GB): trains 13B-30B
+T4 (16GB): trains 7B with difficulty
+
+## When to Fine-tune: Decision Framework
+
+**Fine-tune when all true:**
+
+1. Consistent domain knowledge needed (law, medicine, code)
+2. Output format must be strict (JSON, specific structure)
+3. Inference cost savings or latency reduction justify training cost
+4. Have 500+ quality training examples
+5. Task differs significantly from base model training data
+
+**Don't fine-tune when:**
+
+1. Few (< 100) training examples: prompting with in-context learning works better
+2. Knowledge changes frequently: RAG better
+3. One-off or ad-hoc task: prompting sufficient
+4. Model performs well with prompting: no need to spend money
+5. Task very similar to pre-training (general knowledge, reasoning)
+
+**Examples That Justify Fine-tuning:**
+
+- Medical chatbot: fine-tune on clinical notes and FAQs, learn domain language
+- Code generation: fine-tune on internal codebase, match style and patterns
+- Customer support: fine-tune on support tickets, learn company policies and tone
+- Legal document analysis: fine-tune on contracts, learn industry-specific terminology
+- Content moderation: fine-tune on internal labeling guidelines
+
+## Cost Analysis: Full Fine-tuning
+
+**Setup Costs (one-time):**
+
+- GPU rental: $0.20-5.98/hour depending on model
+- Data preparation labor: 20-100 hours
+- Hyperparameter tuning: 10-50 GPU hours
+
+**Training Costs by Model Size and GPU:**
+
+**7B Model Fine-tuning:**
+
+RunPod RTX 4090 ($0.34/hr):
+- Training time: 24-48 hours (10K examples, batch 4)
+- Compute cost: $8-16
+- Data preparation: $1,000-3,000 (labor)
+- Total: $1,008-3,016
+
+L4 ($0.44/hr):
+- Training time: 48-96 hours (slower, batch 2)
+- Compute cost: $21-42
+- Total: $1,021-3,042
+
+**13B Model Fine-tuning:**
+
+RunPod H100 PCIe ($1.99/hr):
+- Training time: 24-48 hours (10K examples, batch 8)
+- Compute cost: $48-96
+- Total: $1,048-3,096
+
+H100 SXM ($2.69/hr):
+- Faster convergence, same data: 20-40 hours
+- Compute cost: $54-108
+- Total: $1,054-3,108
+
+**70B Model Full Fine-tuning:**
+
+Lambda H100 SXM 8x ($2.49/hr):
+- Training time: 48-72 hours (5K examples, batch 8, distributed)
+- Compute cost: $181-272
+- Total: $1,181-3,272
+
+Multiple GPUs reduce training time but increase hourly cost. Sweet spot is often single-GPU training despite longer wall-clock time.
+
+## Cost Analysis: LoRA Fine-tuning
+
+**Same 7B Model with LoRA:**
+
+RunPod RTX 4090 ($0.34/hr):
+- Training time: 4-8 hours (10K examples)
+- Compute cost: $1.36-2.72
+- Total: $1,001-2,002 (mostly labor)
+
+L4 ($0.44/hr):
+- Training time: 8-12 hours
+- Compute cost: $3.52-5.28
+- Total: $1,003-2,005
+
+L4 cost-benefit: 10x cheaper than full fine-tuning, adequate for most use cases.
+
+**70B Model with LoRA:**
+
+H100 PCIe ($1.99/hr):
+- Training time: 12-24 hours
+- Compute cost: $24-48
+- Total: $1,024-2,048
+
+Dramatically cheaper than 70B full fine-tuning. Quality loss negligible for most applications.
+
+## Cost Analysis: QLoRA Fine-tuning
+
+**13B Model with QLoRA:**
+
+L4 ($0.44/hr):
+- Training time: 8-16 hours (RTX 4090 or L4 sufficient)
+- Compute cost: $3.52-7.04
+- Total: $1,003-2,007
+
+**30B Model with QLoRA:**
+
+H100 ($2.69/hr, though overkill):
+- Training time: 24-36 hours
+- Compute cost: $65-97
+- Could use L4 at 2x time: compute $4.40-6.60
+- Use L4: Total $1,004-2,006
+
+QLoRA enables large-model fine-tuning on budget hardware.
+
+## Training Data Requirements
+
+**Minimum Data for Quality:**
+
+- LoRA: 100-500 examples (can work, risk of overfitting)
+- Full fine-tuning: 1,000-10,000 examples (recommended)
+- Very large models (70B+): 5,000-50,000 examples
+
+**Data Format:**
+
+Standard format for generation tasks:
+
+```json
+{
+  "instruction": "Classify this sentiment.",
+  "input": "The movie was terrible.",
+  "output": "negative"
+}
+```
+
+Or conversational format:
+
+```json
+{
+  "messages": [
+    {"role": "user", "content": "What is 2+2?"},
+    {"role": "assistant", "content": "4"}
+  ]
+}
+```
+
+**Data Quality Matters More Than Quantity:**
+
+100 high-quality, diverse examples > 10,000 low-quality or duplicated examples
+
+High-quality means:
+- Correct outputs (no mislabeled data)
+- Representative of target domain
+- Diverse examples (don't repeat same pattern 1,000 times)
+- Clear instructions (exact format expected)
+
+## Hardware Requirements Comparison
+
+| GPU | VRAM | 7B Full | 7B LoRA | 13B LoRA | 13B QLoRA | 70B Full |
+|-----|------|---------|---------|----------|-----------|----------|
+| L4 | 24GB | Yes | Yes | Marginal | Yes | No |
+| RTX 4090 | 24GB | Yes | Yes | Yes | Yes | No |
+| H100 PCIe | 80GB | Yes | Yes | Yes | Yes | Barely |
+| H100 SXM | 80GB | Yes | Yes | Yes | Yes | Yes |
+| B200 | 192GB | Yes | Yes | Yes | Yes | Yes |
+
+## Fine-tuning Process Walkthrough
+
+**Step 1: Data Preparation**
+
+Collect examples (instruction, output pairs) relevant to domain. Aim for 500-10,000 examples depending on method.
+
+Format as JSON lines:
+
+```
+{"instruction": "...", "output": "..."}
+{"instruction": "...", "output": "..."}
+```
+
+**Step 2: Setup Environment**
+
+Install training framework (Hugging Face Transformers + Peft for LoRA):
+
+```bash
+pip install transformers peft bitsandbytes
+```
+
+**Step 3: Configure LoRA** (recommended starting point):
+
+```python
+from peft import LoraConfig, get_peft_model
+lora_config = LoraConfig(
+    r=16,
+    lora_alpha=32,
+    target_modules=["q_proj", "v_proj"],
+    lora_dropout=0.05,
+    bias="none",
+)
+```
+
+**Step 4: Load Model and Create Trainer:**
+
+```python
+from transformers import AutoModelForCausalLM, TrainingArguments, Trainer
+model = AutoModelForCausalLM.from_pretrained("meta-llama/Llama-2-7b")
+model = get_peft_model(model, lora_config)
+
+training_args = TrainingArguments(
+    output_dir="./fine_tuned",
+    num_train_epochs=3,
+    per_device_train_batch_size=4,
+    learning_rate=2e-4,
+    save_steps=100,
+)
+trainer = Trainer(model=model, args=training_args, ...)
+```
+
+**Step 5: Train:**
+
+```python
+trainer.train()
+```
+
+Training begins, loss decreases over 3-10 epochs.
+
+**Step 6: Save and Deploy:**
+
+```python
+model.save_pretrained("./final_lora")
+```
+
+Merge with base model or use adapter-based serving.
+
+## Evaluation and Testing
+
+**Evaluation Metrics:**
+
+Perplexity: how surprised the model is by test data (lower is better)
+Exact match: percentage of outputs exactly matching expected
+F1 score: balance between precision and recall
+Human evaluation: subjective quality on random samples
+
+**Validation Approach:**
+
+Hold out 10-20% of data as validation set. Monitor validation loss during training.
+
+If validation loss increases while training loss decreases: overfitting. Reduce learning rate or data.
+
+If both increase: model not learning. Increase learning rate or simplify task.
+
+**Test Set Evaluation:**
+
+After training, evaluate on completely unseen test data.
+
+Compare fine-tuned model to:
+1. Original base model with prompting
+2. Baseline approach (e.g., rule-based system)
+3. Other fine-tuned variants
+
+Quantify improvement. If 5% improvement costs $1,000 to achieve, is it worth it?
+
+## Deployment Considerations
+
+**Merged vs Adapter:**
+
+Merged: fine-tuned weights permanently combined with base model, larger file size (7B model becomes 14GB), faster inference, single file to deploy
+
+Adapter: keep base model and save 130KB LoRA weights separately, efficient storage, requires loading both at runtime, negligible latency increase
+
+For production, merged models often make sense if storage available. Adapters better for multi-task serving.
+
+**Inference Performance:**
+
+Full fine-tuning: same latency as base model
+LoRA: <1% latency increase (adapter computation negligible)
+QLoRA: if quantized model used at inference, 20-30% latency improvement vs full precision
+
+**Monitoring:**
+
+Track performance over time. Model behavior may drift if data distribution changes.
+
+Retrain quarterly with new examples if domain evolving.
+
+## Advanced Topics
+
+**Multi-task Fine-tuning:**
+
+Train single model on multiple related tasks. Often improves generalization compared to task-specific fine-tuning.
+
+Requires careful data balancing: equal examples per task or weighted sampling.
+
+**Instruction Fine-tuning:**
+
+Structure data as instruction-response pairs (vs input-output).
+
+Teaches model to follow varied instructions, not memorize specific patterns.
+
+Results in more flexible model for deployment.
+
+**Continued Pre-training:**
+
+Further pre-train on domain-specific corpus before fine-tuning.
+
+Expensive but valuable if domain language very different (e.g., medical domain).
+
+Typically: 1-2 weeks pre-training + 2-3 days fine-tuning.
+
+## FAQ
+
+**Q: How much data do I need to fine-tune?**
+A: Minimum 100-500 examples for LoRA, 1,000+ for full fine-tuning. Quality matters more than quantity. Start with 500 examples and evaluate; add more if needed.
+
+**Q: Can I fine-tune locally?**
+A: Yes, if you have 12GB+ VRAM GPU. LoRA or QLoRA fits on RTX 4090, L4, or consumer GPUs. Full fine-tuning needs 40GB+ typically.
+
+**Q: How long does fine-tuning take?**
+A: LoRA: 2-12 hours. Full fine-tuning: 1-7 days. QLoRA: 4-24 hours. Depends on data size and GPU.
+
+**Q: What's the difference between fine-tuning and transfer learning?**
+A: Fine-tuning is a type of transfer learning. Fine-tuning updates all or most weights. Transfer learning includes: fine-tuning, feature extraction (freeze most weights, train small head), domain adaptation.
+
+**Q: Can I fine-tune proprietary models like GPT-4?**
+A: No. Proprietary models (OpenAI, Anthropic) don't support fine-tuning, though OpenAI offers limited fine-tuning for older GPT-3.5. Use open-source models.
+
+**Q: What if my fine-tuned model forgets general knowledge?**
+A: Catastrophic forgetting happens. Mix domain-specific and general examples (80/20 split often works). Use lower learning rates to preserve pre-trained knowledge.
+
+**Q: How do I choose between LoRA, QLoRA, and full fine-tuning?**
+A: Start with LoRA on RTX 4090. If VRAM-constrained, use QLoRA. Only use full fine-tuning if LoRA quality insufficient (rare).
+
+**Q: Can I use fine-tuning for prompt injection defense?**
+A: No. Fine-tuning affects base model behavior, not specific to individual requests. Use guardrail models or prompt validation for injection defense.
+
+**Q: How do I reduce fine-tuning costs?**
+A: Use LoRA instead of full fine-tuning (10-100x cheaper). Train on L4 ($0.44/hr) instead of H100. Use smaller models (7B vs 70B). Start with fewer data examples.
+
+**Q: Should I fine-tune or RAG?**
+A: RAG for frequently changing knowledge. Fine-tuning for behavior and language patterns. Often use both: fine-tune for style/domain, RAG for facts.
+
+## Related Resources
+
+Deepen knowledge of fine-tuning and GPU infrastructure:
+
+- [LLM Directory](/llms) with pricing for cloud inference
+- [Best GPU for Fine-tuning](/articles/best-gpu-for-fine-tuning) hardware recommendations
+- [A100 vs H100 Comparison](/articles/a100-vs-h100) for scaling fine-tuning
+- [GPU Directory](/gpus) with rental pricing on RunPod, Lambda, etc.
+
+## Sources
+
+- Hugging Face Transformers Documentation: https://huggingface.co/docs/transformers/
+- LoRA Paper: https://arxiv.org/abs/2106.09685
+- QLoRA Paper: https://arxiv.org/abs/2305.14314
+- Peft Library Documentation: https://huggingface.co/docs/peft/
+- Lit-LLaMA Fine-tuning: https://github.com/Lightning-AI/lit-llama

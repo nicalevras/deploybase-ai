@@ -1,0 +1,273 @@
+---
+title: 'LLM API Pricing Comparison: Cost-Per-Million-Tokens Across All Providers'
+slug: llm-api-pricing-comparison-cost-per-million-tokens-all
+description: >-
+  Comprehensive comparison of LLM API pricing for OpenAI, Anthropic, Google, and
+  others including cost-per-token analysis and optimization strategies.
+date: '2026-03-22'
+author: DeployBase
+category: API Pricing
+---
+
+## Contents
+
+- [Understanding LLM API Pricing (March 2026)](#understanding-llm-api-pricing-march-2026)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Understanding LLM API Pricing (March 2026)
+
+Language model API pricing has fractured into tiers reflecting model capabilities and inference costs. The same provider charges vastly different rates for different models. Understanding actual cost-per-token is critical for budget forecasting.
+
+### Provider Pricing market
+
+**OpenAI GPT Models:**
+
+GPT-4o (latest) costs $5 per 1M input tokens and $15 per 1M output tokens. GPT-4 Turbo costs $10 / $30 per 1M tokens. GPT-4 (original) costs $30 / $60. GPT-3.5-turbo costs $0.50 / $1.50 per 1M tokens.
+
+The pricing structure penalizes output tokens at 3x input cost. This ratio reflects higher compute requirements for generation versus understanding.
+
+OpenAI also introduced cache features allowing 90% discounts on cached input tokens (first request at full price, subsequent requests using cached context at 10% cost). For applications with repeated context patterns, caching substantially reduces costs.
+
+**Anthropic Claude Models:**
+
+Claude 3 Opus (most capable) costs $15 per 1M input tokens and $75 per 1M output tokens. Claude 3 Sonnet costs $3 / $15. Claude 3 Haiku (fastest/cheapest) costs $0.80 / $4.00.
+
+Anthropic's pricing emphasizes long context windows. Extended context (200K tokens) doesn't increase per-token cost, unlike some competitors who charge for full window availability.
+
+**Google Gemini Models:**
+
+Gemini 2.0 Flash costs $0.075 per 1M input tokens and $0.30 per 1M output tokens. Gemini 1.5 Pro costs $3.50 / $10.50. Gemini 1.5 Flash costs $0.075 / $0.30 (competitive with Flash).
+
+Google's newest Flash model is aggressive on pricing:roughly 150x cheaper than Claude Opus for input tokens.
+
+**Meta Llama (via Groq, Together, etc.):**
+
+Llama 3.1 405B via Together AI costs $8.00 per 1M input tokens and $24 per 1M output tokens. Via Groq (optimized inference), Llama 3 70B costs $0.34 per 1M input and $1.02 per 1M output (extremely cheap).
+
+Open-weight models are dramatically cheaper when optimized inference platforms are used.
+
+**Mistral and Other Open Models:**
+
+Mistral Large via Mistral AI API costs $0.81 per 1M input tokens and $2.43 per 1M output tokens. Same model via Together AI costs $0.40 / $1.20:roughly 50% cheaper with different inference optimization.
+
+### Pricing Comparison Table
+
+| Provider | Model | Input Cost/1M | Output Cost/1M | Key Features |
+|----------|-------|---------------|----------------|--------------|
+| OpenAI | GPT-4o | $5 | $15 | Latest, Cache support |
+| OpenAI | GPT-3.5-turbo | $0.50 | $1.50 | Affordable baseline |
+| Anthropic | Claude 3 Opus | $15 | $75 | Long context, Quality |
+| Anthropic | Claude 3 Haiku | $0.80 | $4.00 | Fast, cheap |
+| Google | Gemini 2.0 Flash | $0.075 | $0.30 | Aggressive pricing |
+| Groq | Llama 3 70B | $0.34 | $1.02 | Very fast inference |
+| Together | Llama 3.1 405B | $8.00 | $24 | Open weight, capable |
+| Mistral | Mistral Large | $0.81 | $2.43 | Balanced option |
+
+### Input vs. Output Token Economics
+
+LLM API pricing fundamentally reflects different costs for input (understanding context) and output (generation) tokens. Understanding this asymmetry is critical for cost optimization.
+
+**Input Token Cost Analysis:**
+
+Input tokens require fewer compute operations than output tokens. Batch processing multiple requests reduces per-token input cost through parallelization. Most costs reflect prompt context rather than inference compute.
+
+For applications like question-answering over documents, input tokens dominate costs. A 10,000-token document + 100-token question uses 10,100 input tokens. Output might be just 200 tokens. Total cost is heavily input-weighted.
+
+**Output Token Cost Analysis:**
+
+Generating output is computationally intensive. Each output token requires computing a full transformer pass, sampling, and validation. This explains why output token pricing is 3-15x input costs.
+
+For applications generating large responses (long-form content, code generation), output tokens dominate. A request for 2,000-word article uses minimal input tokens but 2,000+ output tokens.
+
+**Optimal Request Design:**
+
+Minimize input tokens: pre-process and summarize context before sending to API. Use system prompts efficiently:concise instructions are better than verbose examples.
+
+Control output: set `max_tokens` parameter to expected output length. Avoid unnecessarily long responses.
+
+For text understanding tasks, focus on input efficiency. For generation tasks, focus on output efficiency.
+
+### Caching and Optimization Strategies
+
+**OpenAI Prompt Caching:**
+
+Feature: First request with a given prompt pays full price. Subsequent requests using cached segments pay 10% for input tokens matching the cache.
+
+Economics: Request 1 = $5 / 1M tokens. Request 2-10 (same context) = $0.50 / 1M tokens. After 10 requests, cache pays for itself.
+
+Best for: Applications reusing fixed context (RAG systems with repeated documents, customer support with shared knowledge base, code analysis with repeated codebase segments).
+
+**Anthropic Batch Processing:**
+
+Anthropic offers batch API with 50% discount for non-time-critical workloads. Ideal for bulk processing.
+
+Economics: Real-time API costs $15/1M input (Opus). Batch API costs $7.50/1M. For 100M tokens monthly, batch saves $750.
+
+Best for: Bulk document processing, classification, summarization where latency tolerance exists.
+
+**Model Selection Optimization:**
+
+Choosing cheaper models when quality permits yields substantial savings:
+
+- Haiku (Anthropic) or Gemini Flash instead of Opus for simple tasks: 15-75x cheaper
+- GPT-3.5-turbo instead of GPT-4o for straightforward tasks: 10x cheaper
+- Llama 3 70B via Groq instead of proprietary models: 20-50x cheaper (if quality sufficient)
+
+Quality-adjusted cost analysis: Test task completion with cheaper models first. Use expensive models only if cheaper alternatives fail.
+
+### Real-World Cost Scenarios
+
+**Scenario 1: Customer Support Chatbot (1,000 daily conversations)**
+
+Assumptions:
+- 2,000 token average context (customer history + knowledge base)
+- 200 token average response
+- Using GPT-3.5-turbo
+
+Daily cost:
+- Input: 1,000 × 2,000 tokens × $0.50/1M = $1.00
+- Output: 1,000 × 200 tokens × $1.50/1M = $0.30
+- Total daily: $1.30
+- Monthly: $39
+
+Same with Claude Haiku:
+- Input: 1,000 × 2,000 × $0.80/1M = $1.60
+- Output: 1,000 × 200 × $4.00/1M = $0.80
+- Total daily: $2.40
+- Monthly: $72 (less efficient for this use case despite cheaper rates:output dominates)
+
+Same with Gemini Flash:
+- Input: 1,000 × 2,000 × $0.075/1M = $0.15
+- Output: 1,000 × 200 × $0.30/1M = $0.06
+- Total daily: $0.21
+- Monthly: $6.30 (83% savings vs. GPT-3.5)
+
+**Scenario 2: Batch Document Summarization (100,000 documents)**
+
+Assumptions:
+- 3,000 token average document
+- 500 token summary
+- Can use batch API (non-real-time)
+
+Using Claude Opus (real-time):
+- Input: 100K × 3,000 × $15/1M = $4,500
+- Output: 100K × 500 × $75/1M = $3,750
+- Total: $8,250
+
+Using Claude Opus (batch at 50% discount):
+- Total: $4,125
+
+Using Llama 3 70B via Together (batch equivalent):
+- Input: 100K × 3,000 × $0.40/1M = $120
+- Output: 100K × 500 × $1.20/1M = $60
+- Total: $180 (23x cheaper than Opus batch)
+
+**Scenario 3: Code Generation for Development (50 prompts daily)**
+
+Assumptions:
+- 500 token average prompt (code context + instructions)
+- 800 token average generated code
+- Needs high quality (GPT-4o)
+
+Daily cost:
+- Input: 50 × 500 × $5/1M = $0.125
+- Output: 50 × 800 × $15/1M = $0.60
+- Daily: $0.725
+- Monthly: $21.75
+
+With GPT-3.5 (acceptable for routine tasks):
+- Input: 50 × 500 × $0.50/1M = $0.0125
+- Output: 50 × 800 × $1.50/1M = $0.06
+- Daily: $0.0725
+- Monthly: $2.18 (90% savings)
+
+With open-source Mistral Large:
+- Input: 50 × 500 × $0.81/1M = $0.02025
+- Output: 50 × 800 × $2.43/1M = $0.0972
+- Daily: $0.1175
+- Monthly: $3.53
+
+### Quality vs. Cost Tradeoffs
+
+Not all models are equal. Quality-adjusted pricing requires testing:
+
+**Simple Classification Tasks:**
+
+GPT-3.5-turbo and Claude Haiku both achieve 95%+ accuracy at 20-60x lower cost than premium models. Quality-adjusted savings are massive.
+
+**Complex Reasoning:**
+
+Claude Opus and GPT-4o maintain significant quality advantages for multi-step reasoning. Premium models justify costs if accuracy above 85-90% is required.
+
+**Code Generation:**
+
+GPT-4o leads for complex problems. For routine patterns, GPT-3.5 is competitive. Haiku sometimes struggles with intricate requirements.
+
+**Creative Writing:**
+
+Claude excels due to long context handling and instruction-following. GPT-4o similar quality. Cheaper models produce acceptable but lower-quality output.
+
+Recommendation: Test each model with the representative workload. If all achieve 90%+ accuracy, use cheapest option.
+
+### Multi-Provider Strategy
+
+Many teams balance cost and capability with multi-provider approaches:
+
+- **Premium tasks (reasoning, analysis):** Claude Opus or GPT-4o
+- **Standard tasks (classification, summarization):** GPT-3.5 or Claude Sonnet
+- **Cost-sensitive tasks:** Gemini Flash or Llama via Groq
+- **Bulk processing:** Batch APIs (50% discount)
+
+Route requests based on complexity. Use cheap models first; escalate to expensive models only when cheaper ones fail.
+
+### Relevant Pricing Context
+
+For broader context on AI infrastructure costs, check [GPU pricing](/gpus) to understand self-hosted inference costs. For embedding APIs, review [embedding model pricing](/articles/embedding-model-pricing-cost-per-token-across-all-providers).
+
+For specific provider details, see [OpenAI API pricing](/articles/openai-pricing) and [Anthropic API pricing](/articles/anthropic-pricing).
+
+Compare against self-hosted inference with [GPU cloud pricing tracker](/articles/gpu-cloud-price-tracker-weekly-update-template) methodology.
+
+## FAQ
+
+**What's the actual cheapest way to run LLMs?**
+
+Self-hosting open models on GPU infrastructure (Groq, Together, RunPod) costs 50-500x less per token than proprietary APIs. However, it requires engineering overhead. For small-scale use (under $500/month), APIs are simpler and sometimes cheaper. For large-scale (over $5K/month), self-hosting is optimal.
+
+**Should I commit to spending with providers for discounts?**
+
+Only if your volume is verified and stable. OpenAI/Anthropic discounts require $100K+ commitments typically. Ensure you'll actually use committed volume before signing.
+
+**How much does caching actually save?**
+
+For applications with repeated context, 50-90% savings on input tokens (caching reduces to 10% cost). If you send same 10K-token context 100 times monthly, caching saves $45. Only beneficial for high-context, repeated-request patterns.
+
+**Can I mix providers based on cost?**
+
+Yes, it's an advanced optimization. Route simple tasks to cheap providers, complex tasks to expensive ones. Requires infrastructure coordination but yields significant savings at scale.
+
+**What about privacy and using proprietary models?**
+
+All proprietary APIs (OpenAI, Anthropic, Google) log requests for monitoring. For sensitive data, self-host open models or use dedicated private endpoints (more expensive). Understand privacy requirements before choosing providers.
+
+**How do I forecast my LLM API costs?**
+
+Estimate: (average requests per month) × (average input tokens per request) × (input rate) + (average output tokens per request) × (output rate). Test this with pilot queries for 1-2 weeks to calibrate estimates.
+
+## Related Resources
+
+- [OpenAI API Pricing](/articles/openai-pricing) - OpenAI detailed pricing
+- [Anthropic API Pricing](/articles/anthropic-pricing) - Anthropic Claude pricing
+- [Embedding Model Pricing](/articles/embedding-model-pricing-cost-per-token-across-all-providers) - Semantic search APIs
+- [GPU Pricing Guide](/gpus) - Self-hosted inference infrastructure
+- [GPU Cloud Price Tracker](/articles/gpu-cloud-price-tracker-weekly-update-template) - Monitoring infrastructure costs
+
+## Sources
+
+- OpenAI, Anthropic, Google official API pricing (as of March 2026)
+- Groq, Together AI, Mistral pricing documentation (as of March 2026)
+- DeployBase.AI LLM cost analysis (as of March 2026)
+- Community benchmarking on model quality across price tiers
+- Case studies on cost optimization strategies from 2025-2026

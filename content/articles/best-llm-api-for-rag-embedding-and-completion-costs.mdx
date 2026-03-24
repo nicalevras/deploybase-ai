@@ -1,0 +1,99 @@
+---
+title: 'Best LLM API for RAG: Embedding and Completion Costs Analyzed'
+slug: best-llm-api-for-rag-embedding-and-completion-costs
+description: >-
+  Compare embedding and completion costs for RAG systems. Find optimal LLM APIs
+  for retrieval-augmented generation workflows.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - best llm api for rag
+---
+## Contents
+
+- [Embedding API Costs for RAG](#embedding-api-costs-for-rag)
+- [Completion API Costs for RAG](#completion-api-costs-for-rag)
+- [Total RAG Cost Comparison](#total-rag-cost-comparison)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## Embedding API Costs for RAG
+
+Embedding models convert text chunks into vector representations for similarity search. Cost per token is typically much lower than completion tokens.
+
+| Provider | Model | $/M tokens | Dimensions | Notes |
+|----------|-------|-----------|-----------|-------|
+| OpenAI | text-embedding-3-small | $0.02 | 1536 | Best cost-quality ratio |
+| OpenAI | text-embedding-3-large | $0.13 | 3072 | Highest accuracy |
+| Cohere | embed-english-v3.0 | $0.10 | 1024 | Strong retrieval quality |
+| Voyage AI | voyage-2 | $0.10 | 1024 | Competitive with OpenAI |
+| Google | text-embedding-004 | $0.025 | 768 | Good for Vertex AI stacks |
+
+For most RAG workloads, OpenAI's `text-embedding-3-small` at $0.02/M tokens offers the best price-performance. Indexing 100M tokens (roughly 75,000 documents of 1,300 tokens each) costs $2.
+
+## Completion API Costs for RAG
+
+RAG completion prompts include retrieved context chunks plus the user query. A typical RAG prompt runs 2,000-8,000 input tokens due to injected context.
+
+| Provider | Model | Input $/M | Output $/M | Context window |
+|----------|-------|-----------|-----------|----------------|
+| OpenAI | GPT-4o | $2.50 | $10.00 | 128K |
+| OpenAI | GPT-4o mini | $0.15 | $0.60 | 128K |
+| Anthropic | Claude 3.5 Sonnet | $3.00 | $15.00 | 200K |
+| Anthropic | Claude 3 Haiku | $0.25 | $1.25 | 200K |
+| Google | Gemini 1.5 Flash | $0.075 | $0.30 | 1M |
+| DeepSeek | DeepSeek-V3 | $0.27 | $1.10 | 64K |
+| Together AI | Llama 3.1 70B | $0.90 | $0.90 | 128K |
+
+Long-context models (Claude, Gemini 1.5) suit RAG workflows loading entire documents. Budget-sensitive teams use GPT-4o mini or Gemini Flash for most queries, reserving frontier models for complex reasoning.
+
+## Total RAG Cost Comparison
+
+Example: 100,000 RAG queries/month, average 3,000 input tokens + 500 output tokens per query.
+
+| Stack | Embedding cost | Completion cost | Monthly total |
+|-------|--------------|----------------|---------------|
+| OpenAI small + GPT-4o mini | $0.20 | $47 | ~$47 |
+| OpenAI small + GPT-4o | $0.20 | $780 | ~$780 |
+| OpenAI small + Claude Haiku | $0.20 | $81 | ~$81 |
+| Cohere + Claude 3.5 Sonnet | $1.00 | $960 | ~$961 |
+| Google text-embedding + Gemini Flash | $0.25 | $24 | ~$24 |
+
+Embedding costs are negligible compared to completion costs. Optimize completions first; switch embeddings only after confirming retrieval quality bottlenecks.
+
+## FAQ
+
+**Q: Should teams build custom embedding models or use API services?**
+Custom embeddings eliminate API costs but require GPU infrastructure. For teams without existing ML infrastructure, API embeddings ($0.02-0.30 per million tokens) prove cheaper than maintenance burden.
+
+**Q: How does context length impact RAG cost?**
+Longer context windows cost more per request but reduce required retrievals. Four documents of 500 tokens each cost less than eight documents of 250 tokens. Optimize document chunking based on this trade-off.
+
+**Q: Can RAG systems use free LLM APIs?**
+Limited options exist. Open-source models self-hosted eliminate API costs but require GPU infrastructure. [RunPod GPU pricing](/articles/runpod-gpu-pricing) makes hosting cheap, though still more expensive than API services for most use cases.
+
+**Q: What's the typical cost per RAG query?**
+Depends on architecture. Minimal setup: $0.0001 (OpenAI embedding) + $0.002 (Claude completion) = $0.0021 per query. At 100,000 queries monthly, costs reach $210.
+
+**Q: Should embedding quality improve with higher cost?**
+Not necessarily. OpenAI's text-embedding-3-small at $0.02/million tokens often outperforms expensive alternatives. Focus on retrieval algorithm quality before upgrading embeddings.
+
+## Related Resources
+
+- [OpenAI API Pricing](/articles/openai-pricing)
+- [Anthropic API Pricing](/articles/anthropic-pricing)
+- [DeepSeek API Pricing](/articles/deepseek-api-pricing)
+- [LLM API Pricing Comparison](/llms)
+- [Google Gemini API Pricing](/articles/gemini-api-pricing)
+
+## Sources
+
+- OpenAI: Embedding and completion pricing documentation (as of March 2026)
+- Anthropic: Claude API pricing and documentation
+- DeepSeek: API pricing and service offerings
+- Industry analysis of RAG system costs and optimization strategies
+- Vector database providers' pricing models and cost comparisons

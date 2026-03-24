@@ -1,0 +1,355 @@
+---
+title: 'NVIDIA Tesla V100 Cloud Pricing: Where to Rent & How Much It Costs'
+slug: v100-price
+description: >-
+  NVIDIA V100 cloud rental pricing and where to find it. Compare V100 hourly
+  costs with modern GPU alternatives A100, H100, and RTX 4090 as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Pricing
+keywords:
+  - v100 price
+  - nvidia tesla v100 cost
+  - v100 cloud pricing
+  - gpu rental prices
+  - legacy gpu alternatives
+---
+
+## Contents
+
+- [V100 Price: Overview](#v100-price-overview)
+- [V100 Hardware Specifications](#v100-hardware-specifications)
+- [Remaining Cloud Providers Offering V100](#remaining-cloud-providers-offering-v100)
+- [Hourly Rate Comparison](#hourly-rate-comparison)
+- [Spot Pricing and Reserved Capacity](#spot-pricing-and-reserved-capacity)
+- [Total Cost Comparison with Alternatives](#total-cost-comparison-with-alternatives)
+- [When V100 Still Makes Sense](#when-v100-still-makes-sense)
+- [Migration Paths from V100](#migration-paths-from-v100)
+- [Alternative Accelerators by Use Case](#alternative-accelerators-by-use-case)
+- [Cost-Benefit Analysis](#cost-benefit-analysis)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## V100 Price: Overview
+
+**V100 price** queries typically reflect teams investigating legacy GPU availability and cost-benefit tradeoffs. The NVIDIA Tesla V100, released in 2017, remains partially available in cloud environments despite being superceded by A100 (2020) and H100 (2023). As of March 2026, the V100 occupies a niche market: teams with aging workloads, existing frameworks optimized for V100 architecture, and extreme cost sensitivity where 30-40% performance-per-dollar advantage of V100 over newer models justifies legacy stack maintenance.
+
+Most major cloud providers (AWS, Google Cloud, Azure) have retired V100 offerings entirely, consolidating inventory toward A100 and H100. Specialized GPU cloud platforms, academic institutions, and secondary-market providers maintain scattered V100 capacity at $0.30-$0.80 per hour depending on configuration, region, and commitment terms.
+
+As of March 2026, directly comparing V100 pricing to modern alternatives reveals the GPU has become a legacy platform primarily suitable for inference on small-to-medium models where memory capacity and compute aren't primary constraints. New projects rarely justify starting on V100; existing V100 deployments should evaluate migration timelines and implementation costs.
+
+## V100 Hardware Specifications
+
+### Memory Configuration
+
+Tesla V100 comes in two variants: 16GB and 32GB HBM2 memory. The 16GB variant was more common in cloud deployments; 32GB was premium-priced and rarely offered by cloud providers.
+
+Memory bandwidth for both variants: 900 GB/s. This figure is identical; the difference is purely capacity. A 16GB V100 suits inference on models up to approximately 8-12B parameters at reasonable batch sizes. The 32GB variant supports 20-25B parameter models or larger models with bigger batches.
+
+HBM2 memory features 652 gigabits per second (Gbps) per stack, with 4 stacks per GPU yielding the 900 GB/s aggregate bandwidth. This bandwidth was state-of-the-art in 2017 but lags significantly behind modern alternatives: A100 (2 TB/s), H100 (3.35 TB/s).
+
+### Compute Performance
+
+Tesla V100 delivers:
+
+- 14 TFLOPS FP32 peak for single-precision floating point (SXM2 variant)
+- 7.8 TFLOPS FP64 for double-precision floating point (SXM2 variant)
+- 112 TFLOPS for mixed precision operations (FP16 with tensor cores)
+- ~450 TOPS for INT8 operations on supported workloads
+
+Practical sustained performance under typical deep learning workloads: 10-12 TFLOPS FP32 scalar, 90-100 TFLOPS mixed precision with tensor cores. The tensor cores (specialized matrix multiplication units) dominate modern deep learning throughput.
+
+Compared to modern alternatives (tensor core mixed-precision throughput):
+- V100: 112 TFLOPS (FP16 tensor cores)
+- A100: 312 TFLOPS (FP16 tensor cores, 2.8x faster)
+- H100: 989 TFLOPS (FP16 tensor cores, 8.8x faster)
+- A10G (Ampere alternative): 250 TFLOPS (FP16 tensor cores, 2.2x faster)
+
+The compute deficit is substantial for latency-sensitive applications. Token generation in LLM serving benefits only marginally from V100's 2017-era compute capacity.
+
+### Tensor Core Architecture
+
+V100 includes 640 tensor cores, each capable of performing 64 FP32 floating-point operations per clock cycle. Tensor cores execute 4x4x4 matrix multiply-accumulate operations, making them ideal for deep learning training and inference.
+
+The tensor core design, while revolutionary in 2017, uses older techniques. Newer architectures (A100, H100) have higher tensor core density and throughput per core. Modern quantization techniques benefit more from newer tensor core designs.
+
+## Remaining Cloud Providers Offering V100
+
+### Academic Cloud Providers
+
+Universities and research institutions maintain V100 clusters for educational purposes. The National Science Foundation-funded XSEDE (now ACCESS) provides V100 compute on systems like Bridges-2 and allocated HPC platforms.
+
+Pricing on academic platforms is typically heavily subsidized or free with proposals, making hourly rate comparisons moot. However, allocation availability is limited and competitive.
+
+### Specialized GPU Cloud Platforms
+
+Smaller cloud platforms have retained V100 inventory targeting specific markets:
+
+**Paperspace:** Offered V100 at $0.60/hour as of early 2026, though availability is limited and the provider is transitioning away from legacy GPUs.
+
+**FloydHub and other ML-focused platforms:** Some retained V100 for compatibility with older projects but offer no pricing guarantees or SLA commitments.
+
+**Secondary market and spot pricing:** Providers occasionally list V100 at $0.30-$0.50/hour through spot markets, though sustained availability is unreliable.
+
+### On-Premises Legacy Infrastructure
+
+Teams with existing V100 clusters (purchased 2017-2019) continue operating them. The hardware is fully amortized or nearing end-of-life. Operational costs (cooling, power, facilities) approximate $0.05-0.10 per hour, making continued operation cost-effective versus new hardware.
+
+## Hourly Rate Comparison
+
+### Historical and Current Market Rates
+
+**AWS (Retired):** Previously offered p3.2xlarge (single V100 16GB) at $3.06/hour on-demand. AWS retired V100 offerings in late 2023.
+
+**Google Cloud (Retired):** Previously offered n1-standard with attached NVIDIA_TESLA_V100 at $1.95/hour compute + $0.35/hour GPU = $2.30/hour total. Google phased out V100 in 2024.
+
+**Azure (Retired):** NC6_v2 instances with 1x V100 cost approximately $0.90/hour GPU + $0.36/hour compute = $1.26/hour. Azure has largely migrated customers to A100 and newer.
+
+**Academic platforms (FREE-$0.50/hour):** XSEDE/ACCESS provides V100 compute on educational proposals at no cost. Some commercial academic partnerships subsidize to $0.20-0.30/hour.
+
+**Spot market (when available):** $0.30-0.60/hour on platforms maintaining inventory.
+
+### Comparative Cloud Pricing (March 2026)
+
+For modern alternatives on major cloud platforms:
+
+**RunPod (Primary benchmark for alternative pricing):**
+- RTX 4090: $0.34/hour
+- A100 PCIe: $1.19/hour
+- H100 PCIe: $1.99/hour
+
+**Lambda Labs:**
+- A100: $1.48/hour
+- H100 PCIe: $2.86/hour
+
+**Google Cloud (March 2026):**
+- A100 40GB: $1.50/hour
+- H100 80GB: $2.50/hour
+
+## Spot Pricing and Reserved Capacity
+
+### Spot Market Dynamics
+
+V100 spot pricing (when available) has compressed toward $0.30-0.40/hour as inventory decreases. Spot availability is sporadic and unreliable; interruption rates are high (50%+ of allocations interrupted within 4 hours on some platforms).
+
+Reserved capacity offers (1-year or 3-year commitments) are essentially unavailable for V100 on major providers. Smaller platforms occasionally offer 30-day commitments at 10-15% discounts.
+
+### Commitment vs. Spot Tradeoffs
+
+For V100 workloads under consideration, neither commitment nor spot pricing is attractive:
+- Spot ($0.30-0.40/hour) is unreliable for serious work
+- Reserved pricing ($0.30-0.60/hour) is comparable or higher than A100 PCIe spot pricing
+- Long-term amortization of on-premises V100 is superior to any current cloud pricing
+
+The economics argue against choosing V100 for new deployments.
+
+## Total Cost Comparison with Alternatives
+
+### Inference on Llama 13B (Batch size 32, 2K token sequences)
+
+**V100 16GB:**
+- Fits model with minimal memory headroom
+- Token generation: 50 tokens/second sustained
+- Cost for 1 million tokens: $0.40 × (1,000,000 / (50 × 3,600)) = $0.40 × 5.56 = $2.22
+
+**A100 PCIe ($1.19/hour):**
+- Fits model with memory to spare for larger batches
+- Token generation: 150 tokens/second sustained (3x faster due to memory bandwidth)
+- Cost for 1 million tokens: $1.19 × (1,000,000 / (150 × 3,600)) = $1.19 × 1.85 = $2.20
+
+Despite V100 being 3.5x cheaper per hour, per-token costs are nearly identical due to 3x throughput advantage. The A100 is slightly cheaper per unit of useful output.
+
+### Training Llama 7B (Batch size 128)
+
+**V100 single GPU:**
+- Throughput: 200 tokens/second
+- 1 epoch (10B tokens): 50,000 seconds = 13.9 hours
+- Cost: $0.40 × 13.9 = $5.56 (if available at $0.40/hr)
+
+**A100 PCIe ($1.19/hour):**
+- Throughput: 600 tokens/second
+- 1 epoch: 16,667 seconds = 4.6 hours
+- Cost: $1.19 × 4.6 = $5.47
+
+Remarkably similar: V100's lower hourly cost is offset by longer training time. A100 edges out cheaper due to electricity cost savings and reduced cooling load amortization.
+
+### Large Model Inference (Llama 70B)
+
+**V100 16GB:** Cannot fit model weights. Requires distributed inference across 4-5 GPUs or quantization to extreme levels (3-4 bit), reducing quality.
+
+**V100 32GB (if available):** Fits model with minimal memory for KV caches; maximum batch size 1-2 requests. 30 tokens/second per GPU.
+
+**A100 40GB ($1.19/hour):** Fits model with memory for batch size 8-16. 100+ tokens/second.
+
+Cost per token:
+- V100 (5x GPUs at $0.40 = $2.00/hour): $2.00 / (30 × 3,600 × 5) = $0.0037 per token
+- A100 (1 GPU at $1.19/hour): $1.19 / (100 × 3,600) = $0.0033 per token
+
+A100 is actually cheaper for large model serving, despite higher hourly cost, due to consolidated deployment.
+
+## When V100 Still Makes Sense
+
+### Specific Use Cases for V100
+
+V100 remains viable for:
+
+1. **Small model inference (BERT, RoBERTa, DistilBERT):** Models under 500M parameters require only 1-2GB memory. V100 inference at 200+ tokens/second represents excellent cost-per-inference. The 16GB variant is massive overkill but cost-effective in bulk.
+
+2. **Legacy framework compatibility:** Older research code written for V100 tensor core architecture sometimes requires re-engineering for newer GPUs. V100 runs unchanged code without refactoring.
+
+3. **Extreme cost sensitivity with low utilization:** Teams with budget constraints and sub-10% utilization (exploratory research, academic students) benefit from lowest possible hourly cost. V100 at $0.30-0.40/hour beats other options if availability is secure.
+
+4. **Distributed inference with existing infrastructure:** Teams operating on-premises V100 clusters have zero marginal cost to continue operation (hardware is amortized). Upgrading is purely capex decision, making V100 continuation economical if 3-5 year upgrade cycles are acceptable.
+
+### Cost-Sensitive Teams
+
+For academic researchers with limited budgets:
+- V100 is acceptable if access is free (university cluster access)
+- Avoid cloud V100 purchases; spot pricing is unreliable
+- Consider A100 instead for 30-50% cost premium and 2.5x throughput
+
+For small inference services with tight margins:
+- V100 is borderline viable for sub-1B parameter models
+- Larger models favor A100 despite higher hourly cost
+
+## Migration Paths from V100
+
+### V100 to A100 Migration
+
+A100 is the simplest upgrade path. CUDA code runs unchanged; NVIDIA provides CUDA optimization guides. Performance scales 2.5-3x; cost increase is 3x.
+
+Expected migration effort:
+- Code recompilation: 1-2 hours
+- Benchmark verification: 4-8 hours
+- Production deployment: minimal (no architecture changes)
+
+For training workflows: re-run hyperparameter tuning (batch size, learning rate) as memory scaling enables larger batches.
+
+### V100 to H100 Migration
+
+H100 is overkill for most V100 workloads; cost increases 5-8x. However, if consolidating infrastructure or standardizing on latest hardware, H100 suits this.
+
+Expected migration effort: identical to A100 migration (code runs unchanged), but cost implications make it rarely justified.
+
+### V100 to A10 (Ampere Budget Alternative)
+
+A10 Tensor provides 2x V100 compute at $0.60-0.80/hour in some cloud markets. A10 is a better value than V100 for inference-focused workloads.
+
+However, A10 is limited to 24GB memory (smaller batches), making it inferior for training. Inference benefits from higher throughput despite lower memory.
+
+### V100 to Specialized Architectures
+
+For specific workloads, specialized alternatives beat V100:
+
+- **Vision tasks:** RTX 4090 at $0.34/hour provides 2x V100 performance at 1/10th cost
+- **Quantization-heavy inference:** TPU slices ($1-2/hour) can be 10x faster for quantized models
+- **Sparse model inference:** H100 sparse tensor support is valuable; V100 sees no benefit
+
+## Alternative Accelerators by Use Case
+
+### Inference on Models Under 5B Parameters
+
+| Accelerator | Cost/Hour | Throughput | Cost/1M Tokens |
+|---|---|---|---|
+| V100 16GB | $0.40 | 100 tokens/sec | $1.11 |
+| RTX 4090 | $0.34 | 120 tokens/sec | $0.78 |
+| A100 PCIe | $1.19 | 200 tokens/sec | $1.65 |
+| T4 | $0.30 | 50 tokens/sec | $1.67 |
+
+RTX 4090 is optimal: lower cost and higher throughput than V100.
+
+### Inference on Models 10-70B Parameters
+
+| Accelerator | Cost/Hour | Throughput | Cost/1M Tokens |
+|---|---|---|---|
+| V100 32GB | $0.80 | 30 tokens/sec | $7.41 |
+| A100 40GB | $1.19 | 100 tokens/sec | $3.35 |
+| H100 | $1.99 | 200 tokens/sec | $2.76 |
+
+A100 dominates for models exceeding 10B parameters. V100 becomes too slow or requires problematic model sharding.
+
+### Training Medium Models (7-13B Parameters)
+
+| Accelerator | Cost/Hour | Throughput | Cost/1B Tokens |
+|---|---|---|---|
+| V100 16GB | $0.40 | 200 tokens/sec | $55.56 |
+| A100 40GB | $1.19 | 600 tokens/sec | $55.29 |
+| H100 | $1.99 | 1,200 tokens/sec | $46.30 |
+
+A100 and V100 have similar amortized costs; H100 provides 20% cost advantage through speed.
+
+## Cost-Benefit Analysis
+
+### Break-Even Analysis
+
+V100 vs. A100 break-even occurs at approximately:
+- 400-500 GPU-hours per month: V100 becomes cost-effective (lower monthly spend despite lower throughput)
+- Below 200 GPU-hours per month: A100 is cheaper despite higher hourly cost (superior throughput)
+
+For teams with intermittent usage, A100 is superior. For continuous 24/7 utilization, V100 was competitive historically but is no longer available reliably.
+
+### Total Cost of Ownership
+
+For on-premises V100 clusters purchased 2017-2019:
+- Hardware cost: $10,000 per V100 (amortized to ~$0/year by 2026)
+- Annual power cost: 250W × 8,760 hours × $0.12/kWh = $262
+- Annual cooling/facilities: ~$300
+- Total annual cost: ~$562 per GPU
+
+This is competitive with any cloud offering and justifies continued operation for existing V100 infrastructure.
+
+For new V100 purchases: no cloud provider offers it reliably, and used market prices ($2,000-4,000 per GPU) don't justify capital investment when A100 is available at $1.19/hour.
+
+## FAQ
+
+**Where can I still rent V100s?**
+
+V100 rentals are scarce as of March 2026. Limited availability exists through:
+- Academic platforms (free-$0.50/hour through XSEDE/ACCESS)
+- Some smaller ML cloud providers ($0.30-0.60/hour, unreliable)
+- Spot markets on legacy infrastructure
+- Most major providers have retired V100 entirely
+
+New users should prioritize A100 or newer.
+
+**Should I migrate existing V100 code to A100?**
+
+Yes, if feasible. The migration is straightforward (recompile CUDA code), and A100 costs are only 3x higher with 2.5x throughput improvement. For inference on smaller models, consider RTX 4090 instead.
+
+**How does V100 compare to modern budget options?**
+
+RTX 4090 at $0.34/hour is faster and cheaper than V100 for inference. A100 at $1.19/hour is slightly cheaper per unit of output and faster. V100 has no advantage against modern alternatives except legacy code compatibility.
+
+**Can I run large language models on V100?**
+
+Technically, yes, with quantization or model sharding. Practically, no. Llama 13B requires careful quantization (4-bit) losing quality; 70B models need 3+ GPUs sharded. A100 (single GPU) handles both without compromise.
+
+**Is V100 still available for purchase?**
+
+Used V100 hardware is available at $2,000-4,000 per GPU on secondary markets. New hardware is discontinued. Used V100 only justifies purchase for existing infrastructure replacement with constrained budgets.
+
+**What's the most cost-effective modern alternative?**
+
+For inference: RTX 4090 at $0.34/hour.
+For training and large models: A100 at $1.19/hour.
+For maximum performance: H100 at $1.99/hour.
+
+The choice depends on the specific workload and scale.
+
+## Related Resources
+
+Browse current GPU pricing and specifications at [GPU database](/gpus).
+
+Review detailed NVIDIA Tesla V100 specifications at [NVIDIA Tesla V100 models](/gpus/models/nvidia-tesla-v100).
+
+Compare modern alternatives in [NVIDIA H100 pricing](/articles/nvidia-h100-price) and [NVIDIA A100 pricing](/articles/a100-price).
+
+## Sources
+
+- [NVIDIA Tesla V100 Datasheet](https://www.nvidia.com/en-us/data-center/tesla-v100/)
+- [NVIDIA CUDA Optimization Guide](https://docs.nvidia.com/cuda/cuda-c-programming-guide/)
+- [AWS EC2 Pricing Archive](https://aws.amazon.com)
+- [Google Cloud GPU Pricing](https://cloud.google.com/compute/pricing)
+- [RunPod GPU Pricing](https://www.runpod.io)
+- [XSEDE/ACCESS Allocations](https://www.xsede.org)

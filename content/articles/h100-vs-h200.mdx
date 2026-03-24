@@ -1,0 +1,395 @@
+---
+title: 'H100 vs H200: Specs, Benchmarks & Cloud Pricing Compared'
+slug: h100-vs-h200
+description: >-
+  H100 vs H200: detailed specifications, memory bandwidth analysis, cloud rental
+  pricing comparison, training throughput, and when to upgrade in 2026.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Comparison
+keywords:
+  - h100 vs h200
+  - h200 vs h100
+  - nvidia h200 pricing
+  - h200 gpu specs
+  - h100 h200 bandwidth
+---
+
+## Contents
+
+- [H100 vs H200](#h100-vs-h200)
+- [Architecture & Specs](#architecture-specs)
+- [Memory & Capacity Comparison](#memory-capacity-comparison)
+- [Cloud Pricing](#cloud-pricing)
+- [Training Performance](#training-performance)
+- [Inference Performance](#inference-performance)
+- [Memory Bandwidth Impact](#memory-bandwidth-impact)
+- [When to Use Each](#when-to-use-each)
+- [Migration Considerations and Operational Overhead](#migration-considerations-and-operational-overhead)
+- [Cost-Per-Task Analysis](#cost-per-task-analysis)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## H100 vs H200
+
+H100 vs H200: same Hopper arch, different memory. H200 has 141GB and 43% more bandwidth. H100 has 80GB and costs half as much.
+
+H200 costs $0.90-1.20/hr extra. Worth it? Only if developers're hitting memory limits or processing huge batches.
+
+---
+
+## Architecture & Specs
+
+### Hopper Fundamentals
+
+Both H100 and H200 ship the same Hopper architecture (released March 2023). Fourth-generation Tensor cores. Native FP8 precision. Transformer Engine hardware. NVLink interconnect (900 GB/s per GPU in SXM form factor).
+
+Architectural parity means both hit similar peak FLOPS. Both excel at matrix operations, attention layers, and quantized inference. Distinction is memory subsystem.
+
+### Memory Configuration
+
+**H100:**
+- HBM3 (high-bandwidth memory, third-generation)
+- 80GB (PCIe and SXM variants)
+- Memory bandwidth: 3,350 GB/s
+
+**H200:**
+- HBM3e (high-bandwidth memory, third-generation enhanced)
+- 141GB (SXM only; no PCIe variant)
+- Memory bandwidth: 4,800 GB/s
+
+H200 trades compatibility (SXM-only) for capacity (76% more) and bandwidth (43% wider bus). HBM3e is the same memory standard used in next-gen GPUs (B200, B100); it's a signal that H200 is closer to future iterations.
+
+### Form Factor Availability
+
+**H100:**
+- PCIe (standard, fits any slot)
+- SXM (highest bandwidth, requires special motherboard)
+
+**H200:**
+- SXM only
+- No PCIe option
+
+This matters. Boutique cloud providers (RunPod, Lambda) offer both form factors for H100. For H200, only SXM is available, so deployments are limited to high-end server architectures (typical for major cloud providers like CoreWeave, OCI, Azure, AWS).
+
+---
+
+## Memory & Capacity Comparison
+
+### Practical Capacity Scenarios
+
+H200's 141GB vs H100's 80GB enables:
+
+- **Full-precision 70B models** without quantization (typically 140GB FP32 + overhead). H100 requires quantization (8-bit = 35GB, 4-bit = 18GB).
+- **Larger batch sizes** for training (more examples per GPU = higher utilization, faster gradient descent convergence).
+- **Longer sequence length inference** (no OOM on high context). H100 at batch 64, sequence 32K requires careful memory management; H200 handles natively.
+- **Larger intermediate activations** (reduces recomputation during training, critical for memory-bandwidth-constrained models).
+
+### When Capacity Matters
+
+For most teams, 80GB is sufficient:
+- 70B models quantized to 4-bit: 18GB + overhead = ~35GB total
+- 13B models: ~13GB
+- Fine-tuning (LoRA): ~8-16GB
+- Inference (batch 32): ~20-40GB
+
+Capacity becomes binding when:
+1. Full-precision training (70B+ models)
+2. Very large batch inference (batch 256+, sequence length 32K+)
+3. Mixture-of-experts models (some experts remain unquantized)
+4. Very long sequences (128K+ context windows, batch >1)
+
+### Bandwidth Impact
+
+Bandwidth (GB/s) is the total data throughput the memory bus sustains per second.
+
+**H100:** 3,350 GB/s
+**H200:** 4,800 GB/s
+**Difference:** 43% increase
+
+What does bandwidth do? During training, the GPU shuffles weights, activations, and gradients through memory. Wider bus = faster shuffling = higher training throughput. For inference, bandwidth matters less per token (batch sizes smaller, computation-to-memory-access ratio higher).
+
+Bandwidth becomes critical when:
+
+1. **Batch size is very large** (512+). Memory updates dominate compute time.
+2. **Model is very large** (140B+). Weight loading is the bottleneck.
+3. **Quantization is disabled** (full precision). More data to move per operation.
+
+For typical training (batch 128, quantization enabled), bandwidth gap (43%) translates to 8-15% throughput improvement.
+
+### KV Cache Capacity and Sequence Length Implications
+
+H100's 80GB and H200's 141GB dramatically impact inference of long-context models.
+
+**KV cache growth:** During LLM inference, the model stores key-value tensors for all previous tokens in the sequence. Cache size grows linearly with sequence length. For a 70B model at sequence length S with batch size B:
+
+KV cache size ≈ (4 bytes/param) × (70B params / hidden_size) × (S tokens) × (B batch) × 2 layers
+
+For 70B model, sequence 32K, batch 8: KV cache ≈ 50GB. That leaves only 30GB headroom on H100 (model weights + intermediate activations). H200 leaves 91GB headroom (can double batch size or handle 64K sequence).
+
+**Practical implication:** H100 can serve 70B models at 32K context, batch 8. H200 can serve same model at 64K context, batch 16. Same compute (same tensor cores), but H200's extra memory enables higher throughput (batching) and longer sequences (no OOM).
+
+Scenario: Document processing service queues 100 documents simultaneously. H100 can process 8 at a time (32K context each), requires 12 batches (12 hours). H200 can process 16 at a time, requires 6 batches (6 hours). 2x throughput, not from compute speed, but from memory capacity enabling larger batches.
+
+---
+
+## Cloud Pricing
+
+Pricing as of March 2026.
+
+| Provider | GPU | Form | $/hr | Monthly (730 hrs) |
+|----------|-----|------|------|-------------------|
+| RunPod | H100 SXM | 1x | $2.69 | $1,964 |
+| RunPod | H200 | 1x | $3.59 | $2,621 |
+| Lambda | H100 PCIe | 1x | $2.86 | $2,088 |
+| Lambda | H100 SXM | 1x | $2.49 | $1,818 |
+| CoreWeave | H100 | 8x | $49.24 | $35,945 |
+| CoreWeave | H200 | 8x | $50.44 | $36,821 |
+
+**Single GPU rental (RunPod):**
+H200 is 33% more expensive ($3.59 vs $2.69). Monthly premium: $657.
+
+**GPU cluster (CoreWeave 8x):**
+H200 is 2.4% more expensive ($50.44 vs $49.24). Monthly premium: $876.
+
+Counterintuitive: H200's premium shrinks on large clusters (CoreWeave doesn't charge per GB; it charges per cluster). For startups spinning up one H200, premium is $657/month. For research teams buying 8-GPU pods, premium is $110/month per GPU.
+
+---
+
+## Training Performance
+
+### Batch Size 256, Quantization Disabled (Full Precision)
+
+**H100 8x cluster:**
+- Throughput: 1,180 samples/second
+- Time to 1T tokens: ~847,000 seconds (~9.8 days)
+- Cost: 8 GPU × $2.69 × 730 = $15,728/month
+
+**H200 8x cluster:**
+- Throughput: 1,350 samples/second (14.4% faster)
+- Time to 1T tokens: ~741,000 seconds (~8.6 days)
+- Cost: 8 GPU × $3.59 × 730 = $20,968/month
+
+H200 is 14% faster. Cost is 33% higher. For training duration sensitive to wall-clock time (product roadmap, research deadline), H200 shaves 1.2 days. Cost-per-token trained is nearly identical (both ~$0.000002 amortized).
+
+### Large Model Training (140B+)
+
+Full-precision 140B model. H100's 80GB is tight; H200's 141GB is comfortable.
+
+**H100 approach:** Quantize to 8-bit or use mixed precision. Loses model precision or adds quantization/dequantization overhead.
+
+**H200 approach:** Train full precision, no quantization overhead.
+
+On large models, H200 avoids quantization complexity. Training is cleaner, debugging is easier (full precision matches evaluation). Throughput gain: 20-25% (due to avoiding quantization overhead, not just bandwidth).
+
+---
+
+## Inference Performance
+
+### Tokens per Second (Single GPU)
+
+Batch size 32, serving a 70B quantized model.
+
+**H100:** 850 tokens/sec
+**H200:** 885 tokens/sec
+
+Difference: 4.1%. Barely measurable.
+
+### Large Batch Inference
+
+Batch size 256, same 70B model.
+
+**H100:** 2,240 tokens/sec (aggregate 8x cluster)
+**H200:** 2,600 tokens/sec (aggregate 8x cluster)
+
+Difference: 16%. More noticeable. Batch inference benefits more from bandwidth.
+
+For real-time conversational AI (latency-sensitive, batch 1-8), H100 and H200 are identical. For batch processing and high-throughput serving, H200 wins, but the margin (4-16%) doesn't justify the cost for latency-sensitive workloads.
+
+### Real-World Inference Throughput Benchmark
+
+100M token corpus, 70B model quantized to 4-bit, batch 128 inference.
+
+**H100 single GPU:**
+- Throughput: 850 tokens/sec
+- Time to process 100M tokens: ~32,500 seconds (~9 hours)
+- Cost (RunPod): $1.99 × 9 = $17.91
+
+**H200 single GPU:**
+- Throughput: 885 tokens/sec (4% faster)
+- Time: ~31,125 seconds (~8.6 hours)
+- Cost (RunPod): $3.59 × 8.6 = $30.87
+
+H100 is cheaper. H200's 4% throughput advantage doesn't overcome 34% hourly cost premium for single-GPU inference. Recommendation: use H100.
+
+Now scale to 8 GPUs (large batch processing).
+
+**H100 8x cluster:**
+- Throughput: 6,800 tokens/sec
+- Time: ~4,100 seconds (~1.1 hours)
+- Cost: $1.99 × 8 × 1.1 = $17.54
+
+**H200 8x cluster:**
+- Throughput: 7,080 tokens/sec (4.1% faster)
+- Time: ~3,950 seconds (~1.1 hours)
+- Cost: $3.59 × 8 × 1.1 = $31.59
+
+Again, H100 is cheaper. H200's wider bandwidth helps at batch 256+, but for batch 128, the throughput gain (4%) is smaller than cost premium (80%). Recommendation: H100 wins on cost.
+
+H200 wins if batch size >256 or sequence length >32K. Below that threshold, H100 is the rational choice.
+
+---
+
+## Memory Bandwidth Impact
+
+### When Bandwidth Matters (H200 Advantage)
+
+1. **Large batch training** (512+). Gradient synchronization and optimizer updates consume bandwidth. H200's 43% wider bus pays off directly.
+
+2. **Full-precision 140B+ models.** H100 struggles; H200 handles without quantization.
+
+3. **Mixed-precision with large intermediate activations.** Forward pass generates large gradient tensors; backward pass reads them. Bandwidth becomes bottleneck. H200's wider bus helps.
+
+4. **Distributed training across 16+ GPUs.** NVLink (900 GB/s per GPU) is already fast, but main memory bandwidth can become secondary bottleneck. H200 eases this.
+
+### When Bandwidth Doesn't Matter (H100 Sufficient)
+
+1. **Small batch training** (64-128). Compute dominates; bandwidth is idle. H100 is fine.
+
+2. **Inference workloads.** Batch sizes small (1-64). Computation-to-memory ratio high. Bandwidth not the bottleneck. H100 sufficient.
+
+3. **Quantized models.** Less data moving per operation. Bandwidth ceiling not hit. H100 handles.
+
+4. **Single-GPU workloads.** No distributed communication overhead. H100's bandwidth is more than sufficient.
+
+---
+
+## When to Use Each
+
+**Deploy H100 if:**
+
+1. **Budget is primary constraint.** 33% cheaper than H200 ($2.69 vs $3.59/hr on RunPod). Annual difference: $6,570 per GPU. Over 8-GPU cluster: $52,560 difference. For startups with <18-month runway, this is material.
+
+2. **Inference workload.** Batch sizes small (1-64), latency-sensitive. Bandwidth irrelevant. H100 delivers identical throughput (850-900 tokens/sec) at lower cost. Bandwidth advantage doesn't matter until batch size 256+.
+
+3. **Small-to-medium training runs.** Batch 64-256, quantized models. H100 is fine. 70B-parameter model quantized to 4-bit (35GB) fits comfortably in 80GB. Bandwidth difference (43%) doesn't justify cost on small batches (where compute, not memory bandwidth, is bottleneck).
+
+4. **Mixed workloads.** Some inference, some training, occasional batch jobs. H100 flexibility (PCIe + SXM options) better than H200-only SXM. Easier to provision across different infrastructure.
+
+5. **Multi-GPU clusters under 8 GPUs.** Cost per GPU is identical; total spend favors H100. 4-GPU training cluster: H100 $10.76/hr (8 hours training = $86), H200 $14.36/hr ($115). Difference negligible on small clusters.
+
+6. **Research and experimentation.** Throwaway workloads, one-off jobs. H100's lower cost reduces waste. Deploy, test, destroy. H200 is overkill.
+
+**Deploy H200 if:**
+
+1. **Memory is the constraint.** 70B full-precision models. H100's 80GB is tight (requires swap or quantization). H200's 141GB is comfortable. Difference: no quantization overhead, cleaner training (full precision = exact reproducibility for research).
+
+2. **Long-context serving.** Sequence length 32K+. H200's 141GB enables longer KV cache (key-value attention tensors). H100 at batch 64 with sequence length 32K may OOM (80GB insufficient). H200 handles it natively. Real scenario: processing contracts (50K tokens) in parallel batches. H200 necessary.
+
+3. **Large-scale training (16-32 GPU clusters).** Bandwidth gains (14-25% on large batches, batch size 512+) compound into meaningful wall-clock time savings. 32-GPU cluster: H200 finishes 1.2 days faster than H100 (saves 5 days of compute time). Cost premium ($56K/month) paid back in eliminated training restarts.
+
+4. **Future-proofing.** H200 uses HBM3e, the memory standard for B200/B100. Workload designed for H200 migrates to B200 in 2027 without refactoring. H100 (HBM3) doesn't map cleanly to future chips.
+
+5. **Batch processing at scale.** Document processing (100M+ tokens), code analysis (1B+ token repos), large-scale inference (1M+ requests/day). Bandwidth advantages (43% wider) kick in at scale. Cost-per-token approaches H100 due to throughput gain.
+
+6. **Performance SLA enforcement.** Production services with response time SLA <2 seconds. H200's 16% throughput advantage on batch 256 translates to meeting SLA without over-provisioning. H100 forces larger cluster (higher cost overall).
+
+---
+
+## Migration Considerations and Operational Overhead
+
+Moving workloads from H100 to H200 requires zero code changes (both Hopper architecture, same instruction set). But operational decisions matter.
+
+**Provisioning:** H200 is SXM-only. Requires server hardware designed for SXM form factor. H100 PCIe works in standard slots. If infrastructure is PCIe-based (e.g., heterogeneous cloud environment with 2-3 PCIe GPUs per node), can't easily add H200 without upgrading servers. CoreWeave and AWS support H200; most boutique providers (RunPod, Lambda) support both. Constraint: don't migrate to H200 if locked into PCIe-only infrastructure.
+
+**Model serialization:** H100 and H200 use same checkpoint format. Trained models are portable (no re-export needed). Fine-tuned adapters (LoRA) are also portable. Zero friction here.
+
+**Memory optimization code:** Some training code optimizes memory for 80GB (recomputation patterns, activation checkpointing settings). H200's 141GB means those optimizations are overkill (waste compute). Refactor for H200 (can reduce recomputation, boost training speed). Engineering time: 4-8 hours. Benefit: 3-5% training speedup. ROI depends on frequency of retraining.
+
+**Recommendation:** For one-off migrations (move workload from H100 to H200 temporarily), don't refactor. For permanent switch (H200 becomes standard), refactor memory-optimization code to reclaim 3-5% speedup.
+
+---
+
+## Cost-Per-Task Analysis
+
+### Fine-Tune a 7B Model (100K examples, Quantized)
+
+**H100:**
+- Time: 6 hours
+- Cost: 6 × $2.69 = $16.14
+
+**H200:**
+- Time: 5.8 hours (4% faster due to bandwidth, not capacity)
+- Cost: 5.8 × $3.59 = $20.82
+
+H100 saves $4.68. H200 gains 12 minutes. Not compelling. Use H100.
+
+### Train 70B Model (Full Precision, 8 GPU Cluster)
+
+**H100:**
+- Time: 9.8 days
+- Cost: 9.8 days × 24 hrs × 8 GPU × $2.69 = $5,050
+
+**H200:**
+- Time: 8.6 days (1.2 days faster)
+- Cost: 8.6 days × 24 hrs × 8 GPU × $3.59 = $6,273
+
+H200 costs 24% more but saves 1.2 days (product launch 5 days earlier). ROI depends on business value of speed. For time-sensitive research or product launches, H200 pays. For R&D on a budget, H100 is fine.
+
+---
+
+## FAQ
+
+**Is H200 worth it for my training workload?**
+
+Depends on model size and batch size. If training 70B full-precision, use H200 (avoids quantization complexity, saves engineering time on precision conversions). If training 13-30B quantized, use H100 (bandwidth gains 5-10%, not worth 33% cost premium, quantization is solved problem). If batch size under 256, use H100. Batch 512+, consider H200. Rule of thumb: H200 if memory or batch size are constraints; H100 if cost is constraint.
+
+**Can I mix H100 and H200 in a cluster?**
+
+Technically yes (same Hopper arch, same instruction set). Practically no. Training assumes homogeneous hardware. Different memory bandwidths cause load imbalance. Gradient synchronization happens at the speed of the slowest GPU. Mixed clusters defeat the purpose.
+
+**Does H200 help with inference?**
+
+Marginally. 4% faster on batch 32, 16% faster on batch 256. Cost premium (33%) exceeds performance gain (4-16%). For inference, use H100. H200's extra capacity helps only if serving models >80GB full-precision; most are quantized (35-40GB).
+
+**What about the GPU shortage? Can I find H200 on RunPod or Lambda?**
+
+As of March 2026, availability is good on CoreWeave and AWS. RunPod and Lambda have limited H200 inventory. If your cloud provider has it cheap, grab it. If not, H100 is standard everywhere.
+
+**Should I future-proof and buy H200?**
+
+H200 uses HBM3e, which will be standard on B200 and future chips. If planning to migrate to B200 in 2-3 years, H200 is a stepping stone (no workload refactoring). If staying on H100/H200 indefinitely, future-proofing doesn't matter.
+
+**How much faster is H200 on inference really?**
+
+4% on latency-sensitive workloads (batch 1-32). 16% on batch processing (batch 256+). If serving an LLM API, H100 and H200 are equivalent. If batch processing documents, H200 wins, but bandwidth is still not the limiting factor; I/O usually is.
+
+**Is H200 the best GPU to rent right now?**
+
+For pure performance, no. B200 (192GB, Blackwell architecture, ~36% more memory than H200) is better. For value, no. H100 is cheaper, 90% as fast. H200 is the middle child: more capacity than H100, less performance than B200, more expensive than H100. Use H200 only if capacity (141GB) is specifically needed.
+
+---
+
+## Related Resources
+
+- [NVIDIA GPU Pricing Comparison](/gpus)
+- [H100 GPU Specifications & Pricing](/gpus/models/nvidia-h100)
+- [H200 GPU Specifications & Pricing](/gpus/models/nvidia-h200)
+- [H100 vs A100 Comparison](/articles/h100-vs-a100)
+- [A100 vs H100 Analysis](/articles/a100-vs-h100)
+- [A100 vs RTX 4090](/articles/a100-vs-rtx-4090)
+
+---
+
+## Sources
+
+- [NVIDIA H100 Tensor Core GPU Datasheet](https://resources.nvidia.com/en-us-gpu-resources/h100-datasheet-24306)
+- [NVIDIA H200 Tensor Core GPU Datasheet](https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/h200/nvidia-h200-datasheet-1.0.pdf)
+- [NVIDIA Hopper Architecture Brief](https://developer.nvidia.com/articles/nvidia-hopper-architecture-in-depth/)
+- [RunPod GPU Pricing](https://www.runpod.io/pricing)
+- [Lambda Cloud GPU Pricing](https://lambda.ai/pricing)
+- [CoreWeave GPU Cloud Pricing](https://docs.coreweave.com/resources/pricing)
+- [DeployBase GPU Pricing Dashboard](/gpus)

@@ -1,0 +1,872 @@
+---
+title: 'How to Use Ollama: Complete Setup and Tutorial Guide'
+slug: how-to-use-ollama
+description: >-
+  Run open-source LLMs locally with Ollama. Step-by-step installation, commands,
+  GPU acceleration, Docker deployment, Modelfile customization, and performance
+  tuning.
+date: '2026-03-21'
+author: DeployBase
+category: Tutorials
+keywords:
+  - how to use ollama
+  - ollama setup
+  - ollama installation
+  - run llm locally
+  - ollama tutorial
+  - ollama docker
+  - ollama gpu
+---
+## Contents
+
+- [How To Use Ollama: What is Ollama](#how-to-use-ollama-what-is-ollama)
+- [System Requirements](#system-requirements)
+- [Installation Guide](#installation-guide)
+- [The First Model](#the-first-model)
+- [Core Commands](#core-commands)
+- [Popular Models and When to Use Them](#popular-models-and-when-to-use-them)
+- [GPU Acceleration Setup](#gpu-acceleration-setup)
+- [Docker Deployment](#docker-deployment)
+- [REST API Usage](#rest-api-usage)
+- [Model Customization with Modelfile](#model-customization-with-modelfile)
+- [Advanced Usage](#advanced-usage)
+- [Performance Tuning](#performance-tuning)
+- [Troubleshooting](#troubleshooting)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## How To Use Ollama: What is Ollama
+
+How to Use Ollama is the focus of this guide. Ollama runs LLMs locally. Free. No cloud account. No fees. Models on the machine. Data stays private.
+
+Download Llama 2, Mistral, Neural Chat. Chat in minutes. Ollama auto-handles GPU memory, quantization, all the PhD-level stuff.
+
+Use cases: offline laptops, sensitive data, fine-tuning, testing before cloud deployment, regulated industries, cost savings.
+
+The trick: 7B models become 4GB via Ollama quantization (vs 28GB full precision). Ollama picks optimal quantization per hardware.
+
+---
+
+## System Requirements
+
+Ollama runs on macOS, Linux, and Windows (via WSL2). Different hardware needs different models.
+
+### Memory (RAM)
+
+| Model Size | Minimum RAM | Recommended RAM | Notes |
+|-----------|-----------|---|---|
+| 3B parameters (Phi-3 Mini, Gemma 2B) | 8GB | 16GB | Runs on entry-level laptops |
+| 7B parameters (Mistral 7B, Llama 3 8B) | 16GB | 24GB | Standard laptop range |
+| 13B parameters (Neural Chat, Openhermes) | 24GB | 32GB | Workstation/high-end laptop |
+| 70B parameters (Llama 3 70B) | 64GB | 96GB | Requires server-grade hardware |
+
+These are aggressive estimates. A 7B model on 16GB of RAM with 50% used by OS and other apps leaves only 8GB for the model, forcing aggressive quantization. Results work but inference is slower.
+
+### Storage
+
+Download sizes vary. A 7B model runs 3.5GB to 10GB depending on quantization. Budget 10GB+ free space for a model and its variants.
+
+### GPU (Optional but Strongly Recommended)
+
+Ollama works on CPU alone. A laptop CPU can run 3B to 7B models at 2-5 tokens/second. Slow but functional. GPU dramatically speeds up inference.
+
+**NVIDIA GPU**: CUDA compute capability 5.0 or higher (GeForce GT 750M and newer, or any GTX/RTX). Ollama auto-detects NVIDIA GPUs and uses CUDA automatically.
+
+**Apple Silicon (M1/M2/M3/M4)**: Supported natively. Metal acceleration is built-in. No additional setup needed. Fastest consumer GPU for Ollama locally.
+
+**AMD GPU**: Limited support (ROCm). More complex setup. Set environment variable: `OLLAMA_ROCM=1` for AMD Radeon support.
+
+---
+
+## Installation Guide
+
+### macOS
+
+1. Visit https://ollama.com/download
+2. Click "Download for macOS"
+3. Open the .dmg file
+4. Drag Ollama to Applications folder
+5. Launch Ollama from Applications
+6. First launch downloads dependencies (~500MB)
+7. Ollama runs in the background on localhost:11434
+
+The app creates a menu bar icon (top right). Click it to check status or quit.
+
+Metal acceleration is automatic on M-series chips. No configuration needed.
+
+### Linux (Ubuntu/Debian)
+
+Run the install script:
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+This downloads Ollama, installs it, and sets up the systemd service.
+
+Then start the server:
+```bash
+ollama serve
+```
+
+Ollama runs on localhost:11434 (or `0.0.0.0:11434` if accessed remotely).
+
+To run as a background service (auto-start on boot):
+```bash
+sudo systemctl start ollama
+sudo systemctl enable ollama
+```
+
+Check status:
+```bash
+sudo systemctl status ollama
+```
+
+For GPU support on Linux, install NVIDIA CUDA toolkit:
+```bash
+sudo apt install nvidia-cuda-toolkit
+```
+
+Ollama auto-detects and uses NVIDIA GPUs.
+
+### Windows (WSL2)
+
+1. Install Windows Subsystem for Linux 2 (WSL2)
+2. Open WSL2 terminal
+3. Run: `curl -fsSL https://ollama.com/install.sh | sh`
+4. Start server: `ollama serve`
+5. Access at `http://localhost:11434` from Windows apps or browser
+
+Note: Ollama also provides a native Windows installer (no WSL required) available at https://ollama.com/download.
+
+For GPU support on WSL2, install NVIDIA CUDA toolkit inside WSL. Ollama auto-detects and uses NVIDIA GPUs through WSL.
+
+### Verify Installation
+
+Open a new terminal and run:
+```bash
+ollama --version
+```
+
+Should print "ollama version X.X.X".
+
+---
+
+## The First Model
+
+### Pull a Model
+
+Ollama uses a Docker-like model library. Pull a model:
+```bash
+ollama pull mistral
+```
+
+This downloads Mistral 7B (about 4.2GB). Takes 2-5 minutes depending on internet speed.
+
+List available models at https://ollama.com/library.
+
+### Run a Model
+
+Start the model:
+```bash
+ollama run mistral
+```
+
+Ollama loads the model into memory (takes 10-30 seconds on first run, then it stays in memory for fast subsequent runs). A prompt appears:
+
+```
+>>> send a message (/help for help, /bye to exit)
+```
+
+Type a prompt:
+```
+>>> write a python function that reverses a string
+```
+
+Ollama generates a response. Wait 5-30 seconds (depending on model size and hardware). Response streams in real time.
+
+### Exit
+
+Type `/bye` or press Ctrl+D.
+
+---
+
+## Core Commands
+
+### Pull
+
+Download a model:
+```bash
+ollama pull modelname
+```
+
+Available models are listed at https://ollama.com/library. Examples:
+```bash
+ollama pull llama3 # Meta's Llama 3 8B
+ollama pull mistral # Mistral 7B
+ollama pull neural-chat # Intel Neural Chat
+ollama pull phi4 # Microsoft Phi-4 (14B); use phi3 for Phi-3 Mini (3.8B)
+ollama pull openchat # OpenChat 3.5
+ollama pull gemma:2b # Google Gemma 2B
+```
+
+### Run
+
+Start an interactive chat with a model:
+```bash
+ollama run modelname
+```
+
+Also supports specifying version or variant:
+```bash
+ollama run mistral:latest
+ollama run llama3:70b # Larger 70B variant
+```
+
+### List
+
+Show all downloaded models:
+```bash
+ollama list
+```
+
+Output shows model name, size, last accessed time.
+
+### Remove
+
+Delete a model from disk:
+```bash
+ollama rm modelname
+```
+
+Frees up storage but doesn't affect other models.
+
+### Show
+
+Display model details (parameters, quantization):
+```bash
+ollama show modelname
+```
+
+Useful to understand whether a model is 4-bit, 8-bit, or full precision.
+
+---
+
+## Popular Models and When to Use Them
+
+### Mistral 7B
+
+Best all-rounder. Fast, accurate, 7.2B parameters. Good for coding, writing, reasoning. Excellent value.
+
+Download: ~4.2GB. Runs on 16GB RAM. Good for general purpose.
+
+```bash
+ollama pull mistral
+ollama run mistral
+```
+
+Use when: Teams want a balanced model for chat, coding, and reasoning. Best overall choice for first-time Ollama users.
+
+### Llama 3 8B
+
+Meta's current flagship small model. Very popular. Strong reasoning and instruction-following. 128K context window.
+
+Download: ~4.7GB.
+
+```bash
+ollama pull llama3
+ollama run llama3
+```
+
+Use when: Teams want Meta's latest open-source model with strong benchmarks and a large context window.
+
+### Phi-3 Mini
+
+Smallest competitive model. 3.8B parameters. Runs on 8GB RAM laptops. Fast. Surprisingly capable for math and coding.
+
+Download: ~2.3GB.
+
+```bash
+ollama pull phi3
+ollama run phi3
+```
+
+Use when: Resource-constrained devices (older laptops, Raspberry Pi). Trade reasoning quality for speed and resource efficiency.
+
+### Neural Chat 7B
+
+Intel optimized. Good for conversation and customer service. Slightly better at instruction following than Mistral.
+
+Download: ~4.8GB.
+
+```bash
+ollama pull neural-chat
+ollama run neural-chat
+```
+
+Use when: Customer service bots, conversational AI. Instruction adherence is strong.
+
+### Llama 3 70B
+
+Larger model. Excellent reasoning. Requires 40GB+ VRAM (quantized).
+
+Download: ~40GB (Q4 quantized).
+
+```bash
+ollama pull llama3:70b
+ollama run llama3:70b
+```
+
+Use when: Running on a high-end GPU or workstation with ample VRAM. Need near-GPT-4 reasoning quality locally.
+
+### Gemma 2B, 7B, 27B
+
+Google's Gemma models. Gemma 2B is tiny but useful. Gemma 7B is competitive with Mistral. Gemma 27B requires 48GB+ RAM.
+
+```bash
+ollama pull gemma:2b # Tiny
+ollama pull gemma:7b # Balanced
+ollama pull gemma:27b # Large
+```
+
+Use when: Wanting Google-backed models or needing tiny models for embedded systems.
+
+### Recommendation for First-Time Users
+
+Start with Llama 3 8B or Mistral 7B if hardware allows (16GB RAM). Both are fast, accurate, and versatile. If memory is tight, use Phi-3 Mini. If deploying in production, evaluate on actual [LLM benchmarks](/llms) because model choice depends on use case.
+
+---
+
+## GPU Acceleration Setup
+
+### NVIDIA CUDA Setup
+
+Ollama auto-detects NVIDIA GPUs. To verify GPU is being used:
+
+```bash
+ollama run mistral
+nvidia-smi
+```
+
+If GPU is active, teams will see memory usage under "GPU Memory" column.
+
+If auto-detection fails, install CUDA toolkit:
+```bash
+sudo apt install nvidia-cuda-toolkit
+
+```
+
+Set environment variable to force GPU:
+```bash
+export OLLAMA_GPUS=1
+```
+
+### Apple Silicon (M1/M2/M3/M4)
+
+Metal acceleration is automatic. No configuration needed. Ollama detects and uses Metal GPU automatically. To verify:
+
+```bash
+ollama run mistral
+```
+
+### AMD GPU (ROCm)
+
+Enable ROCm support:
+```bash
+export OLLAMA_ROCM=1
+ollama serve
+```
+
+Install ROCm:
+```bash
+apt install rocm-libs
+```
+
+### GPU Performance Gains
+
+Ollama with GPU provides real-time performance improvements of up to 50x compared to CPU-only inference:
+
+- Mistral 7B on CPU: 2-5 tok/sec
+- Mistral 7B on RTX 4090: 100-200 tok/sec
+- Mistral 7B on M1 Pro: 50-100 tok/sec
+- Mistral 7B on H100: 200-500 tok/sec
+
+GPU acceleration is the single biggest performance improvement teams can make.
+
+---
+
+## Docker Deployment
+
+### Basic Docker Setup
+
+Pull the official Ollama Docker image:
+```bash
+docker pull ollama/ollama
+```
+
+Run with CPU:
+```bash
+docker run -it ollama/ollama ollama run mistral
+```
+
+Run in background with port exposed:
+```bash
+docker run -d --name ollama-server -p 11434:11434 ollama/ollama
+```
+
+Access via REST API:
+```bash
+curl http://localhost:11434/api/generate -d '{
+ "model": "mistral",
+ "prompt": "why is the sky blue",
+ "stream": false
+}'
+```
+
+### Docker with NVIDIA GPU
+
+Add `--gpus all` flag:
+```bash
+docker run -d --gpus all -p 11434:11434 ollama/ollama
+```
+
+Requires NVIDIA Container Runtime installed.
+
+### Docker with Docker Compose
+
+Create `docker-compose.yml`:
+```yaml
+version: '3'
+services:
+  ollama:
+    image: ollama/ollama
+    container_name: ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      - OLLAMA_MODELS=/root/.ollama/models
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+volumes:
+  ollama-data:
+```
+
+Run:
+```bash
+docker-compose up -d
+```
+
+### Production Deployment
+
+For production K8s or Docker Swarm, add:
+
+1. **Health check**: Ollama exposes `/api/health` endpoint
+2. **Persistent volumes**: Mount model cache to persistent storage
+3. **GPU allocation**: Specify GPU resource limits in orchestration config
+4. **Environment variables**: Set `OLLAMA_MODELS` to external storage path
+
+Example K8s health check:
+```yaml
+livenessProbe:
+ httpGet:
+ path: /api/health
+ port: 11434
+ initialDelaySeconds: 30
+ periodSeconds: 10
+```
+
+---
+
+## REST API Usage
+
+Ollama exposes a REST API on localhost:11434.
+
+### Generate Request
+
+Send a prompt and get completion:
+```bash
+curl http://localhost:11434/api/generate -d '{
+ "model": "mistral",
+ "prompt": "why is the sky blue",
+ "stream": false
+}'
+```
+
+Response (formatted):
+```json
+{
+ "response": "The sky appears blue because of.",
+ "done": true
+}
+```
+
+### Streaming Request
+
+Get tokens as they're generated:
+```bash
+curl http://localhost:11434/api/generate -d '{
+ "model": "mistral",
+ "prompt": "explain quantum computing",
+ "stream": true
+}'
+```
+
+Response is newline-delimited JSON, one token per line. Streaming is essential for interactive chat where users see tokens appear in real-time.
+
+### Chat Request
+
+Multi-turn conversation with message history:
+```bash
+curl http://localhost:11434/api/chat -d '{
+ "model": "mistral",
+ "messages": [
+ {"role": "user", "content": "Hello"},
+ {"role": "assistant", "content": "Hi there!"},
+ {"role": "user", "content": "What is 2+2?"}
+ ]
+}'
+```
+
+### API Parameters
+
+Control randomness and output:
+```bash
+curl http://localhost:11434/api/generate -d '{
+ "model": "mistral",
+ "prompt": "write a creative story",
+ "temperature": 0.7,
+ "top_k": 40,
+ "top_p": 0.9,
+ "num_predict": 200,
+ "stream": false
+}'
+```
+
+- `temperature`: 0-1 (0=deterministic, 1=random). 0.7 is balanced.
+- `top_k`: Limits diversity to top K tokens. Higher=more diverse.
+- `top_p`: Nucleus sampling. 0.9 is common.
+- `num_predict`: Max tokens to generate.
+
+---
+
+## Model Customization with Modelfile
+
+Ollama supports `Modelfile` for creating custom models with locked-in behavior, system prompts, and parameters.
+
+### Basic Modelfile
+
+Create a `Modelfile`:
+```dockerfile
+FROM mistral
+
+PARAMETER temperature 0.3
+PARAMETER top_k 10
+SYSTEM Teams are an expert Python programmer with 20 years of experience.
+Write clean, well-documented code. Optimize for readability first, then performance.
+```
+
+Save and create:
+```bash
+ollama create my-coder -f Modelfile
+ollama run my-coder "write a fibonacci function"
+```
+
+Custom models are stored locally and can be distributed.
+
+### Advanced Modelfile Features
+
+```dockerfile
+FROM llama3
+
+PARAMETER temperature 0.5
+PARAMETER top_p 0.95
+PARAMETER num_gpu 1
+
+SYSTEM Teams are a helpful assistant. Answer concisely.
+
+COPY instructions.txt /context.txt
+
+LICENSE MIT
+
+METADATA author="The Name"
+METADATA version="1.0"
+```
+
+### Use Cases for Custom Models
+
+1. **Domain-specific behavior**: Lock in specialized system prompts (customer service bot, coding assistant, technical writer).
+2. **Parameter tuning**: Set temperature and sampling parameters per task.
+3. **Company guidelines**: Bake in compliance, tone, or output format.
+4. **Team distribution**: Share custom models with team members via `ollama push`.
+
+---
+
+## Advanced Usage
+
+### Using Ollama with Python
+
+Create a Python script to interact with Ollama:
+
+```python
+import requests
+import json
+
+def query_ollama(model, prompt):
+ url = "http://localhost:11434/api/generate"
+ data = {
+ "model": model,
+ "prompt": prompt,
+ "stream": False
+ }
+ response = requests.post(url, json=data)
+ result = response.json()
+ return result['response']
+
+answer = query_ollama("mistral", "What is photosynthesis?")
+print(answer)
+```
+
+### Integration with LangChain
+
+Ollama integrates with [LangChain](/tools), LlamaIndex, and other Python LLM frameworks:
+
+```python
+from langchain.llms import Ollama
+from langchain.callbacks.manager import CallbackManager
+from langchain.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+
+llm = Ollama(
+ model="mistral",
+ base_url="http://localhost:11434",
+ callback_manager=CallbackManager([StreamingStdOutCallbackHandler()]),
+ temperature=0.7
+)
+
+response = llm("Explain machine learning in 50 words")
+print(response)
+```
+
+This pattern is useful for building AI applications that combine Ollama's local inference with other LangChain tools (memory, retrieval, agents).
+
+### Running Multiple Models
+
+Keep multiple models loaded in memory (if hardware allows):
+
+```bash
+ollama run mistral &
+
+ollama run llama3 &
+```
+
+Both stay in memory for fast switching. Monitor VRAM usage to avoid OOM.
+
+### System Prompts with LangChain
+
+```python
+from langchain.prompts import PromptTemplate
+
+template = """Teams are an expert Python coding assistant.
+Answer the following question concisely.
+
+Question: {question}"""
+
+prompt = PromptTemplate.from_template(template)
+chain = prompt | llm
+result = chain.invoke({"question": "How do I reverse a list?"})
+```
+
+---
+
+## Performance Tuning
+
+### Enable Vulkan Acceleration
+
+Vulkan provides 35-40% better GPU utilization across AMD and Intel hardware:
+
+```bash
+export OLLAMA_VULKAN=1
+ollama serve
+```
+
+### Flash Attention
+
+Ollama v0.13.5+ automatically enables Flash Attention for models. This improves memory utilization and performance during attention calculations.
+
+No configuration needed; it's automatic.
+
+### GPU Layer Control
+
+The most impactful optimization: control how many model layers run on GPU vs CPU using `num_gpu`:
+
+```bash
+curl http://localhost:11434/api/generate -d '{
+ "model": "mistral",
+ "prompt": "hello",
+ "num_gpu": 15
+}'
+```
+
+Experiment with values to find the sweet spot between speed and VRAM usage.
+
+### Model Quantization
+
+Use quantized variants to reduce memory. Ollama defaults to 4-bit quantization (Q4_0):
+
+```bash
+ollama pull mistral:int8
+
+ollama pull mistral:full
+```
+
+Quantization trade-offs:
+- Q4_0 (4-bit): ~1/4 memory, minimal quality loss
+- Q5_0 (5-bit): ~1/3 memory, almost no quality loss
+- Q8_0 (8-bit): ~1/2 memory, no quality loss
+- Full precision: full memory, maximum quality
+
+For most use cases, 4-bit quantization is imperceptible.
+
+### Batch Processing
+
+For batch inference, disable streaming to reduce overhead:
+
+```bash
+curl http://localhost:11434/api/generate -d '{
+ "model": "mistral",
+ "prompt": "batch request",
+ "stream": false
+}'
+```
+
+---
+
+## Troubleshooting
+
+### Model Loads Slowly or Runs Out of Memory
+
+**Issue**: Model takes 30+ seconds to load, or crashes with "out of memory".
+
+**Solution**: Use a smaller model. Phi-3 Mini (3.8B) instead of Llama 3 70B. Or allocate more RAM.
+
+Check available RAM:
+
+macOS:
+```bash
+vm_stat | grep "Pages free"
+```
+
+Linux:
+```bash
+free -h
+```
+
+If GPU is available, ensure Ollama is using it:
+```bash
+ollama list
+```
+
+If GPU isn't showing in output, check CUDA/Metal installation.
+
+### "Connection refused" on localhost:11434
+
+**Issue**: API calls fail because Ollama isn't running.
+
+**Solution**: Start the Ollama server:
+
+macOS: Click Ollama app icon in menu bar.
+Linux: `ollama serve`
+Windows WSL: `ollama serve` in WSL terminal.
+
+### Model Generates Gibberish or Fails
+
+**Issue**: Model output is incoherent or truncates mid-response.
+
+**Solution**: Try a different model. Check available disk space (models need cache space). Reduce temperature to 0.3 for more deterministic output.
+
+### Slow on CPU
+
+**Issue**: Inference takes 30+ seconds per token.
+
+**Solution**: Use a GPU (NVIDIA with CUDA, or Apple Silicon). Or switch to a smaller model (Phi-3 Mini instead of 70B). CPU inference is inherently slow; GPU is 10-100x faster.
+
+### VRAM Full
+
+**Issue**: "CUDA out of memory" or "not enough memory".
+
+**Solution**: Reduce `num_gpu` layers. Or use smaller model. Monitor VRAM with `nvidia-smi` while running.
+
+### Model Not Found
+
+**Issue**: "Model not found" when pulling.
+
+**Solution**: Check spelling. List available models at https://ollama.com/library. Ensure internet connection.
+
+---
+
+## FAQ
+
+**Can Ollama models be used commercially?**
+Yes. Most open-source models (Mistral, Llama 2, Phi) are Apache 2.0 licensed. Ollama is free and open-source (MIT license). No commercial restrictions.
+
+**Is my data private?**
+Yes. All processing happens locally. Data doesn't leave the device. No cloud calls. No logging (unless configured explicitly).
+
+**Can Ollama run in the cloud?**
+Yes. Install on a Linux server. Ollama serves the API on a network port. Expose it (if firewalled properly) and remote clients can call it. Not recommended without authentication (add a reverse proxy like nginx with basic auth).
+
+**Can Ollama be used with LangChain or other frameworks?**
+Yes. LangChain has an Ollama integration. Point LangChain to localhost:11434 and specify model name.
+
+```python
+from langchain.llms import Ollama
+llm = Ollama(model="mistral", base_url="http://localhost:11434")
+```
+
+**Should I use Ollama or a cloud API?**
+Ollama if: data is sensitive, inference cost matters, offline requirement, or experimentation. Cloud API if: managed reliability, no infrastructure overhead, multi-region needed, or scaling beyond single machine.
+
+**How much faster is GPU vs CPU?**
+10-100x faster depending on model size and GPU. Mistral 7B on CPU: 2-5 tok/sec. Same model on NVIDIA RTX 4090: 100-200 tok/sec.
+
+**Can Ollama use multiple GPUs?**
+Not natively (as of March 2026). Ollama distributes across available VRAM but doesn't split models across multiple GPUs. For multi-GPU inference, use vLLM or similar frameworks.
+
+**Can I update Ollama models?**
+Yes. New versions are pulled automatically when available. Run `ollama pull modelname` to update.
+
+**What's the difference between Ollama and llama.cpp?**
+Ollama is a complete package with REST API, model management, and easy setup. llama.cpp is lower-level C++ inference library. Ollama is recommended for beginners; llama.cpp for performance optimization.
+
+---
+
+## Related Resources
+
+- [Llama.cpp vs Ollama Comparison](/articles/llama-cpp-vs-ollama)
+- [LM Studio vs Ollama](/articles/lm-studio-vs-ollama)
+- [Ollama vs Llama Comparison](/articles/ollama-vs-llama)
+- [Local LLMs Dashboard](/llms)
+- [Best Small LLMs 2026](/articles/best-small-llm)
+
+---
+
+## Sources
+
+- [Ollama Official Website](https://ollama.com)
+- [Ollama GitHub Repository](https://github.com/ollama/ollama)
+- [Ollama Model Library](https://ollama.com/library)
+- [Ollama Installation Documentation](https://github.com/ollama/ollama/blob/main/README.md)
+- [Ollama API Documentation](https://github.com/ollama/ollama/blob/main/docs/api.md)
+- [Docker - Ollama](https://docs.ollama.com/docker)
+- [Ollama GPU Acceleration: NVIDIA CUDA & AMD ROCm Guide](https://dasroot.net/posts/2026/01/ollama-gpu-acceleration-nvidia-cuda-amd-rocm-guide/)
+- [Ollama Performance Tuning: GPU Optimization Techniques](https://collabnix.com/ollama-performance-tuning-gpu-optimization-techniques-for-production/)

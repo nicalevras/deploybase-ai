@@ -1,0 +1,400 @@
+---
+title: 'H100 vs A100: Is the Upgrade Worth It?'
+slug: h100-vs-a100
+description: >-
+  NVIDIA H100 vs A100 GPU comparison: specs, performance, pricing, and when to
+  upgrade as of March 2026. Hopper vs Ampere architecture. Current as of March
+  2026.
+date: '2026-03-21'
+author: DeployBase
+category: GPU Comparison
+keywords:
+  - h100 vs a100
+  - a100 vs h100
+  - h100 vs a100 performance
+  - when to upgrade h100
+  - h100 a100 comparison
+---
+
+## Contents
+
+- [H100 vs A100 Overview](#h100-vs-a100-overview)
+- [Architecture Comparison](#architecture-comparison)
+- [Specifications Table](#specifications-table)
+- [Performance Benchmarks](#performance-benchmarks)
+- [Memory & Bandwidth](#memory-bandwidth)
+- [Pricing & Rental Costs](#pricing-rental-costs)
+- [Training Workload Analysis](#training-workload-analysis)
+- [Inference Workload Analysis](#inference-workload-analysis)
+- [Upgrade Decision Framework](#upgrade-decision-framework)
+- [Real-World Workload Comparisons](#real-world-workload-comparisons)
+- [Architectural Considerations for Different Workloads](#architectural-considerations-for-different-workloads)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## H100 vs A100 Overview
+
+H100 is 3x faster than A100. Also 50% more expensive. The question: does faster pay for itself?
+
+**H100 wins on**: LLM inference (3x throughput per token), training (3x faster), fine-tuning (40% cheaper overall).
+
+**A100 still makes sense for**: Batch inference, LoRA on small models, research prototypes.
+
+See [GPU pricing dashboard](/gpus) for current rates.
+
+---
+
+## Architecture Comparison
+
+### Ampere (A100, 2020)
+
+A100 is built on NVIDIA's Ampere GPU architecture. Third-generation Tensor cores. Supports TF32, FP32, FP16, TF8 (8-bit tensor float), and other formats. PCIe Gen4 support.
+
+Memory: HBM2e (high-bandwidth memory, second-generation). Bandwidth is the same across PCIe and SXM variants: 1,935 GB/s.
+
+The design prioritizes power efficiency and general-purpose compute. Balanced for inference, training, and scientific computing.
+
+### Hopper (H100, 2023)
+
+H100 is based on Hopper. Fourth-generation Tensor cores. Adds native FP8 precision (8-bit floating point, critical for inference quantization). Transformer Engine: specialized hardware for attention and FFN layers, auto-reduces precision without accuracy loss.
+
+Memory: HBM3 (high-bandwidth memory, third-generation). Bandwidth jumps to 3.35 TB/s. That's 1.7x A100's bandwidth. Wider memory bus, faster clock, better cache hierarchy.
+
+PCIe Gen5 support (though most cloud deployments use Gen4 slots).
+
+The design is tuned for transformer workloads. Attention, FFN, embedding operations are accelerated. This is the first GPU where the instruction set was explicitly designed for LLM workloads.
+
+---
+
+## Specifications Table
+
+| Spec | A100 | H100 | Advantage |
+|------|------|------|-----------|
+| **Architecture** | Ampere | Hopper | H100 (newer) |
+| **Release Date** | Aug 2020 | Mar 2023 | H100 (newer) |
+| **Memory (PCIe)** | 80GB HBM2e | 80GB HBM3 | Tie (capacity) |
+| **Memory Bandwidth** | 1,935 GB/s | 3.35 TB/s | H100 (1.7x) |
+| **Peak FP32** | 19.5 TFLOPS | 60 TFLOPS | H100 (3x) |
+| **Peak FP64** | 9.7 TFLOPS | 30 TFLOPS | H100 (3x) |
+| **TF32 Tensor** | 312 TFLOPS | 1,457 TFLOPS | H100 (4.6x) |
+| **FP8 Tensor** | Not native | 5,825 TFLOPS | H100 (only H100) |
+| **Transformer Engine** | No | Yes | H100 (only) |
+| **NVLink (SXM)** | 600 GB/s per GPU | 900 GB/s per GPU | H100 (1.5x) |
+| **TDP (SXM)** | 400W | 700W | A100 (lower power) |
+| **Price/GPU-hr** | $1.19-$1.39 | $2.49-$2.86 | A100 (cheaper) |
+
+Data from NVIDIA datasheets and DeployBase tracking (March 2026).
+
+---
+
+## Performance Benchmarks
+
+### LLM Inference (Tokens/Second)
+
+Benchmark: Serving Llama 2 70B with batch size 32 on a single GPU.
+
+**A100 PCIe:**
+- Throughput: ~280-320 tokens/second
+- Latency (50th): 2-3ms per token
+- Throughput per watt: 0.7-0.8 tok/s/W
+
+**H100 PCIe:**
+- Throughput: ~850-950 tokens/second
+- Latency (50th): 1.0-1.5ms per token
+- Throughput per watt: 2.2-2.5 tok/s/W
+
+H100 is 3x faster. Cost-per-million-tokens on cloud: A100 at $1.19/hr generates ~1M tokens/hr. H100 at $1.99/hr generates ~3.2M tokens/hr. Cost-per-million-tokens: H100 is cheaper per token (despite higher hourly rate).
+
+### LLM Training (Throughput)
+
+Benchmark: Pre-training a 7B parameter model on 8 GPUs, batch size 128, A100 vs H100 clusters.
+
+**8x A100 SXM (NVLink interconnect):**
+- Training throughput: ~450 samples/second
+- Time to train 1T tokens: ~2.2 million seconds (~25-26 days)
+- Cost per token (compute only, not data): ~$0.000002 (amortized across cluster)
+
+**8x H100 SXM (NVLink interconnect):**
+- Training throughput: ~1,350 samples/second (3x)
+- Time to train 1T tokens: ~740,000 seconds (~8.5 days)
+- Cost per token: similar amortized cost per token, but wall-clock time is 3x shorter
+
+H100 is faster but isn't proportionally cheaper per token trained because the cloud hourly rate is higher. The real win: time-to-training-completion. Train 3x faster, free up the cluster for other projects.
+
+### Fine-Tuning (LoRA)
+
+Benchmark: LoRA fine-tuning a 7B parameter model with 100K examples.
+
+**A100:**
+- Time: 18-20 hours
+- Cost: $21-$24 (at $1.19/hr)
+
+**H100:**
+- Time: 6-7 hours
+- Cost: $12-$14 (at $1.99/hr)
+
+H100 is 2.8x faster and costs 40% less in absolute dollars. For single fine-tuning jobs, that's meaningful savings.
+
+---
+
+## Memory & Bandwidth
+
+### Capacity
+
+Both GPUs max out at 80GB in most cloud deployments (H100 NVL pairs 94GB dies for 188GB, but that's a specialized form factor).
+
+Capacity tie. A 70B model quantized to 4-bit needs ~35GB VRAM. Both handle it comfortably. The limiting factor is rarely VRAM capacity anymore; its bandwidth.
+
+### Bandwidth and the Training Bottleneck
+
+Bandwidth is where the gap opens. A100: 1,935 GB/s. H100: 3,350 GB/s (73% wider bus).
+
+What does this mean? When training large models with large batch sizes, the memory bus becomes a bottleneck for weight updates. Gradient accumulation, optimizer states, and layer-wise updates all traverse the memory bus. Wider bandwidth = faster updates = higher training throughput.
+
+A100's 2.0 TB/s ceiling limits training throughput when model size and batch size are large. H100's 3.35 TB/s eases that bottleneck.
+
+For inference, bandwidth matters less per token because batch sizes are typically smaller and the computation-to-memory-access ratio is higher (amortization effects).
+
+### Multi-GPU Interconnect
+
+**A100 SXM with NVLink:** 600 GB/s per GPU, 57.6 TB/s aggregate across 8 GPUs.
+
+**H100 SXM with NVLink:** 900 GB/s per GPU, 86.4 TB/s aggregate across 8 GPUs (50% wider).
+
+The multi-GPU interconnect bandwidth increase favors H100 for distributed training across many GPUs. Gradient synchronization is faster.
+
+---
+
+## Pricing & Rental Costs
+
+### Hourly Rates (as of March 2026)
+
+| Provider | GPU | Form Factor | $/GPU-hr | Monthly (730 hrs) |
+|----------|-----|-------------|----------|-------------------|
+| RunPod | A100 | PCIe | $1.19 | $869 |
+| RunPod | A100 | SXM | $1.39 | $1,014 |
+| RunPod | H100 | PCIe | $1.99 | $1,453 |
+| RunPod | H100 | SXM | $2.69 | $1,964 |
+| Lambda | A100 | PCIe/SXM | $1.48 | $1,080 |
+| Lambda | H100 | PCIe | $2.86 | $2,088 |
+| Lambda | H100 | SXM | $2.49 | $1,818 |
+
+H100 is roughly 50-170% more expensive depending on form factor and provider. But remember the performance delta: 3x faster throughput means H100 delivers 3x more work per hour. Cost-per-task can favor H100 despite higher hourly rate.
+
+### Cost-per-Task Analysis
+
+**Fine-tune a 7B model (100K examples):**
+
+- A100: 20 hours × $1.19/hr = $23.80
+- H100: 7 hours × $1.99/hr = $13.93
+
+H100 is 41% cheaper in absolute cost. Speed premium doesn't exceed price premium.
+
+**Serve 1M tokens/month (inference):**
+
+- A100 at 280 tok/s: needs 3,968 GPU-hours/month = $4,720
+- H100 at 850 tok/s: needs 1,305 GPU-hours/month = $2,600
+
+H100 is 45% cheaper on the monthly inference bill. The speed edge pays for the hourly premium.
+
+---
+
+## Training Workload Analysis
+
+### When A100 is Enough
+
+- Pre-training models smaller than 13B parameters
+- Batch sizes below 256
+- Teams with lenient time-to-training-completion (7-10 days is acceptable)
+- Fine-tuning workloads (LoRA, QLoRA)
+- Research experiments (one-offs, not production training)
+
+A100 remains economical for these workloads. The 3-year hardware is proven, mature, and cheaper per hour.
+
+### When H100 is Necessary
+
+- Pre-training models 70B+ parameters
+- Batch sizes 512 and above
+- Multi-GPU training clusters (8-16 GPUs)
+- Production training pipelines needing frequent model updates
+- Teams with tight time-to-training-completion SLAs
+
+The memory bandwidth and NVLink improvements matter at scale. H100's 3.35 TB/s vs A100's 1.935 TB/s (73% wider) makes a tangible difference when the model is large and the batch size is high.
+
+---
+
+## Inference Workload Analysis
+
+### When A100 is Sufficient
+
+- Batch size under 128
+- Latency requirement above 2ms (P50 latency acceptable)
+- Cost-sensitive (inference margins thin)
+- Serving models 13B or smaller
+
+For these constraints, A100 handles the throughput. The latency per token (2-3ms) is acceptable for most non-interactive use cases.
+
+### When H100 is Preferred
+
+- Batch size 256+
+- Latency requirement under 1.5ms (interactive, real-time)
+- High-throughput inference (>1M tokens/day)
+- Serving models 70B+
+
+H100 shines here. The 3x throughput, lower latency, and native FP8 support (inference quantization without accuracy loss) make H100 the practical choice for high-scale inference. Cost-per-token favors H100 once throughput requirements climb.
+
+---
+
+## Upgrade Decision Framework
+
+**Upgrade to H100 if:**
+
+1. **The workload is compute-bound, not memory-bound.** If the bottleneck is GPU cycles (training or dense matrix operations), H100's 3x performance gains translate directly to speedup. If the bottleneck is memory bandwidth or I/O, gains are smaller.
+
+2. **Cost-per-task matters more than cost-per-hour.** H100 costs 50-170% more per hour but completes tasks 2.5-3x faster. For fine-tuning, inference, and shorter training runs, H100 wins on total cost.
+
+3. **Time-to-completion has business value.** Training a model in 8 days (H100) instead of 25 days (A100) enables faster iteration. If the product roadmap depends on faster training cycles, H100 pays for itself in business agility.
+
+4. **Teams are serving models 70B+ at scale.** Memory bandwidth becomes the limiter. H100's wider bus is mandatory.
+
+**Stay with A100 if:**
+
+1. **Teams are cost-constrained.** A100 is 40-60% cheaper per hour. For R&D budgets, non-production workloads, or small teams, the hourly savings add up.
+
+2. **The workload is memory-bound.** If the bottleneck is RAM transfer (e.g., large batch inference with small model), extra bandwidth doesn't help. A100 is sufficient and cheaper.
+
+3. **Utilization is low.** Renting 10 hours/month to run ad-hoc experiments. A100's lower hourly rate minimizes waste.
+
+4. **Models are 13B or smaller.** For lightweight model serving and fine-tuning, A100 has enough VRAM and performance.
+
+---
+
+## Real-World Workload Comparisons
+
+### Fine-Tuning (LoRA) on Consumer Hardware
+
+A startup fine-tuning Mistral 7B using LoRA (parameter-efficient method):
+
+**Hardware:** Single A100 PCIe (rented)
+- Model: 7B params
+- Quantization: 4-bit (reduces VRAM from 14GB to 4GB)
+- LoRA rank: 16, alpha: 32
+- Dataset: 100K examples, 256-token sequences
+- Batch size: 32
+
+**A100 (1 hour = $1.19):**
+- Training time: ~18 hours
+- Cost: $21.42
+- Throughput: 5,556 examples/hour
+
+**H100 (1 hour = $1.99):**
+- Training time: ~6 hours
+- Cost: $11.94
+- Throughput: 16,667 examples/hour
+
+H100 is 41% cheaper in absolute cost (despite 67% higher hourly rate) due to 3x faster throughput. For fine-tuning, H100 wins on cost.
+
+### Inference Serving: Single Model at Scale
+
+A company serving an open-source 70B model (TinyLlama equivalent) with batch processing:
+
+**Scenario:** Process 10M customer documents daily, 512 tokens each = 5.12B tokens/day.
+
+**A100 Setup:** 8x A100 SXM cluster
+- Throughput per cluster: 8 × 280 tok/s = 2,240 tok/s
+- Time to process 5.12B tokens: 5.12B / 2,240 = 2,286,000 seconds = 635 hours/day
+- Days needed to complete: 635 / 24 = 26 days (too slow)
+- Solution: Run 2 clusters (2x the cost)
+
+**H100 Setup:** 4x H100 SXM cluster
+- Throughput per cluster: 4 × 850 tok/s = 3,400 tok/s
+- Time to process 5.12B tokens: 5.12B / 3,400 = 1,505,000 seconds = 418 hours/day
+- Days needed to complete: 418 / 24 = 17 days (still too slow)
+- Solution: Run 2 clusters (half the GPUs of A100 option)
+
+Cost: 2x H100 clusters × $2.69/hr × 730 hrs/month = ~$3,928/month vs 2x A100 clusters × $1.39/hr × 730 hrs/month = ~$2,028/month.
+
+H100 finishes the work faster but costs more. The ROI depends on how much the 9-day speedup is worth (reduced turnaround time, customer satisfaction, etc.).
+
+### Training Large Models (70B+)
+
+**Scenario:** Pre-training a 70B parameter model from scratch.
+
+**A100 Setup:** 32x A100 SXM cluster (4 nodes of 8 GPUs)
+- Aggregate throughput: 32 × 450 samples/sec = 14,400 samples/second (at batch size 128 per GPU)
+- To train 1T tokens (~6.25B samples at 160 tokens/sample): ~434,000 seconds = ~5 days
+- Monthly cost (24/7 operation): 32 GPUs × $1.39/hr × 730 hrs = $32,473
+
+**H100 Setup:** 16x H100 SXM cluster (2 nodes)
+- Aggregate throughput: 16 × 1,350 samples/sec = 21,600 samples/second
+- Time to train 1T tokens: ~289,000 seconds = ~3.3 days
+- Monthly cost (24/7 operation): 16 GPUs × $2.69/hr × 730 hrs = $31,438
+
+H100 is cheaper (half the GPUs) and faster (49% less training time). For large model training, H100 dominates.
+
+---
+
+## Architectural Considerations for Different Workloads
+
+### Latency-Sensitive Inference
+
+Web applications serving end-users cannot tolerate 2-3 second latencies. H100's lower latency (1.0-1.5ms per token vs 2-3ms on A100) is critical. At batch size 1, H100 wins decisively.
+
+### Throughput-Optimized Batch Processing
+
+Document processing, log analysis, data annotation: latency doesn't matter, throughput does. H100's 3x throughput means processing jobs finish faster. But cost-per-token might still favor A100 if batch sizes are large enough and utilization is high.
+
+Benchmark: with batch size 512, A100 approaches H100's throughput (memory bandwidth becomes less of a bottleneck), so the cost difference narrows.
+
+---
+
+## FAQ
+
+**Is H100 worth the upgrade from A100?**
+
+Depends on workload. For training 70B models or high-throughput inference, yes. For research, LoRA fine-tuning, or batch inference under 128 examples, A100 is fine and saves 40-60%.
+
+**How much faster is H100?**
+
+3x on most tensor operations (FP32, TF32). For inference (where quantization and batching matter), 2.5-3.2x faster throughput.
+
+**How much more does H100 cost?**
+
+50-170% more per hour (RunPod: $1.99 vs $1.19 for PCIe). But cost-per-task can favor H100 due to speed.
+
+**Should I buy or rent?**
+
+A100: breakeven at 12-15k hours (14-20 months at 24/7). H100: breakeven at 11-14k hours (same timeline). Continuous utilization >60% over 18+ months: buy. Sporadic or under 18 months: rent.
+
+**Can I mix A100 and H100 clusters?**
+
+For training: no. Multi-GPU training assumes homogeneous hardware. Different tensor core counts and bandwidth would cause significant slowdown and complexity.
+
+For inference: yes. Different GPUs can serve different model replicas or handle different batch tiers.
+
+**What about newer GPUs like H200 and B200?**
+
+H200 (141GB HBM3e) launched in late 2025. RunPod lists it at $3.59/hr. B200 (192GB) is available at $5.98-$6.08/hr. Both are newer but not necessarily better value for your workload. Compare specs against H100 for your specific use case before assuming "newer = better."
+
+---
+
+## Related Resources
+
+- [NVIDIA GPU Pricing Comparison](/gpus)
+- [H100 Price Guide](/articles/nvidia-h100-price)
+- [A100 Price Guide](/articles/nvidia-a100-price)
+
+---
+
+## Sources
+
+- [NVIDIA H100 Tensor Core GPU Datasheet](https://resources.nvidia.com/en-us-gpu-resources/h100-datasheet-24306)
+- [NVIDIA A100 Tensor Core GPU Datasheet](https://www.nvidia.com/content/dam/en-zz/Solutions/Data-Center/a100/pdf/a100-80gb-datasheet-update-a4-nvidia-1485612-r12-web.pdf)
+- [NVIDIA Hopper Architecture Overview](https://developer.nvidia.com/articles/nvidia-hopper-architecture-in-depth/)
+- [H100 vs A100 Performance Analysis](https://www.clarifai.com/articles/nvidia-a100-vs.-h100-choosing-the-right-gpu-for-your-ai-workloads)
+- [RunPod GPU Pricing](https://www.runpod.io/pricing)
+- [Lambda Cloud GPU Pricing](https://lambda.ai/pricing)
+- [DeployBase GPU Pricing Dashboard](/gpus) (all provider rates observed March 21, 2026)

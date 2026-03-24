@@ -1,0 +1,234 @@
+---
+title: 'How to Run LLM Locally: Complete Guide'
+slug: how-to-run-llm-locally-complete-guide
+description: >-
+  Step-by-step guide to running Llama, Mistral, or Phi locally. Hardware
+  requirements, inference engines, optimization techniques.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - how to run llm locally
+---
+## Contents
+
+- [How to Run LLM Locally: Complete Guide](#how-to-run-llm-locally-complete-guide)
+- [Hardware Requirements](#hardware-requirements)
+- [Software Stack Selection](#software-stack-selection)
+- [Step-by-Step Setup](#step-by-step-setup)
+- [Inference Engine Optimization](#inference-engine-optimization)
+- [Performance Tuning](#performance-tuning)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## How to Run LLM Locally: Complete Guide
+
+How to Run LLM Locally is the focus of this guide. Local LLMs kill API costs and latency. Phi-3 Mini (3.8B) runs on laptops. Mistral 7B on budget GPUs. Llama 70B needs high-end cards. As of March 2026, production-ready. Setup's harder than APIs. Community is huge. Hardware matters. Savings are real at scale.
+
+### Hardware Requirements
+
+**Minimum specs for 7B parameter models**
+- GPU: RTX 4060 (8GB VRAM) or equivalent AMD
+- RAM: 16GB system memory
+- Storage: 50GB SSD
+- Inference speed: 20-40 tokens/second
+
+**Recommended specs for 13B models**
+- GPU: RTX 4070 (12GB) or RTX 4070 Ti (12GB)
+- RAM: 32GB
+- Storage: 100GB SSD
+- Inference speed: 40-80 tokens/second
+
+**Optimal specs for 70B models**
+- GPU: RTX 4090 (24GB) or A100 (40GB+)
+- RAM: 64GB
+- Storage: 200GB SSD
+- Inference speed: 80-150 tokens/second
+
+**CPU-only inference** viable for 7B models. 5-10 tokens/second. Acceptable for development, unacceptable for production.
+
+Memory math: 7B in FP16 needs 14GB. 4-bit: 3.5GB. 8-bit: 7GB.
+
+Formula: (params × 2) / 1B = GB. Llama 70B FP16: 140GB. 4-bit: 35GB. 8-bit: 70GB.
+
+### Software Stack Selection
+
+**Ollama**: simplest option. Installation: one command. Models auto-download. Run locally with zero configuration. Recommended for beginners.
+
+**LM Studio**: GUI wrapper. User-friendly. Model management visual. Performance acceptable. Good for experimentation.
+
+**vLLM**: production inference engine. Highest throughput. Batch processing optimized. Complex setup. Steep learning curve.
+
+**Text Generation WebUI**: feature-rich interface. Multiple backends supported. Good for fine-tuning experiments. Learning curve moderate.
+
+**Llama.cpp**: minimal dependencies. Runs on weak hardware. Straightforward C++ backend. Popular for edge devices.
+
+**GPT4All**: desktop GUI. Simple inference. Limited model selection. No fine-tuning support.
+
+**Docker containers**: reproducible environment. Isolation between projects. Overhead negligible. Recommended for production.
+
+### Step-by-Step Setup
+
+**Option 1: Ollama (recommended for beginners)**
+
+Installation. macOS/Linux/Windows:
+```
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+Run model:
+```
+ollama run llama3
+```
+
+Specify variant:
+```
+ollama run mistral:7b-instruct
+```
+
+Access via REST API:
+```
+curl -X POST http://localhost:11434/api/generate -d '{"model":"mistral:7b-instruct", "prompt":"Hello, world", "stream":false}'
+```
+
+That's it. No CUDA setup. No dependency management.
+
+**Option 2: vLLM (recommended for production)**
+
+Installation:
+```
+pip install vllm
+```
+
+Download model from Hugging Face:
+```
+git-lfs install
+git clone https://huggingface.co/mistralai/Mistral-7B-v0.1
+```
+
+Run server:
+```
+python -m vllm.entrypoints.openai.api_server --model ./Mistral-7B-v0.1 --dtype float16
+```
+
+Client code:
+```python
+import requests
+response = requests.post(
+  'http://localhost:8000/v1/completions',
+  json={'model': 'mistral', 'prompt': 'Hello', 'max_tokens': 100}
+)
+```
+
+vLLM handles quantization, batching, caching automatically.
+
+**Option 3: LLama.cpp (minimal hardware)**
+
+Installation:
+```
+git clone https://github.com/ggml-org/llama.cpp
+cd llama.cpp && make
+```
+
+Download quantized model:
+```
+wget https://huggingface.co/TheBloke/Mistral-7B-Instruct-GGUF/resolve/main/Mistral-7B-Instruct-Q4_K_M.gguf
+```
+
+Run inference:
+```
+./main -m ./Mistral-7B-Instruct-Q4_K_M.gguf -n 256 -p "Hello"
+```
+
+Minimal dependencies. Works on CPUs. Perfect for development.
+
+### Inference Engine Optimization
+
+**Quantization trade-offs**
+
+FP16 (16-bit float): highest quality, largest model. 14GB for 7B model. Preferred baseline.
+
+INT8 (8-bit integer): 50% memory reduction. 1-2% quality loss. Worth the savings.
+
+4-bit quantization (GPTQ, AWQ, QLoRA): 75% memory reduction. 5-10% quality loss. Acceptable for most tasks.
+
+2-bit quantization: 87% reduction. 15%+ quality loss. Rarely justified.
+
+Quantization method matters. GPTQ: accurate, slow to quantize. AWQ: faster quantization, comparable quality. QLoRA: only for fine-tuning.
+
+**Batch processing optimization**
+
+Single request: 100ms latency. 10 requests: 100ms latency (amortized). Batching 10 requests: same time, 1000ms wall time. Trade latency for throughput.
+
+vLLM handles batching automatically. Requests queued. Processed in batches. Throughput 10x improvement.
+
+**KV cache optimization**
+
+Transformer models recompute previous tokens. Wasteful. KV cache stores intermediate results. Reduces computation 95%. Memory increase 5%. Always enable.
+
+**Memory pooling**
+
+vLLM allocates memory blocks. Reuses between requests. Reduces memory fragmentation. Allocation overhead minimal.
+
+**Prefix caching**
+
+Common prompt prefixes cached. System messages, instructions. Prefix identical across requests. vLLM caches automatically.
+
+### Performance Tuning
+
+**Temperature tuning**. Default 1.0. Range 0.1-2.0. Lower: deterministic, repetitive. Higher: creative, inconsistent. Task-dependent.
+
+**Top-p sampling**. Default 0.95. Range 0.0-1.0. Lower: more focused. Higher: more diverse.
+
+**Max tokens**. Inference stops after limit. Prevents runaway generation. Set appropriately for use case.
+
+**Timeout settings**. Inference timeout: 60-300 seconds depending on max tokens. Prevent hanging requests.
+
+**GPU memory fraction**. Reserve portion of VRAM for other tasks. Reduce to 0.9 if out-of-memory errors.
+
+**Dtype precision**. Use bfloat16 (fast, slightly lower quality). Use float16 (standard quality). Avoid float32 (memory hog).
+
+Benchmarking. Test locally with production data. Measure latency, throughput, quality. Optimize trade-offs.
+
+## FAQ
+
+**What's the cheapest way to start running LLMs locally?**
+
+CPU inference on existing laptop. Phi-4 Mini (3.8B) or Phi-3 Mini runs at 5-10 tokens/second. Zero hardware cost. Download Ollama and run.
+
+**Should we buy a GPU for local LLM inference?**
+
+If running >100 requests daily: yes. RTX 4070 cost: $600. Amortized over 3 years: $0.07/hour. Faster than API latency. Worth the cost.
+
+**Which model for local deployment?**
+
+Mistral 7B for balance. Llama 3 8B for quality. Phi-3 Mini (3.8B) for resource efficiency. Depends on hardware and use case.
+
+**Can we quantize already quantized models?**
+
+No. Quantization one-way. Post-quantization recomputation loses information. Start with full precision.
+
+**Is local inference production-ready?**
+
+Yes. vLLM proven at scale. Careful monitoring necessary. Out-of-memory kills requests. Graceful degradation needed.
+
+## Related Resources
+
+- [GPU Pricing Comparison](/gpus)
+- [Nvidia RTX 4090 Price](/articles/rtx-4090-cloud-price)
+- [Nvidia A100 Price](/articles/nvidia-a100-price)
+- [LLM API Pricing](/llms)
+
+## Sources
+
+Ollama documentation (https://ollama.ai/)
+vLLM documentation (https://vllm.ai/)
+Llama.cpp repository (https://github.com/ggml-org/llama.cpp)
+LM Studio (https://lmstudio.ai/)
+GPTQ quantization paper (https://arxiv.org/abs/2210.17323)
+AWQ quantization paper (https://arxiv.org/abs/2306.00978)
+Mistral 7B model card (https://huggingface.co/mistralai/Mistral-7B-v0.1)
+Phi model documentation (https://huggingface.co/microsoft/phi-2)

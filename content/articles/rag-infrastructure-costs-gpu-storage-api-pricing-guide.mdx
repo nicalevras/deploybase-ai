@@ -1,0 +1,175 @@
+---
+title: 'RAG Infrastructure Costs: GPU, Storage & API Pricing Guide'
+slug: rag-infrastructure-costs-gpu-storage-api-pricing-guide
+description: >-
+  Calculate complete RAG system costs including GPU compute, vector database
+  storage, embedding models, and LLM API calls. Complete pricing breakdown.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - rag infrastructure cost
+---
+
+## Contents
+
+- [Rag Infrastructure Cost: RAG System Cost Components](#rag-infrastructure-cost-rag-system-cost-components)
+- [GPU Compute Costs](#gpu-compute-costs)
+- [Vector Database and Storage](#vector-database-and-storage)
+- [Embedding Model Costs](#embedding-model-costs)
+- [LLM API Pricing](#llm-api-pricing)
+- [Total Cost Estimation](#total-cost-estimation)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Rag Infrastructure Cost: RAG System Cost Components
+
+RAG costs: GPU compute, vector DB, embeddings, LLM API calls.
+
+Typical ranges:
+- Small (10K queries/month): $500-2K
+- Medium (100K/month): $2K-10K
+- Large (1M+/month): $10K-50K+
+
+## GPU Compute Costs
+
+Vector database retrieval and embedding inference frequently run on GPUs to handle throughput and latency requirements.
+
+**Self-hosted retrieval infrastructure** requires GPU rentals. For moderate workloads (50K monthly similarity searches), L40 GPUs at [/vastai-gpu-pricing](/articles/vast-ai-pricing) or [/lambda-gpu-pricing](/articles/lambda-labs-gpu-pricing) cost approximately $0.69-$0.92 per hour. Running 30 hours monthly costs $21-$28 for retrieval operations alone.
+
+**Embedding inference** on GPUs adds compute overhead. A100 PCIe instances at $1.19/hour handle 100K-500K embeddings monthly. For 50 hours monthly operation, costs reach $60 per month.
+
+**Multi-GPU retrieval at scale** uses H100 instances. CoreWeave's 8x H100 cluster at $49.24/hour serves 500K+ monthly queries. Reserved capacity reduces hourly rates 15-20%, bringing monthly costs to $4,000-$6,000 for high-volume deployments.
+
+Alternatively, managed vector databases eliminate GPU complexity entirely, shifting costs to per-query or per-million-vector pricing models.
+
+## Vector Database and Storage
+
+Vector database selection drives significant cost variations:
+
+**Managed services** charge per-vector pricing:
+- Pinecone: $0.25 per million vectors monthly ($25 for 100M vectors)
+- Weaviate Cloud: $0.10-$0.50 per million vectors
+- Qdrant Cloud: $0.015-$0.045 per million vectors
+
+**Self-hosted databases** (Qdrant, Milvus, Weaviate open-source) require server hosting:
+- Small instance: $10-$50 monthly (handles 10M vectors)
+- Medium instance: $50-$200 monthly (handles 100M vectors)
+- Large instance: $200-$1,000+ monthly (handles 1B+ vectors)
+
+**Storage costs** separate from retrieval:
+- AWS S3 document storage: $0.023 per GB monthly
+- Google Cloud Storage: $0.020 per GB monthly
+- Azure Blob Storage: $0.018 per GB monthly
+
+A 100GB document collection costs approximately $2-$2.30 monthly on cloud storage, negligible compared to compute and database expenses.
+
+## Embedding Model Costs
+
+Embedding models convert documents and queries into vectors. Cost depends on model source and inference method:
+
+**OpenAI API embeddings** (text-embedding-3-small):
+- $0.02 per million tokens
+- 100K documents averaging 500 tokens each = 50M tokens = $1.00 monthly
+- Monthly query embeddings (10K queries, 100 tokens average) = 1M tokens = $0.0002
+
+**Open-source models (Sentence Transformers, Jina):**
+- Free software, self-hosted GPU costs apply
+- L4 GPU at $0.44/hour can embed 1M vectors monthly in ~10 hours = $4.40 monthly
+- Total effective cost: $4.40 + storage overhead
+
+**Specialized embedding APIs:**
+- Cohere Embed: $0.10 per million tokens
+- Voyage AI: $0.10 per million tokens
+- Nomic: Open-source alternative ($0 API cost)
+
+For 100K documents requiring embedding, cost ranges from $1 (OpenAI API) to $4 (self-hosted GPU). Query-time embeddings add minimal cost compared to one-time ingestion expenses.
+
+## LLM API Pricing
+
+The generation phase typically dominates RAG costs, especially with high query volumes.
+
+**OpenAI models:**
+- GPT-4o: $0.005 per 1K input tokens, $0.015 per 1K output tokens
+- GPT-4 Turbo: $0.01 per 1K input tokens, $0.03 per 1K output tokens
+- GPT-3.5 Turbo: $0.0005 per 1K input tokens, $0.0015 per 1K output tokens
+
+**Anthropic Claude:**
+- Claude 3 Opus: $0.015 per 1K input tokens, $0.075 per 1K output tokens
+- Claude 3 Sonnet: $0.003 per 1K input tokens, $0.015 per 1K output tokens
+- Claude 3 Haiku: $0.00025 per 1K input tokens, $0.00125 per 1K output tokens
+
+**Self-hosted inference:**
+- Open-source models on H100: $1.99/hour (RunPod H100 PCIe)
+- Llama 2 70B throughput: 50-100 queries/hour on single H100
+- Cost per query: $0.01-$0.02 (compute only)
+
+For 10K monthly queries with 2K context tokens and 500 output tokens:
+- OpenAI GPT-3.5 Turbo: $25-$30 monthly
+- Claude 3 Haiku: $5-$8 monthly
+- Self-hosted Llama 2 70B: $100-$200 monthly (100-200 hours compute)
+
+## Total Cost Estimation
+
+A production RAG system serving 100K monthly queries with 1M document vectors:
+
+**Budget deployment:**
+- Vector database (Qdrant self-hosted): $50/month
+- Embedding model (OpenAI API): $2/month
+- LLM API (GPT-3.5 Turbo): $150/month
+- Document storage: $2/month
+- **Total: $204/month**
+
+**Premium deployment:**
+- Vector database (Pinecone): $100/month
+- Embedding model (OpenAI): $2/month
+- LLM API (Claude Opus): $300/month
+- GPU retrieval infrastructure: $100/month
+- Document storage: $2/month
+- **Total: $504/month**
+
+**production deployment:**
+- Self-hosted vector database cluster: $500/month
+- Self-hosted embedding inference: $200/month
+- Self-hosted LLM inference (H100): $2,000/month
+- Document storage: $5/month
+- Team administration and monitoring: $500/month
+- **Total: $3,205/month**
+
+Scaling to 1M monthly queries multiplies infrastructure costs 10x, but API pricing scales linearly, maintaining cost proportionality.
+
+## FAQ
+
+**What's the cheapest way to run RAG in production?**
+
+Use OpenAI's embedding API ($0.02 per million tokens) and GPT-3.5 Turbo for generation. Combine with a self-hosted Qdrant vector database on a $20 monthly VPS. Total monthly cost: $30-$50 for small volumes (10K queries).
+
+**Should I self-host embeddings or use an API?**
+
+For fewer than 50M total embeddings, OpenAI API is cheaper. Above 50M embeddings, self-hosting with an L4 or L40S GPU ([/l40s-specs](/articles/nvidia-l40s-price)) typically becomes cost-effective. Factor in GPU rental rates from [/runpod-gpu-pricing](/articles/runpod-gpu-pricing).
+
+**What's the cost difference between Claude and GPT-3.5 Turbo?**
+
+Claude 3 Haiku costs approximately 10x less than Claude 3 Opus on similar tasks. Compared to GPT-3.5 Turbo, Claude 3 Haiku and Turbo pricing are competitive. Choose based on reasoning quality requirements rather than cost alone for RAG applications.
+
+**Can I reduce RAG costs without sacrificing performance?**
+
+Yes. Implement query rewriting to reduce context window size, use embedding compression for faster retrieval, and batch processing for off-peak hours. Switching to cheaper models (GPT-3.5 vs GPT-4) reduces costs 70-80%.
+
+**How much does vector database cost scale with collection size?**
+
+Managed services scale linearly per vector. Self-hosted databases scale with server resources, not vector count. Beyond 500M vectors, self-hosting typically outperforms managed pricing. See [/inference-optimization](/articles/what-is-llm-inference) for scaling strategies.
+
+## Related Resources
+
+- [/tools](/tools) - Vector database and RAG framework comparisons
+- [/articles/rag-vs-fine-tuning](/articles/rag-vs-fine-tuning)
+- [/articles/rag-vs-fine-tuning-vs-prompt-engineering](/articles/rag-vs-fine-tuning-vs-prompt-engineering-complete-guide)
+
+## Sources
+
+- OpenAI API pricing: https://openai.com/pricing
+- Anthropic Claude pricing: https://www.anthropic.com/pricing
+- Pinecone pricing: https://www.pinecone.io/pricing
+- Qdrant Cloud pricing: https://cloud.qdrant.io
+- AWS S3 pricing: https://aws.amazon.com/s3/pricing

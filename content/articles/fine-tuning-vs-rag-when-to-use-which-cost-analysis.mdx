@@ -1,0 +1,210 @@
+---
+title: 'Fine-Tuning vs RAG: When to Use Which (Cost Analysis)'
+slug: fine-tuning-vs-rag-when-to-use-which-cost-analysis
+description: >-
+  Fine-tuning: $100-5,000+ upfront. RAG: $0.10-1.00 per query. When custom
+  weights beat retrieval in 2026.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - fine tuning vs rag
+---
+
+## Contents
+
+- [Fine-tuning: weights change, model updates](#fine-tuning-weights-change-model-updates)
+- [RAG: retrieval augmented generation](#rag-retrieval-augmented-generation)
+- [Cost analysis: fine-tuning vs RAG](#cost-analysis-fine-tuning-vs-rag)
+- [Quality differences](#quality-differences)
+- [Speed comparison](#speed-comparison)
+- [When to choose fine-tuning](#when-to-choose-fine-tuning)
+- [When to choose RAG](#when-to-choose-rag)
+- [Hybrid: fine-tune + RAG](#hybrid-fine-tune-rag)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Fine-tuning: weights change, model updates
+
+Fine Tuning vs RAG is the focus of this guide. Fine-tuning trains existing model weights on the data. Start with base model like [Llama 3.1 70B](/llms). Add the documents. Train for 1-5 epochs. Model learns domain-specific patterns.
+
+Cost structure: GPU hours + data preparation.
+
+GPU hours: depends on model size and data volume.
+
+- 7B parameter model: $50-200 to fine-tune on 10K examples
+- 70B parameter model: $500-2000 on same data
+- 405B parameter model: $2000-5000+
+
+Data preparation: hiring, labeling, cleaning. Often exceeds GPU costs.
+
+Result: permanent model. Deployed on [RunPod](/articles/runpod-gpu-pricing), Lambda, or locally. Pay once. No per-query costs (except inference).
+
+## RAG: retrieval augmented generation
+
+RAG queries a database before generation. Prompt includes relevant documents. Model generates response using both prompt and documents.
+
+Cost structure: retrieval + generation.
+
+Retrieval: vector database. Pinecone, Weaviate, Milvus. $0.01-0.10 per query typically.
+
+Generation: API call to LLM. $0.001-0.01 per token output.
+
+Example: 100 queries daily for a year.
+
+RAG: 100 × 365 × $0.11 (retrieval + generation) = $4,015/year
+
+No upfront cost. Scales with usage.
+
+## Cost analysis: fine-tuning vs RAG
+
+**Scenario 1: Small company, 100 customers, 1000 queries/month**
+
+Fine-tuning:
+- Model: Llama 3.1 7B ($100)
+- Data prep: $1,000
+- Inference cost: $50/month (assuming owned GPU or cheap API)
+- Total year one: $2,000
+
+RAG:
+- Vector DB: $50/month
+- API calls: 100 queries × $0.11 = $11/query month = $1,100/month
+- Total year one: $14,400
+
+Fine-tuning wins. Upfront cost paid back in 3-4 months.
+
+**Scenario 2: Enterprise, 1M queries/month**
+
+Fine-tuning:
+- Model: Llama 3.1 70B ($1,500)
+- Data prep: $15,000
+- Inference: $1,000/month (on [CoreWeave](/articles/coreweave-gpu-pricing) or owned hardware)
+- Total year one: $43,500
+
+RAG:
+- Vector DB: $500/month
+- API calls: 1M × 30 × $0.11 = $3,300/month
+- Total year one: $45,600
+
+Costs parity. Other factors decide.
+
+As of March 2026, fine-tuning becomes cheaper at 10K+ queries monthly. RAG cheaper for lower volumes.
+
+## Quality differences
+
+**Fine-tuning**: model weights memorize training patterns. Understands domain deeply. Reduces hallucination for specific tasks. Struggles on out-of-domain queries.
+
+**RAG**: model uses retrieved documents as facts. Grounding reduces hallucination. Struggles if documents don't contain answer. More flexible but slower.
+
+Example: customer support for SaaS product.
+
+Fine-tuning:
+- Training: 5,000 support tickets + responses
+- Result: model knows product deeply. Answers 80% of questions without documents.
+
+RAG:
+- Source: ticket database + documentation
+- Result: model answers using tickets as examples. Requires exact document match.
+
+Fine-tuned model faster, more confident. RAG more flexible to documentation changes.
+
+## Speed comparison
+
+Fine-tuning: inference speed identical to base model. Llama 70B inference takes same time whether fine-tuned or not.
+
+RAG: adds retrieval overhead. Vector search takes 50-200ms. Generating with larger context takes longer too.
+
+Anyscale/[Groq](/articles/groq-api-pricing) inference: 5-10 tokens/second. Adding 1-2 second RAG overhead per query slows experience.
+
+Fine-tuned model locally: 20-30 tokens/second on GPU. Faster overall.
+
+For latency-sensitive applications, fine-tuning wins.
+
+## When to choose fine-tuning
+
+Fine-tune when:
+
+- Same query patterns repeat frequently
+- Domain knowledge is clear and consistent
+- Inference latency matters
+- Data privacy requires on-premise models
+- Cost scales predictably (volume is known)
+
+Examples:
+
+- Product documentation Q&A
+- Customer support for specific service
+- Code generation for the codebase
+- Domain-specific classification
+
+## When to choose RAG
+
+RAG wins when:
+
+- Data changes frequently
+- Query types vary widely
+- No infrastructure for model hosting
+- Cost should scale with usage, not volume
+- Compliance requires audit trails of sources
+
+Examples:
+
+- Multi-tenant search across many documents
+- Research paper analysis
+- News summarization
+- Medical record retrieval
+
+## Hybrid: fine-tune + RAG
+
+Best systems use both.
+
+Fine-tune on: domain understanding, style, format preferences.
+RAG on: specific facts, recent data, audit requirements.
+
+Cost: fine-tuning one-time + RAG per-query.
+
+Quality: combines fine-tuning's domain knowledge with RAG's freshness.
+
+Example: legal research system.
+- Fine-tune on 10 years of case law
+- RAG new cases, recent rulings
+- Generate legal memo with both
+
+## FAQ
+
+**Q: How much training data do I need for fine-tuning?**
+Rules of thumb: 100 examples minimum (risky). 1,000 examples reliable. 10,000 examples excellent. Quality matters more than quantity.
+
+**Q: Can I fine-tune without labeled data?**
+Yes. Unsupervised fine-tuning on raw documents works but is weaker. Supervised (labeled) fine-tuning stronger but requires labeling.
+
+**Q: How long does fine-tuning take?**
+7B model: 1-2 hours. 70B model: 4-8 hours. 405B model: 16-24 hours. Depends on hardware and data size.
+
+**Q: Can I fine-tune continuously as new data arrives?**
+Yes. Incremental fine-tuning works. Start with base model, add new data in batches. Drift happens over time (model forgets old patterns), but practical for 6-12 month windows.
+
+**Q: Is RAG really just keyword search with retrieval?**
+No. Modern RAG uses semantic search via embeddings. Finds documents similar in meaning, not just keywords. Much better than keyword search alone.
+
+**Q: How often should I retrain a fine-tuned model?**
+Depends on data drift. If domains stable (product docs, company policies), yearly retraining sufficient. If volatile (news, social media), monthly or weekly.
+
+**Q: Can I RAG using my own documents on an API?**
+Yes. Upload docs to Anthropic, OpenAI, or open-source tools. All support document retrieval in prompts. Simpler than self-hosting RAG infrastructure.
+
+## Related Resources
+
+- [RunPod GPU pricing](/articles/runpod-gpu-pricing)
+- [Lambda GPU pricing](/articles/lambda-labs-gpu-pricing)
+- [OpenAI API pricing](/articles/openai-pricing)
+- [Anthropic Claude pricing](/articles/anthropic-pricing)
+- [LLM API pricing comparison](/llms)
+
+## Sources
+
+- OpenAI Fine-tuning: https://platform.openai.com/docs/guides/fine-tuning
+- Anthropic Fine-tuning: https://docs.anthropic.com/claude/docs/model-fine-tuning
+- RAG Overview: https://docs.llamaindex.ai/en/stable/
+- Pinecone Vector DB: https://www.pinecone.io/
+- Weaviate: https://weaviate.io/

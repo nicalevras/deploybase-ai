@@ -1,0 +1,522 @@
+---
+title: What Is a Cloud GPU? How GPU Rental Works and Pricing Models
+slug: what-is-cloud-gpu
+description: >-
+  Learn how cloud GPU rental works. On-demand vs spot vs reserved pricing.
+  Provider comparison and cost estimates for AI training and inference.
+date: '2026-03-21'
+author: DeployBase
+category: AI Infrastructure
+keywords:
+  - what is cloud gpu
+  - cloud gpu rental
+  - gpu cloud computing
+  - rent gpu for ai
+  - cloud gpu pricing
+  - gpu as a service
+  - how to use cloud gpu
+---
+
+## Contents
+
+- [What Is Cloud GPU: Overview](#what-is-cloud-gpu-overview)
+- [What Is a Cloud GPU?](#what-is-a-cloud-gpu)
+- [How GPU Rental Works: Step-by-Step](#how-gpu-rental-works-step-by-step)
+- [Infrastructure Abstraction](#infrastructure-abstraction)
+- [Types of GPU Instances](#types-of-gpu-instances)
+- [Pricing Models Explained](#pricing-models-explained)
+- [Provider Comparison Table](#provider-comparison-table)
+- [Real-World Cost Scenarios](#real-world-cost-scenarios)
+- [Getting Started Guide](#getting-started-guide)
+- [Optimization Strategies](#optimization-strategies)
+- [When to Use Cloud vs On-Premises](#when-to-use-cloud-vs-on-premises)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+---
+
+## What Is Cloud GPU: Overview
+
+A cloud GPU is a graphics processor rented by the hour from a provider's data center. Instead of buying an A100 for $12,000, rent one at $1.19/hr from RunPod. Train a model for 100 hours, pay $119. No capital investment, no hardware maintenance, no driver headaches. Shut down when done. Cloud GPUs are now the standard for AI development. Most teams never own hardware. Rent on demand, pay only for what teams use, switch GPU models weekly without committing to purchases. The economics have fundamentally shifted how teams approach AI infrastructure, as of March 2026.
+
+---
+
+## What Is a Cloud GPU?
+
+A cloud GPU is straightforward: a graphics processing unit in someone else's data center that teams can use by the hour.
+
+**Physical reality:** A rack full of GPUs (typically 4-8 per node) sits in a data center. The provider manages cooling, power, networking, and driver software. The code runs remotely via SSH or Docker. Teams see a compute instance; behind the scenes, the provider abstracts the hardware.
+
+**Contrast to CPU-based cloud (AWS EC2, Google Cloud):** EC2 gives teams virtual CPUs (software abstractions). Cloud GPU gives teams a real GPU (physical hardware accessed remotely). Teams get direct access to the GPU; it's not virtualized or oversubscribed.
+
+**Economic model:** Pay per hour of GPU time. A100 GPU costs $1.19/hr on RunPod, $1.48/hr on Lambda Labs. Run it for 24 hours, pay $28.56. Stop it, billing stops. No monthly commitments, no multi-year contracts. Pure consumption-based pricing.
+
+---
+
+## How GPU Rental Works: Step-by-Step
+
+### The Workflow
+
+**1. Choose a provider.** RunPod (consumer-friendly), Lambda Labs (reliable), CoreWeave (large-scale), Vast.AI (marketplace), AWS/Google Cloud (integrated).
+
+**2. Sign up and add payment method.** Seconds. Use credit card or cloud credits.
+
+**3. Browse GPU availability.** Providers show current inventory (A100, H100, RTX 4090, etc.) and pricing. Some have all models available; others have waitlists for popular hardware.
+
+**4. Select GPU configuration.**
+- Single GPU: 1x A100 ($1.19/hr)
+- Multi-GPU cluster: 4x H100 ($10.76/hr on RunPod)
+- GPU type and VRAM: A100 80GB vs A100 40GB (different prices)
+- Form factor: H100 PCIe vs H100 SXM (different infrastructure, different costs)
+
+**5. Choose a template or container.** Providers offer pre-built templates: PyTorch, TensorFlow, CUDA, Jupyter. Or bring the own Docker image with custom dependencies.
+
+**6. Select storage.** Ephemeral (deleted on shutdown, free) or persistent (survives shutdown, costs $0.10-0.20/GB/month).
+
+**7. Launch.** Click "Rent." Instance boots in 2-10 minutes. Provider sends SSH connection details, Jupyter URL, or direct console access.
+
+**8. Connect and run code.**
+```bash
+ssh user@gpu-instance.runpod.io
+nvidia-smi # Check GPU is available
+python train.py # Run the training script
+```
+
+**9. Monitor and manage.** Track compute hours, set budget alerts. Some providers auto-stop after N hours to prevent surprise bills.
+
+**10. Shut down when done.** Click "Stop." Billing stops immediately. Persistent storage remains; ephemeral data is deleted.
+
+### Time to Running GPU
+
+- **RunPod:** ~2-5 minutes from click to SSH access
+- **Lambda Labs:** ~5-10 minutes from click to console ready
+- **CoreWeave:** ~10-15 minutes for cluster provisioning
+- **AWS SageMaker:** ~10-20 minutes including IAM setup
+
+RunPod is fastest because no complex VPC or permission setup. Lambda is reliable because infrastructure is mature. CoreWeave is slowest because cluster orchestration takes time. Trade-offs between speed and control.
+
+---
+
+## Infrastructure Abstraction
+
+Behind the scenes, a lot happens.
+
+**Physical layer:** GPUs in a rack. Power supplies rated for 750W per GPU. Cooling loops (liquid or advanced air) managing thermal load. Networking infrastructure connecting GPUs to internet.
+
+**Virtualization layer:** None for GPUs (no virtual GPUs). But hypervisor manages CPU, memory, storage for the instance. Teams get isolated compute, not a dedicated physical machine.
+
+**Software layer:** NVIDIA drivers pre-installed. CUDA toolkit available. Container runtime (Docker) running the workload.
+
+**The view:** SSH access to a remote Linux machine with a GPU. Commands like `nvidia-smi` work exactly as if it were a local GPU.
+
+**Provider's responsibility:**
+- Physical hardware maintenance
+- Cooling and power management
+- Driver updates
+- Network stability
+- Disaster recovery (backups, failover)
+
+**The responsibility:**
+- Uploading training code
+- Managing data (ephemeral or persistent storage)
+- Debugging training failures
+- Stopping instances to control costs
+
+---
+
+## Types of GPU Instances
+
+### On-Demand Instances
+
+Request a GPU, provider allocates one immediately. Pay a fixed rate for the hour(s) teams use it. Guaranteed availability (subject to provider capacity).
+
+**Cost:** $1.19/hr for A100 on RunPod (example)
+**Availability:** High. Provider prioritizes fulfilling on-demand requests.
+**Interruption risk:** None (unless the team terminate the instance yourself)
+**Use case:** Production workloads, time-sensitive experiments, any work where reliability matters more than cost
+
+**Trade-off:** Teams pay full price. No discounts for overages or waiting.
+
+### Spot Instances
+
+Excess GPU capacity sold at deep discounts. Teams bid on the GPU; if someone with higher priority needs it, the instance is interrupted. Teams lose compute time but pay only for hours used.
+
+**Cost:** 50-80% discount. A100 spot runs $0.50-$0.80/hr vs $1.19 on-demand.
+**Availability:** Variable. High during off-peak (2am), scarce during peak (3pm).
+**Interruption risk:** High. Expect interruptions every 4-12 hours depending on demand.
+**Resume capability:** If the code saves checkpoints, resuming is cheap. If it doesn't, teams lose all progress.
+
+**Use case:** Non-urgent fine-tuning, batch processing, research experiments, development and testing, data preprocessing.
+
+**Economics:**
+- If an A100 spot is interrupted after 3 hours, teams pay $2.40 (3 × $0.80)
+- Save $1.77 vs on-demand ($3.57)
+- If training crashes and doesn't checkpoint, those 3 hours are wasted compute
+- Risk/reward: save 50% if resilient, waste 100% if not
+
+Spot only works if the job can resume from checkpoints. Frameworks like PyTorch Lightning handle checkpointing automatically.
+
+### Reserved Instances
+
+Commit to renting a GPU for 1-3 months. Discount compared to on-demand.
+
+**Cost:** 20-35% discount. A100 reserved for 3 months at $0.95/hr vs $1.19 on-demand.
+**Availability:** Guaranteed. Provider reserves it for teams.
+**Interruption risk:** Low. Cancellation possible but provider charges penalty.
+**Use case:** Long-running services (API endpoints), sustained batch jobs, models in production, any work lasting weeks
+
+**Break-even analysis:**
+- Reserve A100 for 3 months at $0.95/hr
+- Monthly cost: $0.95 × 730 hours = $692.50
+- On-demand equivalent: $1.19 × 730 = $868.70
+- Savings: $176.20/month = 20%
+
+Reserve when teams know teams will need compute continuously. Not worth it for one-off experiments or short jobs.
+
+---
+
+## Pricing Models Explained
+
+### Per-Hour Billing
+
+Most providers charge per hour, rounded up.
+
+Example: A 10.5-hour training job.
+
+- Billed: 11 hours (rounded up)
+- Cost at $2.69/hr H100 SXM: 11 × $2.69 = $29.59
+
+Some providers (RunPod, Lambda) offer sub-hour billing (per minute).
+
+Example: A 10.38-hour training job.
+
+- Billed: 10.38 hours (precise)
+- Cost at $2.69/hr: 10.38 × $2.69 = $27.93
+
+Sub-hour billing saves ~$1.66 on this job (5.6% discount). Over a month of daily jobs, savings compound.
+
+### Volume Discounts
+
+High-volume users negotiate discounts.
+
+- RunPod: 500+ GPU-hours/month, typically 10-15% off
+- Lambda: Less common, but possible for sustained customers
+- CoreWeave: large-scale discounts for 1,000+ GPU-hours/month, up to 20-30% off
+
+Discounts only emerge at scale. A team running 50 GPU-hours/month won't qualify.
+
+### Data Transfer Costs
+
+Uploading training data and downloading results incurs egress charges.
+
+**AWS S3:** $0.12/GB outbound
+**Lambda Labs:** Similar ($0.10-0.15/GB)
+**CoreWeave:** $0.08/GB (integrated)
+
+A 100GB dataset upload + 50GB results download = 150GB × $0.10 = $15 in egress.
+
+For small datasets, negligible. For 1TB data transfers, egress costs $100+. Budget for it.
+
+Optimization: Use persistent volumes or object storage within the provider (CoreWeave Storage, AWS S3). Egress within the provider (same region) is free or cheap.
+
+### Storage Costs
+
+Persistent volumes (data survives shutdown) cost $0.10-0.20/GB/month.
+
+Example: 500GB persistent volume.
+- $0.15/GB × 500GB = $75/month
+
+Ephemeral storage (deleted on shutdown) is free.
+
+Trade-off: Persistent storage enables workflow where teams stop the GPU (save $1.19/hr) but keep data ($75/month). For models, code, datasets teams reuse, persistent storage is worth it. For one-off experiments, ephemeral is fine.
+
+---
+
+## Provider Comparison Table
+
+| Provider | Best For | GPU Range | Single A100/hr | Multi-GPU | Ease | Uptime | Support |
+|----------|----------|-----------|----------------|-----------|------|--------|---------|
+| RunPod | Quick start | 3090 to B200 | $1.19 (PCIe) | Yes | 9/10 | 99%+ | Discord |
+| Lambda Labs | Production | A10 to B200 | $1.48 (PCIe) | Yes | 8/10 | 99.5% | Email/Portal |
+| CoreWeave | large-scale | L40 to B200 | $2.70 (÷8) | Native 8x | 6/10 | 99%+ | Slack/Portal |
+| Vast.AI | Budget | 1000s options | $0.80-1.50 | Yes | 5/10 | 95%* | Community |
+| AWS SageMaker | Integrated cloud | A100, H100, TPUs | $1.41 | Yes | 4/10 | 99.9% | Production |
+| Google Cloud | Integrated cloud | A100, H100, TPUs | $1.32 | Yes | 4/10 | 99.9% | Production |
+| Azure | Integrated cloud | A100, H100, A6000 | $1.31 | Yes | 4/10 | 99.9% | Production |
+
+*Vast.AI is peer-to-peer (hosts vary), so reliability depends on host.
+
+**RunPod:** Lowest friction, good pricing, best for rapid prototyping. UI is intuitive. Community-focused support.
+
+**Lambda Labs:** Reliability and compliance focus. HIPAA BAA, SOC 2 certified. Premium support. Slightly higher pricing justified by service maturity.
+
+**CoreWeave:** large-scale, direct NVIDIA partnership, InfiniBand networking. High complexity. Worthwhile only if teams are deploying 8+ GPU clusters.
+
+**Vast.AI:** Cheapest GPUs available (peer-to-peer marketplace). Highly variable. One host may have great reliability; another may be flaky. Best for non-critical work.
+
+**AWS/Google Cloud/Azure:** Integration with existing cloud services. Easier to connect to RDS, S3, BigQuery. Higher base pricing (~$1.30-1.41/hr) reflects ecosystem bundling.
+
+---
+
+## Real-World Cost Scenarios
+
+### Scenario 1: Fine-tuning a 7B Model (LoRA)
+
+Requirements:
+- 1x A100
+- 24 hours continuous training
+- Total GPU hours: 24
+
+**RunPod on-demand:**
+24 hours × $1.19/hr = **$28.56**
+
+**RunPod spot (50% discount):**
+24 hours × $0.60/hr = **$14.40** (if no interruptions)
+
+**Lambda Labs:**
+24 hours × $1.48/hr = **$35.52**
+
+**Conclusion:** RunPod on-demand is cheapest ($28.56). Spot savings are significant for teams that handle interruptions via checkpoints.
+
+### Scenario 2: Training Llama 2 70B (8x H100, 1 week)
+
+Requirements:
+- 8x H100 SXM cluster
+- 7 days continuous (168 hours)
+
+**Lambda Labs (extrapolated):**
+8 × H100 SXM @ $2.49/hr = ~$19.92/hr cluster rate
+168 hours × $19.92 = **$3,347/week**
+
+**CoreWeave:**
+8x H100 cluster @ $49.24/hr
+168 hours × $49.24 = **$8,272/week**
+
+**CoreWeave (1-month reserve, 20% discount):**
+$49.24 × 0.8 = $39.39/hr
+168 hours × $39.39 = **$6,610/week**
+
+**Conclusion:** Lambda is 2.5x cheaper for distributed training. CoreWeave's reserved discounts help but don't close the gap. Lambda wins unless teams need CoreWeave's specific features (InfiniBand networking, integrated storage).
+
+### Scenario 3: Running an Inference API (24/7)
+
+Requirements:
+- 2x H100 SXM for redundancy
+- 730 hours/month (24/7 continuous)
+
+**RunPod:**
+2 × $2.69/hr × 730 = **$3,928/month**
+
+**Lambda Labs:**
+2 × $2.49/hr × 730 = **$3,636/month**
+
+**3-month reserve on RunPod (15% discount):**
+2 × ($2.69 × 0.85)/hr × 730 = **$3,339/month**
+
+**Conclusion:** RunPod and Lambda are closely priced for H100 SXM. Reserves help further. For production 24/7 services, reserves are mandatory (budget predictability matters). Cost at scale is $3-4K/month for a 2-GPU production inference endpoint.
+
+### Scenario 4: Batch Processing (Large Corpus)
+
+Requirements:
+- Process 100GB of documents
+- Inference throughput: 5B tokens per day
+- Flexible timing (can run overnight)
+
+**Cloud GPU option:**
+- 8x H100 cluster @ $49.24/hr
+- Throughput: 600+ tokens/sec = 5B tokens per day needs ~2.3 hours
+- But: cluster overhead, spin-up time → 3 hours total
+- Cost: 3 hours × $49.24 = **$147.72** (one night)
+- Weekly: 7 nights × $147.72 = **$1,033.99**
+
+**Single GPU option (overnight, spot):**
+- 1x H100 spot @ $1.60/hr
+- Throughput: 75 tokens/sec = 5B tokens needs ~18 hours
+- Actual: 20 hours with overhead
+- Cost: 20 hours × $1.60 = **$32**
+- Weekly: **$224/week**
+
+**Conclusion:** For batch processing where timing is flexible, single H100 spot instances are 4.6x cheaper than clusters. CoreWeave is overkill.
+
+---
+
+## Getting Started Guide
+
+### Step 1: Sign Up
+
+Pick a provider (RunPod recommended for first-time users).
+
+1. Go to runpod.io
+2. Click "Sign Up"
+3. Email verification (2 minutes)
+4. Add payment method (credit card or billing)
+5. Account ready
+
+### Step 2: Browse GPUs
+
+1. Click "GPU Instances"
+2. Filter by GPU type (A100, H100, RTX 4090)
+3. Sort by price or availability
+4. Compare VRAM options (80GB vs 40GB for A100)
+
+### Step 3: Select Template
+
+RunPod offers templates:
+- **PyTorch:** Pre-installed with `torch`, `transformers`, CUDA
+- **TensorFlow:** TF 2.x, Keras
+- **Jupyter:** Notebook environment
+- **Custom:** Bring the Docker image
+
+Select PyTorch for most ML work.
+
+### Step 4: Configure Instance
+
+- Storage: Pick 10GB (free) for test, or add persistent volume
+- Docker image: Default or custom
+- GPU model: Select from available inventory
+
+### Step 5: Launch
+
+Click "Rent." In 2-5 minutes, teams get:
+- SSH connection string: `ssh user@<instance-ip>`
+- Jupyter URL: `https://<instance-ip>:8888`
+- GPU memory reported by `nvidia-smi`
+
+### Step 6: Connect and Run Code
+
+```bash
+ssh user@<instance-ip>
+
+nvidia-smi
+
+git clone <repo-url>
+cd <repo>
+
+pip install -r requirements.txt
+
+python train.py
+```
+
+### Step 7: Monitor
+
+- Dashboard shows running hours and cost accrual
+- Set budget alerts (Auto-stop after $X)
+- Run `watch -n 1 nvidia-smi` to monitor GPU usage in real-time
+
+### Step 8: Shut Down
+
+Click "Stop" when done. Billing stops immediately. Persistent storage remains.
+
+---
+
+## Optimization Strategies
+
+### Save on Compute
+
+**1. Use spot instances for fault-tolerant workloads.** Save 50% with spot if the training checkpoints. Implement checkpoint-to-persistent-storage every 10 minutes. If interrupted, resume from last checkpoint.
+
+**2. Reserve for long-running services.** 3-month reserve at 20-30% discount. Mandatory for 24/7 inference APIs.
+
+**3. Right-size the GPU.** Don't rent H100 if A100 fits. A100 is 40% cheaper and good enough for most models under 70B parameters.
+
+**4. Use smaller models for development.** Test training script on RTX 4090 ($0.34/hr) before scaling to A100 ($1.19/hr).
+
+### Save on Storage
+
+**1. Use ephemeral storage for temporary data.** Free. Train on ephemeral, save final model to persistent. Delete ephemeral on shutdown.
+
+**2. Download models once, cache on persistent.** First run downloads HuggingFace model (1-10GB). Store on persistent. Reuse across multiple jobs. Saves time and egress fees.
+
+**3. Compress datasets.** Store as .tar.gz on persistent (40% compression typical). Decompress on job start. Saves storage costs.
+
+### Save on Data Transfer
+
+**1. Upload once, reuse.** Upload training data to persistent volume once. Run 10 training jobs against it. Single egress cost amortized.
+
+**2. Download once per epoch.** Load entire dataset into GPU memory if possible. Beats re-downloading per batch.
+
+**3. Use provider-native storage.** CoreWeave's integrated storage or AWS S3 within same region = free egress.
+
+---
+
+## When to Use Cloud vs On-Premises
+
+### Use Cloud GPU if:
+
+**Teams need a GPU for less than 3 months.** Rental is cheaper than owning once teams include data center costs, power, cooling, and depreciation.
+
+**Teams need flexibility.** Switch from A100 to H100 next week. Try different hardware without capital commitment. Ideal for experimentation.
+
+**Teams don't have a data center.** Building the own costs hundreds of thousands in infrastructure. Cloud is immediately available.
+
+**The usage is bursty.** Train for 2 weeks, then idle for 2 weeks. Cloud billing is on-demand; no sunk cost during idle periods.
+
+**Teams want zero operational overhead.** Provider handles cooling, power, driver updates. Teams just SSH and run code.
+
+### Own Hardware if:
+
+**Teams will run 24/7 for 2+ years.** At $2.69/hr H100 SXM, 24/7 for 2 years = $47,000 in rental. H100 costs $15-18K. Two years of rental buys 3 GPUs and amortizes. Ownership breaks even.
+
+**Teams have the own data center.** Power and cooling are free. Hosting costs $0. Ownership marginal cost is just the GPU card.
+
+**Teams need extreme latency.** Cloud adds 5-50ms network latency. For inference serving where microseconds matter, local GPU is better.
+
+**Teams have deep security requirements.** On-premises GPU allows full control. Cloud means trusting provider's security. For classified or highly sensitive work, own hardware.
+
+---
+
+## FAQ
+
+**How much faster is cloud GPU training vs CPU?**
+10-100x faster depending on task. Matrix operations (core of neural networks) are 100x faster on GPU. Training a 7B model takes hours on GPU, days on CPU.
+
+**Can I pause and resume GPU rental?**
+Yes. Stop the instance, billing stops. Resume later. Data on persistent storage remains; ephemeral data is lost.
+
+**What if the provider has a hardware failure?**
+Rare but possible. Provider data centers have redundancy. Your responsibility: save checkpoints to persistent storage or download results. If a physical GPU fails mid-job, provider typically credits your account for downtime.
+
+**Is it secure to train proprietary models in the cloud?**
+Yes if the provider has compliance certifications. Lambda Labs is SOC 2 Type II and offers HIPAA BAAs. RunPod is less stringent. For sensitive work, check certifications.
+
+**Can I use multiple GPUs?**
+Yes. RunPod, Lambda support multi-GPU instances (2x, 4x, 8x). Distributed training across multiple GPUs is standard for large models. CoreWeave sells dedicated 8-GPU clusters.
+
+**How do I avoid overpaying?**
+Set budget alerts. Use spot instances for non-urgent work. Stop instances when done (easy to forget and waste $1000s on idle GPUs). Monitor with `nvidia-smi` and cost trackers. Some providers auto-stop after N hours.
+
+**What if I run out of VRAM?**
+Three options: (1) Switch to a GPU with more VRAM (H200 141GB vs A100 80GB, or H100 80GB for a middle ground). (2) Reduce batch size (slower but fits). (3) Use gradient checkpointing (memory-efficient, trades memory for compute).
+
+**Which provider is best for beginners?**
+RunPod. Fastest to running GPU, intuitive UI, cheapest pricing, supportive community. Start here, then move to Lambda Labs once you need production reliability.
+
+**Can I use spot instances for production inference?**
+No. Spot instances are interrupted, breaking API availability. Use on-demand or reserved for production. Spot only for batch processing and development.
+
+**What's the difference between H100 PCIe and H100 SXM?**
+H100 PCIe uses standard server slots, lower power (350W), cheaper. H100 SXM requires special chassis, higher power (700W), but enables NVLink (900 GB/s GPU-to-GPU) for fast distributed training. Use PCIe for single-GPU work, SXM for multi-GPU clusters.
+
+---
+
+## Related Resources
+
+- [GPU Cloud Provider Comparison](/gpus)
+- [H100 Pricing Analysis](/articles/h100-price)
+- [Distributed Training Cost Calculator](/articles/cost-to-fine-tune-an-llm-gpu-hours-cloud-pricing-budget-guide)
+- [Best GPU Cloud Providers 2026](/gpus)
+- [VRAM Requirements by Model](/articles/llm-vram-requirements)
+
+---
+
+## Sources
+
+- [RunPod GPU Pricing](https://www.runpod.io/pricing)
+- [Lambda Labs Pricing](https://lambda.ai/pricing)
+- [CoreWeave Pricing](https://www.coreweave.com/pricing)
+- [Vast.ai Pricing](https://vast.ai/pricing)
+- [AWS GPU Pricing](https://aws.amazon.com/ec2/pricing/on-demand/#GPU_instances)
+- [Google Cloud GPU Pricing](https://cloud.google.com/compute/gpus-pricing)
+- [Azure GPU Pricing](https://azure.microsoft.com/en-us/pricing/details/machine-learning/studio/)
+- [DeployBase GPU Pricing Tracker](/gpus) (data observed March 21, 2026)

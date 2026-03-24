@@ -1,0 +1,161 @@
+---
+title: 'H200 on CoreWeave: Pricing, Specs & How to Rent'
+slug: h200-on-coreweave-pricing-specs-how-to-rent
+description: >-
+  H200 on CoreWeave delivers 141GB HBM3e memory at $50.44/hour (8-pack). Compare
+  pricing, specs, and performance for large-scale LLM training and inference.
+date: '2026-03-22'
+author: DeployBase
+keywords:
+  - h200 on coreweave
+  - CoreWeave H200 pricing
+  - H200 cluster rental
+  - reserved capacity
+  - 8xH200 cost
+---
+
+## Contents
+
+- [Overview](#overview)
+- [H200 Specifications](#h200-specifications)
+- [CoreWeave H200 Pricing](#coreweave-h200-pricing)
+- [How to Rent H200 on CoreWeave](#how-to-rent-h200-on-coreweave)
+- [Performance for Large Models](#performance-for-large-models)
+- [CoreWeave vs Alternatives](#coreweave-vs-alternatives)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Overview
+
+H200 on CoreWeave pricing represents a powerful option for teams scaling LLM inference and fine-tuning to 405B-scale models. CoreWeave bundles H200 GPUs in 8-packs, delivering 1,128GB total HBM3e memory at $50.44 per hour as of March 2026. This guide explains specifications, cost analysis, and deployment workflows.
+
+## H200 Specifications
+
+The NVIDIA H200 represents the latest generation data center GPU with expanded memory:
+
+- **Memory**: 141GB HBM3e (vs 80GB H100)
+- **Memory Bandwidth**: 4.8 TB/s (vs 3.35 TB/s H100)
+- **Compute Capability**: SM90
+- **Peak Tensor Performance**: 1,457 TFLOPS (sparsity)
+- **Interconnect**: NVLink 4.0
+- **Power Consumption**: 700W
+- **Manufacturing**: 5nm TSMC process
+
+The 76% memory increase over H100 enables longer context windows and larger batch inference. H200 excels at:
+- 70B-405B model training
+- Long-context retrieval augmented generation (RAG)
+- Multi-turn conversation scaling
+- Mixture-of-Experts model serving
+
+## CoreWeave H200 Pricing
+
+CoreWeave structures H200 pricing in 8-pack bundles:
+
+- **8x H200 Cluster**: $50.44/hour
+- **Per-GPU Cost**: $6.31/hour
+- **Monthly (730 hours)**: $36,821
+- **Annual (8,760 hours)**: $441,852
+
+The bundle-only model reflects CoreWeave's infrastructure design. No single H200 instances are available. Spot/interruptible pricing typically offers 30-50% discounts but with preemption risk.
+
+Compare [RunPod H200 at $3.59](/articles/runpod-gpu-pricing) for single GPU rental, though CoreWeave bundles provide lower per-GPU cost at scale.
+
+## How to Rent H200 on CoreWeave
+
+### Step 1: Sign Up for CoreWeave
+
+Create a CoreWeave account and enable compute capabilities. Verify payment method (credit card or wire transfer for volume).
+
+### Step 2: Request H200 Capacity
+
+navigate to the GPU marketplace and filter for H200. Since CoreWeave primarily serves enterprises, small-scale requests may require:
+- Minimum commitment of 500 GPU-hours
+- Contact with sales team for pricing locks
+- Volume discounts for 12-month terms
+
+### Step 3: Deploy Kubernetes Cluster
+
+CoreWeave provides Kubernetes-native GPU provisioning. Define:
+```yaml
+spec:
+  gpu_type: "H200"
+  instance_type: "8x-h200"
+  region: "us-west"
+  duration: "720h"  # 1 month
+```
+
+### Step 4: Install ML Frameworks
+
+Deploy PyTorch, vLLM, TensorRT-LLM, or Hugging Face transformers. CoreWeave provides optimized container images for NVIDIA containers.
+
+### Step 5: Monitor and Scale
+
+Use CoreWeave's dashboard to track:
+- GPU utilization and memory usage
+- Network throughput
+- Cost tracking per workload
+- Automatic scaling policies
+
+## Performance for Large Models
+
+H200 enables training and inference of 405B-scale models:
+
+**405B Model Training**
+- Minimum GPUs needed: 8x H200 (1.128TB memory)
+- Training throughput: 1,200-1,500 tokens/second
+- Estimated training time (1T tokens): 10-15 days
+- Cost per model: $360K-540K
+
+**70B Model Fine-tuning**
+- Batch size: 64 (single node)
+- Throughput: 2,200 tokens/second
+- Cost per run (24 hours): $1,210
+
+**Llama 3 70B Inference**
+- Max batch size: 256
+- Latency (p50): 25-35ms
+- Cost per 1M tokens: $0.45-0.65
+
+## CoreWeave vs Alternatives
+
+Cost comparison for H200 deployment:
+
+| Use Case | CoreWeave | RunPod | Lambda Labs |
+|----------|-----------|--------|-------------|
+| Single H200/hour | $6.31 (8-pack min) | $3.59 | Not available |
+| 24-hour small job | $1,210 (8x min) | $86.16 (single) | N/A |
+| 1-month training | $4,619/GPU | $2,621/GPU | N/A |
+
+CoreWeave's 8-pack model works best for teams committing 100+ GPU-hours monthly. [RunPod](/articles/runpod-gpu-pricing) offers flexibility for experimentation. [Lambda Labs](/articles/lambda-labs-gpu-pricing) focuses on H100/GH200 rather than H200.
+
+## FAQ
+
+**Can I run 405B models on fewer than 8 H200 GPUs?**
+Technically yes with tensor parallelism, but 8 GPUs is the practical minimum. 405B parameter count requires approximately 800GB memory for inference with quantization. Fewer GPUs necessitate offloading, reducing throughput significantly.
+
+**Does CoreWeave offer H200 in other regions?**
+Yes. CoreWeave operates data centers in US, Europe, and Asia-Pacific. Regional pricing varies 5-15% based on power costs and infrastructure utilization.
+
+**What's the minimum contract length for H200 on CoreWeave?**
+No minimum exists for on-demand pricing. However, volume commitments (100+ GPU-hours) access 10-20% discounts. Annual contracts receive additional 15-25% rebates.
+
+**Can I switch between H100 and H200 on CoreWeave?**
+Yes. Both are available in 8-pack configurations. Migration between instances takes 2-5 minutes. No data loss occurs, but workloads must be paused during transition.
+
+**Is H200 worth the cost premium over H100?**
+For models under 70B, H100 provides better cost-per-token-per-second. For 70B-405B models or long-context applications, H200's 76% memory increase justifies the 95% cost premium.
+
+## Related Resources
+
+- [H200 GPU Specifications](/articles/nvidia-h200-price)
+- [CoreWeave GPU Pricing Guide](/articles/coreweave-gpu-pricing)
+- [H100 on RunPod vs CoreWeave](/articles/h100-runpod)
+- [Complete GPU Cloud Pricing Comparison](/gpus)
+- [Fine-Tuning Guide for 70B Models](/articles/what-is-fine-tuning-llm)
+
+## Sources
+
+- [NVIDIA H200 Specifications](https://www.nvidia.com/en-us/data-center/h200/)
+- [CoreWeave GPU Cloud Platform](https://www.coreweave.com/)
+- [NVIDIA CUDA Documentation](https://docs.nvidia.com/cuda/)

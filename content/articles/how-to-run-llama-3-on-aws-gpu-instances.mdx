@@ -1,0 +1,161 @@
+---
+title: How to Run Llama 3 on AWS GPU Instances
+slug: how-to-run-llama-3-on-aws-gpu-instances
+description: 'p3.2xlarge: One V100 (16GB). $3.06/hour. Handles quantized Llama 3.'
+date: '2026-03-22'
+author: DeployBase
+---
+
+## Contents
+
+- [AWS GPU Instance Types for Llama 3](#aws-gpu-instance-types-for-llama-3)
+- [Prerequisites and Setup](#prerequisites-and-setup)
+- [Deploying with vLLM](#deploying-with-vllm)
+- [Running with Ollama](#running-with-ollama)
+- [Cost Optimization](#cost-optimization)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## AWS GPU Instance Types for Llama 3
+
+**p3.2xlarge:** One V100 (16GB). $3.06/hour. Handles quantized Llama 3.
+
+**p4d.24xlarge:** Eight A100s (40GB each). $32.77/hour. Production-scale inference. [CoreWeave's 8xA100: $21.60/hour](/articles/coreweave-gpu-pricing):cheaper for sustained workloads.
+
+**g4dn.xlarge:** T4 (16GB). $0.52/hour. Dev and learning. Low throughput but great cost.
+
+**g5.xlarge:** L40 (24GB). $1.23/hour. Inference-optimized. Better throughput than A100 clusters potentially.
+
+## Prerequisites and Setup
+
+Check GPU quota first. Request increases via AWS Service Quotas console:takes 24-48 hours.
+
+Launch from a deep learning AMI. CUDA, PyTorch, TensorFlow pre-installed. Beats bare Ubuntu.
+
+Pick p4d.24xlarge for production or g4dn.xlarge for dev. SSH security group. EC2 key pair.
+
+Connect:
+
+```
+ssh -i key.pem ubuntu@instance-ip
+```
+
+Install:
+
+```
+pip install torch transformers accelerate bitsandbytes
+pip install vllm
+```
+
+## Deploying with vLLM
+
+vLLM uses paged attention and batching. 10-40x faster than naive PyTorch.
+
+Get Llama 3 from HuggingFace. Create account, accept license, generate token.
+
+Login:
+
+```
+huggingface-cli login
+```
+
+Start server:
+
+```
+python -m vllm.entrypoints.openai.api_server \
+  --model meta-llama/Llama-3-13b-hf \
+  --tensor-parallel-size 8
+```
+
+For 70B:
+
+```
+python -m vllm.entrypoints.openai.api_server \
+  --model meta-llama/Llama-3-70b \
+  --tensor-parallel-size 8
+```
+
+Query on port 8000:
+
+```
+curl http://localhost:8000/v1/completions \
+  -H "Content-Type: application/json" \
+  -d '{"model": "meta-llama/Llama-3-13b-hf", "prompt": "Write Python", "max_tokens": 100}'
+```
+
+## Running with Ollama
+
+Simple containerized approach. Install:
+
+```
+curl https://ollama.ai/install.sh | sh
+```
+
+Pull:
+
+```
+ollama pull llama3:13b
+```
+
+Serve:
+
+```
+ollama serve
+```
+
+Query on port 11434:
+
+```
+curl http://localhost:11434/api/generate -d '{"model": "llama3:13b", "prompt": "Write Python", "stream": false}'
+```
+
+Ollama auto-manages GPU. No manual CUDA. Great for learning.
+
+## Cost Optimization
+
+AWS for sustained inference runs pricey. p4d.24xlarge $32.77/hour = $23.7K/month. Specialize GPU clouds beat it.
+
+[Lambda A100 instances](/articles/lambda-labs-gpu-pricing) cheaper. [RunPod A100s](/articles/runpod-gpu-pricing) with spot discounts.
+
+Reserved instances: 40-50% off. p4d reserved $1.08/hour 3-year = $7.8K/month.
+
+Spot: ~$10/hour but termination risk. Batch jobs only.
+
+Multi-instance cheaper. Two p3.2xlarge ($6.12/hour) beats one g5.4xlarge ($8.09/hour).
+
+## FAQ
+
+**Can I run Llama 3 70B on AWS without distributed training?**
+
+8xA100 in p4d.24xlarge, yes. Single A100 needs extreme quantization. Use tensor parallelism.
+
+**Typical latency on p4d?**
+
+First token: 100-300ms. Subsequent: 50-100ms each.
+
+**AWS vs specialized providers?**
+
+AWS: convenient integration. RunPod, Lambda: 30-50% cheaper for inference.
+
+**Autoscaling Llama 3 on AWS?**
+
+Yes, Load Balancer + Auto Scaling groups. GPU scaling slower: 2-5 min per instance.
+
+**Best quantization on AWS?**
+
+GPTQ and AWQ preserve quality. Same on AWS as everywhere.
+
+## Related Resources
+
+- [Deploy Llama 3 on RunPod](/articles/how-to-fine-tune-on-runpod-complete-gpu-guide)
+- [Deploy Stable Diffusion on Vast AI](/articles/best-gpu-for-stable-diffusion)
+- [Deploy Mistral on Lambda Labs](/articles/how-to-deploy-mistral-on-lambda-labs)
+- [AWS GPU instance types](/articles/how-to-run-llm-locally-complete-guide)
+
+## Sources
+
+- [AWS GPU Instances Documentation](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/accelerated-computing-instances.html)
+- [vLLM Documentation](https://docs.vllm.ai/)
+- [Ollama Official Site](https://ollama.ai/)
+- [Meta Llama 3 GitHub](https://github.com/meta-llama/llama3)

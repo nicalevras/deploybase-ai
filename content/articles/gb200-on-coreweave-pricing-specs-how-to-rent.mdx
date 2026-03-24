@@ -1,0 +1,135 @@
+---
+title: 'GB200 on CoreWeave: Pricing, Specs & How to Rent'
+slug: gb200-on-coreweave-pricing-specs-how-to-rent
+description: >-
+  GB200: 192GB HBM3e memory per GPU, ~8 TB/s HBM bandwidth, NVLink C2C for
+  Grace-to-Blackwell interconnect. Built for scale.
+date: 2026-03-22T00:00:00.000Z
+author: DeployBase
+---
+## Contents
+
+- [GB200 GPU Specifications](#gb200-gpu-specifications)
+- [CoreWeave GB200 Pricing](#coreweave-gb200-pricing)
+- [How to Rent GB200 on CoreWeave](#how-to-rent-gb200-on-coreweave)
+- [GB200 vs. H100 & H200](#gb200-vs-h100-h200)
+- [GB200 Performance & Use Cases](#gb200-performance-use-cases)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## GB200 GPU Specifications
+
+GB200 is NVIDIA's Grace Blackwell superchip: one Grace CPU (72 ARM Neoverse V2 cores, 480GB LPDDR5x) paired with one B200 GPU, connected via NVLink-C2C at 900 GB/s. Two GB200 superchips form the GB200 NVL2 module. Each B200 has 192GB HBM3e memory at ~8 TB/s bandwidth. Built for scale.
+
+Specs (per B200 GPU):
+- Memory: 192GB HBM3e
+- Memory Bandwidth: ~8 TB/s
+- NVLink-C2C (Grace-to-Blackwell): 900 GB/s
+- Peak FP8: ~9 PFLOPS
+- Precision: FP4, FP8, FP16, BF16, FP32
+- Grace CPU: 72 Neoverse V2 cores, 480GB LPDDR5x
+
+The memory bandwidth and capacity are what matter for large-model inference. Memory-bound token generation bottlenecks on HBM throughput, not compute.
+
+## CoreWeave GB200 Pricing
+
+8x GB200 cluster: $68.80/hour ($8.60 per GPU). Fixed pricing. 100GB Ethernet included.
+
+For context, [8x H100 costs $49.24/hour](/articles/coreweave-gpu-pricing) on CoreWeave. GB200 is 40% more expensive. The memory gain (192GB vs 80GB) and better inter-GPU bandwidth justify it for mega-scale inference. For most workloads, H100s or H200s are fine.
+
+## How to Rent GB200 on CoreWeave
+
+1. Create CoreWeave account.
+2. Request GB200 access (limited availability).
+3. Verify identity.
+4. Pick cluster size, region, OS image.
+5. Choose Kubernetes or bare metal.
+6. Deploy the workload.
+7. Access via SSH or kubeconfig.
+8. Scale up/down as needed.
+
+CoreWeave handles drivers, networking, multi-GPU sync. Deploys in minutes after approval.
+
+## GB200 vs. H100 & H200
+
+Understanding GB200's advantages relative to earlier GPU generations informs rental decisions.
+
+GB200 vs. H100:
+- Memory: 192GB vs. 80GB (2.4x larger on GB200)
+- Throughput: Similar peak TFLOPS, but GB200's memory advantage matters more for large models
+- Cost: GB200 approximately 40% more expensive
+- Use: GB200 for single-model inference of 200B+ parameters, H100 for training efficiency
+
+GB200 vs. [H200 specifications](/articles/nvidia-h200-price):
+- H200 offers 141GB HBM3, bridging gap between H100 and GB200
+- H200 cost intermediate between H100 and GB200
+- GB200 has superior multi-GPU interconnect through NVLink C2C
+- H200 preferred for most use cases, GB200 for maximum scale
+
+Vs. [B200](/articles/nvidia-b200-price):
+- B200 represents NVIDIA's next-generation single-GPU peak
+- B200 has same memory as one GB200 GPU (192GB HBM3e); GB200 adds integrated Grace CPU and unified memory
+- B200 typically deployed in smaller clusters
+- GB200 more common in production as of March 2026
+
+## GB200 Performance & Use Cases
+
+GB200 shines in specific workload categories where its advantages matter most.
+
+Large language model inference:
+- LLaMA 405B: 10-15 tokens/second per GPU (unquantized)
+- GPT-4 scale models: 5-10 tokens/second per GPU
+- Multi-GPU throughput: near-linear scaling to 8 GPUs
+- Context window support: full sequence length without optimization
+
+Code generation workloads:
+- Code Llama 70B: 40-60 tokens/second per GPU
+- Function generation: sub-500ms latency
+- Multi-turn conversations: efficient memory management
+
+production document processing:
+- PDF extraction: 100+ documents/second with OCR
+- Information retrieval: 1000s concurrent embeddings
+- Multi-modal analysis: image + text simultaneously
+
+Scientific computing:
+- Climate modeling: extreme throughput for ensemble runs
+- Molecular dynamics: superior memory bandwidth for simulation state
+- Computational physics: real-time analysis of massive datasets
+
+Cost-effectiveness depends on model size and batch requirements. Smaller models don't justify GB200's premium; larger models amortize cost across more inference requests.
+
+## FAQ
+
+**Should I rent GB200 or build a cluster?**
+Rental through CoreWeave is optimal unless expecting 6+ months sustained usage. Capital equipment costs exceed rental in most scenarios.
+
+**What's the minimum GB200 deployment?**
+CoreWeave typically requires 8-GPU clusters minimum. This scales inference for most production scenarios.
+
+**Can GB200 run multiple models simultaneously?**
+Yes, with careful memory partitioning. 192GB supports several 70B models or one 200B+ model with headroom.
+
+**How does GB200 latency compare to H100?**
+Latency is similar (both 10-50ms range). GB200's advantage is throughput and memory, not latency.
+
+**Does CoreWeave offer trial periods for GB200?**
+Contact CoreWeave sales directly. Early-access customers sometimes receive trial allocations.
+
+## Related Resources
+
+- [GPU Pricing Guide](/gpus) - All GPU comparisons
+- [B200 Specifications](/articles/nvidia-b200-price) - Next-generation GPU
+- [H200 Specifications](/articles/nvidia-h200-price) - Alternative high-memory option
+- [CoreWeave GPU Pricing](/articles/coreweave-gpu-pricing) - Full provider pricing
+- [Inference Optimization](/articles/what-is-llm-inference) - Maximize model throughput
+
+## Sources
+
+- NVIDIA GB200 Specifications - https://www.nvidia.com/en-us/data-center/gb200/
+- CoreWeave Platform - https://www.coreweave.com/
+- NVIDIA Hopper Architecture - https://www.nvidia.com/en-us/data-center/hopper/

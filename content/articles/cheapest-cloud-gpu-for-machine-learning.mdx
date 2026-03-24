@@ -1,0 +1,294 @@
+---
+title: Cheapest Cloud GPU for Machine Learning
+slug: cheapest-cloud-gpu-for-machine-learning
+description: >-
+  Find the cheapest cloud GPU for machine learning. Compare Vast AI, RunPod,
+  Lambda Labs, and CoreWeave pricing with spot discounts. March 2026 rates.
+date: '2026-03-22'
+author: DeployBase
+category: GPU Pricing
+keywords:
+  - cheapest cloud gpu machine learning
+---
+
+## Contents
+
+- [Introduction](#introduction)
+- [Pricing Comparison Across Providers](#pricing-comparison-across-providers)
+- [Spot Pricing Strategy](#spot-pricing-strategy)
+- [GPU Selection by Budget](#gpu-selection-by-budget)
+- [Cost Optimization Techniques](#cost-optimization-techniques)
+- [Total Cost of Ownership](#total-cost-of-ownership)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Introduction
+
+GPU cloud pricing varies dramatically. The same fine-tuning experiment can cost $2 on Vast AI or $50 on premium cloud providers. This guide identifies the cheapest ML infrastructure at each budget tier without sacrificing reliability, using March 2026 rates. Smart provider selection combined with spot instances and optimization techniques can cut costs by 70-90%.
+
+## Pricing Comparison Across Providers
+
+### Budget Provider: Vast AI
+
+[Vast AI](/articles/vast-ai-pricing) operates a peer-to-peer GPU marketplace. Unvetted providers compete on price, driving rates downward.
+
+Typical pricing:
+- RTX 3090: $0.12-0.18/hour
+- RTX 4090: $0.18-0.28/hour
+- A100: $0.60-0.90/hour
+- H100: $1.50-2.50/hour
+
+Drawback: Availability unpredictable. Instances terminate without notice. Quality varies. Suited for interruptible workloads only.
+
+### Mid-Tier: RunPod
+
+[RunPod](/articles/runpod-gpu-pricing) balances cost with reliability:
+- RTX 3090: $0.22/hour
+- RTX 4090: $0.34/hour
+- L4: $0.44/hour
+- A100 PCIe: $1.19/hour
+- H100 PCIe: $1.99/hour
+
+Spot pricing discounts 50-60%:
+- RTX 3090 spot: $0.12/hour
+- RTX 4090 spot: $0.14/hour
+- A100 spot: $0.42/hour
+
+### Premium: Lambda Labs
+
+[Lambda](/articles/lambda-labs-gpu-pricing) prioritizes reliability:
+- A100: $1.48/hour
+- H100 PCIe: $2.86/hour
+- H100 SXM: $2.49/hour
+- B200 SXM: $6.08/hour
+
+No spot pricing. Premium for SLA guarantees and support.
+
+### Bulk: CoreWeave
+
+[CoreWeave](/articles/coreweave-gpu-pricing) targets bulk buyers with 8-GPU configurations:
+- 8x L40S: $18/hour = $2.25/GPU
+- 8x A100: $21.60/hour = $2.70/GPU
+- 8x H100: $49.24/hour = $6.16/GPU
+
+Excellent for large training runs. Minimum commitment required.
+
+## Spot Pricing Strategy
+
+Spot instances cost 40-70% less but terminate on demand. Strategy determines when to use spot.
+
+### Interruptible Workload: Spot Only
+
+Experiments and hyperparameter searches tolerate interruption. Run solely on spot. Cost reduction: 60%.
+
+Example: Fine-tune 7B model on Vast AI RTX 4090 spot.
+- Cost: 8 hours × $0.18/hour = $1.44
+- Same task on Lambda A100: 8 hours × $1.48/hour = $11.84
+- Savings: $10.40 (88% reduction)
+
+Risk: If interrupted, restart and lose progress. Accept for low-value experiments.
+
+### Critical Workload: Spot with Checkpointing
+
+Production training requires reliability. Use spot instances with checkpoint recovery.
+
+Setup:
+1. Enable checkpointing every 30 minutes
+2. Load last checkpoint on resumption
+3. Multiple restarts acceptable
+
+Cost: 70% reduction compared to on-demand (assume 2-3 interruptions).
+
+Example: 70B multi-GPU training:
+- On-demand: $5.38/hour × 80 hours = $430.40
+- Spot + checkpointing: $5.38/hour × 80 hours × 0.4 (expected cost with interruptions) = $172.16
+- Savings: $258.24 (60%)
+
+### Time-Sensitive: On-Demand Only
+
+Projects with fixed deadlines can't risk spot interruptions. Lambda or CoreWeave provide guaranteed availability.
+
+Avoid spot trade-off when deadline matters more than cost.
+
+## GPU Selection by Budget
+
+### Under $10 Total Training Cost
+
+**Vast AI RTX 4090 spot**: $0.18/hour × 50 hours = $9.00
+
+Supports 7B model fine-tuning with LoRA on 100K tokens. Quality acceptable for prototyping.
+
+Limitations:
+- Availability unreliable
+- No support
+- Single GPU only
+
+### $10-50 Budget
+
+**RunPod spot RTX 4090**: $0.14/hour × 214 hours = $30.00
+
+Allows 7B model fine-tuning with 1M token dataset over multiple epochs, or 13B model single epoch. Better reliability than Vast AI while keeping costs low.
+
+Alternative: RunPod spot A100 ($0.50/hour × 50 hours = $25.00) for larger models.
+
+### $50-200 Budget
+
+**RunPod on-demand A100**: $1.19/hour × 100 hours = $119.00
+
+Supports production 7B fine-tuning or 13B exploration. Reliability suitable for real projects.
+
+Alternative: Lambda A100 ($1.48/hour × 100 hours = $148.00) for guaranteed SLA.
+
+### $200+ Budget
+
+**CoreWeave 8x A100**: $21.60/hour × 10 hours = $216.00
+
+Trains 70B models with LoRA. Multi-GPU training enables larger batch sizes and faster iteration.
+
+Alternative: Cloudflare Workers AI for inference-only API workloads (pay-per-request pricing, no GPU management needed).
+
+## Cost Optimization Techniques
+
+### 1. LoRA Fine-Tuning
+
+LoRA trains 1-2% of parameters instead of 100%. Training time drops 4-10x.
+
+Example: 7B model fine-tuning (RunPod RTX 4090 on-demand at $0.34/hr)
+- Full fine-tuning: 8 hours on RTX 4090 = $2.72
+- LoRA fine-tuning: 1.5 hours = $0.51
+- Savings: $2.21 (81% reduction)
+
+LoRA becomes essential for budget-conscious projects.
+
+### 2. Quantization
+
+8-bit or 4-bit quantization reduces GPU memory by 50-75%. Enables cheaper GPUs.
+
+Example: 13B model on RTX 4090
+- Full precision: Barely fits (requires 24GB)
+- Quantized: Easy fit (requires 12GB)
+
+Quantization enables running 13B inference on RTX 3090 (24GB) or even smaller cards with aggressive INT4 quantization.
+
+Cost reduction: Use RTX 3090 ($0.22/hour) instead of A100 ($1.19/hour). 30% faster training on RTX 4090, 10x cheaper overall.
+
+### 3. Lower Precision Training
+
+Train in FP16 (half precision) instead of FP32. Reduces memory 50%, minimal accuracy loss.
+
+```python
+model.half()  # Convert to FP16
+```
+
+Cost reduction: Enables larger batch sizes on same hardware, reducing total training time.
+
+### 4. Smaller Datasets
+
+Fine-tune on representative subset (50K-100K tokens) instead of full dataset (1M+ tokens). Reduces GPU hours proportionally.
+
+Cost reduction: 10-20x for validation training. Full fine-tuning on smaller final set after validation.
+
+### 5. Batch Aggregation
+
+Run multiple independent experiments on single instance. Amortize fixed setup overhead.
+
+Example: 5 experiments on RTX 4090
+- Sequential: 5 × $2.72 = $13.60
+- Parallel (same instance): $2.72 × (5 / 5) = $2.72
+- Savings: $10.88
+
+Requires careful resource management to avoid GPU memory overflow.
+
+### 6. Pre-trained Adapter Selection
+
+Use community-shared adapters instead of fine-tuning from scratch. Weights & Biases, Hugging Face Hub provide pre-tuned models.
+
+Cost: $0 (free download) vs. $2-10 (fine-tuning).
+
+Trade-off: Pre-trained adapters may not perfectly match custom use case.
+
+## Total Cost of Ownership
+
+### Scenario 1: Startup Prototype (7B Model)
+
+Timeline: 2 weeks
+Goals: Validate approach, measure quality
+
+Approach:
+- Vast AI RTX 4090 with LoRA (budget host)
+- 5 experiments × 2 hours each = 10 hours
+- Cost: 10 hours × $0.18/hour = $1.80
+
+Total: $1.80 per prototype iteration
+
+### Scenario 2: Research Lab (13B Model)
+
+Timeline: 2-3 weeks
+Goals: Compare techniques, optimize hyperparameters
+
+Approach:
+- RunPod spot A100 with quantization
+- 20 experiments × 5 hours each = 100 hours
+- Cost: 100 hours × $0.50/hour = $50.00
+
+Total: $50 for comprehensive research
+
+### Scenario 3: Production Model (70B Model)
+
+Timeline: Urgent (days)
+Goals: Deploy fine-tuned model to users
+
+Approach:
+- CoreWeave on-demand 8x H100
+- 2 epochs × 50 hours = 100 hours
+- Cost: 100 hours × $49.24/hour = $4,924
+
+Total: $4,924 for production deployment
+
+Alternative (budget conscious):
+- RunPod spot 2x H100 SXM with checkpointing
+- 2 GPUs × $1.29/hour spot × 100 hours = $258.00
+
+Total: $258.00 (19x cheaper, longer timeline due to fewer GPUs)
+
+## FAQ
+
+### Is Vast AI safe for production?
+
+Vast AI's unvetted provider model creates reliability risks. Use for development and testing only. Spot instances on Vast AI terminate frequently, losing unsaved progress.
+
+### Should I always use spot instances?
+
+No. Use spot for experiments and training with checkpointing. Use on-demand for time-sensitive production or jobs requiring strict SLAs.
+
+### What's the real cost of cheap GPUs?
+
+Cheap providers often save 20-40 hours of analysis time. Vast AI's latency and reliability issues cost more time than money saved. For professional work, mid-tier providers like RunPod offer better value.
+
+### How do I choose between RTX 4090 and A100?
+
+RTX 4090: Faster per-hour, cheaper hourly rate. Choose for time-sensitive, smaller models (7-13B).
+A100: Higher memory, better for larger models, more stable for long training. Choose for 34B+ models.
+
+Break even point: 13B model takes 3-4 hours longer on RTX 4090 but costs $3 vs. $8 on A100. Choose based on deadline urgency.
+
+### What about AWS and GCP pricing?
+
+AWS on-demand GPUs cost 2-3x more than specialized providers. Reserved instances provide 30-40% discounts but require long-term commitment. Use AWS only if existing cloud infrastructure lock-in justifies premium.
+
+GCP similarly expensive. Avoid for ML training unless strategic integration with GCP ML services justifies cost.
+
+## Related Resources
+
+- [AI Cost Optimizer Tools](/articles/ai-cost-calculator)
+- [Spot GPU Pricing Guide](/articles/spot-gpu-pricing)
+- [GPU Cloud Cost Comparison](/articles/gpu-cloud-cost-comparison)
+- [GPU Pricing Guide](/gpus)
+
+## Sources
+
+- Vast AI Pricing: https://www.vast.ai/
+- RunPod Pricing: https://www.runpod.io/
+- Lambda Labs Pricing: https://www.lambdalabs.com/
+- CoreWeave Pricing: https://www.coreweave.com/

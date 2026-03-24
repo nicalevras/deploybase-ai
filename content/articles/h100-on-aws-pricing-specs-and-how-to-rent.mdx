@@ -1,0 +1,195 @@
+---
+title: 'H100 on AWS: Pricing, Specs, and How to Rent'
+slug: h100-on-aws-pricing-specs-and-how-to-rent
+description: >-
+  AWS H100 GPU pricing via P5 instances, SageMaker integration, and deployment
+  guide for AI workloads.
+date: '2026-03-22'
+author: DeployBase
+category: Provider Guides
+---
+
+## Contents
+
+- [Renting H100 GPUs on AWS](#renting-h100-gpus-on-aws)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+## Renting H100 GPUs on AWS
+
+H100 on AWS ships as p5.48xlarge instances: 8 H100s for ~$98/hr on-demand. That's ~$12.25/GPU. RunPod charges $2.69/GPU. AWS costs significantly more because developers get SageMaker, VPC integration, 99.99% SLA, and managed services. Worth it if developers need that ecosystem.
+
+### AWS H100 Availability
+
+H100 GPUs are available on AWS p5.48xlarge instances:
+- p5.48xlarge: 8x H100 SXM GPUs
+- Available in select US regions (us-east-1, us-west-2)
+- Not available in all AWS regions
+
+AWS does not offer single-GPU H100 instances. Minimum allocation is 8xH100.
+
+### Pricing Structure
+
+p5.48xlarge on-demand pricing: ~$98/hour (as of March 2026)
+- 8x H100 SXM 80GB GPUs
+- 2TB system RAM
+- 8x 3.84TB NVMe storage
+- 192 vCPU
+- EFA network (3,200 Gbps)
+
+Per-GPU cost: $98/8 = ~$12.25/hour per H100 on-demand
+
+Monthly cost for 24/7 operation: $98 × 24 × 30 = $70,560/month
+
+Spot instances pricing:
+- p5.48xlarge spot: ~$31-41/hour (varies by region and availability)
+- Monthly spot cost at $35/hr: $35 × 24 × 30 = $25,200/month (60-70% savings)
+
+Spot instances terminate with 2-minute notice, unsuitable for non-resumable workloads.
+
+### Why AWS Costs More
+
+RunPod: $2.69/GPU/hr. AWS p5: ~$12.25/GPU/hr on-demand. The premium covers:
+
+- SageMaker integration (managed training, inference)
+- VPC + IAM for multi-team access
+- 99.99% SLA with credits
+- CloudWatch monitoring built-in
+- Auto-scaling groups
+- S3/RDS/DynamoDB integration
+
+Solo engineers building one-off models? Overpay. Large teams coordinating multi-region ML pipelines? Saves money.
+
+### p5 Instance Specifications
+
+Each p5.48xlarge provides:
+- 8x NVIDIA H100 SXM 80GB HBM3 GPUs
+- 2TB DDR5 memory
+- 192 vCPU
+- 8x 3.84TB NVMe SSD (30.72TB total)
+- 3,200 Gbps EFA network
+
+No option for smaller instances. Customers needing 1-2 H100s are better served by RunPod or Lambda.
+
+### Deploying on AWS EC2
+
+1. Launch p5.48xlarge instance in AWS Console
+2. Select deep learning AMI (pre-configured with CUDA, Docker)
+3. Configure security groups and VPC
+4. SSH into instance using key pair
+5. Install model and dependencies
+6. Start inference or training
+
+Setup time: 5-10 minutes after launch.
+
+AWS provides:
+- EC2 Instance Connect for browser-based terminal
+- CloudWatch monitoring and logging
+- Auto-scaling groups for multi-instance deployments
+- SNS/SQS for job orchestration
+
+### SageMaker Integration
+
+SageMaker provides managed ML services on top of EC2 instances.
+
+SageMaker Training:
+- Distributed training across multiple p5 instances
+- Automatic fault handling and checkpointing
+- Built-in algorithms for common tasks
+- Monitoring and hyperparameter optimization
+
+SageMaker Inference:
+- Managed inference endpoints
+- Automatic scaling based on traffic
+- Model versioning and A/B testing
+- Integration with other AWS services
+
+SageMaker adds 20-30% overhead but removes operational burden.
+
+### Cost Comparison
+
+AWS p5 (8x H100 SXM): ~$98/hr = ~$12.25/hr per GPU
+CoreWeave 8xH100: $49.24/hr = $6.16/hr per GPU
+RunPod 8x single instances: $21.52/hr = $2.69/hr per GPU
+
+AWS wins on integrated services. CoreWeave wins on Kubernetes. RunPod wins on raw cost.
+
+### Cost Optimization on AWS
+
+Use Spot Instances for fault-tolerant workloads. p5 spot instances cost 60-70% less than on-demand (~$31-41/hour vs ~$98/hour). Spot instances terminate with 2-minute notice.
+
+Use Reserved Instances for sustained workloads. 1-year reserved instances save 25-30%. 3-year reserved instances save 40-50%.
+
+Use Savings Plans for flexible pricing across instance types and regions.
+
+Right-size instances. p5.48xlarge (8x H100) is the minimum. If needing only 2-4 GPUs, use alternative providers instead of paying for unused capacity.
+
+Implement automated shutdown. Stop instances when not in use. EC2 charges only for running instances, not stopped instances.
+
+Placement groups improve multi-instance networking. Critical for distributed training.
+
+### Regional Availability and Latency
+
+p5 availability (as of March 2026):
+- us-east-1 (N. Virginia): Consistent availability
+- us-west-2 (Oregon): Limited availability
+- Other regions: Request via AWS support
+
+Cross-region p5 deployment is possible but expensive due to data transfer costs and administrative complexity.
+
+Latency to AWS S3: <1ms within region, 50-150ms cross-region
+
+### Integration with Other AWS Services
+
+S3 integration: Store training data, models, and outputs in S3
+- 100GB transfer within region: Free
+- 100GB transfer out of region: $0.02/GB
+
+Lambda integration: Trigger training jobs from Lambda functions
+- Useful for event-driven ML pipelines
+
+RDS integration: Training models on database-sourced data
+- Direct database connections available
+
+DynamoDB integration: Store inference results or model metadata
+
+These integrations reduce data movement costs and operational complexity.
+
+## FAQ
+
+**Is AWS p5 worth the premium over RunPod?**
+Only if you need multi-GPU orchestration within AWS ecosystem. For isolated workloads, RunPod is significantly cheaper. For integrated pipelines spanning S3, Lambda, RDS, AWS integration pays for premium pricing through operational efficiency.
+
+**Can I use spot instances for production workloads?**
+Only if workloads are fault-tolerant with automatic resumption. 60-70% cost savings are substantial but require rigorous checkpointing and failure handling.
+
+**How do I choose between AWS, CoreWeave, and RunPod?**
+AWS: If requiring VPC integration, compliance certifications (SOC 2, HIPAA), or multi-region failover.
+CoreWeave: If needing 8+ GPUs with NVLink and high-bandwidth cluster communication.
+RunPod: If cost-conscious and needing flexible single or dual GPU configurations.
+
+**What's the minimum contract term on AWS?**
+On-demand instances have no minimum. Reserved instances require 1 or 3-year commitments. Spot instances can be terminated with 2-minute notice.
+
+**Does AWS offer GPU-as-a-Service with SageMaker pricing?**
+Yes. SageMaker Notebooks charge per instance hour plus storage. SageMaker Training and Inference have separate pricing. These managed services add 20-30% overhead but reduce operational burden.
+
+**What about AWS Bedrock for inference?**
+Bedrock is API-based inference, not GPU rental. Pricing is per-request (tokens). Bedrock is economical for low-volume applications, expensive for high-volume inference. Below 50B monthly tokens, Bedrock is often cheaper than p5 rental.
+
+## Related Resources
+
+- [AWS GPU Pricing](/articles/aws-vs-azure-gpu-pricing)
+- [NVIDIA H100 Price](/articles/nvidia-h100-price)
+- [RunPod GPU Pricing](/articles/runpod-gpu-pricing)
+- [Lambda Labs GPU Pricing](/articles/lambda-labs-gpu-pricing)
+- [CoreWeave GPU Pricing](/articles/coreweave-gpu-pricing)
+- [AI Inference Platform Cost Calculator](/articles/ai-inference-platform-cost-calculator-enterprise-pricing)
+
+## Sources
+
+- AWS EC2 p5 pricing (accessed March 2026)
+- AWS SageMaker pricing documentation (March 2026)
+- H100 technical specifications from Nvidia (2026)
+- AWS service integration documentation (2026)

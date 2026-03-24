@@ -1,0 +1,86 @@
+---
+title: 'T4 on AWS: Pricing, Specs & How to Rent'
+slug: t4-on-aws-pricing-specs-how-to-rent
+description: >-
+  NVIDIA T4 GPU pricing on AWS EC2 as of March 2026. Compare costs,
+  specifications, and deployment options for machine learning inference.
+date: '2026-03-22'
+author: DeployBase
+---
+## Contents
+
+- [AWS Pricing](#aws-pricing)
+- [T4 Specifications](#t4-specifications)
+- [AWS EC2 Instance Types](#aws-ec2-instance-types)
+- [Deployment and Configuration](#deployment-and-configuration)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## AWS Pricing
+
+T4 on AWS costs $0.526/hour for a single GPU (g4dn.xlarge on-demand). Four T4s in a g4dn.12xlarge run about $3.912/hour. US East pricing is lowest; international regions run 15-25% higher.
+
+[Reserved Instances cut costs 40-50%](/articles/aws-vs-azure-gpu-pricing) if locked in for a year. [Spot pricing drops to ~30% of on-demand](/gpus), but availability isn't guaranteed. Some accounts qualify for free tier credits on early experiments.
+
+## T4 Specifications
+
+The NVIDIA T4 contains 2,560 CUDA cores and 16GB of GDDR6 memory. Memory bandwidth reaches 320 GB/s. The GPU supports mixed-precision inference, crucial for real-time prediction workloads.
+
+T4 technical specifications:
+- 2,560 CUDA cores
+- 320 Tensor cores
+- 16GB GDDR6 memory
+- 320 GB/s memory bandwidth
+- FP32: 8.1 TFLOPS
+- INT8: 65 TOPS
+- PCIe Gen 3 interface
+- Max power consumption: 70W
+
+T4 design prioritizes inference efficiency over training performance. The GPU delivers strong throughput per watt, making it cost-effective for production inference services. Teams deploy T4 primarily for real-time predictions, chatbot backends, and data processing workloads.
+
+## AWS EC2 Instance Types
+
+AWS provides T4 GPUs in the g4dn instance family. The g4dn.xlarge instance includes one T4 GPU alongside 4 vCPU cores and 16GB system RAM. Storage consists of local NVMe or EBS volumes depending on configuration.
+
+Higher capacity configurations include g4dn.12xlarge (4 T4 GPUs) and g4dn.metal (8 T4 GPUs). These instances suit distributed inference services requiring horizontal scaling across multiple GPUs. The g4dn.xlarge starts at $0.526 per hour on-demand (g4dn.2xlarge at $0.752/hr, g4dn.12xlarge at $3.912/hr), with spot pricing available at significant discounts.
+
+AWS provides additional benefits including integrated monitoring through CloudWatch, auto-scaling group support, and VPC networking. Load balancers distribute inference requests across T4 instances automatically, eliminating manual traffic management.
+
+## Deployment and Configuration
+
+Start with an AWS account and basic IAM permissions. EC2 dashboard gets instances running in minutes. AWS Marketplace has Deep Learning AMI images with CUDA, cuDNN, and all the ML frameworks baked in, which saves serious time.
+
+Custom Docker images integrate with [Amazon ECR for simplified deployments](/articles/what-is-llm-inference). Infrastructure-as-code tools like Terraform and CloudFormation enable reproducible instance provisioning. Most production workflows involve containerized applications deployed through ECS or Kubernetes.
+
+T4 instances connect to Elastic Load Balancers for traffic distribution. Auto Scaling Groups monitor metrics and provision additional instances automatically during high demand. S3 buckets store training data and model artifacts with direct attachment to EC2 instances.
+
+## FAQ
+
+**Is T4 suitable for real-time inference in production?**
+Yes. T4's 70W power envelope and inference optimizations make it ideal for continuous inference services. Latency typically ranges from 10-100ms per request depending on model size and input dimensions.
+
+**How many concurrent inference requests can single T4 handle?**
+A single T4 processes 10-50 concurrent requests for models under 5 billion parameters. Larger models reduce concurrent capacity proportionally. Batching improves throughput when request buffering is acceptable.
+
+**What is the cost comparison between T4 and other AWS GPUs?**
+T4 costs approximately 60% of A100 pricing while delivering roughly 20% of A100 compute performance. For inference workloads, T4 efficiency per dollar often exceeds more expensive options like V100 or A100.
+
+**Can I use Reserved Instances for T4?**
+Yes. AWS Reserved Instances for g4dn.xlarge T4 instances cost approximately $0.18 per hour for 1-year terms, reducing operational costs substantially for production services.
+
+**Does AWS offer T4 in multiple regions?**
+T4 availability varies by region, with US East, US West, and EU West hosting consistent capacity. Some regions require special requests or limit availability to specific instance families.
+
+## Related Resources
+
+Compare T4 pricing with broader [AWS GPU pricing](/articles/aws-vs-azure-gpu-pricing) options and [Azure GPU alternatives](/articles/aws-vs-azure-gpu-pricing). Understand [T4 GPU specifications](/articles/tesla-t4-price) alongside other models. Explore [GPU cloud pricing guide](/gpus) for comprehensive comparisons across providers.
+
+## Sources
+
+- https://aws.amazon.com/ec2/pricing/on-demand/
+- https://developer.nvidia.com/cuda-toolkit
+- https://docs.aws.amazon.com/ec2/index.html

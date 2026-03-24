@@ -1,0 +1,284 @@
+---
+title: 'GPU Cloud Migration Guide: How to Switch Providers'
+slug: gpu-cloud-migration-guide-how-to-switch-providers
+description: >-
+  Teams migrate for: 20-40% cost savings, needed GPU types, regional
+  requirements, or contract expiration.
+date: '2026-03-22'
+author: DeployBase
+---
+## Contents
+
+- [GPU Cloud Migration Guide](#gpu-cloud-migration-guide)
+- [Pre-Migration Planning Timeline](#pre-migration-planning-timeline)
+- [Workload Assessment & Compatibility Mapping](#workload-assessment-compatibility-mapping)
+- [GPU Type Mapping Between Providers](#gpu-type-mapping-between-providers)
+- [Phased Migration Approach](#phased-migration-approach)
+- [Data Transfer Strategy](#data-transfer-strategy)
+- [Application Reconfiguration](#application-reconfiguration)
+- [Validation & Testing Strategy](#validation-testing-strategy)
+- [Rollback Planning](#rollback-planning)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+## GPU Cloud Migration Guide
+
+Teams migrate for: 20-40% cost savings, needed GPU types, regional requirements, or contract expiration.
+
+Migration checklist: plan, assess compatibility, phase the move, handle data transfer, reconfigure app, validate, have rollback ready.
+
+Most migrations take 2-4 weeks. De-risk with phased approach.
+
+Compliance and support upgrades drive premium migrations. Healthcare research requires HIPAA-compliant infrastructure. Lambda Labs invests in certification; budget providers may not.
+
+## Pre-Migration Planning Timeline
+
+Migration execution requires 4-8 weeks minimum. Complex projects with production workloads warrant 12-16 week planning horizons.
+
+Month 1: Establish baseline metrics on current provider
+- Document existing workload characteristics
+- Measure training time on current GPU types
+- Record data volumes and transfer patterns
+- Quantify infrastructure costs
+
+Month 2: Identify target provider and validate compatibility
+- Benchmark target provider's GPUs with identical workloads
+- Verify data transfer speeds to target infrastructure
+- Confirm compliance and support requirements
+- Negotiate pricing and contract terms
+
+Month 3: Plan phased execution
+- Identify non-critical workloads for initial migration
+- Plan data center connectivity during transition
+- Schedule team training on new platform
+- Establish validation procedures
+
+Month 4-6: Execute migration in phases
+- Migrate development/test workloads first
+- Establish production staging environment
+- Execute parallel runs on both providers
+- Validate output consistency before cutover
+
+Month 7-8: Complete transition
+- Migrate remaining production workloads
+- Decommission old provider instances
+- Archive final backups
+- Close old provider accounts
+
+## Workload Assessment & Compatibility Mapping
+
+Detailed workload inventory determines migration scope. Document all running workloads: model training jobs, inference serving, batch processing, and data pipelines.
+
+For each workload, record:
+- GPU type and count
+- Framework version (PyTorch 2.0, TensorFlow 2.13, etc.)
+- Memory requirements (specify HBM vs. host RAM)
+- Data input rates and output requirements
+- Duration and frequency (batch vs. continuous)
+- Compliance or locality requirements
+
+Compatibility assessment identifies potential blockers. Run identical training code on target provider's equivalent GPU. Compare:
+- Training time and throughput (target: < 5% variance)
+- Floating-point result consistency (verify numeric stability)
+- Memory utilization patterns (ensure no OOM errors)
+- Output checkpoints and validation metrics
+
+Framework versions require attention. PyTorch 2.0+ introduces torch.compile optimizations that may produce different (slightly better) results than 1.13. Verify training scripts work identically across versions before migration.
+
+## GPU Type Mapping Between Providers
+
+Not all providers offer identical GPU models. Establish mapping from current to target provider.
+
+| Current Provider | Current GPU | Target Provider | Equivalent GPU | Cost Change |
+|------------------|-----------|-----------------|---------------|------------|
+| Google Cloud | A100 | RunPod | A100 PCIe | +15% |
+| Lambda | H100 | CoreWeave | H100 (8x cluster) | -5% |
+| Paperspace | A100 | AWS | A100 | +20% |
+| Google Cloud | L4 | Lambda | A10 | +35% |
+
+When exact matches don't exist, select GPU with closest specifications. Compare teraflops, memory bandwidth, and memory capacity to identify functional equivalents.
+
+Memory mismatches require attention. Moving from A100 (40 GB) to L40 (48 GB) poses no issue. Reverse migration (A100 to L4 with 24 GB) requires model quantization or batch size reduction.
+
+Training time variance tolerance determines switching flexibility. Non-critical batch jobs tolerate 20% slowdown. Real-time inference systems targeting < 100ms latency cannot sacrifice performance.
+
+## Phased Migration Approach
+
+Rushing migration risks catastrophic production impact. Phased execution reduces risk:
+
+### Phase 1: Development Environment (Week 1-2)
+- Launch single GPU instance on target provider
+- Run development and debugging workloads
+- Train team on new platform interfaces
+- Identify infrastructure differences
+
+### Phase 2: Testing Environment (Week 3-4)
+- Replicate production workloads in test configuration
+- Execute identical training runs on both providers
+- Compare checkpoints and validation metrics
+- Validate data transfer pipelines
+
+### Phase 3: Staging Production (Week 5-8)
+- Deploy production workloads to target provider
+- Run parallel execution on both providers
+- Compare output consistency
+- Validate inference serving on target
+
+### Phase 4: Gradual Cutover (Week 9-12)
+- Redirect non-critical traffic to target provider
+- Monitor metrics and alert thresholds
+- Maintain rapid rollback capability
+- Gradually increase traffic proportion
+
+### Phase 5: Decommission Legacy (Week 13-16)
+- Archive final backups from legacy provider
+- Terminate old instances and volumes
+- Close provider account
+- Document lessons learned
+
+## Data Transfer Strategy
+
+Data migration represents the largest physical bottleneck in most transitions. Plan data movement carefully.
+
+**Estimating transfer time:**
+- 1 TB dataset at 500 Mbps: 4.5 hours
+- 100 TB dataset at 500 Mbps: 19 days
+- 1 PB dataset at 500 Mbps: 190 days
+
+For multi-terabyte datasets, use [cloud object storage](/gpus) as intermediate hub. Most providers achieve 1-2 Gbps through managed cloud storage.
+
+**Recommended transfer architecture:**
+1. Export data from current provider to cloud object storage (AWS S3, Google Cloud Storage, Azure Blob)
+2. Verify checksums on intermediate storage
+3. Import to target provider from cloud storage
+4. Validate completeness
+
+Parallel transfer improves throughput. Run 10 concurrent transfers for 10x speedup (assuming network capacity).
+
+Incremental sync handles large datasets. Initial bulk transfer moves primary data. Sync jobs capture new data while production continues.
+
+Compression reduces transfer volume by 30-50% for text data, 10-20% for images. Decompress on target for GPU access.
+
+## Application Reconfiguration
+
+Code changes may be minimal if both providers support standard frameworks. Verify:
+
+**Container image compatibility:**
+- CUDA version consistency (target provider must support installed CUDA)
+- NVIDIA driver version (allow flexibility; major versions typically compatible)
+- Base OS version (Ubuntu 20.04 vs 22.04 usually compatible)
+
+**Environment variable changes:**
+- Update GPU device identifiers (if multi-GPU)
+- Adjust memory allocation constants
+- Modify data path references to new cloud storage bucket
+
+**Configuration file updates:**
+- Database connection strings (point to target provider's managed services)
+- Monitoring and logging endpoints
+- Authentication credentials for cloud services
+
+**Network configuration:**
+- Firewall rules and security group adjustments
+- DNS updates if using custom domains
+- VPN or direct connect setup
+
+Most configuration differences resolve through environment variables, avoiding code changes entirely.
+
+## Validation & Testing Strategy
+
+Validation ensures output consistency and performance meets requirements.
+
+**Numeric consistency testing:**
+- Train identical model on both providers
+- Compare validation loss at epoch 10, 50, 100
+- Tolerance: < 0.5% difference in loss metrics
+- Investigate failures: framework versions, floating-point seed differences
+
+**Throughput testing:**
+- Measure training time for standard model (Llama 7B, ResNet50)
+- Target: within 5% of original provider (better GPU = faster acceptable)
+- Investigate slowdown: data transfer bottleneck, scheduling overhead
+
+**Production load testing:**
+- Simulate expected traffic on target provider
+- Monitor latency, throughput, error rates
+- Run for 24+ hours validating stability
+- Establish baseline metrics for post-migration monitoring
+
+**Data integrity validation:**
+- Verify checksum of transferred datasets
+- Re-train on target provider data
+- Compare model output to baseline
+- Check for data corruption in transfer
+
+## Rollback Planning
+
+Maintain ability to rollback if target provider fails validation.
+
+**Rollback triggers:**
+- 10%+ training time degradation
+- Non-numeric differences in training loss > 1%
+- Production error rate > 0.1%
+- Latency increase > 25%
+
+**Rollback procedure:**
+- Update DNS to point traffic back to original provider
+- Stop new workloads on target provider
+- Verify legacy provider infrastructure still active
+- Restore from backups taken before migration
+
+**Rollback timing:**
+- For critical production workloads, maintain dual-provider setup for 7+ days
+- Gradually reduce legacy provider capacity as confidence increases
+- Decommission after 30+ days of stable target provider operation
+
+## FAQ
+
+**Q: How long does typical migration take?**
+
+Simple projects (< 100 GPU-hours/month): 2-4 weeks. Complex projects (production inference systems): 8-12 weeks.
+
+**Q: Can I migrate while production training runs?**
+
+Yes, using incremental sync. Pause training, sync final datasets, resume on target provider. Restart from checkpoint enables smooth transition.
+
+**Q: What if target provider doesn't have required GPU available?**
+
+Identify alternative GPU with equivalent performance. If unavailable anywhere, reconsider migration viability or accept performance reduction.
+
+**Q: How much does data transfer cost?**
+
+Cloud storage ingress (to cloud provider) is typically free. Egress (leaving cloud provider) costs $0.02-0.10 per GB. Plan egress carefully: 100 TB costs $2,000-10,000 in egress charges.
+
+**Q: Should I do parallel runs on both providers?**
+
+Highly recommended for production workloads. Parallel execution (1-2 weeks) validates correctness before full cutover. Cost: 2x GPU charges for validation period.
+
+**Q: Can I use spot/preemptible instances during migration testing?**
+
+Acceptable for non-critical testing. Interruptions delay validation but don't affect migration. Reserve on-demand for production cutover.
+
+**Q: How do I handle secrets and credentials during migration?**
+
+Store secrets in cloud provider's secrets manager (AWS Secrets Manager, Google Secret Manager, Azure Key Vault). Reference via environment variables in container. Never commit to version control.
+
+## Related Resources
+
+[GPU Pricing Guide](/gpus) - Compare providers
+
+[Best GPU Cloud for Research Lab](/articles/best-gpu-cloud-for-research-lab-provider-pricing-comparison) - Provider selection
+
+[Compare GPU Cloud Providers](/gpus) - Provider comparison
+
+[LLM API Pricing](/llms) - Inference alternatives
+
+## Sources
+
+- GPU Cloud Provider Migration Best Practices
+- Data Transfer Cost Optimization Guidelines
+- Infrastructure Migration Case Studies (2026)
+- Cloud Native Application Architecture Patterns
+- GPU Workload Characterization Research

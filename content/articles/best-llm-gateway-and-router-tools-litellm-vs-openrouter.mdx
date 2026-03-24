@@ -1,0 +1,315 @@
+---
+title: 'Best LLM Gateway and Router Tools: LiteLLM vs OpenRouter'
+slug: best-llm-gateway-and-router-tools-litellm-vs-openrouter
+description: >-
+  Compare LLM gateway and router tools including LiteLLM, OpenRouter, LangChain,
+  and other solutions for unified API access as of March 2026.
+date: '2026-03-22'
+author: DeployBase
+category: LLM Tools
+keywords:
+  - best llm gateway and router tools
+  - LLM gateway router tools
+  - LiteLLM vs OpenRouter
+  - LLM API gateway comparison
+---
+## Contents
+
+- [Best LLM Gateway And Router Tools: LLM Gateway Overview](#best-llm-gateway-and-router-tools-llm-gateway-overview)
+- [LiteLLM Deep Dive](#litellm-deep-dive)
+- [OpenRouter Comparison](#openrouter-comparison)
+- [Alternative Solutions](#alternative-solutions)
+- [Implementation Patterns](#implementation-patterns)
+- [FAQ](#faq)
+- [Related Resources](#related-resources)
+- [Sources](#sources)
+
+
+
+
+## Best LLM Gateway And Router Tools: LLM Gateway Overview
+
+LLM gateway and router tools sit between the code and multiple API providers. One API call, multiple backends. Switch providers without touching application code. Auto-failover when one API goes down. Rate limiting, cost tracking, logging-all built in.
+
+All gateways do the basics:
+- One SDK, multiple providers (OpenAI, Anthropic, Cohere, etc.)
+- Automatic retries and fallback routing
+- Request/response logging
+- Rate limit management
+- Usage analytics and billing
+- Caching for repeated requests
+
+Two leaders dominate: LiteLLM (open-source unified API gateway, self-hosted) and OpenRouter (managed SaaS aggregator with 200+ models).
+
+## LiteLLM Deep Dive
+
+LiteLLM is an open-source unified API gateway. It provides a single OpenAI-compatible interface across 100+ LLM providers, handling routing, fallbacks, cost tracking, and logging. Developers self-host it for full control over routing and data.
+
+**Architecture Overview**
+
+Python-based. Sits between the code and provider APIs. Routes calls based on the rules. Supports everything:
+
+- OpenAI (GPT-4, GPT-3.5)
+- Anthropic (Claude 3 Opus, Sonnet, Haiku)
+- Cohere (Command R+, Command)
+- Google (PaLM 2, Gemini)
+- Local models (Ollama, vLLM endpoints)
+
+**Installation and Configuration**
+
+```bash
+pip install litellm
+```
+
+Basic Python usage:
+
+```python
+from litellm import completion
+
+response = completion(
+    model="gpt-3.5-turbo",
+    messages=[{"role": "user", "content": "What is AI?"}]
+)
+```
+
+LiteLLM picks up API keys from env vars. Zero config for simple cases.
+
+**Advanced Routing Configuration**
+
+For production deployments, configure routing rules in YAML:
+
+```yaml
+model_list:
+  - model_name: "gpt-4"
+    litellm_params:
+      model: "openai/gpt-4"
+      api_key: "sk-..."
+      timeout: 30
+
+  - model_name: "gpt-4"
+    litellm_params:
+      model: "openai/gpt-4-turbo"
+      api_key: "sk-..."
+      timeout: 30
+
+router_settings:
+  target_options:
+    - "openai/gpt-4"
+    - "openai/gpt-4-turbo"
+  timeout: 30
+  max_retries: 2
+```
+
+Router picks the fastest available version automatically.
+
+**Cost Tracking and Analytics**
+
+Tracks cost per request across all providers. Real-time spending via LiteLLM Proxy:
+
+```python
+from litellm import get_cost
+
+cost = get_cost(
+    model="gpt-4",
+    messages=response.usage
+)
+```
+
+Monthly dashboard in the self-hosted UI or paid LiteLLM Cloud.
+
+**Fallback Routing Strategy**
+
+Configure automatic fallback when primary provider fails:
+
+```python
+from litellm import Router
+
+router = Router(
+    model_list=[
+        {"model_name": "gpt-4", "litellm_params": {"model": "openai/gpt-4"}},
+        {"model_name": "gpt-4", "litellm_params": {"model": "anthropic/claude-3-opus"}},
+    ],
+    num_retries=3,
+)
+
+response = router.completion(
+    model="gpt-4",
+    messages=[{"role": "user", "content": "Explain AI"}]
+)
+```
+
+Tries OpenAI first. Times out? Falls back to Claude automatically. the code sees nothing.
+
+## OpenRouter Comparison
+
+OpenRouter is a managed gateway. SaaS model. One API, 200+ models from 50+ providers.
+
+**Pricing Model**
+
+Base provider pricing plus markup. It varies by tier:
+
+| Tier | Markup | Monthly Fee | Volume Discount |
+|------|--------|------------|-----------------|
+| Free | 10% | $0 | None |
+| Pro | 5% | $9.99 | 2% extra |
+| Business | 3% | $99 | 5% extra |
+| Production | Custom | Custom | Custom |
+
+Example: GPT-4 normally costs $0.03/$0.06 input/output. At 3% markup, that's $0.0309/$0.0618.
+
+**Provider Selection**
+
+Auto-selects models based on the preferences:
+
+```bash
+curl https://openrouter.ai/api/v1/chat/completions \
+  -H "Authorization: Bearer $OPENROUTER_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "auto",
+    "messages": [{"role": "user", "content": "Hello"}],
+    "route_preference": "speed"
+  }'
+```
+
+Options:
+- "speed": Fastest provider
+- "cost": Cheapest provider
+- "balanced": Both
+
+**No Self-Hosting**
+
+OpenRouter runs the infrastructure. No deployment pain. Works right after teams add the API key.
+
+Good for teams that want to launch fast, not optimize costs or lock data down.
+
+## Alternative Solutions
+
+**LangChain LLM Integration**
+
+LangChain wraps providers in a `BaseLLM` interface:
+
+```python
+from langchain.llms import OpenAI, Anthropic
+
+llm1 = OpenAI(model="gpt-4")
+llm2 = Anthropic(model="claude-3-opus")
+
+response = llm1.predict(input_variables=["text"], text="AI explanation")
+```
+
+But LangChain doesn't do routing or cost tracking. Better for app-level abstraction than gateway work.
+
+**Vellum**
+
+Visual workflow builder for LLM ops. Higher level than LiteLLM.
+
+Features:
+- Visual prompt versioning
+- A/B testing
+- Cost dashboards
+- Managed credentials
+
+Starts at $299/month. Great for non-engineers. Too much for most dev teams.
+
+**Prompt Relay**
+
+Simpler open-source alternative. Fewer features than LiteLLM, less config overhead.
+
+Good for latency-critical work and cost-conscious teams with simple needs.
+
+## Implementation Patterns
+
+**Pattern 1: Transparent Provider Switching**
+
+Switch providers without changing app code:
+
+```python
+def get_completion(prompt):
+    response = router.completion(
+        model="any-gpt-4",
+        messages=[{"role": "user", "content": prompt}]
+    )
+    return response.choices[0].message.content
+```
+
+"any-gpt-4" picks whichever variant is available. the code doesn't care.
+
+**Pattern 2: Cost-Aware Routing**
+
+Route by budget:
+
+```python
+def get_completion(prompt, budget):
+    providers = [
+        ("openai/gpt-4", 0.03),
+        ("anthropic/claude-3-sonnet", 0.003),
+        ("cohere/command-r-plus", 0.003),
+    ]
+
+    for model, cost_per_token in providers:
+        if cost_per_token <= budget:
+            return router.completion(model=model, messages=prompt)
+
+    return None  # Budget exhausted
+```
+
+Picks the cheapest option within budget.
+
+**Pattern 3: Latency-Optimized Routing**
+
+Route based on speed:
+
+```python
+from litellm import Router
+
+router = Router(
+    model_list=[ ... ],
+    num_retries=1,
+    timeout=2.0,
+)
+
+response = router.completion(
+    model="gpt-4",
+    messages=messages,
+    num_retries=1
+)
+```
+
+Router measures latency for each provider, routes to the fastest.
+
+## FAQ
+
+**Q: LiteLLM or OpenRouter?**
+LiteLLM if you need data privacy, cost optimization, or complex routing. OpenRouter if you want to launch fast and keep it simple. LiteLLM self-hosting adds 4-6 weeks but saves 5-10% annually at scale.
+
+**Q: What latency hit do gateways add?**
+LiteLLM adds 20-50ms. OpenRouter adds 100-150ms. Usually doesn't matter since inference takes longer anyway.
+
+**Q: Can I run both LiteLLM and OpenRouter together?**
+No. Redundant abstraction, zero benefit.
+
+**Q: How does cost tracking work across providers?**
+LiteLLM tracks per-request costs from its pricing tables. Dashboard totals spending across providers. OpenRouter gives one invoice without breakdown.
+
+**Q: Which supports local models?**
+LiteLLM via Ollama or vLLM. OpenRouter only handles managed providers.
+
+**Q: Caching support?**
+LiteLLM has basic caching. OpenRouter supports Anthropic prompt caching-saves 90% on cached tokens.
+
+## Related Resources
+
+- [OpenAI API Pricing](/articles/openai-pricing)
+- [Anthropic Claude API Pricing](/articles/anthropic-pricing)
+- [Cohere Command R+ Pricing](/articles/cohere-api-pricing)
+- [Complete LLM API Pricing Guide](/llms)
+- [Groq API Pricing](/articles/groq-api-pricing)
+
+## Sources
+
+- LiteLLM Official Documentation
+- OpenRouter Pricing and Documentation
+- LangChain LLM Documentation
+- Vellum Product Documentation
+- Prompt Relay GitHub Repository
