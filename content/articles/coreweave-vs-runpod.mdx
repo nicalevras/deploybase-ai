@@ -1,11 +1,12 @@
 ---
 title: 'CoreWeave vs RunPod: GPU Cloud Provider Comparison'
 slug: coreweave-vs-runpod
+category: GPU Cloud
 description: >-
   Compare CoreWeave and RunPod GPU providers. Kubernetes clusters vs serverless
   pods, pricing, reliability, and flexibility.
-date: '2025-03-22'
-author: DeployBase
+date: '2025-11-27'
+author: Deploybase
 keywords:
   - coreweave vs runpod
   - gpu cloud provider comparison
@@ -71,33 +72,35 @@ These approaches appeal to different customer archetypes.
 ## Pricing Models
 
 **CoreWeave Pricing:**
-- On-Demand: $3-5 per GPU-hour (H100: $4.50)
-- Reserved (1-year): $2.50-3.50 per GPU-hour
-- Reserved (3-year): $2.00-3.00 per GPU-hour
-- Cluster pricing: $40k-60k monthly for 8xH100 cluster
+- H100 8x cluster: $49.24/hour ($6.155/GPU). No single H100 on-demand.
+- H200 8x cluster: $50.44/hour ($6.305/GPU)
+- A100 8x cluster: $21.60/hour ($2.70/GPU)
+- B200 8x cluster: $68.80/hour ($8.60/GPU)
+- GH200 single: $6.50/hour
+- Reserved capacity with volume discounts (15-25%) for multi-month commitments
 
-Pricing includes storage, networking, and basic support. No per-query charges; pure hourly capacity billing.
+Pricing includes storage, networking, and basic support. No per-query charges; pure hourly capacity billing. CoreWeave requires 8-GPU cluster minimum (except GH200).
 
 **RunPod Pricing:**
-- On-Demand: $1.99-2.69 per GPU-hour (H100)
+- On-Demand H100 PCIe: $1.99/hour
+- On-Demand H100 SXM: $2.69/hour
 - Spot: $0.44-0.79 per GPU-hour (H100) (preemptible)
 - Per-second billing (minimum 10 seconds)
 - Storage: $0.00035 per GB per month
 - Public IPs: $0.10 per month
 
-RunPod's spot market undercuts CoreWeave's on-demand pricing by 75% in exchange for preemption risk.
+RunPod's on-demand pricing undercuts CoreWeave's cluster pricing significantly in exchange for no cluster orchestration.
 
-**Monthly Cost Comparison (500 GPU-hours of H100):**
+**Monthly Cost Comparison (500 H100 GPU-hours):**
 
 | Provider | Pricing Tier | Monthly Cost |
 |----------|-------------|-------------|
-| CoreWeave | On-demand | $2250 |
-| CoreWeave | 1-year reserved | $1500 |
-| CoreWeave | 3-year reserved | $1200 |
-| RunPod | On-demand | $1145 |
+| CoreWeave | 8x cluster (per-GPU rate × 500hr) | $3,078 |
+| CoreWeave | With 20% volume discount | $2,462 |
+| RunPod | On-demand SXM | $1,345 |
 | RunPod | Spot | $385 |
 
-RunPod's on-demand is 50% cheaper than CoreWeave's reserved pricing. Spot is 3.3x cheaper, but with preemption risk.
+RunPod's on-demand is 2.3x cheaper than CoreWeave's cluster pricing per GPU-hour. CoreWeave's value is in cluster orchestration, dedicated networking, and guaranteed availability, not per-GPU cost.
 
 ## Deployment Models
 
@@ -381,27 +384,27 @@ Production benchmarking is more valuable than synthetic benchmarks because it ca
 Building financial models helps project GPU costs and plan capacity.
 
 **CoreWeave Cost Model:**
-- GPU hours per month: 730 × utilization × number of GPUs
-- Monthly cost = GPU hours × hourly rate
-- Example: 8 H100s at 50% utilization × $4.50/hr = $131k/month
+- CoreWeave bills by the 8-GPU cluster (not per individual GPU on-demand)
+- Monthly cost = cluster hourly rate × hours used
+- Example: 8xH100 cluster at 50% monthly utilization: $49.24/hr × 365 hours = $17,973/month
 
-Utilization of 40-60% is realistic (accounting for peak/off-peak variation).
+Note: CoreWeave reserved capacity means the cluster runs continuously; 50% utilization means 50% of GPU capacity used, not 50% of hours billed.
 
 **RunPod Cost Model:**
 - Fixed cost: Minimum reserved pods (usually 0 for full spot)
 - Variable cost: Per-request charges or hourly usage
-- Example: 8 H100 pods on spot at $0.60/hr × 50% utilization = $17.5k/month
-- Add 20% for premiums during price spikes = $21k/month
+- Example: 8 H100 pods on spot at $0.60/hr × 50% utilization = $1,752/month
+- Add 20% for premiums during price spikes = $2,102/month
 
 RunPod pricing is more volatile; budgeting requires 20% contingency.
 
 **Break-Even Analysis:**
-At what utilization does CoreWeave become cheaper than RunPod?
+At what scale does CoreWeave's cluster model become preferable to RunPod on-demand?
 
-CoreWeave annual: 8 GPUs × $4.50/hr × 730 hours × utilization = $26.3k utilization
-RunPod annual: 8 GPUs × $0.60/hr × 730 hours × utilization × 1.2 (spike adjustment) = $4.2k utilization
+CoreWeave 8xH100 monthly (dedicated): $49.24/hr × 730hr = $35,945/month
+RunPod 8xH100 SXM on-demand: $2.69/hr × 8 × 730hr = $15,717/month
 
-CoreWeave is cheaper if utilization exceeds 25% with significant uptime requirements. Most production workloads exceed this threshold, favoring CoreWeave.
+CoreWeave costs 2.3x more per month but provides dedicated cluster orchestration, NVLink networking, and guaranteed availability. For workloads requiring these features — particularly large distributed training — CoreWeave's premium is justified.
 
 ## Observability and Monitoring
 

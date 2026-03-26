@@ -4,9 +4,9 @@ slug: deepseek-r1-pricing
 description: >-
   DeepSeek R1 API pricing: $0.55-$2.19 per million tokens. Compare hosting
   costs, off-peak discounts, and reasoning model alternatives as of March 2026.
-date: '2026-03-21'
-author: DeployBase
-category: AI Model Pricing
+date: '2025-09-02'
+author: Deploybase
+category: LLM Pricing
 keywords:
   - deepseek r1 pricing
   - deepseek api pricing
@@ -49,9 +49,8 @@ Full DeepSeek model pricing and specs tracked on [DeployBase LLM comparison](/ll
 
 | Model | Context | Input $/M | Output $/M | Notes |
 |-------|---------|-----------|-----------|-------|
-| DeepSeek V3.1 | 256K | $0.27 | $1.10 | Standard inference, no reasoning |
-| DeepSeek R1 | 256K | $0.55 | $2.19 | Chain-of-thought reasoning |
-| DeepSeek R1-Lite | 256K | $0.55 | $1.42 | Faster reasoning, slightly less thorough |
+| DeepSeek V3.1 | 128K | $0.27 | $1.10 | Standard inference, no reasoning |
+| DeepSeek R1 | 128K | $0.55 | $2.19 | Chain-of-thought reasoning |
 
 Exact rates confirmed via official DeepSeek API docs as of March 2026. Pricing has remained stable since early March launch but teams should verify with the API dashboard before committing to large batches.
 
@@ -99,10 +98,6 @@ The reasoning overhead is substantial. Teams must understand their specific task
 
 Full reasoning capability. Generates extensive chain-of-thought tokens. Best for problems where thorough reasoning improves accuracy: multi-step math, logic puzzles, debugging, complex analysis. Lower throughput (~10-20 tokens/sec per GPU) because of reasoning overhead.
 
-### R1-Lite ($0.55/$1.42)
-
-Faster reasoning with slightly less thorough analysis. Same input cost as full R1, but output costs 35% less. Good for speed-sensitive applications where reasoning still matters but perfect thoroughness is not critical. Real-world use: code review where fast feedback beats perfect analysis, customer support where reasoning helps but latency is the constraint.
-
 ### DeepSeek V3 ($0.27/$1.10)
 
 Standard inference without reasoning. No internal chain-of-thought generation. Higher throughput (~50-100 tokens/sec). Best for classification, extraction, summarization, paraphrasing.
@@ -131,8 +126,8 @@ Replicate offers DeepSeek models but pricing is structured per second of GPU tim
 Download DeepSeek R1 weights (open-source, MIT licensed) and run on cloud GPU rentals.
 
 Model sizes and requirements:
-- DeepSeek R1-Lite: ~32B parameters (fits on single H100, ~70GB VRAM quantized)
-- DeepSeek R1 (full): ~236B parameters (requires 8x H100 cluster or aggressive 4-bit quantization on single H100)
+- DeepSeek R1 distilled (e.g., R1-Distill-Qwen-32B): ~32B parameters (fits on single H100, ~70GB VRAM quantized)
+- DeepSeek R1 (full): ~671B total parameters (MoE with 37B activated per token; requires 8x H100 cluster or aggressive 4-bit quantization on single H100)
 
 **Single GPU Cost Example (H100):**
 
@@ -158,12 +153,12 @@ Self-hosted wins on pure compute cost for high-volume reasoning workloads. Infra
 
 | Model | Input $/M | Reasoning? | Context | Output $/M |
 |-------|-----------|-----------|---------|-----------|
-| DeepSeek R1 | $0.55 | Yes | 256K | $2.19 |
+| DeepSeek R1 | $0.55 | Yes | 128K | $2.19 |
 | OpenAI o3-mini | $1.10 | Yes | 200K | $4.40 |
 | OpenAI o3 | $10.00 | Yes | 200K | $40.00 |
 | ChatGPT 5 | $1.25 | No | 272K | $10.00 |
 | Claude Opus 4.6 | $5.00 | No | 1M | $25.00 |
-| Grok 4 | $3.00 | No | 256K | $15.00 |
+| Grok 4 | $3.00 | No | 128K | $15.00 |
 
 DeepSeek R1 is the cheapest reasoning model. But reasoning models consume more tokens. Cost-per-task depends on task complexity, not headline rate.
 
@@ -348,7 +343,7 @@ Self-hosted fine-tuning is cheaper than API-based fine-tuning for teams with eng
 Custom R1 on proprietary data improves reasoning on domain-specific problems. A law firm fine-tuning R1 on internal case law and contract clauses would get better compliance checking. A healthcare provider fine-tuning R1 on medical literature would improve diagnostic reasoning.
 
 Typical workflow:
-1. Download R1 weights (67GB for full model)
+1. Download R1 weights (e.g., R1-Distill-Qwen-32B is ~64GB; full R1 671B requires multiple nodes)
 2. Prepare 10K-100K training examples (domain data, reasoning explanations)
 3. Fine-tune on 8x H100 for 2-7 days ($300-1,500 total)
 4. Deploy custom R1 on the infrastructure
@@ -366,7 +361,7 @@ A single H100 inference at $1.99/hr with vLLM overhead might effectively cost $2
 
 ### Quantization and Memory Trade-offs
 
-DeepSeek R1 (236B parameters) requires ~472GB of VRAM in full precision. Quantization to 4-bit reduces this to ~60GB, fitting on a single H100 (80GB). Quantization reduces inference speed by 20-40%, cutting throughput and increasing effective per-request cost.
+DeepSeek R1 (671B total parameters, MoE with 37B active per token) requires ~1.3TB of VRAM in full BF16 precision for the full model. Quantization to 4-bit reduces this to ~60GB, fitting on a single H100 (80GB). Quantization reduces inference speed by 20-40%, cutting throughput and increasing effective per-request cost.
 
 Full precision (multi-GPU): faster, higher cost
 Quantization (single GPU): slower, lower hardware cost, net cost roughly similar
@@ -379,7 +374,7 @@ Batching multiple requests together improves GPU utilization. Batch size 32 is r
 
 ### Network and Storage
 
-Downloading model weights (67GB for DeepSeek R1) requires ~30 minutes on gigabit internet but counts against bandwidth limits on some cloud providers. CoreWeave charges egress at standard rates. RunPod includes egress in hourly rates. Factor in: initial setup $30-100, ongoing negligible.
+Downloading model weights (e.g., ~64GB for R1-Distill-32B, or multi-TB for the full 671B model) requires significant time on gigabit internet but counts against bandwidth limits on some cloud providers. CoreWeave charges egress at standard rates. RunPod includes egress in hourly rates. Factor in: initial setup $30-100, ongoing negligible.
 
 ---
 

@@ -5,8 +5,8 @@ description: >-
   TPU vs GPU comparison for AI training: Google TPU v5e/v5p vs NVIDIA
   architecture, performance, pricing as of March 2026. Which is right for your
   workload.
-date: '2026-03-22'
-author: DeployBase
+date: '2025-05-20'
+author: Deploybase
 category: GPU Comparison
 keywords:
   - tpu vs gpu
@@ -54,7 +54,7 @@ GPU is a generalist. Thousands of small cores organized in streaming multiproces
 
 Each streaming multiprocessor has 128 FP32 CUDA cores. The H100 SXM packs 16,896 CUDA cores across 132 SMs. Not all cores are equal: some run FP32, others run mixed-precision tensor ops. The architecture is dense and omnidirectional. Any CUDA kernel sees the full core count.
 
-Memory: HBM (high-bandwidth memory). A100 at 1,935 GB/s. H100 at 3,350 GB/s. Memory bandwidth is the critical bottleneck for large batch training. Both GPUs have multiple memory controllers to saturate bandwidth. H100's HBM3 (vs A100's HBM2e) uses higher-speed DRAM technology: 12 Gbps per pin instead of 10 Gbps.
+Memory: HBM (high-bandwidth memory). A100 SXM at 2,039 GB/s. H100 at 3,350 GB/s. Memory bandwidth is the critical bottleneck for large batch training. Both GPUs have multiple memory controllers to saturate bandwidth. H100's HBM3 (vs A100's HBM2e) uses higher-speed DRAM technology: 12 Gbps per pin instead of 10 Gbps.
 
 Strengths: flexibility. Run anything. Custom CUDA kernels. Mixed precision (FP32, FP16, BF16, TF32, FP8). Multi-framework support (PyTorch, TensorFlow, JAX). Cache hierarchy (L1, L2, shared memory) means locality optimization matters. Developers can tune cache behavior per-kernel. This cuts both ways: painful to optimize, powerful once optimized.
 
@@ -66,7 +66,7 @@ TPU is a specialist. Purpose-built systolic array architecture. No CUDA cores. I
 
 Systolic arrays are efficient because data moves only once through the grid. GPUs load data from memory multiple times for the same operation. TPUs orchestrate data flow so each byte touches the compute once. For transformer matrix multiplies, this is 2-5x more energy-efficient per FLOP.
 
-Memory: HBM3e (on v5p). Bandwidth: v5e at ~460 GB/s per TPU core. v5p at ~900 GB/s. Lower per-core bandwidth than H100, but compensated by different compute paradigm. TPU cores also have on-chip SRAM (transposed memory, designed for tensor ops). This SRAM feeds the systolic grid. H100 has none (no specialized transposed memory).
+Memory: HBM3e (on v5p). Bandwidth: v5e at ~800 GB/s per TPU core. v5p at ~900 GB/s. Lower per-core bandwidth than H100, but compensated by different compute paradigm. TPU cores also have on-chip SRAM (transposed memory, designed for tensor ops). This SRAM feeds the systolic grid. H100 has none (no specialized transposed memory).
 
 Strengths: efficiency for transformers. Systolic arrays are perfect for matrix multiplications needed in attention layers. Every operation is pipelined: no control flow, no branch prediction, no speculative execution overhead. Pure arithmetic. Lower power draw (300W v5e vs 700W H100). Better cost/FLOP for transformer workloads because wasted instruction decode and cache management is eliminated.
 
@@ -79,10 +79,10 @@ Weaknesses: specialization. Only JAX and TensorFlow. No CUDA. Custom ops must be
 | Metric | A100 (NVIDIA) | H100 (NVIDIA) | TPU v5e (Google) | TPU v5p (Google) | Winner |
 |--------|---------------|---------------|-------------------|-------------------|---------|
 | **Release Date** | Aug 2020 | Mar 2023 | May 2023 | Dec 2023 | v5p (newest) |
-| **Memory (max config)** | 80GB HBM2e | 80GB HBM3 | 16GB HBM3e | 95GB HBM2 | v5p |
-| **Memory Bandwidth** | 1,935 GB/s | 3,350 GB/s | 460 GB/s* | 900 GB/s* | H100 |
-| **Peak FP32** | 19.5 TFLOPS | 60 TFLOPS | 197 TFLOPS** | 383 TFLOPS** | v5p |
-| **Peak BF16 Tensor** | 312 TFLOPS | 1,457 TFLOPS | 1,574 TFLOPS** | 3,072 TFLOPS** | v5p |
+| **Memory (max config)** | 80GB HBM2e | 80GB HBM3 | 16GB HBM3e | 95GB HBM2e | v5p |
+| **Memory Bandwidth** | 2,039 GB/s | 3,350 GB/s | 800 GB/s* | 2,765 GB/s* | H100 |
+| **Peak FP32** | 19.5 TFLOPS | 67 TFLOPS | 197 TFLOPS** | 383 TFLOPS** | v5p |
+| **Peak BF16 Tensor** | 312 TFLOPS | 1,457 TFLOPS | 1,574 TFLOPS** | 3,672 TFLOPS** | v5p |
 | **Transformer Efficiency** | Good | Great | Excellent | Excellent | TPU v5p |
 | **Flexibility** | Full (CUDA) | Full (CUDA) | Limited (JAX/TF) | Limited (JAX/TF) | NVIDIA |
 | **NVLink (multi-GPU)** | 600 GB/s | 900 GB/s | TPU Pod 3D mesh | TPU Pod 3D mesh | TPU Pod (3D mesh) |
@@ -140,7 +140,7 @@ TPU v5e is competitive on inference, not dominant. Better at batch processing th
 **NVIDIA (RunPod, Lambda):**
 - A100 PCIe: $1.19/hr (RunPod), $1.48/hr (Lambda)
 - H100 PCIe: $1.99/hr (RunPod), $2.86/hr (Lambda)
-- H100 SXM: $2.69/hr (RunPod), $2.49/hr (Lambda)
+- H100 SXM: $2.69/hr (RunPod), $3.78/hr (Lambda)
 
 **Google Cloud TPU:**
 - TPU v5e (8-core Pod): $10.80/hr on-demand, $5.40/hr (1-year commitment)
@@ -214,11 +214,11 @@ Memory bandwidth = data throughput from HBM to compute cores. Wider bandwidth = 
 ### The Bandwidth Numbers
 
 **GPU:**
-- A100: 1,935 GB/s (8 GPUs aggregate: 15.5 TB/s)
+- A100 SXM: 2,039 GB/s (8 GPUs aggregate: 16.3 TB/s)
 - H100: 3,350 GB/s (8 GPUs aggregate: 26.8 TB/s)
 
 **TPU:**
-- v5e: 460 GB/s per core (8 cores aggregate: 3.68 TB/s)
+- v5e: 800 GB/s per core (8 cores aggregate: 6.4 TB/s)
 - v5p: 900 GB/s per core (8 cores aggregate: 7.2 TB/s)
 
 GPU bandwidth is higher in absolute terms. But TPU's systolic array architecture is more bandwidth-efficient for transformers. Less data movement overhead. Systolic arrays are designed so data stays local.
@@ -263,9 +263,9 @@ The transposed memory is specialized: it stores matrices in the layout that matc
 
 H100: 3,350 GB/s looks impressive, but that's peak. Real workloads saturate 60-80% of peak (due to coordination overhead, atomics, cache coherency).
 
-TPU v5e: 460 GB/s per core, but 8 cores aggregate to 3,680 GB/s. More importantly, TPU rarely needs main memory accesses. The transposed memory and systolic orchestration mean 80-90% of computation is fed from on-chip SRAM. Effective bandwidth utilization is much higher.
+TPU v5e: 800 GB/s per core, but 8 cores aggregate to 6,400 GB/s. More importantly, TPU rarely needs main memory accesses. The transposed memory and systolic orchestration mean 80-90% of computation is fed from on-chip SRAM. Effective bandwidth utilization is much higher.
 
-Real-world: TPU v5e and H100 train transformers at similar speed despite 7x difference in theoretical bandwidth. The architectural differences (systolic vs cache-based) equalize the throughput.
+Real-world: TPU v5e and H100 train transformers at similar speed despite significant difference in theoretical bandwidth. The architectural differences (systolic vs cache-based) equalize the throughput.
 
 ---
 

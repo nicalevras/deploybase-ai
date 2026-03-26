@@ -4,8 +4,9 @@ slug: aws-fine-tune-llm-sagemaker-vs-ec2-gpu-pricing
 description: >-
   Compare SageMaker and EC2 GPU pricing for fine-tuning large language models on
   AWS. Cost analysis, performance, and recommendation as of March 2026.
-date: '2026-03-22'
-author: DeployBase
+date: '2025-06-23'
+author: Deploybase
+category: Tutorials
 ---
 ## Contents
 
@@ -46,9 +47,9 @@ SageMaker applies per-instance-second charges for hosted training:
 - SageMaker overhead: 5-10% additional
 - Estimated SageMaker cost: $50.90/hour
 
-**ml.p4d.24xlarge** (8xA100 SXM): $56.77/hour
+**ml.p4d.24xlarge** (8xA100 SXM): $24.16/hour
 - SageMaker overhead: 5-10% additional
-- Estimated SageMaker cost: $59.61/hour
+- Estimated SageMaker cost: $25.37/hour
 
 ### Managed Inference Endpoints
 
@@ -56,7 +57,7 @@ Post-training serving through SageMaker Endpoints involves additional costs:
 
 **ml.p3.2xlarge** (1xV100): $1.938/hour
 **ml.p3.8xlarge** (8xV100): $7.752/hour
-**ml.p4d.24xlarge** (8xA100): $227.52/hour
+**ml.p4d.24xlarge** (8xA100): $24.16/hour
 
 Endpoints auto-scale based on demand. Reserved capacity provides 25-30% discounts on multi-month commitments.
 
@@ -78,8 +79,8 @@ EC2 GPU instances offer greater flexibility and cost control for experienced use
 - Cost for 24 hours training: $930.72
 - Recommended for large model training
 
-**p4d.24xlarge** (8xA100 SXM): $45.40/hour
-- Cost for 24 hours training: $1,089.60
+**p4d.24xlarge** (8xA100 SXM): $21.96/hour
+- Cost for 24 hours training: $526.96
 - Highest throughput available
 
 ### Spot Pricing Discounts
@@ -89,8 +90,8 @@ EC2 Spot instances offer 70-90% discounts for flexible workloads:
 **p3dn.24xlarge Spot**: $9.69/hour (75% discount)
 - Cost for 24 hours: $232.56
 
-**p4d.24xlarge Spot**: $11.35/hour (75% discount)
-- Cost for 24 hours: $272.40
+**p4d.24xlarge Spot**: $5.49/hour (75% discount)
+- Cost for 24 hours: $131.76
 
 Spot instances can terminate with 2-minute notice. Risk acceptable for jobs saving checkpoints every 10-30 minutes.
 
@@ -101,47 +102,47 @@ Spot instances can terminate with 2-minute notice. Risk acceptable for jobs savi
 **SageMaker Approach**:
 - Instance: ml.p4d.24xlarge (8xA100 SXM)
 - Duration: 24 hours
-- Cost: $59.61/hour × 24 = $1,430.64
+- Cost: $25.37/hour × 24 = $608.88
 - Plus storage: $20
 - Plus SageMaker feature charges: $15
-- **Total: $1,465.64**
+- **Total: $643.88**
 
 **EC2 On-Demand Approach**:
 - Instance: p4d.24xlarge
 - Duration: 24 hours
-- Cost: $45.40/hour × 24 = $1,089.60
+- Cost: $21.96/hour × 24 = $526.96
 - Plus EBS storage: $20
 - Plus data transfer: $10
-- **Total: $1,119.60**
+- **Total: $556.96**
 
 **EC2 Spot Approach**:
 - Instance: p4d.24xlarge Spot
 - Duration: 24 hours
-- Cost: $11.35/hour × 24 = $272.40
+- Cost: $5.49/hour × 24 = $131.76
 - Plus storage: $20
 - Plus data transfer: $10
-- **Total: $302.40**
+- **Total: $161.76**
 
-**Winner**: EC2 Spot saves 79% compared to SageMaker. On-demand EC2 saves 22%.
+**Winner**: EC2 Spot saves 75% compared to SageMaker. On-demand EC2 saves 13%.
 
 ### Scenario 2: Recurring Monthly Fine-Tuning (20 jobs of 8 hours each)
 
 **SageMaker Approach**:
-- Monthly training cost: $59.61/hour × 160 hours = $9,537.60
-- Inference endpoint: $227.52/hour × 730 hours = $166,089.60
-- **Monthly total: $175,627.20**
+- Monthly training cost: $25.37/hour × 160 hours = $4,059.20
+- Inference endpoint (ml.p4d.24xlarge): $24.16/hour × 730 hours = $17,636.80
+- **Monthly total: $21,696**
 
 **EC2 On-Demand Approach**:
-- Monthly training cost: $45.40/hour × 160 hours = $7,264
-- Inference instances (similar): $45.40/hour × 730 = $33,142
-- **Monthly total: $40,406**
+- Monthly training cost: $21.96/hour × 160 hours = $3,513.60
+- Inference instances (similar): $21.96/hour × 730 = $16,030.80
+- **Monthly total: $19,544.40**
 
 **EC2 Spot Approach**:
-- Monthly training cost: $11.35/hour × 160 hours = $1,816
-- Inference instances: $45.40/hour × 730 = $33,142
-- **Monthly total: $34,958**
+- Monthly training cost: $5.49/hour × 160 hours = $878.40
+- Inference instances: $21.96/hour × 730 = $16,030.80
+- **Monthly total: $16,909.20**
 
-**Winner**: EC2 Spot saves 80%. On-demand saves 77%.
+**Winner**: EC2 Spot saves 22% over EC2 on-demand for the combined training+serving workload. Pure training on Spot saves 75% vs SageMaker.
 
 ### Scenario 3: Continuous Fine-Tuning & Serving
 

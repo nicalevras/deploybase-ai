@@ -4,9 +4,9 @@ slug: best-open-source-llm
 description: >-
   Ranking open-source LLMs: Llama 4, DeepSeek R1/V3.1, Mistral, Qwen 2.5, Gemma
   2. Performance, efficiency, and self-hosting costs as of March 2026.
-date: '2026-03-22'
-author: DeployBase
-category: Model Ranking
+date: '2026-02-17'
+author: Deploybase
+category: LLM Guides
 keywords:
   - best open source llm
   - open source language models
@@ -37,7 +37,7 @@ keywords:
 
 ## Best Open Source LLM: Overview
 
-Open-source LLMs dominate production AI infrastructure. Llama 4 (70B, 405B variants), DeepSeek R1 (671B reasoning), DeepSeek V3.1 (671B speed), Mistral 12B/Mixtral (7B-141B efficient), Qwen 2.5 (72B multilingual), and Gemma 2 (27B budget) are the standard choices in 2026. They're free to download, fully self-hostable, fine-tuneable, and faster to iterate on than closed-source APIs. No vendor lock-in. No rate limits (when self-hosted). No surprise API bills.
+Open-source LLMs dominate production AI infrastructure. Llama 4 (Scout: 109B total/17B active MoE; Maverick: 400B total/17B active MoE), DeepSeek R1 (671B reasoning), DeepSeek V3.1 (671B speed), Mistral 12B/Mixtral (7B-141B efficient), Qwen 2.5 (72B multilingual), and Gemma 2 (27B budget) are the standard choices in 2026. They're free to download, fully self-hostable, fine-tuneable, and faster to iterate on than closed-source APIs. No vendor lock-in. No rate limits (when self-hosted). No surprise API bills.
 
 The trade-off: inference costs spike without competitive pricing from cloud providers. Self-hosting requires ops expertise. Training and fine-tuning consume GPU hours. But for teams processing billions of tokens monthly or requiring full model control (fine-tuning, quantization, distillation), open-source is economical. This ranking clarifies which models to choose based on reasoning ability, speed, VRAM constraints, and self-hosting economics.
 
@@ -47,7 +47,7 @@ The trade-off: inference costs spike without competitive pricing from cloud prov
 
 | Model | Params | Context | Best For | License | Self-Host Cost/Month |
 |-------|--------|---------|----------|---------|---------------------|
-| **Llama 4 405B** | 405B | 8K | General reasoning, coding | Open | $1,200-$2,400 (8xH100) |
+| **Llama 4 Maverick** | 400B total (17B active MoE) | 1M | General reasoning, multimodal | Open | $1,200-$2,400 (8xH100) |
 | **DeepSeek R1** | 671B | 128K | Complex reasoning, STEM | MIT | $1,800-$3,600 (8xH100) |
 | **DeepSeek V3.1** | 671B | 128K | General, speed | MIT | $1,800-$3,600 (8xH100) |
 | **Mistral 12B** | 12B | 32K | Mobile, edge, low-latency | Apache 2.0 | $25-$100 (1xL4) |
@@ -61,35 +61,33 @@ Data from model cards, Hugging Face benchmarks, and DeployBase inference cluster
 
 ## Llama 4 and Llama 3.1
 
-### Llama 4 70B
+### Llama 4 Scout
 
-Meta's flagship general-purpose model. 70B parameters. Context window 8K tokens (suitable for single documents, not full codebases or long research papers). Instruction-tuned for conversation, coding, analysis, creative writing.
+Meta's efficient Llama 4 variant. Mixture-of-Experts (MoE) architecture: 17B active parameters per token, 109B total parameters. Context window: 10M tokens. Multimodal (text + images). Instruction-tuned for conversation, coding, analysis, creative writing.
 
-Performance: Competitive with GPT-4o on most benchmarks. Scores 88% on MMLU (general knowledge), 92% on GSM8K (mathematical reasoning), 78% on HumanEval (Python coding). Multi-turn conversation quality is nearly indistinguishable from GPT-4o.
+Performance: Competitive on many benchmarks. Scores 78% on MMLU (general knowledge), 84% on GSM8K (mathematical reasoning). Efficient MoE design means inference cost is similar to a 17B dense model despite broader knowledge capacity.
 
-Architecture: Transformer-based with standard attention, rotary embeddings, grouped-query attention (reduces KV cache). Trained on 15 trillion tokens of diverse data.
+Architecture: Sparse MoE with 128 expert modules. Router selects active experts per token. Only 17B parameters activate per inference step, making it faster and cheaper than its 109B total parameter count suggests.
 
-Self-hosting: Needs 140GB VRAM for FP16 weights, 70GB for FP8 quantization. Fits on 1x H100 (80GB, use FP8). Cost via cloud: RunPod H100 PCIe at $1.99/hr × 730 hours/month = $1,453/month.
+Self-hosting: Quantized INT4 requires ~55-65GB VRAM. Fits on a single H100 (80GB). Cost via cloud: RunPod H100 PCIe at $1.99/hr × 730 hours/month = $1,453/month.
 
-Inference speed: 50-80 tokens/second on H100 depending on quantization and batch size. For batch inference (not real-time serving), capable of 10-50K requests/day on single H100.
+Inference speed: 100-150 tokens/second on H100 with vLLM batching. Excellent for high-throughput applications.
 
-Fine-tuning: Llama 4 70B is excellent base for domain-specific fine-tuning. LoRA fine-tuning on 10K examples takes 8-24 hours on single H100. QLoRA (quantized LoRA) takes 4-12 hours.
+### Llama 4 Maverick
 
-### Llama 4 405B
+Meta's large-capacity Llama 4 variant. Same MoE architecture: 17B active parameters per token, 400B total parameters. Context window: 1M tokens. Multimodal (text + images). Superior reasoning capability due to larger expert pool.
 
-Meta's largest model. 405B parameters. Competitive with GPT-5 on reasoning tasks. Context: 8K (same limitation as 70B).
+Performance: 88% MMLU, 90% GSM8K, 89% HumanEval. Approaches GPT-4.1 on many tasks. Best open-source reasoning outside of DeepSeek R1.
 
-Performance: 92% MMLU, 96% GSM8K, 88% HumanEval. Best open-source reasoning outside of DeepSeek R1. Training involved 4M+ GPU-hours of compute.
+Self-hosting: Full precision requires ~800GB VRAM. Quantized INT4 requires ~200GB. Requires 8xH100 or 4xH100 with INT4. Cost: 8 × $2.69/hr (H100 SXM) × 730 = $15,728/month. Prohibitive for single-team deployment.
 
-Self-hosting: Needs 810GB VRAM (FP16) or 405GB (FP8). Requires distributed inference on 8xH100 clusters or 4xB200 clusters. Cost: 8 × $2.69/hr (H100 SXM) × 730 = $15,728/month. Prohibitive for single-team deployment in-house.
+Alternative: Use managed APIs (Together AI, Groq) at $0.19 input / $0.85 output per million tokens.
 
-Alternative: Use shared inference APIs (RunPod, Lambda, Together AI) offering per-token pricing. Typically $0.015-$0.025 per 1K tokens for Llama 405B, cheaper than month-to-month cluster rental.
-
-Inference speed: 15-25 tokens/second on 8xH100 cluster (distributed inference). Latency increases due to inter-GPU communication.
+Inference speed: 20-40 tokens/second on 8xH100 cluster (distributed inference with NVLink).
 
 ### Llama 3.1 70B
 
-Previous generation. Still competitive (86% MMLU, 91% GSM8K). Free, widely available. Reasonable choice if cost is critical and latest-generation performance is not required. Weights available on Hugging Face.
+Previous generation. Still competitive (86% MMLU, 91% GSM8K). Dense 70B transformer, 128K context. Free, widely available. Reasonable choice if cost is critical and latest-generation performance is not required. Weights available on Hugging Face.
 
 ---
 
@@ -101,7 +99,7 @@ Chinese research lab DeepSeek's reasoning-specialized model. Explicitly trained 
 
 Performance: Scores 96% on MATH (mathematical proofs), 98% on GSM8K (word problems), 91% on HumanEval (code), 91% on MMLU (general knowledge). Best open-source reasoning model. Particularly strong on hard-mode MATH (graduate-level math proofs).
 
-Context: 128K tokens (8x larger than Llama 4 70B). Fits entire technical documentation or multiple research papers in one request.
+Context: 128K tokens. Fits entire technical documentation or multiple research papers in one request.
 
 License: MIT. Fully open. Weights publicly available on Hugging Face. No restrictions on commercial use.
 

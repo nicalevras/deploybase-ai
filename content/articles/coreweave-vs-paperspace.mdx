@@ -7,9 +7,9 @@ description: >-
   Compare CoreWeave (GPU-first, Kubernetes) vs Paperspace (developer-friendly,
   notebooks). Pricing, GPU selection, ease of use, and which audience each
   serves.
-date: '2026-03-22'
-author: DeployBase
-category: GPU Infrastructure
+date: '2025-12-02'
+author: Deploybase
+category: GPU Cloud
 keywords:
   - coreweave vs paperspace
 ---
@@ -52,16 +52,17 @@ CoreWeave is a GPU-cloud platform built from the ground up for ML compute. The e
 
 **How it works**: CoreWeave provides Kubernetes clusters pre-configured with GPU nodes. Developers deploy containers (Docker images) to Kubernetes, which schedules work across available GPU instances. CoreWeave handles infrastructure abstraction, leaving developers responsible for Kubernetes management (or using managed services).
 
-**GPU Options and Pricing**:
-- H100 SXM: $49.24/hour (compared to $2.69 on [RunPod](/articles/runpod-gpu-pricing))
-- A100 80GB: $10.70/hour
-- A40: $2.89/hour
-- L40S: $1.90/hour
-- RTX 6000 Ada: $1.75/hour
+**GPU Options and Pricing (8x cluster rates)**:
+- H100 SXM 8x: $49.24/hour ($6.155/GPU) — compared to RunPod single H100 at $2.69/hr
+- H200 SXM 8x: $50.44/hour ($6.305/GPU)
+- A100 8x: $21.60/hour ($2.70/GPU)
+- L40S 8x: $18/hour ($2.25/GPU)
+- L40 8x: $10/hour ($1.25/GPU)
+- GH200 single: $6.50/hour (only GPU available as single instance)
 
-Wait, CoreWeave prices seem extremely high compared to RunPod. The difference: CoreWeave specializes in single-GPU and multi-GPU deployments for production use. The 8x H100 instance mentioned above is a full rack server: 8 H100s, 2TB RAM, 200TB NVMe storage. That's $49.24/hour for the full system, or $6.15/hour per-GPU in an 8-GPU configuration.
+CoreWeave requires 8-GPU cluster minimums (except GH200). The H100 cluster at $49.24/hour is for 8 H100s with full NVLink topology, dedicated networking, and cluster orchestration. Per-GPU ($6.155) costs more than RunPod's $2.69/hour because CoreWeave provides guaranteed dedicated capacity, not spot market access.
 
-Compared to RunPod's $2.69/hour A100, CoreWeave A100 at $10.70/hour seems expensive. But CoreWeave's A100 includes more CPU, more NVMe storage, better networking, and is provisioned for production workloads. RunPod's A100 is a shared instance; CoreWeave instances are dedicated.
+Compared to RunPod's $2.69/hour H100 SXM on-demand, CoreWeave's $6.155/GPU is 2.3x more expensive. The premium buys dedicated cluster infrastructure, NVLink networking, and reserved availability guarantees.
 
 **Key Features**:
 - Kubernetes-native: Deploy via kubectl, standard container tooling
@@ -167,13 +168,14 @@ The distinction is clear: CoreWeave powers production, Paperspace enables learni
 
 **Scenario 1: Training a model for one week, 1 GPU**
 
-CoreWeave (A100, dedicated):
-- $10.70/hour × 24 hours × 7 days = $1,797.60
+CoreWeave does not offer single A100 on-demand. Minimum is 8x A100 cluster at $21.60/hour.
+- CoreWeave 8x A100 cluster: $21.60/hour × 24 hours × 7 days = $3,629 (for entire 8-GPU cluster)
+- Effective per-GPU: $2.70/hour × 168 hours = $453.60 if team utilizes all 8 GPUs
 
 Paperspace (A100):
 - $0.51/hour × 24 hours × 7 days = $85.68
 
-Paperspace is 20x cheaper for this use case. This isn't an apples-to-apples comparison (CoreWeave provides better hardware), but illustrates the cost structure: Paperspace optimizes for experimentation cost, CoreWeave optimizes for production efficiency.
+For single-GPU training, RunPod A100 ($1.19/hr × 168hr = $200) or Lambda Labs A100 ($1.48/hr × 168hr = $249) are better comparisons to Paperspace. Paperspace optimizes for experimentation cost; CoreWeave optimizes for multi-GPU production workloads.
 
 **Scenario 2: Production inference serving, 8 GPUs, continuous 24/7**
 

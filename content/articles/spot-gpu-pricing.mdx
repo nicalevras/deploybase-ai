@@ -5,8 +5,8 @@ description: >-
   Spot GPU and preemptible instance pricing across AWS, GCP, RunPod. Spot
   discounts explained, reliability vs cost, when to use interruptible GPUs.
   March 2026 rates.
-date: '2026-03-22'
-author: DeployBase
+date: '2025-06-02'
+author: Deploybase
 category: GPU Pricing
 keywords:
   - spot gpu pricing
@@ -36,7 +36,7 @@ keywords:
 
 Spot GPU Pricing is the focus of this guide. Spot: 30-70% discount. Catch: 2-30 second eviction notice. Fault-tolerant workloads win. Continuous availability? Avoid spot.
 
-Math: RunPod H100 on-demand $2.69/hr → spot $0.97/hr (64%). AWS H100 $6.98 → $3.50 (50%). A100s stable (2-5% interrupt rate). H100s volatile (8-12%).
+Math: RunPod H100 PCIe on-demand $1.99/hr → spot $0.72/hr (64%). RunPod H100 SXM on-demand $2.69/hr → spot $0.81/hr (70%). AWS H100 $6.88 → $3.44 (50%). A100s stable (2-5% interrupt rate). H100s volatile (8-12%).
 
 ---
 
@@ -48,16 +48,16 @@ Math: RunPod H100 on-demand $2.69/hr → spot $0.97/hr (64%). AWS H100 $6.98 →
 |-----|----------|-----------|------|----------|-------|
 | **A100 PCIe** | RunPod | $1.19 | $0.42 | 65% | Stable spot market |
 | **A100 SXM** | RunPod | $1.39 | $0.59 | 58% | Popular, lower discount |
-| **H100 PCIe** | RunPod | $1.99 | $0.97 | 51% | Volatile spot market |
-| **H100 SXM** | RunPod | $2.69 | $1.29 | 52% | High demand, premiums |
+| **H100 PCIe** | RunPod | $1.99 | $0.72 | 64% | Entry-level H100, good value |
+| **H100 SXM** | RunPod | $2.69 | $0.81 | 70% | High demand, premiums |
 | **H200** | RunPod | $3.59 | $1.65 | 54% | Newer, less stable |
 | **L40S** | RunPod | $0.79 | $0.34 | 57% | Inference GPU, stable |
-| **RTX 4090** | RunPod | $0.34 | $0.14 | 59% | Consumer card, volatile |
-| **H100 PCIe** | AWS | $6.98 | $3.50 | 50% | Premium pricing |
+| **RTX 4090** | RunPod | $0.34 | $0.22 | 35% | Consumer card, volatile |
+| **H100 PCIe** | AWS | $6.88 | $3.44 | 50% | Premium pricing |
 | **A100 PCIe** | AWS | $3.06 | $1.53 | 50% | Standard AWS markup |
 | **GH200** | Lambda | $1.99 | $0.72 | 64% | Limited availability, no formal spot program |
 
-RunPod has deeper spot discounts than AWS. For the same H100 PCIe, RunPod spot ($0.97) is 3.5x cheaper than AWS spot ($3.50). This is the hidden value in boutique cloud providers.
+RunPod has deeper spot discounts than AWS. For the same H100 PCIe, RunPod spot ($0.72) is ~4.9x cheaper than AWS spot ($3.50). This is the hidden value in boutique cloud providers.
 
 ---
 
@@ -156,22 +156,22 @@ AWS spot prices fluctuate based on regional demand. During research conferences 
 
 **On-Demand Cluster:**
 - Hardware: 8x AWS p5 (H100) instances
-- Cost per instance: $6.98/hour
-- Cluster cost: 8 × $6.98 = $55.84/hour
+- Cost per instance: $6.88/hour
+- Cluster cost: 8 × $6.88 = $55.04/hour
 - Training duration: 10 days (240 hours)
-- Total cost: 240 × $55.84 = $13,401.60
+- Total cost: 240 × $55.04 = $13,209.60
 
 **Spot Cluster (with interruption handling):**
-- Spot price: 50% discount = $3.49/hour per instance
-- Base cluster cost: 8 × 3.49 = $27.92/hour
+- Spot price: 50% discount = $3.44/hour per instance
+- Base cluster cost: 8 × 3.44 = $27.52/hour
 - Expected interruptions: 10% hourly × 240 hours = 24 interruptions
 - Resume overhead: 24 interruptions × 2 hours (checkpoint loading + data reloading) = 48 hours
 - Total compute: 240 + 48 = 288 hours
-- Total cost: 288 × $27.92 = $8,040.96
+- Total cost: 288 × $27.52 = $7,925.76
 
 **Comparison:**
-- On-demand: $13,401.60 (guaranteed completion)
-- Spot: $8,040.96 (40% savings, but 48 hours of extra overhead)
+- On-demand: $13,209.60 (guaranteed completion)
+- Spot: $7,925.76 (40% savings, but 48 hours of extra overhead)
 
 **Hidden Costs (AWS Spot):**
 - Engineering time to implement spot restart logic: 40 hours = $4,000
@@ -180,7 +180,7 @@ AWS spot prices fluctuate based on regional demand. During research conferences 
 - **Total operational overhead: $4,600**
 
 **True Cost-Benefit:**
-- Spot with overhead: $8,040 + $4,600 = $12,640 (6% cheaper than on-demand)
+- Spot with overhead: $7,926 + $4,600 = $12,526 (5% cheaper than on-demand)
 - But adds engineering complexity and operational risk
 - Break-even is at 2-3 training runs (amortize engineering cost)
 
@@ -213,24 +213,24 @@ AWS spot is only cost-effective at 100+ GPU-hour scale WITH dedicated engineerin
 Task: Process 1TB of unstructured data (extract features, tokenize, normalize).
 
 **On-Demand Setup:**
-- Hardware: 4x GCP A100 (on-demand)
-- Cost per instance-hour: $2.96 (GCP pricing)
-- Cluster cost: 4 × $2.96 = $11.84/hour
+- Hardware: 4x GCP A100 80GB (on-demand)
+- Cost per instance-hour: $5.07 (GCP pricing)
+- Cluster cost: 4 × $5.07 = $20.28/hour
 - Processing time: 50 hours (data is split into 4 parallel jobs)
-- Total cost: 50 × $11.84 = $592
+- Total cost: 50 × $20.28 = $1,014
 
 **Preemptible Setup:**
-- Spot price: 70% discount = $0.89/hour per instance
-- Base cost: 4 × 0.89 = $3.56/hour
+- Spot price: 70% discount = $1.52/hour per instance
+- Base cost: 4 × 1.52 = $6.08/hour
 - Expected interruptions: 15% hourly × 50 hours = 7.5 interruptions (assume 8)
 - Resume overhead: 8 interruptions × 1 hour (restart job, reload data) = 8 hours
 - Total compute: 50 + 8 = 58 hours
-- Total cost: 58 × $3.56 = $206.48
+- Total cost: 58 × $6.08 = $352.64
 
 **Comparison:**
-- On-demand: $592 (guaranteed)
-- Preemptible: $206.48 (65% savings)
-- Net savings: $385.52
+- On-demand: $1,014 (guaranteed)
+- Preemptible: $352.64 (65% savings)
+- Net savings: $661.36
 
 **Suitability:** GCP preemptible wins decisively for stateless batch jobs. The 30-second warning is only a problem if the job requires graceful shutdown. For "kill and restart" workloads, GCP is unbeatable.
 
@@ -474,7 +474,7 @@ Prices change hourly. Check before starting long-running jobs.
 - [AI Cost Calculator](/articles/ai-cost-calculator)
 - [GPU Cloud Cost Comparison](/articles/gpu-cloud-cost-comparison)
 - [LLM Token Cost Comparison](/articles/llm-token-cost-comparison)
-- [RunPod Pricing](https://www.runpod.io/pricing)
+- [RunPod Pricing](/gpus/runpod)
 - [AWS EC2 Spot Pricing](https://aws.amazon.com/ec2/spot)
 - [GCP Preemptible Instances](https://cloud.google.com/compute/docs/instances/preemptible)
 

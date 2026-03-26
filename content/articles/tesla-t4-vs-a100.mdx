@@ -5,8 +5,8 @@ description: >-
   Comprehensive comparison of Tesla T4 and A100 GPUs for ML inference and
   training. Analyze cost-per-token, latency, throughput, and when each GPU
   delivers best value.
-date: '2026-03-22'
-author: DeployBase
+date: '2025-05-02'
+author: Deploybase
 category: GPU Comparison
 keywords:
   - Tesla T4 vs A100
@@ -41,7 +41,7 @@ The T4 vs A100 comparison reveals a fundamental spectrum in inference hardware d
 
 Tesla T4 vs A100 is the focus of this guide. The T4 provides 16GB of GDDR6 memory connected at 320 GB/s bandwidth. This capacity supports inference for models up to approximately 4-billion parameters in FP16 precision, with modest batch processing capability.
 
-The A100 provides 80GB of HBM2e memory at 2.0 TB/s bandwidth, approximately 6.7x the capacity and 6.7x the bandwidth of T4. This enables serving models 20+ billion parameters with substantial batch processing overhead.
+The A100 provides 80GB of HBM2e memory at 2.0 TB/s bandwidth, approximately 5x the capacity (80GB vs 16GB) and approximately 6.25x the bandwidth (2.0 TB/s vs 320 GB/s) of T4. This enables serving models 20+ billion parameters with substantial batch processing overhead.
 
 This capacity difference directly determines model serving possibilities. A 3-billion parameter model runs comfortably on T4 hardware. A 70-billion parameter model requires distribution across multiple T4s with inter-GPU communication overhead, or concentration on a single A100 without coordination complexity.
 
@@ -61,21 +61,21 @@ Latency variance also differs. T4 shows consistent latency across single request
 
 ## Cost and Pricing Structure
 
-T4 instances cost approximately $0.20-$0.76 per hour depending on cloud provider and commitment level. AWS charges $0.35/hour for on-demand T4 instances. Google Cloud provides T4 instances at $0.25/hour with sustained-use discounts reducing effective cost to $0.18/hour.
+T4 instances cost approximately $0.20-$0.76 per hour depending on cloud provider and commitment level. AWS charges $0.526/hour for on-demand T4 instances (g4dn.xlarge). Google Cloud provides T4 instances at $0.35-0.45/hour with sustained-use discounts reducing effective cost further.
 
-A100 instances cost approximately $1.19-$1.48 per hour depending on provider and commitment level. Lambda Labs charges $1.19/hour for A100 instances. Paperspace prices A100 at $1.35/hour.
+A100 instances cost approximately $1.48 per hour on Lambda Labs depending on provider and commitment level. Lambda Labs charges $1.48/hour for A100 PCIe (40GB) instances. RunPod prices A100 PCIe at $1.19/hour.
 
 The cost ratio emerges clearly: A100 provides approximately 6-7x the capacity and throughput at roughly 3.5-4x the cost. This cost-per-token advantage heavily favors A100 for high-volume inference.
 
 Cost efficiency metrics calculate as follows. For serving a 3-billion parameter model processing 1 million tokens daily:
 
-**T4 approach**: 1M tokens / 40 tokens/sec = 25K seconds per day = 7 hours. At $0.35/hour, daily cost = $2.45. Annual cost = $894.
+**T4 approach**: 1M tokens / 40 tokens/sec = 25K seconds per day = 7 hours. At $0.526/hour (AWS on-demand), daily cost = $3.68. Annual cost = $1,344.
 
-**A100 approach**: 1M tokens / 300 tokens/sec = 3.3K seconds per day = 0.92 hours. At $1.35/hour, daily cost = $1.24. Annual cost = $453.
+**A100 approach**: 1M tokens / 300 tokens/sec = 3.3K seconds per day = 0.92 hours. At $1.48/hour (Lambda A100 PCIe), daily cost = $1.36. Annual cost = $497.
 
-The A100 provides 2x better cost-per-token efficiency despite higher absolute hourly cost, demonstrating that raw GPU cost does not determine inference economics.
+The A100 provides approximately 2.7x better cost-per-token efficiency despite higher absolute hourly cost, demonstrating that raw GPU cost does not determine inference economics.
 
-Scaling this analysis to monthly: 30M tokens monthly costs $26.95 on T4, $37.20 on A100. The T4 becomes more cost-effective for modest monthly volumes. But at 300M tokens monthly ($269.50 on T4, $372 on A100), the A100 shows slight advantage. Above 600M tokens monthly, A100 cost advantage compounds substantially.
+Scaling this analysis to monthly: 30M tokens monthly costs $110.40 on T4 (AWS), $40.80 on A100 (Lambda). The A100 quickly dominates at higher volumes.
 
 ## Inference Workload Suitability
 
@@ -107,7 +107,7 @@ MIG (Multi-Instance GPU) technology on A100 enables subdividing single A100s int
 
 T4 lacks MIG support, making multi-model serving require either running models sequentially (limiting throughput) or using multiple T4s (increasing complexity and operational overhead). Sequential serving on T4 means adding 100ms of latency as each model waits for its turn.
 
-For teams serving 7+ models concurrently, A100 with MIG provides superior cost-effectiveness compared to managing multiple T4s. A team serving 7 classification models could use a single A100 with MIG ($1.35/hr) instead of 7 T4s ($2.45/hr), plus simplified operations.
+For teams serving 7+ models concurrently, A100 with MIG provides superior cost-effectiveness compared to managing multiple T4s. A team serving 7 classification models could use a single A100 with MIG ($1.48/hr on Lambda) instead of 7 T4s ($3.68/hr at AWS on-demand), plus simplified operations.
 
 **MIG Limitations**: MIG works well for inference. Training on MIG is problematic because it requires synchronization across isolated slices. Models are confined to their slice's memory, preventing dynamic memory allocation during training.
 
@@ -208,15 +208,15 @@ T4 environments naturally spread load across many cards. Load balancing becomes 
 **Production Case Study 1: Small Model Inference Service**
 
 A team serving three 3-billion parameter models in production deployed across T4s:
-- 6x T4 instances at $0.35/hr each = $2.10/hr total
+- 6x T4 instances at $0.526/hr each (AWS on-demand) = $3.16/hr total
 - Aggregate throughput: 1,200 tokens/sec
-- Cost: $0.00175 per token
+- Cost: $0.00263 per token
 - Uptime: 99.5% (one failed T4 doesn't crash entire service)
 
 The same deployment on A100 would require:
-- 1x A100 at $1.35/hr = $1.35/hr total
+- 1x A100 at $1.48/hr (Lambda) = $1.48/hr total
 - Aggregate throughput: 1,200 tokens/sec
-- Cost: $0.00113 per token
+- Cost: $0.00123 per token
 - Uptime: 99.9% with good SLAs
 
 Both work. T4 offers better operational resilience. A100 offers better cost-per-token but requires higher operational sophistication.
@@ -231,7 +231,7 @@ A team running weekly fine-tuning jobs on A100s discovered that T4-based trainin
 A: Yes. T4 is good for prototyping. Once production patterns emerge, migration to A100 is typically straightforward for inference workloads. But expect 2-4 weeks of optimization work.
 
 **Q: Should I buy or rent T4 and A100?**
-A: Rent, almost always. [Lambda Labs offers A100 at $1.19/hr](/articles/lambda-labs-gpu-pricing), [RunPod T4 at lower rates](/articles/runpod-gpu-pricing). Renting provides flexibility without capital risk.
+A: Rent, almost always. [Lambda Labs offers A100 at $1.48/hr](/articles/lambda-labs-gpu-pricing), [RunPod T4 at lower rates](/articles/runpod-gpu-pricing). Renting provides flexibility without capital risk.
 
 **Q: How do T4 and A100 compare to newer GPUs?**
 A: Both are becoming legacy hardware. L40S replaces T4 for inference. H100 replaces A100 for training. But T4 and A100 remain cost-effective for many workloads and won't disappear for 5+ years.

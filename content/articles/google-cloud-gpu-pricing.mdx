@@ -4,9 +4,9 @@ slug: google-cloud-gpu-pricing
 description: >-
   Complete GCP GPU pricing guide comparing A100, H100, and L4 instances with
   on-demand, spot, and committed discounts. Benchmarked against AWS and Azure.
-date: '2026-03-22'
-author: DeployBase
-category: GPU Infrastructure
+date: '2025-04-15'
+author: Deploybase
+category: GPU Pricing
 ---
 ## Contents
 
@@ -40,43 +40,43 @@ Google Cloud structures pricing around commitment level: on-demand, spot, and co
 
 A2 instances pack up to 16x A100 80GB GPUs in a single machine, optimized for distributed training and large-batch inference. Google offers configurations from single-GPU to full 16-GPU machines.
 
-- **a2-highgpu-1g**: 1x A100 80GB, 12 vCPU, 85GB RAM
-  - On-demand: $1.19/hour
-  - Spot: $0.36/hour (70% discount)
-  - 1-year CUD: $0.71/hour (40% savings)
-  - 3-year CUD: $0.60/hour (49% savings)
+- **a2-highgpu-1g**: 1x A100 40GB, 12 vCPU, 85GB RAM
+  - On-demand: $3.67/hour (GPU + machine type combined)
+  - Spot: $1.10/hour (~70% discount)
+  - 1-year CUD: $2.75/hour (25% savings)
+  - 3-year CUD: $2.20/hour (40% savings)
 
-- **a2-highgpu-8g**: 8x A100 80GB, 96 vCPU, 680GB RAM
-  - On-demand: $9.52/hour
-  - Spot: $2.86/hour
-  - 1-year CUD: $5.71/hour
-  - 3-year CUD: $4.80/hour
+- **a2-highgpu-8g**: 8x A100 40GB, 96 vCPU, 680GB RAM
+  - On-demand: $35.20/hour (~$4.40/GPU)
+  - Spot: $10.56/hour
+  - 1-year CUD: $26.40/hour
+  - 3-year CUD: $21.12/hour
 
-- **a2-megagpu-16g**: 16x A100 80GB, 192 vCPU, 1,360GB RAM
-  - On-demand: $19.04/hour
-  - Spot: $5.71/hour
-  - 1-year CUD: $11.42/hour
-  - 3-year CUD: $9.60/hour
+- **a2-megagpu-16g**: 16x A100 40GB, 192 vCPU, 1,360GB RAM
+  - On-demand: $70.40/hour (~$4.40/GPU)
+  - Spot: $21.12/hour
+  - 1-year CUD: $52.80/hour
+  - 3-year CUD: $42.24/hour
 
-Per-GPU: $1.19/hour on-demand for a2-highgpu-1g. Scale to 8 GPUs and per-GPU cost stays the same ($9.52 / 8 = $1.19). Volume pricing is flat here, but larger instances still win through utilization gains.
+Per-GPU: $3.67/hour on-demand for a2-highgpu-1g (single GPU). Multi-GPU instances cost $4.40/GPU on-demand. Committing to 1-3 years reduces per-GPU cost substantially.
 
 **A3 Instances with H100 GPUs**:
 
 H100 GPUs are newest-generation accelerators from NVIDIA, offering 2x the performance of A100s for specific workloads. A3 instances launched recently and remain premium-priced compared to A2.
 
 - **a3-highgpu-8g**: 8x H100 80GB, 104 vCPU, 1,457GB RAM
-  - On-demand: $15.24/hour
+  - On-demand: ~$88.49/hour (~$11.06/GPU)
   - Spot: Not available (Google restricts)
-  - 1-year CUD: $10.67/hour (30% savings)
-  - 3-year CUD: $9.14/hour (40% savings)
+  - 1-year CUD: ~$61.94/hour (30% savings)
+  - 3-year CUD: ~$53.10/hour (40% savings)
 
 - **a3-megagpu-16g**: 16x H100 80GB, 208 vCPU, 2,915GB RAM
-  - On-demand: $30.48/hour
+  - On-demand: ~$176.98/hour (~$11.06/GPU)
   - Spot: Not available
-  - 1-year CUD: $21.34/hour
-  - 3-year CUD: $18.28/hour
+  - 1-year CUD: ~$123.89/hour
+  - 3-year CUD: ~$106.19/hour
 
-H100s cost more per GPU: $1.905/hour vs $1.19 for A100s. Worth it only if developers get 2x performance on the workload. If developers're memory-bound instead of compute-bound, the extra cost doesn't help.
+H100s cost significantly more per GPU than A100s: $11.06/hour per GPU vs $3.67 for single A100 on a2-highgpu-1g. Worth it only if the workload needs H100's higher throughput. For memory-bound workloads, the extra cost may not be justified.
 
 **G2 Instances with L4 GPUs**:
 
@@ -153,18 +153,18 @@ Data locality matters: if data is in BigQuery us-central1, put compute there. Eg
 How does GCP compare to competitors?
 
 **A100 Pricing (per hour, on-demand, single GPU)**:
-- GCP A2: $1.19
-- AWS EC2 p3.2xlarge: $3.06
-- Azure Standard_ND40rs_v2: $3.48
+- GCP A2 (a2-highgpu-1g): $3.67
+- AWS EC2 p4d.24xlarge: $2.745/GPU (8-GPU minimum)
+- Azure NC A100 v4: $3.67/GPU (single GPU available)
 
-GCP's 60% cheaper. AWS p3dn (with NVMe) is worse at $4.42/hour.
+GCP and Azure are similarly priced for single A100. AWS requires an 8-GPU minimum purchase.
 
-**H100 Pricing (per hour, on-demand)**:
-- GCP A3 (per GPU): $1.905
-- AWS EC2 p4de: Not widely available, estimated $8+/hour
-- Azure ND H100 v5: $4.98/hour
+**H100 Pricing (per hour, on-demand, per GPU)**:
+- GCP A3 (a3-highgpu-8g): $11.06/GPU ($88.49/hr for 8)
+- AWS p5.48xlarge: $6.88/GPU on-demand
+- Azure ND H100 v5: $11.06/GPU ($88.49/hr for 8 GPUs)
 
-GCP's roughly half of AWS p4de pricing.
+GCP and Azure are similarly priced for H100 on-demand. AWS is cheaper per GPU for H100.
 
 **L4 Pricing (per hour, on-demand)**:
 - GCP G2: $0.35-$0.44
@@ -173,17 +173,17 @@ GCP's roughly half of AWS p4de pricing.
 
 GCP matches Azure on L4, beats AWS.
 
-**Bottom line**: GCP wins on A100s (A2), matches competitors on H100s (A3), competitive on L4 (G2). AWS and Azure have more instance types but cost more. For GPU compute cost optimization, [GCP usually wins](/gpus/googlecloud).
+**Bottom line**: GCP is competitive on A100s (A2) and L4 (G2). For H100 (A3), GCP is expensive (~$88.49/hr for 8-GPU) compared to AWS (~$55/hr). Specialized providers like RunPod and Vast.ai remain cheapest overall. For GPU compute cost optimization, consider [all providers](/gpus).
 
 ## Estimating Costs
 
 Work backwards from the actual workload to estimate monthly spend.
 
 **Example 1: Fine-tuning Llama 70B, 1 week continuous training**
-- Hardware: a2-highgpu-8g (8x A100, $9.52/hour)
-- Spot discount (70%): $2.86/hour
+- Hardware: a2-highgpu-8g (8x A100, $35.20/hour)
+- Spot discount (70%): $10.56/hour
 - Duration: 168 hours (7 days)
-- Total: 168 hours × $2.86 = $480.48
+- Total: 168 hours × $10.56 = $1,774.08
 
 **Example 2: Production inference, 1M requests daily**
 - Request load: ~12 requests/second peak, 4 requests/second average
@@ -192,11 +192,11 @@ Work backwards from the actual workload to estimate monthly spend.
 - Monthly cost (24/7): $0.88 × 730 hours = $643.40
 
 **Example 3: Continuous training with production serving**
-- Training: 5 a2-highgpu-1g instances (5x $1.19 = $5.95/hour) 8 hours daily
-- Training monthly: $5.95 × 8 × 30 = $1,428
+- Training: 5 a2-highgpu-1g instances (5x $3.67 = $18.35/hour) 8 hours daily
+- Training monthly: $18.35 × 8 × 30 = $4,404
 - Serving: 2x g2-standard-8 instances ($0.88/hour) 24/7
 - Serving monthly: $643.40
-- Total: $2,071.40/month (before storage, data transfer, other services)
+- Total: $5,047.40/month (before storage, data transfer, other services)
 
 ## Optimization Techniques
 
@@ -262,18 +262,18 @@ Instance selection is just the start. Serious optimization is continuous.
 Comprehensive comparison across common workloads:
 
 **Single A100, 1 month continuous (168 hours)**:
-- GCP a2-highgpu-1g: $1.19/hour × 168 = $200
-- AWS p3.2xlarge: $3.06/hour × 168 = $514
-- Azure Standard_ND40rs_v2: $3.48/hour × 168 = $585
+- GCP a2-highgpu-1g: $3.67/hour × 168 = $617
+- AWS p4d.24xlarge: $2.745/GPU/hour × 168 = $461 (8-GPU minimum)
+- Azure NC A100 v4: $3.67/hour × 168 = $617
 
-GCP wins by 60%, saving $314/month per GPU.
+GCP and Azure are similarly priced for single A100. AWS requires an 8-GPU node purchase.
 
 **8-GPU training cluster (7 days intensive)**:
-- GCP a2-highgpu-8g (spot): $2.86/hour × 168 = $480
-- AWS p3.8xlarge (spot): $9.70/hour × 168 = $1,630
-- Azure ND40rs_v2 (reserved): $10/hour × 168 = $1,680
+- GCP a2-highgpu-8g (spot): $10.56/hour × 168 = $1,774
+- AWS p4d.24xlarge (spot, 70% off $21.96): $6.59/hour × 168 = $1,107
+- Azure ND A100 v4 8x (on-demand): $28.50/hour × 168 = $4,788
 
-GCP wins by 70%, saving $1,150+ per training run.
+AWS wins on 8-GPU A100 spot pricing. GCP is competitive, Azure is significantly more expensive on-demand.
 
 **Production inference (continuous, 2 GPUs)**:
 - GCP 2x g2-standard-8: $0.44/hour × 2 × 730 = $643/month
@@ -307,7 +307,7 @@ A100/H100: GCP wins. General inference: Azure competitive. AWS is pricey everywh
 
 **Practical tips**: Spread training across zones (us-central1-b and -c, not just -a). Request quota bumps early.
 
-**The math**: $10k/month AWS GPU budget becomes $4k on GCP. Save $72k/year. Often worth migrating for that alone.
+**The math**: For H100 workloads, GCP's a3-highgpu at $11.06/GPU is comparable to Azure but more expensive than AWS p5 at $6.88/GPU on-demand. For A100 workloads, pricing is similar between GCP and AWS. Always benchmark specific workloads before committing.
 
 ## Final Thoughts
 

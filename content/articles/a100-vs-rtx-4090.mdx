@@ -5,8 +5,8 @@ description: >-
   NVIDIA A100 vs RTX 4090 comparison: specs, cloud pricing, performance for
   training and inference. Which GPU is best for your workload?. Current as of
   March 2026.
-date: '2026-03-21'
-author: DeployBase
+date: '2025-02-19'
+author: Deploybase
 category: GPU Comparison
 keywords:
   - a100 vs rtx 4090
@@ -51,7 +51,7 @@ The gap: A100 is better for distributed training. RTX 4090 is better for inferen
 | Memory bandwidth | ~1 TB/s | 1,555-2,039 GB/s | ~2,039 GB/s | A100 |
 | TDP | 450W | 300W (PCIe) | 400-500W (SXM) | RTX 4090 |
 | Cloud pricing (1x) | $0.34/hr | $1.19/hr (RunPod) | $1.39/hr (RunPod) | RTX 4090 |
-| Multi-GPU NVLink | No | Via PCIe/NVLink | 900 GB/s NVLink | A100 |
+| Multi-GPU NVLink | No | PCIe only (no NVLink) | 600 GB/s NVLink 3.0 | A100 SXM |
 | FP32 peak | ~83 TFLOPS | ~19.5 TFLOPS | ~19.5 TFLOPS | RTX 4090 |
 | INT8 throughput | ~83 TFLOPS | ~312 TFLOPS | ~312 TFLOPS | A100 |
 
@@ -75,21 +75,21 @@ The RTX 4090 is a beast for single-GPU work. The FP32 peak (83 TFLOPS) is actual
 ### A100 PCIe (80GB)
 
 **Memory:** 80GB HBM2e DRAM (or 40GB variant).
-**Bandwidth:** 2,039 GB/s (1,935 GB/s for 40GB variant).
+**Bandwidth:** 1,935 GB/s (1,555 GB/s for 40GB variant).
 **TDP:** 300W (lowest of any A100 variant).
 **CUDA cores:** 6,912.
 **Peak FP32:** ~19.5 TFLOPS.
 **NVLink:** PCIe interconnect only (no NVLink).
 **Memory organization:** 108 SMs, each with 64 FP32 cores.
 
-The PCIe variant is the most common in boutique cloud providers because integration is simple: drop it in any standard server. The 80GB memory and 2TB/s bandwidth handle large model training better than RTX 4090's 24GB.
+The PCIe variant is the most common in boutique cloud providers because integration is simple: drop it in any standard server. The 80GB memory and 1.935 TB/s bandwidth handle large model training better than RTX 4090's 24GB.
 
 ### A100 SXM4 (80GB)
 
 **Memory:** 80GB HBM2e DRAM.
-**Bandwidth:** 2.0 TB/s (SXM4 interconnect, higher than PCIe variant).
-**TDP:** 400-700W (higher under load).
-**NVLink:** 900 GB/s per GPU, scales to 57.6 TB/s aggregate across 256 GPUs.
+**Bandwidth:** 2.039 TB/s (SXM4 variant, slightly higher than PCIe's 1.935 TB/s).
+**TDP:** 400W nominal (SXM variant).
+**NVLink:** 600 GB/s per GPU (NVLink 3.0), scales to 4.8 TB/s aggregate across 8 GPUs.
 **Form factor:** Requires NVIDIA DGX or HGX baseboard.
 
 The SXM variant is what hyperscalers run. NVLink gives multi-GPU scaling that PCIe cannot match. Eight SXM A100s connected via NVLink can train large models with minimal communication overhead. RTX 4090s cannot achieve this at all.
@@ -135,7 +135,7 @@ Winner: A100 for training. The RTX 4090 works, but slow and memory-constrained.
 
 **RTX 4090:** Two RTX 4090s via PCIe have no high-speed interconnect. All inter-GPU communication (gradient synchronization, model sharding) happens over PCIe 4.0, which maxes out at ~30 GB/s per GPU. Training a 70B parameter model across 4 RTX 4090s would stall on communication bottlenecks. Not recommended for distributed training.
 
-**A100 SXM:** Eight A100s connected via NVLink achieve 900 GB/s per GPU for gradient synchronization. Training 70B models scales nearly linearly across GPUs (minimal communication overhead). This is why hyperscalers use A100 SXM for large model training.
+**A100 SXM:** Eight A100s connected via NVLink achieve 600 GB/s per GPU for gradient synchronization (NVLink 3.0). Training 70B models scales nearly linearly across GPUs (minimal communication overhead). This is why hyperscalers use A100 SXM for large model training.
 
 Winner: A100 SXM by a massive margin. RTX 4090 distributed training is impractical.
 

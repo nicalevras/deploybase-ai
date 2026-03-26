@@ -4,9 +4,9 @@ slug: fastest-llm-api
 description: >-
   Rank fastest LLM inference APIs by tokens/second: Groq (LPU), Fireworks,
   Together, Cerebras. Pricing vs speed tradeoffs and when speed matters most.
-date: '2026-03-22'
-author: DeployBase
-category: LLM APIs
+date: '2025-04-03'
+author: Deploybase
+category: LLM Pricing
 ---
 ## Contents
 
@@ -42,21 +42,21 @@ This guide benchmarks leading fast APIs, explains the speed/cost tradeoff, and h
 
 Measured in tokens per second, from fastest to slowest:
 
-1. **Groq (LPU-based)**: 8,000-10,000 tokens/second (custom silicon)
-2. **Fireworks (GPU, optimized inference)**: 2,000-4,000 tokens/second ([H100](/articles/nvidia-h100-price)s optimized)
-3. **Cerebras (custom silicon)**: 2,000-6,000 tokens/second (alternative custom hardware)
-4. **Together (GPU, distributed)**: 1,500-3,000 tokens/second (distributed GPU clusters)
-5. **Standard GPU APIs** (Replicate, Baseten): 500-1,500 tokens/second (commodity GPU instances)
-6. **Major LLM APIs** (OpenAI, Anthropic): 100-500 tokens/second (general-purpose APIs, rate-limited)
+1. **Groq (LPU-based)**: 400-1,000 tokens/second per request (custom silicon; e.g. Llama 3.1 8B Instant: ~840 TPS, Llama 3.3 70B: ~394 TPS)
+2. **Cerebras (custom silicon)**: 1,400-3,000 tokens/second (alternative custom hardware; e.g. GPT OSS 120B: ~3,000 TPS)
+3. **Fireworks (GPU, optimized inference)**: 100-300 tokens/second ([H100](/articles/nvidia-h100-price)s optimized)
+4. **Together (GPU, distributed)**: 100-250 tokens/second (distributed GPU clusters)
+5. **Standard GPU APIs** (Replicate, Baseten): 30-100 tokens/second (commodity GPU instances)
+6. **Major LLM APIs** (OpenAI, Anthropic): 40-100 tokens/second (general-purpose APIs, rate-limited)
 
-Groq's 10,000 token/second speed is extraordinary. To put this in perspective, a typical response is 100-200 tokens. At Groq speed, responses complete in 10-30ms. At OpenAI speed, the same response takes 100-400ms. The difference between "feels responsive" and "feels slow."
+Groq's LPU speed is extraordinary. To put this in perspective, a typical response is 100-200 tokens. At Groq speed (840 TPS on Llama 3.1 8B), responses complete in ~120-240ms. Cerebras achieves even higher throughput on some models. At OpenAI speed, the same response takes 200-500ms. The difference between "feels responsive" and "feels slow."
 
 **Real-world example**: A chat application with 50k daily active users, average 2 messages per user daily = 100k messages.
-- Groq at $0.006 per request average = $600/day = $18,000/month
-- OpenAI at $0.02 per request average = $2,000/day = $60,000/month
-- Fireworks at $0.0006 per request average = $60/day = $1,800/month
+- Groq at ~$0.00033 per request average = $33/day = $1,000/month
+- OpenAI at $0.002 per request average = $200/day = $6,000/month
+- Fireworks at $0.0003 per request average = $30/day = $900/month
 
-Groq costs 10x more than Fireworks but provides better user experience. OpenAI costs 30x more than Fireworks.
+Groq and Fireworks are comparably priced; Groq's advantage is speed, not cost. OpenAI costs 6x more than Fireworks or Groq.
 
 ## Groq: LPU Hardware Innovation
 
@@ -64,18 +64,18 @@ Groq's speed advantage stems from custom LPU silicon. While GPUs are general-pur
 
 **How it works**: Groq's inference engines run transformer layers sequentially with minimal memory movement, maximizing throughput. Traditional GPUs spend 40% of time moving data between memory and compute. Groq optimizes the data path, reducing overhead.
 
-**Pricing**: Groq charges $5 per 1M input tokens, $15 per 1M output tokens. For a typical 50-token response with 500-token context:
-- Input cost: 500 tokens × $5/1M = $0.0025
-- Output cost: 50 tokens × $15/1M = $0.00075
-- Total: ~$0.003 per request
+**Pricing**: Groq charges $0.05-$0.59 per 1M input tokens, $0.08-$0.79 per 1M output tokens depending on model. For a typical 50-token response with 500-token context using Llama 3.3 70B ($0.59/$0.79):
+- Input cost: 500 tokens × $0.59/1M = $0.000295
+- Output cost: 50 tokens × $0.79/1M = $0.0000395
+- Total: ~$0.00033 per request
 
-For 1M requests monthly: $3,000.
+For 1M requests monthly: ~$330.
 
 **Advantages**:
-- Extreme speed (2-10x faster than competitors)
-- Consistent latency (sub-100ms even under load)
-- Good pricing ($5/$15 matches mid-tier APIs)
-- Strong model support (Llama, Mixtral, and others)
+- Extreme speed (fastest LLM API on the market per token)
+- Consistent latency (sub-200ms even under load)
+- Very competitive pricing ($0.05-$0.59 input per 1M)
+- Strong model support (Llama, Qwen, and others)
 
 **Disadvantages**:
 - Limited model variety (newer models take weeks to add)
@@ -134,7 +134,7 @@ Together specializes in distributed inference, spreading large models across mul
 
 Cerebras manufactures custom AI chips (Wafer Scale Engine) and offers inference through cloud API.
 
-**Pricing**: Cerebras pricing is opaque (contact sales), estimated $3-10 per 1M input tokens. Likely similar or slightly lower than Groq.
+**Pricing**: Cerebras charges $0.10-$2.25 per 1M input tokens depending on model (e.g. Llama 3.1 8B: $0.10/M input, GPT OSS 120B: $0.35/M input). Competitive with Groq on price.
 
 **Advantages**:
 - Alternative to Groq (competition drives down prices)
@@ -181,7 +181,7 @@ Speed premium varies:
 
 | API | $/1M Input | $/1M Output | Speed (tokens/sec) | Cost per typical request | Speed rank |
 |-----|-----------|-----------|-------------------|------------------------|-----------|
-| Groq | $5 | $15 | 8,000 | $0.003 | 1st (fastest) |
+| Groq | $0.05–$0.59 | $0.08–$0.79 | 394–840 | $0.00033 | 1st (fastest) |
 | Fireworks | $0.50 | $1.00 | 2,500 | $0.0003 | 2nd |
 | Together | $0.30 | $1.00 | 2,000 | $0.0002 | 3rd |
 | Claude Sonnet | $3 | $15 | 300 | $0.0055 | 5th |
@@ -262,10 +262,10 @@ Identify the specific workload. Generic "fastest" doesn't apply universally.
 
 ## Model Availability and Limitations
 
-Groq's limited model variety is significant. As of early 2026, Groq supports:
-- Llama 3 (8B, 70B)
-- Mixtral 8x7B
-- Mixtral 8x22B
+Groq's limited model variety is significant. As of March 2026, Groq supports:
+- Llama 3.1 8B Instant, Llama 3.3 70B Versatile
+- Llama 4 Scout (17Bx16E)
+- Qwen3 32B, GPT OSS 120B, GPT OSS 20B, Kimi K2
 - Limited other models
 
 Competitors support 50-100+ models. If developers need a specific model not on Groq (Claude, GPT-4, specialized fine-tuned models), Groq isn't an option.

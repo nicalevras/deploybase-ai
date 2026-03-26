@@ -5,9 +5,9 @@ description: >-
   Replicate pricing explained: cost per prediction, hardware selection,
   serverless model hosting comparison, and scale analysis for production as of
   March 2026.
-date: '2026-03-22'
-author: DeployBase
-category: Price Guides
+date: '2025-07-09'
+author: Deploybase
+category: GPU Pricing
 keywords:
   - replicate pricing
   - replicate ai pricing
@@ -47,14 +47,15 @@ The formula is simple:
 
 Multiple hardware tiers available, CPU to H100. March 2026 rates:
 
-| Hardware | Hourly Rate (Approx) | Cost Per Minute |
+| Hardware | Hourly Rate (Approx) | Cost Per Second |
 |----------|-------------------|-----------------|
-| CPU | $0.0008 | $0.000013 |
-| Nvidia T4 | $0.25 | $0.004 |
-| Nvidia A100 | $1.00 | $0.0167 |
-| Nvidia H100 | $4.00 | $0.0667 |
+| CPU | ~$0.001 | $0.000350 |
+| Nvidia T4 | $0.81 | $0.000225 |
+| Nvidia A100 (80GB) | $5.04 | $0.001400 |
+| Nvidia H100 | $5.49 | $0.001525 |
+| Nvidia L40S | $3.51 | $0.000975 |
 
-These are ballpark figures, they change. Actual costs depend on Replicate's current capacity and demand. Infrastructure allocation is dynamic, so costs vary run-to-run.
+These are current listed rates from Replicate's pricing page. Actual costs depend on Replicate's current capacity and demand. Infrastructure allocation is dynamic, so costs vary run-to-run.
 
 ## Cost Per Prediction Explained {#cost-per-prediction}
 
@@ -64,31 +65,27 @@ Let's walk through real costs.
 
 Stable Diffusion: 8-15 seconds on T4. Let's say 10 seconds.
 
-Cost: 10 × $0.004/sec = $0.04/image
+Cost: 10 × $0.000225/sec = $0.00225/image
 
 100 daily images:
-- Daily: $4
-- Monthly: ~$120
-- Annual: ~$1,460
+- Daily: $0.225
+- Monthly: ~$6.75
+- Annual: ~$82
 
-CPU-only inference takes 60 seconds but costs $0.00078/image.
-
-- Daily: $0.078
-- Monthly: ~$2.34
-- Annual: ~$28.50
-
-That's 50x cheaper. But it's slow. Trade-off: speed vs cost.
+CPU-only inference takes longer but costs less per image. Trade-off: speed vs cost.
 
 **Language Model Inference**
 
 Llama 2 7B takes 20-40 seconds on T4 depending on output length. Average: 30 seconds.
 
-Cost: 30 × $0.004/sec = $0.12/prediction
+Cost: 30 × $0.000225/sec = $0.00675/prediction (on T4)
 
-500 daily predictions:
-- Daily: $60
-- Monthly: ~$1,800
-- Annual: ~$21,900
+On A100 (faster, ~10 seconds): 10 × $0.001400/sec = $0.014/prediction
+
+500 daily predictions (T4):
+- Daily: $3.38
+- Monthly: ~$101
+- Annual: ~$1,234
 
 That adds up. For high-volume text work, [OpenAI](/articles/openai-pricing) or token-based APIs often cost less.
 
@@ -96,12 +93,12 @@ That adds up. For high-volume text work, [OpenAI](/articles/openai-pricing) or t
 
 Video is expensive. A 60-second video on A100 takes 120-180 seconds to process. Call it 150 seconds.
 
-Cost: 150 × $0.0167/sec = $2.50/video
+Cost: 150 × $0.001400/sec = $0.21/video (A100)
 
 20 daily videos:
-- Daily: $50
-- Monthly: ~$1,500
-- Annual: ~$18,250
+- Daily: $4.20
+- Monthly: ~$126
+- Annual: ~$1,533
 
 A 10-second input video still costs $2.50 if processing takes 120 seconds. Only viable for small batches or as a fallback.
 
@@ -113,14 +110,14 @@ Hardware choice is the main cost lever. Better GPUs run faster, but speed gains 
 
 Same model, 512×512 image generation:
 
-| GPU | Time to Complete | Cost (T4 = $0.004/sec) |
-|-----|------------------|------------------------|
-| CPU | 180 seconds | $0.0023 |
-| T4 | 10 seconds | $0.04 |
-| A100 | 5 seconds | $0.083 |
-| H100 | 3 seconds | $0.20 |
+| GPU | Time to Complete | Approx Cost |
+|-----|------------------|-------------|
+| CPU | 180 seconds | ~$0.06 |
+| T4 | 10 seconds | $0.002 |
+| A100 | 5 seconds | $0.007 |
+| H100 | 3 seconds | $0.005 |
 
-A100 is 2x faster than T4 but costs 2x more. H100 is 3.3x faster but costs 5x more. T4 wins on pure value. H100 wins if latency matters-faster execution means better user experience and higher throughput.
+T4 provides excellent value for image generation at $0.000225/sec. A100 at $0.001400/sec is faster but more expensive. H100 at $0.001525/sec is the fastest option. T4 wins on pure value. H100 wins if latency matters-faster execution means better user experience and higher throughput.
 
 **Batch Processing vs Real-Time**
 
@@ -132,7 +129,7 @@ But latency varies. T4 might queue 5 seconds, H100 queues 2 seconds. If develope
 
 [RunPod](/articles/runpod-gpu-pricing) costs less but demands more work.
 
-Pricing: RunPod A100 = $1.19/hour. Replicate A100 = ~$1.00/hour. Similar on raw rates.
+Pricing: RunPod A100 = $1.19/hour. Replicate A100 80GB = ~$5.04/hour. Replicate's premium reflects managed infrastructure and zero-ops serverless model.
 
 Operating models are different though:
 
@@ -158,12 +155,12 @@ Replicate hosts hundreds of models. Common ones and their costs:
 
 | Model | Task | Hardware | Time | Approx Cost |
 |-------|------|----------|------|------------|
-| Stable Diffusion 3 | Image Generation | T4 | 15s | $0.06 |
-| Llama 2 7B | Text Generation | T4 | 25s | $0.10 |
-| Whisper (Large) | Speech-to-Text | T4 | 30s | $0.12 |
-| Dali-3 | Image Generation | A100 | 20s | $0.33 |
-| Mistral 7B | Text Generation | A100 | 15s | $0.25 |
-| Flux Pro | Image Generation | H100 | 10s | $0.67 |
+| Stable Diffusion 3 | Image Generation | T4 | 15s | $0.003 |
+| Llama 2 7B | Text Generation | T4 | 25s | $0.006 |
+| Whisper (Large) | Speech-to-Text | T4 | 30s | $0.007 |
+| DALL-E 3 | Image Generation | A100 | 20s | $0.028 |
+| Mistral 7B | Text Generation | A100 | 15s | $0.021 |
+| Flux Pro | Image Generation | H100 | 10s | $0.015 |
 
 These are ballpark figures. Actual costs vary with input size. A 2-hour Whisper file takes way longer than 30 seconds. 500-token Llama output takes longer than 50 tokens.
 
@@ -175,15 +172,15 @@ Key difference from LLM APIs: Developers pay for GPU time, not tokens. Fast infe
 
 Prediction starts = billing starts. Replicate reserves a GPU. Prediction completes = billing stops. Failures get refunded for unused time.
 
-Example: H100 reservation. Prediction runs 45 seconds, succeeds. Bill: 45 × $0.0667/sec = $3.00.
+Example: H100 reservation. Prediction runs 45 seconds, succeeds. Bill: 45 × $0.001525/sec = $0.069.
 
-Same prediction fails at 30 seconds. Bill: $2.00 for those 30 seconds only.
+Same prediction fails at 30 seconds. Bill: 30 × $0.001525/sec = $0.046 for those 30 seconds only.
 
 **Cold Start Costs**
 
 Model scales to zero, next request is a "cold start." GPU boots, container loads, model weights initialize. Adds 2-10 seconds depending on model and GPU.
 
-Frequent workloads? Negligible. Sparse requests? Adds up. 10 cold starts daily at 5 seconds each = 50 seconds extra (~$0.20 on T4) or ~$73/year.
+Frequent workloads? Negligible. Sparse requests? Adds up. 10 cold starts daily at 5 seconds each = 50 seconds extra (~$0.011 on T4 at $0.000225/sec) or ~$4/year.
 
 **Optimization Techniques**
 
@@ -205,7 +202,7 @@ Economics shift at different scales. Cheap at 10 daily predictions. Expensive at
 
 Below 50 daily predictions: Replicate's convenience wins. 20 images/day = $1-2/day (~$30-60/month). Engineering to build alternatives costs thousands.
 
-500-2,000 daily: Cost starts to matter. 1,000 images/day = $40-50/day or $1,200-1,500/month. Time to evaluate alternatives.
+500-2,000 daily: Cost starts to matter. 1,000 images/day on T4 = ~$2.25/day or ~$68/month. Time to evaluate alternatives at scale.
 
 10,000+ daily: Self-hosted or committed GPUs probably cheaper. Replicate per-second billing loses to long-term leases, but with operational overhead.
 
@@ -233,34 +230,34 @@ Assumptions:
 - 2 images per user/day (1,000 total)
 - 15 seconds per image on T4
 
-Cost: 1,000 × $0.06 = $60/day
-- Daily: $60
-- Monthly: ~$1,800
-- Annual: ~$21,960
+Cost: 1,000 × $0.003 (T4, 15s each) = $3/day
+- Daily: $3
+- Monthly: ~$90
+- Annual: ~$1,095
 
-Revenue at $10/month per user = $5,000/month. After Replicate, $3,200 remains for hosting, support, and infrastructure. Good margins for AI.
+Revenue at $10/month per user = $5,000/month. After Replicate, ~$4,910 remains for hosting, support, and infrastructure. Good margins for AI.
 
 **Example 2: Batch Video Processing Platform**
 
 Company processes 100 videos/day (60 seconds each). Processing on A100 takes 120 seconds per video.
 
-Cost: 120 × $0.0167/sec = $2.00/video
-- Daily: $200
-- Monthly: ~$6,000
-- Annual: ~$73,000
+Cost: 120 × $0.001400/sec = $0.168/video
+- Daily: $16.80
+- Monthly: ~$504
+- Annual: ~$6,132
 
-A leased H100 costs ~$3,500/month with 100+ hours available. That's 6,000 seconds daily-50 videos. Double volume and self-hosted breaks even.
+A leased H100 at ~$1,950/month gives continuous capacity. At high volume, self-hosted becomes economical.
 
 **Example 3: Internal Tool with Llama 2 7B**
 
 Company uses Llama 2 7B for internal NLP: email classification, entity extraction, summaries. 30 seconds per prediction on T4.
 
-Cost: $0.12/prediction
-- Daily: 500 predictions = $60
-- Monthly: ~$1,800
-- Annual: ~$21,900
+Cost: $0.00675/prediction (T4, 30s each)
+- Daily: 500 predictions = $3.38
+- Monthly: ~$101
+- Annual: ~$1,234
 
-That cost justifies hiring someone to fine-tune and self-host Llama 2. Or switch to [OpenAI](/articles/openai-pricing) token-based billing.
+At scale, that cost justifies hiring someone to fine-tune and self-host Llama 2. Or switch to [OpenAI](/articles/openai-pricing) token-based billing.
 
 ## Hidden Costs and Considerations {#hidden-costs}
 

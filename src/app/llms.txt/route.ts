@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { gpuPricingCache } from "@/lib/gpu-pricing-cache";
 import { modelsCache } from "@/lib/models-cache";
 import { toGpuModelSlug } from "@/lib/gpu-model-slug";
+import { getAllArticleSlugs, getArticleBySlug } from "@/lib/articles-loader";
+import { CATEGORIES } from "@/lib/article-categories";
 import { logger } from "@/lib/logger";
 
 export const revalidate = 43200;
@@ -113,6 +115,37 @@ export async function GET() {
     }
   } catch (error) {
     logger.error("[llms.txt] Failed to fetch LLM providers", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  // Article Categories
+  lines.push("## Article Categories", "");
+  for (const cat of CATEGORIES) {
+    lines.push(
+      `- [${cat.name} Articles](${SITE_URL}/articles/category/${cat.slug}): ${cat.description}`,
+    );
+  }
+  lines.push("");
+
+  // Articles
+  try {
+    const slugs = getAllArticleSlugs();
+    if (slugs.length) {
+      lines.push("## Articles", "");
+      for (const slug of slugs) {
+        const article = getArticleBySlug(slug);
+        if (!article) continue;
+        const { title, description } = article.frontmatter;
+        const desc = description || title;
+        lines.push(
+          `- [${title}](${SITE_URL}/articles/${slug}): ${desc}`,
+        );
+      }
+      lines.push("");
+    }
+  } catch (error) {
+    logger.error("[llms.txt] Failed to read articles", {
       error: error instanceof Error ? error.message : String(error),
     });
   }

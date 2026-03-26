@@ -4,8 +4,9 @@ slug: google-cloud-vs-aws-vs-azure-gpu-pricing-comparison
 description: >-
   Compare GPU costs across Google Cloud, AWS, and Azure for LLM inference and
   training. Pricing data and recommendations.
-date: '2026-03-22'
-author: DeployBase
+category: GPU Pricing
+date: '2025-04-17'
+author: Deploybase
 keywords:
   - google cloud vs aws gpu pricing
 ---
@@ -31,61 +32,59 @@ keywords:
 
 ## Instance Pricing Comparison
 
-**AWS P5** (8x H100, 640GB): ~$98/hour = ~$12.25/hour per GPU. NVLink 4.0 bandwidth is excellent; includes 400Gbps EFA networking.
+**AWS P5** (8x H100, 640GB): ~$55.04/hour on-demand = ~$6.88/hour per GPU. NVLink 4.0 bandwidth is excellent; includes 400Gbps EFA networking.
 
-**Azure ND** (8x H100): $27/hour = $3.38/hour per GPU. 15% cheaper than AWS.
+**Azure ND H100 v5** (8x H100): $88.49/hour = $11.06/hour per GPU.
 
-**Google Cloud A3** (8x H100): $28/hour = $3.50/hour per GPU. Between Azure and AWS.
+**Google Cloud A3** (8x H100): ~$88.49/hour = ~$11.06/hour per GPU.
 
-Ordering: Azure cheapest, GCP middle, AWS priciest. Azure's advantage compounds on long-running jobs.
+Ordering by on-demand cost: AWS cheapest, GCP and Azure similarly priced. AWS offers the most competitive H100 pricing among hyperscalers.
 
 ## The Math
 
-100 hours/month:
-- AWS: $3,200
-- Azure: $2,700
-- GCP: $2,800
+100 hours/month (8x H100 node, on-demand):
+- AWS: $5,504
+- GCP: $8,849
+- Azure: $8,849
 
-Azure wins by $400-500.
+AWS wins by a significant margin. GCP and Azure are similarly priced.
 
 1,000 hours/month:
-- AWS: $32,000
-- Azure: $27,000
-- GCP: $28,000
+- AWS: $55,040
+- GCP: $88,490
+- Azure: $88,490
 
-Azure $5,000 ahead monthly. $60k/year.
+AWS saves $33,000-$33,500 monthly vs GCP and Azure.
 
 24/7 (730 hours):
-- AWS: $23,360
-- Azure: $19,710
-- GCP: $20,440
+- AWS: $40,179
+- GCP: $64,598
+- Azure: $64,598
 
-Azure $3,650/month cheaper. $43,800/year.
+AWS is roughly $24,000/month cheaper than GCP and Azure for H100.
 
 ## Reserved Instances and Commitments
 
-**AWS RIs**
-1-year: $19/hour (37% off), 3-year: $12.80/hour (60% off)
+**AWS RIs** (p5.48xlarge, 8x H100)
+1-year: ~$38.53/hour (~30% off on-demand), 3-year: estimated ~$33/hour (~40% off)
 
-**Azure Reservations**
-1-year: $18.36/hour (32% off), 3-year: $12.15/hour (55% off)
+**Azure Reservations** (ND H100 v5, 8x H100)
+1-year: ~$62/hour (~30% off), 3-year: ~$44/hour (~50% off)
 
-Azure still cheaper even with RIs.
+**GCP Committed Use Discounts** (a3-highgpu-8g, 8x H100)
+1-year: ~$61.94/hour (30% off), 3-year: ~$53.10/hour (40% off)
 
-**GCP Committed Use Discounts**
-1-year: $19.60/hour (30% off), 3-year: $13.44/hour (52% off)
-
-Discounts are similar but Azure base pricing is lower.
+AWS remains cheapest even with commitments. GCP and Azure offer similar committed rates.
 
 ## Spot/Preemptible Pricing
 
-**AWS Spot**: $9.60-12.80/hour (60-70% off). Can get interrupted.
+**AWS Spot** (p5.48xlarge): ~$16.51/hour (~70% off on-demand $55.04/hr). Can get interrupted.
 
-**Azure Spot**: $8.10-10.80/hour (60-70% off). Same terms.
+**Azure Spot** (ND H100 v5): ~$26.55/hour (~70% off $88.49/hr). Same terms.
 
-**GCP Preemptible**: $7.20-9.60/hour (60-70% off).
+**GCP Preemptible** (a3-highgpu-8g): Not available on A3 instances.
 
-All three within 5% of each other. Use when interruptions are tolerable and cost is key.
+Note: GCP does not offer preemptible/spot pricing on A3 H100 instances. AWS and Azure spot pricing provides significant savings for fault-tolerant workloads.
 
 ## Data Transfer and Egress Costs
 
@@ -103,26 +102,26 @@ All three within 5% of each other. Use when interruptions are tolerable and cost
 
 ## Total Cost of Ownership Scenarios
 
-**Development (100 GPU hours/month + 10GB transfer)**:
-- AWS: $3,400
-- Azure: $2,900
-- GCP: $3,000
+**Development (100 GPU hours/month, 8x H100 node + 10GB transfer)**:
+- AWS on-demand: $5,504 + $2 egress ≈ $5,506
+- Azure on-demand: $8,849 + $2 egress ≈ $8,851
+- GCP on-demand: $8,849 + $1 egress ≈ $8,850
 
-Azure wins by $400-500.
+AWS wins by a large margin. GCP and Azure are similar.
 
-**Production inference (3,000 hours/month + 500GB transfer, 1-year RI)**:
-- AWS: $67,000
-- Azure: $65,080
-- GCP: $68,800
+**Production inference (3,000 hours/month + 500GB transfer, 1-year commitment)**:
+- AWS 1-year reserved: ~$38.53 × 3,000 + $10 = $115,600
+- GCP 1-year CUD: ~$61.94 × 3,000 + $15 = $185,835
+- Azure 1-year reserved: ~$62 × 3,000 + $10 = $186,010
 
-Azure saves $2,000-3,700 monthly.
+AWS saves $70,000+ monthly vs GCP and Azure with commitments.
 
-**Large fine-tuning (10,000 hours + 500GB egress, 1-year RI)**:
-- AWS: $205,000
-- Azure: $198,600
-- GCP: $211,000
+**Large fine-tuning (10,000 hours + 500GB egress, 1-year commitment)**:
+- AWS 1-year reserved: ~$38.53 × 10,000 + $10 = $385,310
+- GCP 1-year CUD: ~$61.94 × 10,000 + $15 = $619,415
+- Azure 1-year reserved: ~$62 × 10,000 + $10 = $620,010
 
-Azure saves $6,400-12,400 monthly. $77k-149k annually.
+AWS saves $235,000+ over 10,000 hours vs hyperscaler alternatives. For sustained H100 workloads, AWS is the cheapest hyperscaler.
 
 ## Regional Pricing Variations
 
@@ -138,16 +137,16 @@ Deploy in cheap regions when latency allows. Latency usually matters less than c
 
 **Pick AWS if**: locked into AWS already, need multi-region, need SageMaker, willing to pay more for ecosystem.
 
-**Pick Azure if**: cost is the main driver, Microsoft shop, need AD integration, have Azure ML already.
+**Pick Azure if**: already invested in Microsoft ecosystem, need AD integration, have Azure ML already, or compliance requirements favor Microsoft.
 
-**Pick GCP if**: want cost-performance balance, thinking TPU later, like Google's ML tools.
+**Pick GCP if**: using GCP ecosystem tools (BigQuery, Vertex AI, TPUs), prefer Google ML tools, or need A100 single-GPU flexibility (a2-highgpu-1g at $3.67/hr).
 
 **Pick multi-cloud if**: can't afford single-provider outages, workloads are portable, operational complexity OK.
 
 ## FAQ
 
 **Which provider is cheapest for long-running LLM inference?**
-Azure ND with 3-year reservation is typically cheapest. But AWS sometimes has regional promotions. Check current pricing before committing to long-term contracts.
+AWS P5 instances are cheapest among hyperscalers for H100 on-demand ($55.04/hr for 8 GPUs). For specialized providers, RunPod (~$2.69/hr per H100) and Vast.ai are significantly cheaper than any hyperscaler. Check current pricing before committing to long-term contracts.
 
 **Can we move between providers easily?**
 Yes, models and code are portable. Infrastructure changes take 2-4 weeks. Data transfer costs are 1-2% of total migration cost. Switching is feasible but not trivial.

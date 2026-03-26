@@ -4,8 +4,8 @@ slug: amd-mi300x-vs-h100
 description: >-
   AMD MI300X vs NVIDIA H100 GPU comparison: memory capacity, ROCm vs CUDA,
   performance, and when the MI300X makes sense. Cloud availability March 2026.
-date: '2026-03-22'
-author: DeployBase
+date: '2025-06-02'
+author: Deploybase
 category: GPU Comparison
 keywords:
   - amd mi300x vs h100
@@ -48,13 +48,13 @@ AMD's MI300X (CDNA 3 architecture, December 2023) and NVIDIA's H100 (Hopper, 202
 | **Release Date** | Dec 2023 | Mar 2023 | Tie (~same era) |
 | **Memory** | 192GB HBM3 | 80GB HBM3 | MI300X (2.4x) |
 | **Memory Bandwidth** | 5.3 TB/s | 3.35 TB/s | MI300X (1.6x) |
-| **Peak FP32** | 51 TFLOPS | 67 TFLOPS | H100 (31% faster) |
-| **Peak FP8 Tensor** | 12,300 TFLOPS | 5,825 TFLOPS | MI300X (2.1x) |
-| **TF32 Tensor** | 1,600 TFLOPS | 989 TFLOPS | MI300X (62% faster) |
+| **Peak FP32** | 163.4 TFLOPS | 67 TFLOPS | MI300X (2.4x) |
+| **Peak FP8 Tensor** | 2,610 TFLOPS (dense) | 3,958 TFLOPS (with sparsity) | H100 with sparsity; comparable dense |
+| **TF32 Tensor** | N/A | 989 TFLOPS | H100 only |
 | **AI Accelerators (per GPU)** | 3 (SPUs) | 2 (TCs) | MI300X (more units) |
 | **Software Stack** | ROCm | CUDA | H100 (maturity) |
-| **Cloud Price/hr** | $4.50-$5.50 | $2.49-$2.86 | H100 (cheaper) |
-| **Price per GB Memory** | $0.12/GB | $0.50/GB | MI300X (4x cheaper) |
+| **Cloud Price/hr** | $1.99-$3.45 | $2.86-$3.78 | MI300X competitive |
+| **Price per GB Memory** | $0.01/GB | $0.04/GB | MI300X (4x cheaper) |
 
 Data from AMD and NVIDIA datasheets, DeployBase pricing (March 2026). MI300X wins on memory; H100 wins on ecosystem and proven performance.
 
@@ -99,9 +99,9 @@ CDNA 3 is well-designed for transformers, but fewer deployed instances means les
 ### Compute Units and Cores
 
 MI300X:
-- 288 compute units
-- 55,296 stream processors
-- Peak single precision (FP32): 51 TFLOPS
+- 304 compute units
+- 19,456 stream processors
+- Peak single precision (FP32): 163.4 TFLOPS
 
 H100:
 - 132 streaming multiprocessors
@@ -113,16 +113,16 @@ H100 has higher FP32 throughput due to denser core packing. But for AI workloads
 ### AI-Specific Operations
 
 **FP8 Tensor Operations (inference):**
-- MI300X: 12,300 TFLOPS
-- H100: 5,825 TFLOPS
-- Advantage: MI300X (2.1x)
+- MI300X: 2,610 TFLOPS (dense, without sparsity)
+- H100: 3,958 TFLOPS (with structural sparsity); 1,979 TFLOPS (dense, without sparsity)
+- Advantage: H100 (52% higher peak with sparsity enabled; comparable dense performance)
 
-For quantized inference, MI300X is significantly faster. Critical for serving large models with minimal accuracy loss.
+H100's FP8 Tensor performance exceeds MI300X peak, though MI300X's larger memory allows larger batch sizes that may increase effective throughput.
 
 **TF32 Tensor (training):**
-- MI300X: 1,600 TFLOPS
+- MI300X: N/A (uses BF16/FP32 matrix engines)
 - H100: 989 TFLOPS
-- Advantage: MI300X (62% faster on paper; real-world gap is smaller due to ROCm maturity)
+- Advantage: H100 (specialized TF32 support)
 
 Similar performance on training-critical operations.
 
@@ -184,13 +184,13 @@ H100 PCIe:
 MI300X:
 - Throughput: ~1,050-1,200 tokens/second (1.2x, conservative estimate based on FP8 advantage)
 - Latency P50: ~0.85ms per token (lower due to better memory bandwidth)
-- Cost: $4.99/hr (estimated cloud rate)
+- Cost: $1.99/hr (DigitalOcean)
 
 **Cost-per-token:**
 - H100: $1.99/hr at 850 tok/s = $2.34 per million tokens
-- MI300X: $4.99/hr at 1,050 tok/s = $4.75 per million tokens
+- MI300X: $1.99/hr at 1,050 tok/s = $1.89 per million tokens
 
-H100 is cheaper per token on inference, despite MI300X's FP8 advantage. The price premium outweighs throughput gains.
+MI300X is cheaper per token on inference at current market prices, with higher throughput from better memory bandwidth.
 
 ### LLM Training (70B Model)
 
@@ -202,7 +202,7 @@ H100 is cheaper per token on inference, despite MI300X's FP8 advantage. The pric
 **1x MI300X (hypothetically, due to memory advantage):**
 - Training throughput: ~650-700 samples/second (estimated 50% of H100 throughput, accounting for ROCm maturity)
 - Time to train 1T tokens: ~1.4M-1.5M seconds (~16-17 days)
-- Cost: 1 × $4.99 × 730 = $3,642/month
+- Cost: 1 × $1.99 × 730 = $1,453/month (DigitalOcean)
 
 Single MI300X is cheaper but slower than clustered H100s. The trade-off depends on urgency and cost constraints.
 
@@ -213,7 +213,7 @@ Single MI300X is cheaper but slower than clustered H100s. The trade-off depends 
 1x MI300X:
 - Fits 200B quantized model with optimizer states
 - Training time: ~25-30 days
-- Cost: $3,642/month
+- Cost: $1,453/month (DigitalOcean)
 
 No H100 alternative for single-GPU 200B training. MI300X wins by capability.
 
@@ -227,18 +227,18 @@ No H100 alternative for single-GPU 200B training. MI300X wins by capability.
 |----------|-----|--------|------|
 | Lambda | H100 PCIe | 80GB | $2.86 |
 | RunPod | H100 SXM | 80GB | $2.69 |
-| Lambda | H100 SXM | 80GB | $2.49 |
-| Crusoe Energy | MI300X | 192GB | $4.50 |
-| CoreWeave | MI300X | 192GB | $5.50 |
+| Lambda | H100 SXM | 80GB | $3.78 |
+| DigitalOcean | MI300X | 192GB | $1.99 |
+| Crusoe | MI300X | 192GB | $3.45 |
 
-MI300X is 1.5-2.0x more expensive per GPU-hour. But MI300X has 2.4x more memory, so price-per-GB is lower.
+MI300X is now price-competitive with H100 per hour, and offers 2.4x more memory.
 
 ### Price per GB Memory
 
 - H100: $2.49-$2.86 per GPU-hour for 80GB = $31-36 per GB-hour
-- MI300X: $4.50-$5.50 per GPU-hour for 192GB = $23-29 per GB-hour
+- MI300X: $1.99-$3.45 per GPU-hour for 192GB = $10-18 per GB-hour
 
-MI300X is cheaper per GB of memory. For workloads where memory is the constraint (like 200B model training), MI300X is economical.
+MI300X is 50-70% cheaper per GB of memory. For workloads where memory is the constraint (like 200B model training), MI300X is highly economical.
 
 ### Availability
 
@@ -319,8 +319,8 @@ Total delay: 2-3 months before MI300X is production-ready.
 - Potential quality issues: Unknown
 
 **Cost savings from MI300X:**
-- Monthly savings: $15,764 (H100 cluster) - $3,642 (MI300X) = $12,122
-- Annual savings: ~$145k
+- Monthly savings: $15,764 (H100 cluster) - $1,453 (MI300X, DigitalOcean) = $14,311
+- Annual savings: ~$172k
 
 **Payback period:** 2-4 months
 

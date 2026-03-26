@@ -4,8 +4,8 @@ slug: lambda-cloud-gpu-pricing
 description: >-
   Lambda GPU pricing ranges $0.58-$6.08 per GPU-hour as of March 2026. Compare
   rates, form factors, and multi-GPU clusters with reserved discounts.
-date: '2026-03-21'
-author: DeployBase
+date: '2025-05-08'
+author: Deploybase
 category: GPU Pricing
 keywords:
   - lambda cloud gpu pricing
@@ -53,7 +53,7 @@ Full GPU inventory tracked on the [DeployBase GPU comparison](/gpus/lambda).
 | A100 SXM | 40GB | $1.48 | $1,080.40 | Distributed training (multi-GPU) |
 | GH200 | 96GB | $1.99 | $1,452.70 | Large model inference, long context |
 | H100 PCIe | 80GB | $2.86 | $2,087.80 | High-throughput inference, single GPU |
-| H100 SXM | 80GB | $2.49 | $1,817.70 | Large model training, multi-GPU clusters |
+| H100 SXM | 80GB | $3.78 | $2,759.40 | Large model training, multi-GPU clusters |
 | B200 SXM | 192GB | $6.08 | $4,438.40 | Frontier model training, maximum memory |
 
 All prices from Lambda's official pricing page, observed March 21, 2026.
@@ -80,11 +80,11 @@ The A100 PCIe and A100 SXM both sit at $1.48/hr on Lambda. 40GB HBM2e memory. Sa
 
 The GH200 at $1.99/hr jumps to 96GB HBM3e memory. That 2.4x increase in VRAM for 34% more cost per hour is a practical trade-off. Large language models in the 13B-70B parameter range fit comfortably without quantization. Good for inference serving on large models, worse for training due to lower peak compute relative to H100 series (540 peak TFLOPS vs 660 for H100).
 
-### High Performance ($2.49-$2.86/hr)
+### High Performance ($2.86-$3.78/hr)
 
 H100 PCIe at $2.86/hr. 80GB HBM2e, 2.0 TB/s bandwidth, 350W TDP. Most common H100 variant on cloud providers because it fits standard server builds. Inference throughput is excellent (~100-150 tokens/sec for a 70B model). Multi-GPU training hits memory bandwidth limits when scaling beyond 2-4 GPUs. Single-GPU training is viable for models up to 70B parameters with some quantization.
 
-H100 SXM at $2.49/hr is the distributed training workhorse. Same 80GB VRAM, but 3.35 TB/s memory bandwidth and NVLink 4.0 interconnect (900 GB/s per GPU). Eight-GPU clusters reach 57.6 TB/s aggregate bandwidth. Essential for training 70B+ models or large model parallelism. Priced below H100 PCIe ($2.86/hr), the SXM form factor is excellent value for multi-GPU deployments.
+H100 SXM at $3.78/hr is the distributed training workhorse. Same 80GB VRAM, but 3.35 TB/s memory bandwidth and NVLink 4.0 interconnect (900 GB/s per GPU). Eight-GPU clusters reach 57.6 TB/s aggregate bandwidth. Essential for training 70B+ models or large model parallelism. The SXM premium ($0.92/hr more than PCIe) reflects the NVLink interconnect advantage for multi-GPU deployments.
 
 Real-world scenario: training a 70B parameter LLM on 8x H100 SXM takes 7-10 days depending on data size. Training the same model on 8x H100 PCIe would bottleneck on memory bandwidth and take 25-40% longer.
 
@@ -119,10 +119,10 @@ The 8x A100 SXM at 640GB is a different configuration (likely higher memory vari
 
 | Configuration | VRAM Total | Price/hr | Price/GPU |
 |---------------|------|----------|----------|
-| 1x H100 SXM | 80GB | $2.49 | $2.49 |
-| 8x H100 SXM | 640GB | $19.92 | $2.49 |
+| 1x H100 SXM | 80GB | $3.78 | $3.78 |
+| 8x H100 SXM | 640GB | $27.52 | $3.44 |
 
-Eight H100 SXMs cost $19.92/hr total, or $2.49 per GPU. The per-GPU rate is identical to a single H100 SXM rental. Lambda prices H100 SXM linearly with no bulk premium or discount at this tier.
+Eight H100 SXMs cost $27.52/hr total, or $3.44 per GPU. Lambda prices H100 SXM clusters at a slight discount vs the single-GPU rate of $3.78/hr.
 
 Same caveat as A100: verify the actual billing before deploying. Networking overhead could show up in practice.
 
@@ -142,8 +142,8 @@ Most cloud providers discount 20-50% on 1-year or 3-year commitments. Lambda lik
 
 On-demand monthly costs (730 hours continuous):
 - A100 SXM single: $1.48/hr = $1,080/month on-demand → ~$756/month reserved
-- H100 SXM single: $2.49/hr = $1,818/month on-demand → ~$1,273/month reserved
-- H100 SXM 8x cluster: $19.92/hr = $14,542/month on-demand → ~$10,179/month reserved
+- H100 SXM single: $3.78/hr = $2,759/month on-demand → ~$1,931/month reserved
+- H100 SXM 8x cluster: $27.52/hr = $20,090/month on-demand → ~$14,063/month reserved
 - B200 SXM: $6.08/hr = $4,438/month on-demand → ~$3,107/month reserved
 
 These are estimates assuming a 30% discount. Contact Lambda for actual reserved pricing.
@@ -194,7 +194,7 @@ Both are cost-effective for production inference. GH200 wins on per-token cost i
 
 ### Training a 13B Parameter Model from Scratch (8x H100 SXM, 7 days)
 
-Lambda 8x H100 SXM cluster: $19.92/hr × 168 hours = **$3,346.56**
+Lambda 8x H100 SXM cluster: $27.52/hr × 168 hours = **$4,623.36**
 
 Typical training time for 13B from scratch on 8x H100 is 5-9 days depending on data size and optimization. 7 days fits within the ballpark.
 
@@ -206,13 +206,13 @@ Total: **~$3,350**
 
 70B parameter model in 8-bit quantization requires ~70GB VRAM. H100 SXM has 80GB, fits exactly.
 
-H100 SXM: $2.49/hr × 4 hrs/day × 30 days = **$298.80/month**
+H100 SXM: $3.78/hr × 4 hrs/day × 30 days = **$453.60/month**
 
 Throughput: ~40 tokens/sec per GPU on H100 for 70B model (batch size 1-2). 1M tokens/day needs 4+ hours of GPU time, can be served on a single H100 with overhead.
 
 ### Training a 70B Parameter Model from Scratch (8x H100 SXM, 9 days)
 
-Lambda 8x H100 SXM cluster: $19.92/hr × 216 hours (9 days) = **$4,302.72**
+Lambda 8x H100 SXM cluster: $27.52/hr × 216 hours (9 days) = **$5,944.32**
 
 Storage for training data (500GB): ~$50-75/month, pro-rated ~$2-3/week
 
@@ -228,20 +228,20 @@ Lambda vs RunPod vs Vast.AI (best single-GPU rates as of March 2026):
 
 | Provider | A100 | H100 PCIe | H100 SXM | Notes |
 |----------|------|-----------|----------|-------|
-| Lambda | $1.48 | $2.86 | $2.49 | Consistent pricing, strong support |
-| RunPod | $1.19 | $1.99 | $2.69 | 20-40% cheaper across most tiers |
+| Lambda | $1.48 | $2.86 | $3.78 | Consistent pricing, strong support |
+| RunPod | $1.19 | $1.99 | $2.69 | Cheaper across most tiers |
 | Vast.AI | [Variable] | [Variable] | [Variable] | Marketplace model, spot rates volatile |
 
-RunPod undercuts Lambda by 20-40% across most tiers. For example:
+RunPod undercuts Lambda across most tiers. For example:
 - A100: Lambda $1.48 vs RunPod $1.19 = $0.29/hr difference = $212/month savings
 - H100 PCIe: Lambda $2.86 vs RunPod $1.99 = $0.87/hr difference = $635/month savings
-- H100 SXM: Lambda $2.49 vs RunPod $2.69 = RunPod is $0.20/hr more expensive. Lambda wins on H100 SXM pricing.
+- H100 SXM: Lambda $3.78 vs RunPod $2.69 = RunPod is $1.09/hr cheaper = $796/month savings
 
-At 8x H100 scale:
-- Lambda 8x: $19.92/hr
+At 8x H100 SXM scale:
+- Lambda 8x: $27.52/hr
 - RunPod 8x: $21.52/hr (8 × $2.69)
 
-RunPod's per-GPU rate on multi-GPU clusters approaches Lambda's cluster rates.
+RunPod is meaningfully cheaper at the 8x cluster tier for H100 SXM. Lambda's advantages are managed infrastructure, guaranteed uptime, and NVLink cluster orchestration.
 
 **Lambda's edge:** Consistency, support responsiveness, and UI/UX for job management. Worth paying the premium for production workloads where uptime SLAs and API reliability matter more than absolute lowest hourly rate.
 
@@ -258,13 +258,13 @@ Single vs multi-GPU decision impacts total cost:
 - Cannot use SXM (designed for multi-GPU)
 - Cost: $2.86/hr
 
-If using SXM for a single-GPU workload, cost is $2.49/hr — actually cheaper than PCIe ($2.86/hr), making SXM the better value for all H100 workloads on Lambda.
+If using SXM for a single-GPU workload, cost is $3.78/hr — more expensive than PCIe ($2.86/hr). For single-GPU workloads, H100 PCIe is the more cost-effective choice on Lambda. SXM's value is in multi-GPU NVLink bandwidth.
 
 **Multi-GPU workload (training large model):**
 - Use H100 SXM for NVLink
-- H100 SXM 8x costs $19.92/hr = $2.49 per GPU
+- H100 SXM 8x costs $27.52/hr = $3.44 per GPU (slight discount vs single $3.78/hr)
 - Running 8x PCIe separately is $2.86 × 8 = $22.88/hr
-- SXM cluster saves 13% ($2.96/hr) and has better bandwidth
+- SXM cluster costs 20% more than 8x PCIe but provides substantially better bandwidth for distributed training
 
 ### 2. Right-Size the VRAM
 
@@ -294,7 +294,7 @@ Batching reduces per-token cost by 7x. Infrastructure complexity is the trade-of
 
 If available (pending verification), commit to off-peak hours. Many cloud providers have lower rates during night hours. Lambda may offer similar discounts.
 
-Example: if Lambda offers 50% discount for reservations, a 8x H100 SXM cluster at $21.68/hr becomes $10.84/hr reserved. Over a month of continuous training, savings approach $8,000.
+Example: if Lambda offers 50% discount for reservations, a 8x H100 SXM cluster at $27.52/hr becomes $13.76/hr reserved. Over a month of continuous training, savings approach $8,000.
 
 ### 5. Quantization and Inference Optimization
 
@@ -321,8 +321,8 @@ Roughly $120 to $175/month for 1-2 million tokens/day on a single GPU, depending
 **Can Lambda GPUs be reserved to get discounts?**
 Publicly available pricing does not list reserved rates. Contact Lambda sales for commitment-based pricing. Industry standard is 30-50% discount for 1-year or 3-year terms. Estimate $756/month for A100 with 30% discount vs $1,080 on-demand.
 
-**Why is H100 SXM cheaper than PCIe on Lambda?**
-H100 SXM at $2.49/hr is priced below H100 PCIe at $2.86/hr on Lambda. Despite having superior specs (3.35 TB/s bandwidth vs 2.0 TB/s, NVLink 4.0 interconnect), Lambda prices SXM more aggressively. For multi-GPU training, H100 SXM is both faster and cheaper per GPU — the clear choice.
+**Why is H100 SXM more expensive than PCIe on Lambda?**
+H100 SXM at $3.78/hr is priced above H100 PCIe at $2.86/hr on Lambda. The premium reflects the NVLink 4.0 interconnect (900 GB/s per GPU) and specialized SXM chassis required for high-bandwidth multi-GPU training. For single-GPU workloads, H100 PCIe is the better value. For multi-GPU distributed training, H100 SXM's bandwidth advantage justifies the premium.
 
 **What's the difference between A100 and H100 pricing?**
 H100 is 2x the compute density of A100, costs roughly 2-2.5x more per hour. For training speed, H100 wins decisively (faster model convergence). For pure cost-per-FLOP on inference, older A100 can be competitive if model latency requirements are relaxed. Depends on specific workload.

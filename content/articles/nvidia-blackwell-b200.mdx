@@ -4,9 +4,9 @@ slug: nvidia-blackwell-b200
 description: >-
   NVIDIA Blackwell B200 GPU specs, pricing from RunPod, Lambda, CoreWeave, and
   availability timeline as of March 2026. 192GB HBM3e, ~9 PFLOPS FP8.
-date: '2026-03-22'
-author: DeployBase
-category: GPU Guide
+date: '2026-02-05'
+author: Deploybase
+category: GPU Comparison
 keywords:
   - nvidia blackwell b200
   - blackwell gpu
@@ -50,8 +50,8 @@ As of March 2026, cloud availability is limited but growing. RunPod lists B200 a
 |------|------|------|------|-----------|
 | **Memory** | 192GB HBM3e | 80GB HBM3 | 141GB HBM3e | B200 (capacity) |
 | **Memory Bandwidth** | 8.0 TB/s | 3.35 TB/s | 4.8 TB/s | B200 (2.4x) |
-| **Peak FP32** | 180 TFLOPS | 60 TFLOPS | 90 TFLOPS | B200 (3x) |
-| **Peak FP8** | ~9 PFLOPS | ~1.8 PFLOPS | ~3.6 PFLOPS | B200 (2.5x) |
+| **Peak FP32** | ~80 TFLOPS | 67 TFLOPS | ~90 TFLOPS | B200 (1.2x) |
+| **Peak FP8** | ~9 PFLOPS (with sparsity) | ~3.96 PFLOPS (with sparsity) | ~7.92 PFLOPS (with sparsity) | B200 (2.3x) |
 | **Transformer Engine** | Yes | Yes | Yes | Tie |
 | **PCIe Gen** | Gen5 | Gen4 | Gen4 | B200 (newer) |
 | **Power (TDP)** | 1,050W | 700W | 700W | B200 (higher) |
@@ -69,11 +69,11 @@ Blackwell is NVIDIA's next-generation data center architecture, succeeding Hoppe
 
 **Memory Bandwidth.** B200 pushes to 8.0 TB/s. H100 maxes at 3.35 TB/s. That's 2.4x wider. Wider bandwidth means faster weight updates during training, fewer stalls during inference. The increase comes from wider HBM3e channels (12 Gbps per pin, up from 10 Gbps in H100) and more channels per GPU (12 vs 8).
 
-**FP8 Tensor Performance.** B200 native FP8 tensors hit 720 TFLOPS (compared to H100's 182 TFLOPS equivalent when casting from TF32). For inference quantized to 8-bit, B200 is near-native speed. H100 requires casting overhead. FP4 (4-bit) performance: B200 reaches 1,440 TFLOPS (theoretical double of FP8). Real-world FP4 training is rare, but research projects benefit.
+**FP8 Tensor Performance.** B200 native FP8 tensors hit 4,500 TFLOPS dense (9,000 TFLOPS with sparsity), compared to H100's 3,958 TFLOPS with sparsity. For inference quantized to 8-bit, B200 is near-native speed. H100 requires casting overhead. FP4 (4-bit) performance: B200 reaches 9,000 TFLOPS dense (18,000 TFLOPS with sparsity). Real-world FP4 training is rare, but research projects benefit.
 
 **Transformer Engine 2.0.** B200 builds on H100's Transformer Engine (specialized hardware for attention and FFN layers) with wider datapaths and lower-latency sparsity support. Better auto-quantization, fewer precision drops. Structured sparsity (NVIDIA Sparsity) now supports both column and row pruning. Dynamic sparsity (pruning during training) is accelerated.
 
-**NVLink 5.0.** B200 uses NVLink 5.0, up from NVLink 4.0 on H100. NVLink 5.0 bandwidth per link: 960 GB/s (vs 900 GB/s on H100). Scaling: 8x B200 in NVLink can aggregate 7.68 TB/s all-reduce bandwidth. Latency is 50% lower (thanks to NVIDIA's fabric optimizations). For distributed training with large all-reduce operations (8-64 GPUs), the latency reduction compounds to 20-30% wall-clock speedup.
+**NVLink 5.0.** B200 uses NVLink 5.0, up from NVLink 4.0 on H100. NVLink 5.0 bandwidth per GPU: 1,800 GB/s (vs 900 GB/s on H100). Scaling: 8x B200 in NVLink can aggregate substantially higher all-reduce bandwidth than H100 clusters. Latency is 50% lower (thanks to NVIDIA's fabric optimizations). For distributed training with large all-reduce operations (8-64 GPUs), the latency reduction compounds to 20-30% wall-clock speedup.
 
 **Confidence Levels.** B200 can run at lower precision with higher accuracy. FP8 on B200 maintains accuracy for models that required FP16 on H100. This is due to wider data paths and improved rounding modes. Implication: teams can quantize models more aggressively (int4, nf4) without losing quality.
 
@@ -148,9 +148,9 @@ Distributed training on B200s is rare (supply is still ramping). Most teams usin
 
 ### Peak Throughput (Single GPU)
 
-**FP8 (8-bit floating point, inference quantization):** 720 TFLOPS per B200. For quantized models (common in production), B200 is near-peak throughput.
+**FP8 (8-bit floating point, inference quantization):** 4,500 TFLOPS per B200 (dense), 9,000 TFLOPS with sparsity. For quantized models (common in production), B200 is near-peak throughput.
 
-**FP16 (16-bit floating point, training):** 360 TFLOPS per B200. This is where H100 is 120 TFLOPS (or 1,457 TFLOPS on TF32, which isn't FP16).
+**FP16 (16-bit floating point, training):** ~1,800 TFLOPS per B200 (Tensor Core, dense). H100 FP16 Tensor Core is 1,979 TFLOPS with sparsity (989 TFLOPS dense).
 
 **Inference Throughput:** Early benchmarks (from NVIDIA and user reports) show 70B models at ~800-1,200 tokens/second per B200 (depends on batch size, quantization, and attention implementation). This is 2.8-4.2x H100's single-GPU throughput on the same model.
 
@@ -311,7 +311,7 @@ Reason: B200's systolic-like architecture (Transformer Engine) is optimized for 
 
 **How fast is B200 compared to H100?**
 
-For inference: 2.4-3.2x faster throughput (depends on model size and batch size). For training: roughly 2.4x faster due to 2.4x bandwidth. For FP8 operations: 3.95x faster (720 vs 182 TFLOPS).
+For inference: 2.4-3.2x faster throughput (depends on model size and batch size). For training: roughly 2.4x faster due to 2.4x bandwidth. For FP8 operations: ~2.3x faster dense (4,500 vs ~2,000 TFLOPS dense).
 
 **Is B200 worth renting for a short project?**
 

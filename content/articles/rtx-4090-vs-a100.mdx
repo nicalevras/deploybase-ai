@@ -4,9 +4,9 @@ slug: rtx-4090-vs-a100
 description: >-
   RTX 4090 vs A100: consumer GPU vs datacenter hardware, memory bandwidth, cloud
   pricing comparison as of March 2026.
-date: '2026-03-22'
-author: DeployBase
-category: GPU Pricing
+date: '2025-07-10'
+author: Deploybase
+category: GPU Comparison
 keywords:
   - rtx 4090 vs a100
   - rtx 4090 vs a100 comparison
@@ -45,7 +45,7 @@ RTX 4090 vs A100 comes down to: consumer gaming hardware vs datacenter-class. A1
 | Memory | 24GB GDDR6X | 80GB HBM2e |
 | Memory Bandwidth | 1.08 TB/s | 2.0 TB/s |
 | FP32 Peak FLOPS | 83 TFLOPS | 19.5 TFLOPS |
-| Tensor FLOPS (TF32) | 165 TFLOPS | 156 TFLOPS |
+| Tensor FLOPS (TF32) | 165 TFLOPS | 312 TFLOPS |
 | RunPod Cost (PCIe) | $0.34/hr | $1.19/hr |
 | NVLink Support | No | Yes |
 | Typical Use | Inference, fine-tuning | Training, multi-GPU |
@@ -61,7 +61,7 @@ A100: datacenter workhorse. 6,912 CUDA cores (fewer, but better-optimized tensor
 
 RTX 4090 prioritizes raw FLOPS. 83 TFLOPS FP32, 165 TFLOPS in Tensor operations. But this is peak throughput under ideal conditions. Real-world inference rarely sustains peak compute. Tensor operations on small batches (common in real-time inference) don't utilize full resources.
 
-A100 prioritizes memory bandwidth and reliability. 19.5 TFLOPS FP32, 156 TFLOPS Tensor. Lower peak compute, but more consistent throughput across batch sizes. Tensor cores are optimized for mixed-precision work (FP8, FP16, TF32), not peak FP32.
+A100 prioritizes memory bandwidth and reliability. 19.5 TFLOPS FP32, 312 TFLOPS TF32 Tensor (with sparsity). Lower peak FP32 compute, but more consistent throughput across batch sizes. Tensor cores are optimized for mixed-precision work (FP16, BF16, TF32) — note A100 does NOT support native FP8 (that hardware precision first appeared with H100/Hopper).
 
 For LLM inference, the comparison shifts toward memory bandwidth. A100's 2.0 TB/s is 1.85x higher than RTX 4090's 1.08 TB/s. This matters when loading model weights repeatedly (inference workload profile).
 
@@ -91,7 +91,7 @@ This is where the comparison becomes unambiguous: A100 wins decisively.
 
 70B parameter model: ~140GB in FP16, ~70GB in FP8
 - RTX 4090: Completely incompatible
-- A100: Fits in FP8, batch size 1-2
+- A100: Fits in INT8/INT4 quantized format (~70GB), batch size 1-2
 
 The transition happens around 34B. Below that, RTX 4090 suffices. Above that, A100 is mandatory (or multi-GPU sharding with RTX 4090s).
 

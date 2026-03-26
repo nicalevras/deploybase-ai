@@ -4,8 +4,8 @@ slug: a100-40gb-vs-80gb
 description: >-
   Compare NVIDIA A100 40GB and 80GB: specifications, memory bandwidth, training
   performance benchmarks, cloud pricing analysis.
-date: '2026-03-22'
-author: DeployBase
+date: '2025-01-15'
+author: Deploybase
 category: GPU Comparison
 keywords:
   - a100 40gb vs 80gb
@@ -34,7 +34,7 @@ keywords:
 
 ## A100 40GB vs 80GB: Overview
 
-The A100 40GB vs 80GB comparison reveals critical differences in memory bandwidth, batch processing capacity, and real-world inference costs. Both use NVIDIA's Ampere architecture with identical compute cores (6,912 SMs), but the 80GB variant doubles the high-bandwidth memory, creating distinct performance profiles for different workloads. This distinction matters enormously when selecting GPU infrastructure on platforms like RunPod ($1.19-$1.39/hour) or Lambda ($1.48/hour).
+The A100 40GB vs 80GB comparison reveals critical differences in memory bandwidth, batch processing capacity, and real-world inference costs. Both use NVIDIA's Ampere architecture with identical compute cores (6,912 CUDA cores across 108 SMs), but the 80GB variant doubles the high-bandwidth memory, creating distinct performance profiles for different workloads. This distinction matters enormously when selecting GPU infrastructure on platforms like RunPod ($1.19-$1.39/hour) or Lambda ($1.48/hour).
 
 The fundamental question: does the model fit comfortably with margin, or do developers need every last byte of VRAM? That answer determines whether the 40GB suffices or whether the 80GB justifies the cost premium.
 
@@ -42,7 +42,7 @@ The fundamental question: does the model fit comfortably with margin, or do deve
 
 ### Memory Configuration
 
-The A100 40GB uses HBM2e (High Bandwidth Memory 2e) with a 5,120-bit bus, delivering 1.6 TB/s peak bandwidth. The 80GB model uses the same HBM2e technology but doubles the stacks, maintaining the same 1.6 TB/s per stack approach. Here's what that means in practice:
+The A100 40GB uses HBM2e (High Bandwidth Memory 2e) with a 5,120-bit bus, delivering 1.555 TB/s peak bandwidth (PCIe). The 80GB model uses the same HBM2e technology but doubles the stacks, increasing total bandwidth. Here's what that means in practice:
 
 A100 40GB: 40 GB total, organized as 20 channels at 2GB each
 A100 80GB: 80 GB total, organized as 20 channels at 4GB each
@@ -51,13 +51,13 @@ The memory subsystem operates identically otherwise. Both have the same L2 cache
 
 ### Compute Characteristics
 
-Both SKUs contain 6,912 CUDA cores organized into 432 SMs (Streaming Multiprocessors). Each SM has 64 FP32 cores, 64 INT32 cores, 32 FP64 cores, 4 Tensor cores for sparsity, and 2 NVLink 3.0 ports (for 8-GPU configurations). Peak FP32 performance: 312 TFLOPs for either variant. Peak Tensor core throughput (FP8): 1,248 TFLOP on both.
+Both SKUs contain 6,912 CUDA cores organized into 108 SMs (Streaming Multiprocessors). Each SM has 64 FP32 cores, 64 INT32 cores, 32 FP64 cores, 4 Tensor cores for sparsity, and 2 NVLink 3.0 ports (for 8-GPU configurations). Peak FP32 performance: 19.5 TFLOPS for either variant. Peak Tensor core throughput (FP16/BF16): 312 TFLOPS on both.
 
 The compute ceiling is identical. Memory is what separates them.
 
 ### Clock Speeds
 
-Both ship at the same boost clock (1.41 GHz nominal, up to 1.87 GHz under thermal headroom). Both support the same Tensor core data types: TF32, BF16, FP16, and FP8. Power consumption: 250W TDP baseline, though multi-GPU configurations can draw significantly more.
+Both ship at the same boost clock (1.41 GHz nominal, up to 1.87 GHz under thermal headroom). Both support the same Tensor core data types: TF32, BF16, and FP16. Power consumption: 400W TDP (SXM) or 300W (PCIe 80GB) / 250W (PCIe 40GB), though multi-GPU configurations can draw significantly more.
 
 ## Performance Benchmarks
 
@@ -226,12 +226,12 @@ The 12-month TCO hinges entirely on whether the workload requires 80GB capacity.
 
 ## Memory Bandwidth Saturation and Cache Hierarchy
 
-Both A100 SKUs achieve identical 1.6 TB/s per-stack bandwidth. However, the practical throughput ceiling depends on cache efficiency and kernel design. In PyTorch training, realistic memory bandwidth utilization hovers at 30-60% of peak due to synchronization overhead and kernel launch latency.
+The A100 40GB PCIe achieves 1.555 TB/s bandwidth; the A100 80GB PCIe achieves 1.935 TB/s; and the A100 80GB SXM achieves 2.0 TB/s. The practical throughput ceiling also depends on cache efficiency and kernel launch latency, with realistic utilization at 30-60% of peak.
 
 A100 memory hierarchy:
 - L1 cache: 192 KB per SM (12 MB aggregate)
 - L2 cache: 40 MB shared
-- HBM2e: 1.6 TB/s peak
+- HBM2e: 1.555–2.0 TB/s peak (variant-dependent)
 
 The 80GB variant doesn't increase bandwidth; it increases capacity for working set reuse. If the training loop repeatedly accesses the same 35GB of parameters and activations, the 40GB hits capacity limits. Spilling to CPU memory destroys performance (300x slower than HBM).
 
@@ -277,7 +277,7 @@ Technically yes, but operationally no. A vLLM cluster scheduler treats them as s
 
 **What's the power efficiency difference?**
 
-Both variants carry identical power envelopes (250W TDP). The 80GB doesn't consume more power. This is an advantage: you gain capacity with zero thermal overhead.
+The SXM variants carry a 400W TDP; PCIe variants are 300W (80GB) and 250W (40GB). The 80GB SXM draws the same power as the 40GB SXM. For the PCIe 80GB variant, power is 300W versus 250W for the 40GB — a modest increase for significantly more memory.
 
 **Should I choose based on price alone?**
 
@@ -293,7 +293,7 @@ Yes. FP8 (8-bit float) quantization halves model size but requires careful calib
 
 **What's the inter-GPU bandwidth within an 8-GPU A100 cluster?**
 
-NVLink 3.0 offers 900 GB/s per link. An A100 with two NVLink ports sustains 1.8 TB/s GPU-to-GPU within a node. This is faster than the 1.6 TB/s to HBM, making intra-node collective operations (all-reduce for distributed training) faster than fetching from memory.
+NVLink 3.0 offers 600 GB/s total bidirectional bandwidth per GPU. An A100 with two NVLink ports sustains 600 GB/s GPU-to-GPU within a node. This is substantially lower than the HBM bandwidth (1.555–2.0 TB/s depending on variant), but still enables efficient intra-node collective operations (all-reduce for distributed training).
 
 **Does the 40GB A100 PCIe perform differently from the SXM?**
 
@@ -303,8 +303,8 @@ PCIe variants connect via PCI Express 4.0 (64 GB/s), while SXM variants use a di
 
 - [NVIDIA A100 Datasheet](https://www.nvidia.com/content/PDF/nvidia-ampere-ga-102-gpu-architecture-whitepaper-v2.pdf)
 - [vLLM Quantization Guide](https://docs.vllm.ai/)
-- [RunPod GPU Pricing](https://www.runpod.io/)
-- [Lambda Labs GPU Pricing](https://www.lambdalabs.com/)
+- [RunPod GPU Pricing](/gpus/runpod)
+- [Lambda Labs GPU Pricing](/gpus/lambda)
 
 ## Sources
 

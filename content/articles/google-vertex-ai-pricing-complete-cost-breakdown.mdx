@@ -4,8 +4,9 @@ slug: google-vertex-ai-pricing-complete-cost-breakdown
 description: >-
   Google Vertex AI pricing breakdown 2026. Gemini API costs, model hosting,
   embeddings. Compare vs OpenAI and Anthropic pricing.
-date: 2026-03-22T00:00:00.000Z
-author: DeployBase
+category: LLM Pricing
+date: '2025-04-17'
+author: Deploybase
 keywords:
   - google vertex ai pricing
 ---
@@ -27,7 +28,7 @@ keywords:
 
 ## Google Vertex AI Pricing Structure
 
-**Google vertex AI pricing**: Gemini 2 costs $0.001/input token, $0.003/output token. Cheaper than OpenAI by 30%, cheaper than Anthropic by 50%.
+**Google vertex AI pricing**: Gemini 2.5 Pro costs $1.25/million input tokens, $10/million output tokens. Gemini 2.5 Flash costs $0.30/million input tokens, $2.50/million output tokens.
 
 Volume discounts kick in at 100K tokens/month (15% off). Hit 1M tokens/month, get 25% off.
 
@@ -43,23 +44,17 @@ Fine-tuning incurs separate charges per million tokens of training data. Model h
 
 ## Gemini API Token Costs
 
-Standard Gemini 2 API costs: $0.001 input, $0.003 output. A typical interaction generating 100 input tokens and 200 output tokens costs $0.00070.
+Gemini 2.5 Pro API costs: $1.25/M input tokens, $10/M output tokens. A typical interaction generating 1,000 input tokens and 200 output tokens costs $0.00325.
 
-Compare this to [OpenAI API pricing](/articles/openai-pricing): $0.003 input for GPT-4 Turbo, $0.006 output. Same interaction: $0.003.
+Compare this to [OpenAI API pricing](/articles/openai-pricing): $2.00/M input for GPT-4.1, $8.00/M output. Same interaction: $0.0036.
 
-[Anthropic API pricing](/articles/anthropic-pricing): Claude 3.5 Sonnet at $0.003 input, $0.015 output. Same interaction: $0.0035.
+[Anthropic API pricing](/articles/anthropic-pricing): Claude Sonnet 4.6 at $3.00/M input, $15.00/M output. Same interaction: $0.006.
 
-For identical workloads, Vertex AI costs roughly 30% less than OpenAI and 50% less than Anthropic. This pricing advantage made Vertex AI attractive for cost-sensitive deployments.
+For identical workloads, Vertex AI (Gemini 2.5 Pro) costs roughly 10% less than GPT-4.1 on input but more on output. Gemini 2.5 Flash ($0.30/$2.50 per MTok) is substantially cheaper than both OpenAI and Anthropic for most workloads.
 
 ### Volume Discounts
 
-Tier structure incentivizes higher usage:
-- 0-100K tokens/month: standard pricing
-- 100K-1M tokens/month: 15% discount (effectively $0.00085 input, $0.00255 output)
-- 1M-5M tokens/month: 25% discount (effectively $0.00075 input, $0.00225 output)
-- 5M+ tokens/month: 30% discount (effectively $0.0007 input, $0.0021 output)
-
-teams crossing thresholds benefited from substantial savings. A company using exactly 100K tokens might spend $100. Using 101K tokens would save $15 on that incremental usage due to tiering.
+Vertex AI pricing does not currently use publicly tiered volume discounts for standard API access. Batch processing provides a 50% discount across all Gemini models on Vertex AI.
 
 ### Long-Context Pricing
 
@@ -109,9 +104,9 @@ For most applications, prompt engineering and RAG provided better cost-benefit t
 
 The 1M token context window made Vertex AI competitive for RAG applications. Teams could retrieve large document corpuses and provide them as context.
 
-A 1M token request cost substantially more than 8K request:
-- 8K request: ~$0.008 input, $0.024 output
-- 1M request: ~$0.001 per token * 1000 = $1.00 (accounting for per-block surcharges)
+A 1M token request costs substantially more than an 8K request (Gemini 2.5 Pro at $1.25/$10 per MTok):
+- 8K request: ~$0.01 input, $0.002-0.02 output (depending on response length)
+- 1M request: ~$1.25 input alone (at $1.25/M input tokens)
 
 This 125x cost increase for 125x context size seemed proportional until considering the alternative: extracting relevant snippets and using RAG.
 
@@ -147,21 +142,21 @@ Real-time workflows (chatbots, search, customer support) couldn't use batch APIs
 ## Real-World Cost Scenarios
 
 **Scenario 1: High-Volume Chat Application**
-Processing 10M daily input tokens, 15M daily output tokens:
-- Standard pricing: (10M * $0.001) + (15M * $0.003) = $55,000 monthly
-- With 25% volume discount: $41,250 monthly
+Processing 10M daily input tokens, 15M daily output tokens (Gemini 2.5 Pro):
+- Standard pricing: (10M * $1.25/M) + (15M * $10/M) = $162,500 monthly
+- With Gemini 2.5 Flash ($0.30/$2.50 per MTok): (10M * $0.30/M) + (15M * $2.50/M) = $40,500 monthly
 
 **Scenario 2: RAG System**
-1,000 daily queries, average 50K context size, 2K generation size:
-- Input tokens: 1000 * 50K = 50M tokens/month at $0.001 = $50,000
-- Output tokens: 1000 * 2K = 2M tokens/month at $0.003 = $6,000
-- Total: $56,000 monthly
+1,000 daily queries, average 50K context size, 2K generation size (Gemini 2.5 Pro):
+- Input tokens: 1,000 * 50K = 50M tokens/month at $1.25/M = $62.50
+- Output tokens: 1,000 * 2K = 2M tokens/month at $10/M = $20
+- Total: $82.50 monthly
 
 **Scenario 3: Batch Processing**
-1M daily documents, average 500 tokens, categorization only (100 output tokens):
-- Input: 1M * 500 = 500M tokens/month * $0.001 * 0.5 (batch discount) = $250,000
-- Output: 1M * 100 = 100M tokens/month * $0.003 * 0.5 = $150,000
-- Total: $400,000 monthly (but 24-hour latency acceptable, running at night)
+1M daily documents, average 500 tokens, categorization only (100 output tokens) with Gemini 2.5 Flash batch processing ($0.15/$1.25 per MTok at 50% batch discount):
+- Input: 1M * 500 = 500M tokens/month at $0.15/M = $75 monthly
+- Output: 1M * 100 = 100M tokens/month at $1.25/M = $125 monthly
+- Total: ~$200 monthly (with batch discount applied; 24-hour latency acceptable)
 
 These scenarios illustrate how organizational patterns dramatically affect total cost. High-context applications cost more. Batch processing offers discounts. Scale triggers volume discounts.
 

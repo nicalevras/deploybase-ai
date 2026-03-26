@@ -4,9 +4,9 @@ slug: l40s-vs-h100
 description: >-
   Compare NVIDIA L40S vs H100. Specs: L40S 48GB $0.79/hr, H100 80GB
   $1.99-2.69/hr. 2.5-3.4x cost difference analyzed.
-date: '2026-03-22'
-author: DeployBase
-category: GPU Hardware
+date: '2025-05-05'
+author: Deploybase
+category: GPU Comparison
 keywords:
   - l40s vs h100
   - nvidia l40s price
@@ -45,25 +45,25 @@ This compares specs, benchmarks, pricing, decision frameworks. As of March 2026.
 
 NVIDIA L40S specifications:
 
-GPU Memory: 48GB GDDR6X (memory bandwidth: 864 GB/s)
-Tensor Performance: 1,456 TFLOPS FP32, 1,456 TFLOPS TF32, 2,912 TFLOPS FP16
-NVIDIA Tensor Cores: 2,880
+GPU Memory: 48GB GDDR6 (memory bandwidth: 864 GB/s)
+Tensor Performance: 91.6 TFLOPS FP32, 366 TFLOPS TF32 (with sparsity: 733 TFLOPS), 733 TFLOPS FP16 (with sparsity: 1,466 TFLOPS FP8)
+NVIDIA Tensor Cores: 568
 Architecture: Ada (NVIDIA's latest high-end architecture)
-Power consumption: 320W
-Memory Interface: 384-bit GDDR6X
+Power consumption: 350W
+Memory Interface: 384-bit GDDR6
 Cooling: Passive (requiring active case cooling)
 
 NVIDIA H100 SXM specifications:
 
-GPU Memory: 80GB HBM3 (memory bandwidth: 3,352 GB/s)
-Tensor Performance: 1,456 TFLOPS FP32, 29,120 TFLOPS FP8, 14,560 TFLOPS FP16
-NVIDIA Tensor Cores: 16,896
+GPU Memory: 80GB HBM3 (memory bandwidth: 3,350 GB/s)
+Tensor Performance: 67 TFLOPS FP32, 3,958 TFLOPS FP8 (with sparsity), 1,979 TFLOPS BF16/FP16 (with sparsity)
+NVIDIA Tensor Cores: 528
 Architecture: Hopper (NVIDIA's latest data center architecture)
 Power consumption: 700W (SXM variant)
 Memory Interface: 12-Hi HBM3
 Cooling: Liquid-cooled (integrated)
 
-Memory bandwidth represents the most significant architectural difference. H100's HBM3 memory provides 3.87x the memory bandwidth of L40S GDDR6X. This difference affects performance on memory-bandwidth-intensive operations like attention mechanisms in large language models.
+Memory bandwidth represents the most significant architectural difference. H100's HBM3 memory provides 3.87x the memory bandwidth of L40S GDDR6. This difference affects performance on memory-bandwidth-intensive operations like attention mechanisms in large language models.
 
 Tensor core density also differs significantly. H100 contains 5.9x more tensor cores optimized for matrix operations. This density benefits training workloads requiring massive parallel computation.
 
@@ -142,21 +142,20 @@ Multimodal workloads combine vision processing with language generation, stressi
 Cloud provider pricing for L40S and H100 reflects raw hardware costs plus provider markup:
 
 RunPod pricing:
-- L40S: $0.44/hour
+- L40S: $0.79/hour
 - H100 SXM: $2.69/hour
-- Cost multiplier: 6.1x
+- Cost multiplier: 3.4x
 
 Lambda Labs pricing:
-- L40S: $0.50/hour
+- Lambda Labs does not currently list L40S in its catalog
 - H100 SXM: $3.78/hour
-- Cost multiplier: 7.6x
 
 CoreWeave pricing:
-- L40S: $0.79/hour
-- H100 SXM: $6.16/hour
-- Cost multiplier: 7.8x
+- L40S: $2.25/hour per GPU ($18/hr for 8x)
+- H100 SXM: $6.16/hour per GPU ($49.24/hr for 8x)
+- Cost multiplier: 2.7x
 
-The pricing multiplier varies by provider but consistently shows H100 costing 6-8x more than L40S per hour.
+The pricing multiplier varies significantly by provider and GPU configuration.
 
 Extended workload costs:
 
@@ -172,7 +171,7 @@ Training cost comparison:
 
 Fine-tuning a 7B model (10 hours compute):
 
-L40S with 8x GPUs: 10 hours * $0.44/hr * 8 = $35.20
+L40S with 8x GPUs: 10 hours * $0.79/hr * 8 = $63.20
 H100 with 1x GPU: 1.2 hours * $2.69/hr * 1 = $3.23
 
 H100 is 90% cheaper due to vastly superior training speed. L40S becomes uneconomical for training workloads.
@@ -194,7 +193,7 @@ L40S configuration:
 
 H100 configuration:
 - Tokens per second: 180-220
-- Hourly cost: $2.69 (CoreWeave pricing)
+- Hourly cost: $2.69 (RunPod pricing)
 - Tokens per hour: 648,000 to 792,000
 - Cost per 1,000 tokens: $0.00340 to $0.00415
 - Cost per 1M tokens: $3.40 to $4.15
@@ -240,33 +239,33 @@ Modern inference techniques use reduced-precision arithmetic to improve performa
 
 FP32 (full precision) performance:
 
-L40S: 1,456 TFLOPS
-H100: 1,456 TFLOPS
-Performance ratio: 1.0x
+L40S: 91.6 TFLOPS
+H100: 67 TFLOPS
+Performance ratio: 1.37x in favor of L40S
 
-Full precision offers identical peak performance between architectures. This theoretical parity doesn't reflect real-world inference, which rarely uses full 32-bit precision anymore.
+Note: FP32 performance is rarely the bottleneck in AI workloads. Tensor core precision (TF32, FP16, FP8) governs real-world throughput.
 
 FP16 (half precision) performance:
 
-L40S: 2,912 TFLOPS
-H100: 14,560 TFLOPS
-Performance ratio: 5.0x in favor of H100
+L40S: 733 TFLOPS (with sparsity)
+H100: 1,979 TFLOPS (with sparsity)
+Performance ratio: 2.7x in favor of H100
 
 Half precision is common for model weights and activations. H100's Hopper architecture includes specialized FP16 execution units providing substantial advantage. This precision level works well for inference of models fine-tuned for mixed precision.
 
 INT8 (8-bit integer) performance:
 
-L40S: Approximately 2,912 TFLOPS (uses FP16 execution)
-H100: 29,120 TFLOPS (dedicated INT8 tensor cores)
-Performance ratio: 10.0x in favor of H100
+L40S: Approximately 1,466 TFLOPS (FP8 via Ada tensor cores)
+H100: 3,958 TFLOPS (dedicated Hopper tensor cores, with sparsity)
+Performance ratio: ~2.7x in favor of H100
 
-8-bit quantization is standard for production inference. Most models deployed in 2026 use INT8 weights to balance accuracy and performance. H100's dedicated INT8 tensor cores provide 10x theoretical advantage, but real-world inference requires memory operations limiting practical advantage.
+8-bit quantization is standard for production inference. Most models deployed in 2026 use INT8 or FP8 weights to balance accuracy and performance. H100's Hopper tensor cores provide substantial advantage for quantized workloads.
 
 FP8 (8-bit floating point) performance:
 
-L40S: Not natively supported with dedicated hardware
-H100: 29,120 TFLOPS (dedicated FP8 tensor cores)
-Practical advantage: H100 5-8x better
+L40S: 1,466 TFLOPS (with sparsity, via Ada tensor cores)
+H100: 3,958 TFLOPS (dedicated FP8 tensor cores, with sparsity)
+Practical advantage: H100 ~2.7x better
 
 FP8 represents the frontier of ultra-low-precision inference. H100's native FP8 support through Transformer Engine enables FP8 inference without requiring offline quantization. L40S can perform FP8 through emulation on standard cores, losing most performance advantage.
 
@@ -383,7 +382,7 @@ Electricity costs represent a significant operating expense for GPU infrastructu
 
 Power consumption specifications:
 
-L40S power consumption: 320-350W (specified at 320W)
+L40S power consumption: 350W (specified at 350W)
 H100 SXM power consumption: 700W (standard)
 H100 PCIe power consumption: 350W (alternative variant)
 
@@ -510,7 +509,7 @@ Memory architecture differences affect more than just bandwidth:
 
 HBM3 memory (H100) enables efficient large batch inference. Multiple requests batched together benefit from HBM3's high bandwidth.
 
-GDDR6X memory (L40S) optimizes for single-request latency. Individual inference requests experience minimal memory latency degradation.
+GDDR6 memory (L40S) optimizes for single-request latency. Individual inference requests experience minimal memory latency degradation.
 
 For single-request latency-critical applications, L40S can match H100 performance per-request despite lower absolute throughput.
 

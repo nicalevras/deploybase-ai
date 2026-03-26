@@ -4,12 +4,12 @@ slug: amd-mi325x-vs-h200
 description: >-
   Compare AMD MI325X and NVIDIA H200 specifications, memory, performance, and
   pricing for production AI infrastructure and LLM deployment.
-date: '2026-03-22'
-author: DeployBase
+date: '2025-10-22'
+author: Deploybase
 category: GPU Comparison
 ---
 
-MI325X vs H200 comes down to memory-bound inference. MI325X brings 288GB of HBM3e memory. H200 brings 141GB with proven CUDA optimization. AMD's betting on memory for future models. NVIDIA's betting on ecosystem stability. Both are viable for 100B+ parameter deployments - choice depends on whether software maturity or raw capacity matters more.
+MI325X vs H200 comes down to memory-bound inference. MI325X brings 256GB of HBM3e memory. H200 brings 141GB with proven CUDA optimization. AMD's betting on memory for future models. NVIDIA's betting on ecosystem stability. Both are viable for 100B+ parameter deployments - choice depends on whether software maturity or raw capacity matters more.
 
 ## Contents
 
@@ -32,25 +32,25 @@ MI325X vs H200 comes down to memory-bound inference. MI325X brings 288GB of HBM3
 
 **Memory: The Core Difference**
 
-MI325X has 288GB HBM3e. H200 has 141GB. AMD doubled down on capacity; NVIDIA focused on incremental improvements.
+MI325X has 256GB HBM3e. H200 has 141GB. AMD doubled down on capacity; NVIDIA focused on incremental improvements.
 
 For models under 140GB, both work fine. Performance difference is negligible. For models 200GB+, MI325X is the only single-GPU option.
 
 MI325X uses six HBM3e stacks; H200 uses three. Each stack provides independent access paths - MI325X can sustain more concurrent memory requests without contention.
 
-Consider Claude Opus 4.6 (175B parameters in FP16 = 350GB). That's 2.4 H200s or one MI325X. Single-GPU deployment simplifies operations significantly.
+Consider a 175B parameter model in FP16 (350GB). That's 2.5 H200s or 2 MI325Xs. Single-GPU deployment simplifies operations significantly.
 
 ## Memory Bandwidth and Throughput
 
 **Memory Bandwidth**
 
-H200 has 4.8 TB/s. MI325X has 6.0 TB/s. That's 25% more bandwidth - which matters for memory-bound inference.
+H200 has 4.8 TB/s. MI325X has 5.3 TB/s. That's approximately 10% more bandwidth - which matters for memory-bound inference.
 
 For a 70B model in FP16 (140GB weights), token throughput scales with bandwidth:
 - H200: ~340 tokens/second
 - MI325X: ~425 tokens/second
 
-The MI325X's bandwidth advantage compounds with its capacity advantage. Both GPUs run memory-bound on large models, meaning bandwidth is the bottleneck. The extra 25% bandwidth translates directly to faster token generation.
+The MI325X's bandwidth advantage compounds with its capacity advantage. Both GPUs run memory-bound on large models, meaning bandwidth is the bottleneck. The extra 10% bandwidth translates directly to faster token generation.
 
 ## GPU Compute and Tensor Capabilities
 
@@ -97,7 +97,7 @@ For inference, this doesn't matter. Load the model once, then everything happens
 MI325X: $20,000-$25,000 per GPU (estimated, March 2026)
 H200: $30,000-$35,000 per GPU
 
-That's 25-35% cheaper for MI325X. Cloud instances reflect this: MI325X $8-$10/hour, H200 $10-$12/hour.
+That's 25-35% cheaper for MI325X. Cloud instances reflect this: MI325X from $2.29/hour (DigitalOcean 1x 256GB) to $18.32/hour (DigitalOcean 8x), H200 from $3.00/hour (Koyeb) to $3.59/hour (RunPod) for single GPU.
 
 At scale, this adds up. One million MI325X instance-hours monthly saves $1-2 million versus H200. At those volumes, ROCm optimization work (2-3 engineers for 6 months) becomes cheap.
 
@@ -148,8 +148,8 @@ For mid-sized deployments, pilot both on real workloads. Let the data guide the 
 **Q: Can I run CUDA code directly on MI325X?**
 A: No. MI325X uses AMD's ROCm compute platform. CUDA code requires porting to ROCm. Most frameworks (PyTorch, TensorFlow) support ROCm, enabling simplified porting. Custom CUDA kernels require substantial rewriting.
 
-**Q: How does MI325X's 288GB memory versus H200's 141GB affect model serving?**
-A: MI325X serves models requiring 200+ GB memory on single GPUs. H200 requires multi-GPU distribution for equivalent models. Single-GPU simplicity favors MI325X for extreme-scale model serving. Multi-GPU H200 clusters may outperform MI325X for parallel inference across multiple models.
+**Q: How does MI325X's 256GB memory versus H200's 141GB affect model serving?**
+A: MI325X serves models requiring up to 256GB memory on single GPUs. H200 at 141GB requires multi-GPU distribution for larger models. Single-GPU simplicity favors MI325X for extreme-scale model serving. Multi-GPU H200 clusters may outperform MI325X for parallel inference across multiple models.
 
 **Q: What's the effective cost difference in cloud deployments?**
 A: MI325X cloud instances cost $8-10/hour versus H200 at $10-12/hour (25-35% premium). Over 1,000 GPU hours monthly, this reaches $2,000-4,000 cost difference. At massive scale (10,000+ hours), cumulative savings reach $20,000+/month.

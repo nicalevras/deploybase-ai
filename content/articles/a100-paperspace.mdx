@@ -4,9 +4,9 @@ slug: a100-paperspace
 description: >-
   A100 Paperspace offers notebook-based GPU access through Gradient. Explore
   pricing, availability patterns, and when Paperspace supports ML workflows.
-date: '2026-03-22'
-author: DeployBase
-category: GPU Providers
+date: '2025-02-12'
+author: Deploybase
+category: GPU Pricing
 ---
 
 ## Contents
@@ -25,7 +25,7 @@ category: GPU Providers
 
 ## A100 Paperspace: Gradient Notebooks for Interactive ML Development
 
-**A100 Paperspace** (now DigitalOcean subsidiary) provides A100 GPU access primarily through Gradient notebooks and managed containers. Pricing varies by region ($1.50-2.50/hr typical), with superior availability compared to H100 offerings. A100 capacity regularly exceeds 30-50 globally available instances, making Paperspace viable for interactive development and short-term experiments.
+**A100 Paperspace** (now DigitalOcean subsidiary) provides A100 GPU access primarily through Gradient notebooks and managed containers. Pricing starts at $3.09/hr for A100 40GB and $3.18/hr for A100 80GB, with superior availability compared to H100 offerings. A100 capacity regularly exceeds 30-50 globally available instances, making Paperspace viable for interactive development and short-term experiments.
 
 This guide covers Paperspace's A100 offerings, Gradient environment, availability management, and when Paperspace suits ML workflows.
 
@@ -37,8 +37,9 @@ Paperspace's pricing emphasizes straightforward hourly rates with optional month
 
 | Plan | Hourly | Monthly (730 hrs) | Storage | Effective Cost | Best Use |
 |---|---|---|---|---|---|
-| A100 On-Demand | $1.50-1.80 | $1,095-1,314 | 20GB | $1.50-1.80/hr | Temporary experiments |
-| A100 Monthly | $900-1,100 | Committed | 100GB | $1.23-1.51/hr | Month-long projects |
+| A100 40GB On-Demand | $3.09 | $2,256 | 20GB | $3.09/hr | Temporary experiments |
+| A100 80GB On-Demand | $3.18 | $2,321 | 20GB | $3.18/hr | Large model workloads |
+| A100 Monthly | Committed | Lower effective rate | 100GB | ~$2.60-2.80/hr | Month-long projects |
 | Gradient Notebooks | $0.51/hr | $372/month | 10GB | $0.51/hr (limited GPU) | Interactive development |
 
 Gradient notebook pricing (~$0.51/hr for A100) appears cheaper than on-demand instances, but includes significant overhead: limited GPU utilization (shared kernel execution with other notebooks) and slower I/O. Full instance pricing reflects actual single-GPU dedication.
@@ -90,12 +91,12 @@ When A100 unavailable, Paperspace offers A6000 fallback (older GPU, 50% cheaper)
 ```python
 availability_check = check_paperspace_availability()
 if availability_check["a100_available"]:
-    select_gpu("A100")  # $1.50-1.80/hr
+    select_gpu("A100")  # $3.09-3.18/hr
 else:
     select_gpu("A6000")  # $0.50-0.75/hr, 80% performance
 ```
 
-Using A6000 as fallback reduces effective cost of Paperspace: A100 reserved $1.23/hr when available + A6000 fallback $0.65/hr when A100 unavailable = blended ~$0.95/hr average, beating RunPod's $1.19/hr for cost-sensitive work.
+Using A6000 as fallback reduces effective cost of Paperspace when A100 is unavailable. A6000 at ~$1.89/hr combined with A100 80GB at $3.18/hr creates a blended rate depending on availability mix.
 
 **Gradient Notebook Cost-Benefit Analysis**
 
@@ -115,7 +116,7 @@ When accounting for shared overhead, Notebook's "cheap" $0.51/hr becomes ~$0.76/
 Recommended workflow for cost optimization:
 
 1. **Experiment phase (2-4 hours)**: Use Paperspace Notebook ($0.51/hr) for quick prototyping
-2. **Validation phase (4-12 hours)**: Use A100 monthly plan ($1.23/hr effective) when available
+2. **Validation phase (4-12 hours)**: Use A100 monthly plan when available
 3. **Fallback**: If A100 unavailable, switch to RunPod A100 Spot ($0.60/hr average)
 4. **Production deployment**: Use Lambda A100 reserved for 99%+ uptime
 
@@ -192,13 +193,13 @@ for epoch in range(num_epochs):
 
 | Criteria | Paperspace | RunPod |
 |---|---|---|
-| Hourly Rate | $1.50-1.80 | $1.19 |
+| Hourly Rate | $3.09-3.18 | $1.19 |
 | Availability | Good | Excellent |
 | Multi-GPU Clusters | No | Limited |
 | Notebooks | Excellent | Community |
 | Support | Chat support | Community |
 
-RunPod costs 17-34% less and offers better spot pricing. Paperspace excels for interactive notebook-based development.
+RunPod costs significantly less at $1.19/hr vs Paperspace's $3.09-3.18/hr, and offers better spot pricing. Paperspace excels for interactive notebook-based development.
 
 **Paperspace vs Lambda**
 
@@ -242,7 +243,7 @@ A100 Paperspace achieves competitive inference performance:
 - 13B-parameter model: 60-75 tokens/second (batch size 1)
 - Batch inference (size 8): 3-4x throughput improvement
 
-Cost per token at $1.50/hr: ~$0.0083 per token (assuming 50 tokens/second).
+Cost per token at $3.18/hr: ~$0.0176 per token (assuming 50 tokens/second).
 
 **Model Serving Best Practices**
 
@@ -269,7 +270,7 @@ No. Paperspace's strength is interactive development and experimentation. For pr
 
 **How does Paperspace A100 monthly pricing compare to on-demand?**
 
-A100 monthly plan ($900/month) costs $1.25/hr effective rate (assuming 30-day commitment). This is cheaper than on-demand ($1.50-1.80/hr) but pricier than RunPod at-demand ($1.19/hr). Monthly plans suit projects lasting 3-4 weeks; shorter work favors on-demand.
+A100 monthly plans provide a discount over hourly on-demand rates of $3.09/hr (40GB) and $3.18/hr (80GB). Monthly plans suit projects lasting 3-4 weeks; shorter work favors on-demand. RunPod remains significantly cheaper at $1.19/hr for cost-sensitive workloads.
 
 **Can I export Paperspace notebooks and run them elsewhere?**
 
@@ -281,7 +282,7 @@ Choose Paperspace for: (1) Interactive notebook development with immediate feedb
 
 **What cost optimization strategies apply to Paperspace A100?**
 
-(1) Use monthly plans ($900-1,100/month) for 23-25% savings vs on-demand, (2) Choose on-demand for <40-hour projects, (3) Use Gradient Notebooks ($0.51/hr) for development but upgrade to full instance for production training, (4) Schedule off-peak usage (0-4 UTC) for better availability and less queue time. Savings potential: monthly vs on-demand = $120-220/month; strategic scheduling reduces interruptions, saving iteration time.
+(1) Use monthly plans for savings vs hourly on-demand rates ($3.09-3.18/hr), (2) Choose on-demand for <40-hour projects, (3) Use Gradient Notebooks ($0.51/hr) for development but upgrade to full instance for production training, (4) Schedule off-peak usage (0-4 UTC) for better availability and less queue time.
 
 ## Sources
 

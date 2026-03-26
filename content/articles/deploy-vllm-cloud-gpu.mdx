@@ -4,8 +4,9 @@ slug: deploy-vllm-cloud-gpu
 description: >-
   Deploy vLLM on cloud GPUs for high-throughput LLM serving. Complete guide with
   GPU selection, configuration, quantization, and cost optimization strategies.
-date: 2026-03-22T00:00:00.000Z
-author: DeployBase
+category: Tutorials
+date: '2025-04-01'
+author: Deploybase
 keywords:
   - deploy vllm cloud
 ---
@@ -57,7 +58,7 @@ Two providers dominate cost-effective GPU access: RunPod and Lambda Labs. Review
 
 RunPod offers H100 SXM GPUs at $2.69 per hour and A100 80GB at $1.19 per hour. These are on-demand prices; reserved instances cost substantially less. RunPod provides SSH access, and vLLM starts with a single CLI command. Typical deployment involves renting a GPU instance, setting up vLLM, and pointing clients to the instance's IP address.
 
-Lambda Labs offers H100 SXM at $2.49 per hour. Lambda has excellent infrastructure quality and reliability, making it suitable for production workloads requiring high SLA guarantees. For comprehensive analysis of providers, explore the [GPU infrastructure guide](/gpus).
+Lambda Labs offers H100 PCIe at $2.86 per hour and H100 SXM at $3.78 per hour. Lambda has excellent infrastructure quality and reliability, making it suitable for production workloads requiring high SLA guarantees. For comprehensive analysis of providers, explore the [GPU infrastructure guide](/gpus).
 
 For development and testing, RunPod provides the best cost structure. For production workloads with demanding uptime requirements, Lambda justifies the premium.
 
@@ -73,7 +74,7 @@ GPU memory determines model compatibility. vLLM's paged attention reduces memory
 
 **Llama 3 70B:** Similar to Llama 2 70B in memory footprint and performance characteristics. Tensor parallelism across two A100 GPUs improves throughput to 1,200-1,500 tokens per second.
 
-**Llama 3 405B:** Requires tensor parallelism across 4-8 GPUs. On Lambda with 8 H100s, throughput reaches 2,500+ tokens per second. Cost becomes significant: $2.49 * 8 = $19.92 per hour.
+**Llama 3 405B:** Requires tensor parallelism across 4-8 GPUs. On Lambda with 8 H100 SXMs, throughput reaches 2,500+ tokens per second. Cost becomes significant: $3.78 * 8 = $30.24 per hour (or use RunPod 8x H100 via CoreWeave at $49.24/hour for a managed cluster).
 
 Choose the smallest model satisfying the capability requirements. Llama 2 7B handles many tasks that seemingly require larger models. The performance difference often justifies using a smaller model and handling 2-3x higher throughput instead of waiting for larger model responses.
 
@@ -300,7 +301,7 @@ For Llama 2 70B on RunPod A100:
 - Concurrent request throughput: 600-800 tokens per second at 10+ concurrent requests
 - Cost: $1.19/hour = $0.000149 per token (at 800 tokens/sec throughput)
 
-This compares favorably to API-based inference. Claude 3 Sonnet costs $0.003 per 1K output tokens ($0.000003 per token). At $0.000149 per token, self-hosted vLLM costs roughly 50x more on a per-token basis, but the break-even point depends on the usage patterns. High-volume batch processing (100M+ monthly tokens) makes self-hosted economical. Low-volume interactive applications favor API-based services.
+This compares favorably to API-based inference. Claude Sonnet 4.6 costs $0.015 per 1K output tokens ($0.000015 per token). At $0.000149 per token, self-hosted vLLM costs roughly 10x more on a per-token basis, but the break-even point depends on the usage patterns. High-volume batch processing (100M+ monthly tokens) makes self-hosted economical. Low-volume interactive applications favor API-based services.
 
 ## Advanced Optimization Techniques
 
@@ -354,13 +355,13 @@ Use Prometheus to scrape vLLM metrics and Alertmanager to trigger notifications:
 groups:
   - name: vllm_alerts
     rules:
-      - alert: HighVRAMUsage
+  - alert: HighVRAMUsage
         expr: vllm_gpu_vram_usage_percent > 95
         for: 5m
         annotations:
           summary: "vLLM VRAM usage critically high"
 
-      - alert: HighLatency
+  - alert: HighLatency
         expr: histogram_quantile(0.95, vllm_request_latency) > 10
         for: 10m
         annotations:
@@ -445,7 +446,7 @@ Monthly costs by usage pattern:
 - 4-hour daily operation: $143/month = $0.00114 per token
 - Development/testing (16 hours/month): $19/month = $0.0038 per token
 
-For comparison, Claude 3 Sonnet API costs $0.003 per output token. At typical 1:5 input-to-output ratio with $3/1M input tokens: $0.000015 + $0.00003 = $0.000045 per token.
+For comparison, Claude Sonnet 4.6 API costs $0.000015 per output token ($15/1M). At typical 1:5 input-to-output ratio with $3/1M input tokens: $0.000003 + $0.000015 = $0.000018 per token.
 
 Break-even analysis: vLLM becomes economical above 150-200M tokens monthly depending on usage pattern and model selection.
 

@@ -4,9 +4,9 @@ slug: h100-on-runpod-pricing-specs-and-how-to-rent
 description: >-
   RunPod H100 GPU pricing, configuration options, and rental guide for AI
   inference and model training.
-date: '2026-03-22'
-author: DeployBase
-category: Provider Guides
+date: '2026-02-08'
+author: Deploybase
+category: GPU Pricing
 ---
 
 ## Contents
@@ -22,29 +22,29 @@ RunPod offers H100 on RunPod pricing at the lowest cost in the market. RunPod's 
 
 ### H100 GPU Specifications
 
-H100 PCIe: 80GB HBM3 memory, 700W power consumption, PCIe 5.0 interface
+H100 PCIe: 80GB HBM2e memory, 350W power consumption, PCIe 5.0 interface
 H100 SXM: 80GB HBM3 memory, 700W power consumption, NVLink interconnect capable
 
-RunPod offers both variants at different price points. SXM variant at $2.69/GPU-second provides better multi-GPU scalability.
+RunPod offers both variants at different price points. SXM variant at $2.69/GPU-hour provides better multi-GPU scalability.
 
 H100 supports 70B parameter models in full precision. Quantized models can exceed 100B parameters within 80GB memory constraints.
 
 ### RunPod Pricing Structure
 
-H100 PCIe: $1.99 per GPU-second ($1.99 per second of GPU time)
-H100 SXM: $2.69 per GPU-second
+H100 PCIe: $1.99 per GPU-hour
+H100 SXM: $2.69 per GPU-hour
 
-RunPod's per-second billing is unique among providers. Billing increments at per-second granularity, so a 30-second job costs roughly $0.06-0.08.
+RunPod charges hourly. Billing increments at per-minute granularity, so short jobs are billed accurately.
 
 For monthly estimates:
-- H100 PCIe at 24/7 operation: $1.99 × 86,400 × 30 = $5,183/month
-- H100 SXM at 24/7 operation: $2.69 × 86,400 × 30 = $6,998/month
+- H100 PCIe at 24/7 operation: $1.99 × 730 = $1,453/month
+- H100 SXM at 24/7 operation: $2.69 × 730 = $1,964/month
 
 For intermittent usage:
-- 1 hour usage: H100 PCIe = $7.16, H100 SXM = $9.68
-- 8 hours daily usage: H100 PCIe = $57/day = $1,710/month, H100 SXM = $77/day = $2,310/month
+- 1 hour usage: H100 PCIe = $1.99, H100 SXM = $2.69
+- 8 hours daily usage: H100 PCIe = $15.92/day = $477/month, H100 SXM = $21.52/day = $645/month
 
-RunPod's pricing advantage emerges with sporadic or batch workloads where per-second billing avoids waste.
+RunPod's pricing advantage emerges with sporadic or batch workloads where per-minute billing avoids waste.
 
 ### Pod Configurations
 
@@ -69,10 +69,10 @@ RunPod Serverless is event-driven. Containers start on-demand when requests arri
 For sustained inference APIs, Pods are usually cheaper. For batch inference triggered by external events, Serverless is often cheaper.
 
 Compare:
-- Pod: $7.16/hour × 24 hours × 30 days = $5,155/month for continuous operation
+- Pod: $1.99/hour × 24 hours × 30 days = $1,433/month for continuous operation
 - Serverless: Same H100 at $0.30/request × 1,000 requests = $300/month (if generating 1,000 requests monthly)
 
-Pod breaks even at ~20,000 requests monthly (assuming 10 seconds per request).
+Pod breaks even at ~4,777 requests monthly (assuming 10 seconds per request at 1 request/10s throughput).
 
 ### How to Rent H100 on RunPod
 
@@ -100,7 +100,7 @@ Deploy models using:
 - Custom inference servers
 
 Example workflow:
-1. Launch H100 pod ($7.16/hour)
+1. Launch H100 pod ($1.99/hour PCIe)
 2. SSH into pod
 3. git clone model repository
 4. Install dependencies with pip
@@ -125,7 +125,7 @@ Network: 1Gbps shared bandwidth (actual throughput ~500Mbps)
 
 ### Cost Optimization Tips
 
-Use H100 SXM ($2.69/second) only for multi-GPU distributed training. Single-GPU workloads should use H100 PCIe ($1.99/second) to save 26%.
+Use H100 SXM ($2.69/hr) only for multi-GPU distributed training. Single-GPU workloads should use H100 PCIe ($1.99/hr) to save 26%.
 
 Batch inference requests to reduce per-request overhead. Processing 100 requests in one inference call costs less than processing them individually.
 
@@ -147,7 +147,7 @@ Geographic selection affects latency and regional data residency. US regions hav
 ## FAQ
 
 **Should I use RunPod or Lambda for H100?**
-RunPod is cheaper ($1.99-2.69 per second vs Lambda's $2.86 per hour). Use RunPod for sporadic or batch workloads. Use Lambda for sustained workloads requiring 99% SLA and responsive support.
+RunPod is cheaper ($1.99-2.69/hr vs Lambda's $2.86-3.78/hr). Use RunPod for sporadic or batch workloads. Use Lambda for sustained workloads requiring 99% SLA and responsive support.
 
 **How long does pod startup take?**
 Typically 30-60 seconds from launch button to SSH connectivity. Some container images take longer to pull (1-3 minutes). Fresh pod startup is fastest.
@@ -156,7 +156,7 @@ Typically 30-60 seconds from launch button to SSH connectivity. Some container i
 Yes. Files saved in /home/runpod or mounted storage persist across sessions. Code, models, and datasets persist. Pay only when pod is active.
 
 **What if I need more than 80GB GPU memory?**
-Use H200 at $3.59/second (141GB) on RunPod, or multiple H100s with distributed inference. Neither option offers more than 80GB per H100 device.
+Use H200 at $3.59/hr (141GB) on RunPod, or multiple H100s with distributed inference. Neither option offers more than 80GB per H100 device.
 
 **Does RunPod offer reserved capacity?**
 Yes, contact sales for bulk pricing on committed usage. Monthly commitments achieve 15-25% discounts for reliable capacity reservation.
@@ -178,21 +178,21 @@ Notebook Integration: JupyterLab integration provides notebook interface. Data s
 
 Example 1: Personal Research Project
 - Usage pattern: 8 hours daily, 5 days weekly
-- Hardware: H100 SXM at $2.69/second
-- Monthly cost: 8 × 5 × 4.3 × 3,600 × $2.69 = $1,967/month
-- Break-even vs ownership: 8+ months payback with $10,000 GPU purchase
+- Hardware: H100 SXM at $2.69/hr
+- Monthly cost: 8 × 5 × 4.3 × $2.69 = $463/month
+- Break-even vs ownership: 18+ months payback with $10,000 GPU purchase
 
 Example 2: Startup Inference API
 - Traffic: 1,000 requests daily, 5 seconds inference latency
 - Pod configuration: 1 H100 PCIe, always running
-- Monthly cost: 24 × 30 × 3,600 × $1.99 = $5,155/month
+- Monthly cost: $1.99 × 730 = $1,453/month
 - Scaling: Add second GPU at 50,000 daily requests
 
 Example 3: Batch Processing Service
 - Processing: 10,000 documents daily with 30-second processing per document
 - Compute: 10,000 × 30 / 3,600 ≈ 83 GPU-hours needed daily
-- Hardware: H100 PCIe at $1.99/second
-- Monthly cost: 83 × 30 × 3,600 × $1.99 = $17,850/month
+- Hardware: H100 PCIe at $1.99/hr
+- Monthly cost: 83 × 30 × $1.99 = $4,956/month
 
 ### Optimizing RunPod Pod Utilization
 

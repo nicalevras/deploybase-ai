@@ -1,13 +1,12 @@
 ---
-title: 'DAPO: Decoupled Alignment for Open-Source LLMs'
+title: 'DAPO: Open-Source RL Training for Reasoning LLMs'
 slug: dapo-open-source-rl
 description: >-
-  DAPO (Direct Alignment from Preference Optimization) explained: how it
-  differs from RLHF and DPO, implementation guide, and open-source tools as of
-  March 2026.
-date: '2026-03-22'
-author: DeployBase
-category: Guide
+  DAPO (Decoupled Clip and Dynamic sAmpling Policy Optimization) explained: open-source
+  RL system for training reasoning LLMs, how it differs from RLHF and DPO, as of March 2026.
+date: '2025-12-15'
+author: Deploybase
+category: LLM Guides
 keywords:
   - dapo open source llm reinforcement learning
   - decoupled alignment
@@ -33,9 +32,9 @@ keywords:
 
 ## DAPO Open Source LLM Reinforcement Learning: Overview
 
-DAPO (Direct Alignment from Preference Optimization) is a training method for open-source LLM alignment that combines simplicity with flexibility. Unlike RLHF (which requires reward model training and PPO), DAPO trains directly from preference pairs (better/worse responses) without a reward model or policy gradient updates. Unlike DPO (Direct Preference Optimization), DAPO decouples the reference model from the training objective, allowing for more flexible alignment strategies. As of March 2026, DAPO is gaining adoption across open-source LLM training communities.
+DAPO (Decoupled Clip and Dynamic sAmpling Policy Optimization) is an open-source reinforcement learning system for training reasoning LLMs. It addresses a key gap: while companies like OpenAI and DeepSeek have created sophisticated reasoning models, their training methods are not fully disclosed. DAPO provides a reproducible, open-source alternative that achieved 50 points on AIME 2024 using a Qwen2.5-32B base model. Training code, built on the verl framework, and a curated dataset are publicly released.
 
-DAPO emerged in late 2025 as open-source teams sought a middle ground: RLHF's quality without the complexity, DPO's simplicity with more control. The method is easier to implement than RLHF, more flexible than DPO, and requires less compute than both.
+DAPO was published in early 2025 and introduces several technical improvements over standard GRPO-based RL training: decoupled clipping (separate clip thresholds for positive and negative advantages), dynamic sampling (filtering out prompts where all samples are correct or all wrong), and token-level policy gradient loss. The result is more stable training and better reasoning performance compared to naive RL approaches.
 
 ---
 
@@ -68,32 +67,32 @@ DAPO emerged in late 2025 as open-source teams sought a middle ground: RLHF's qu
 
 **Typical cost:** 10-20 GPU-hours for a 13B model.
 
-### DAPO (Direct Alignment from Preference Optimization)
+### DAPO (Decoupled Clip and Dynamic sAmpling Policy Optimization)
 
 **Workflow:**
-1. Collect preference pairs.
-2. Train a lightweight alignment model (separate from the main LLM).
-3. Use alignment model to score and re-rank completions.
-4. Optionally distill back into the main model.
+1. Start with a base language model.
+2. Use rule-based reward functions (e.g., correctness checking for math/code).
+3. Apply GRPO-style policy gradient updates with four key improvements: decoupled clip thresholds, dynamic sampling (filter prompts where all responses are correct/wrong), token-level policy gradient loss, and overlong reward shaping.
+4. Iterate until reasoning performance stabilizes.
 
-**Pros:** Decoupled (easier to integrate), flexible (alignment model can be anything), modular, lower compute than RLHF, faster iteration.
+**Pros:** More stable RL training than naive GRPO, does not require a trained reward model (uses rule-based rewards), open-source (code + dataset released), achieves strong AIME performance (50 points with Qwen2.5-32B).
 
-**Cons:** Requires two models (alignment + LLM), slightly more code than DPO.
+**Cons:** Still requires GPU-heavy RL training, more complex than DPO, primarily designed for reasoning/math tasks.
 
-**Typical cost:** 15-30 GPU-hours (alignment model) + optional distillation.
+**Typical cost:** GPU cluster training (similar to RLHF scale for the RL phase).
 
 ### Side-by-Side Comparison
 
 | Aspect | RLHF | DPO | DAPO |
 |--------|------|-----|------|
-| **Complexity** | High (4 stages) | Low (1 stage) | Medium (2-3 stages) |
-| **Compute Cost** | 100+ GPU-hrs | 10-20 GPU-hrs | 15-30 GPU-hrs |
-| **Training Time** | 2-4 weeks | 1-2 days | 2-4 days |
-| **Stability** | Moderate (PPO tuning) | High | High |
-| **Flexibility** | High (reward model can learn anything) | Low (frozen reference model) | High (modular alignment) |
-| **Model Integration** | Tight (PPO loop) | Tight (reference model) | Loose (separate alignment) |
-| **Open-Source Support** | Moderate (TRL, but PPO is hard) | Excellent (DPO implementations mature) | Growing (TRL, HuggingFace, in development) |
-| **Production Adoption** | Yes (proprietary teams) | Yes (open-source teams) | Early (2026 Q1) |
+| **Complexity** | High (4 stages: SFT, reward model, RL, iterate) | Low (1 stage: direct preference loss) | High (RL training with 4 algorithmic improvements) |
+| **Compute Cost** | 100+ GPU-hrs | 10-20 GPU-hrs | High (GPU cluster RL training, similar to RLHF) |
+| **Training Time** | 2-4 weeks | 1-2 days | Days to weeks (depending on model size) |
+| **Stability** | Moderate (PPO tuning) | High | High (DAPO specifically designed for training stability) |
+| **Reward Model** | Required (trained reward model) | Not needed (preference pairs used directly) | Not needed (rule-based rewards, e.g., math correctness) |
+| **Best For** | General alignment, chat quality | Style and preference alignment | Reasoning tasks (math, code, logic) |
+| **Open-Source Support** | Moderate (TRL, but PPO is hard) | Excellent (DPO implementations mature) | Available via verl framework (released with paper) |
+| **Production Adoption** | Yes (proprietary teams) | Yes (open-source teams) | Early (paper released March 2025) |
 
 ---
 
@@ -101,155 +100,106 @@ DAPO emerged in late 2025 as open-source teams sought a middle ground: RLHF's qu
 
 ### Conceptual Framework
 
-DAPO decouples the reward signal from the LLM itself. Instead of training a reward model or optimizing LLM logits directly, DAPO trains a separate alignment model that learns to score completions.
+DAPO is an RL training algorithm that builds on GRPO (Group Relative Policy Optimization) and addresses four key instability problems in large-scale LLM reinforcement learning:
 
-**Stage 1: Alignment Model Training**
+**Technique 1: Decoupled Clip**
 
-Input: Preference pairs (A > B, C > D).
-Output: Alignment model that predicts preference scores.
+Standard GRPO uses a single clip parameter ε for both positive and negative advantages in the PPO-style objective. DAPO uses separate clip thresholds (ε_low for negative advantages, ε_high for positive advantages). This prevents the policy from collapsing on easy samples while still allowing meaningful updates on hard samples.
 
-The alignment model is a small transformer (e.g., 1B-7B parameters). It learns: given a prompt and two completions, which is better?
+**Technique 2: Dynamic Sampling**
 
-Loss function: Binary cross-entropy on preference pairs.
+Standard GRPO can waste compute training on prompts where all generated samples are correct (trivial) or all are wrong (too hard). DAPO filters these out dynamically during training, keeping only prompts where at least one sample is correct and at least one is wrong. This maintains a useful learning signal.
 
-Example:
-- Prompt: "What's the capital of France?"
-- Completion A: "Paris is the capital of France."
-- Completion B: "France's biggest city is Paris."
-- Label: A > B (clearer, direct answer)
+**Technique 3: Token-Level Policy Gradient Loss**
 
-Alignment model learns to assign higher scores to A.
+Instead of computing loss at the sequence level (averaging across complete responses), DAPO computes loss at the token level. This prevents longer responses from contributing disproportionately to the gradient, stabilizing training especially when responses vary widely in length.
 
-**Stage 2: Scoring and Re-ranking**
+**Technique 4: Overlong Reward Shaping**
 
-Once trained, the alignment model re-scores all completions from the LLM. For inference:
+Very long outputs (exceeding a max length threshold) receive a soft penalty that gradually reduces rewards rather than hard truncation. This discourages the model from generating excessively long reasoning chains without abruptly cutting off training signal.
 
-1. LLM generates N candidate completions.
-2. Alignment model scores all N.
-3. Return the highest-scoring completion.
+### Training Loop
 
-This is orthogonal to the LLM training. The LLM doesn't change. The alignment model acts as a learned ranker.
+DAPO uses rule-based reward functions (not a trained reward model):
 
-**Stage 3 (Optional): Distillation**
+1. Sample N completions from the policy model for each prompt.
+2. Score each completion using a rule-based reward (e.g., math answer correctness check, code execution pass/fail).
+3. Apply dynamic sampling to filter uninformative prompts.
+4. Compute token-level policy gradient loss with decoupled clip.
+5. Apply gradient update; repeat.
 
-Distill alignment signals back into the LLM by retraining on re-ranked completions. The LLM learns to generate completions that score highly with the alignment model.
-
-This stage is optional. Many teams skip it and just use the alignment model for ranking.
-
-### Why Decouple?
-
-**Modularity:** The alignment model is a separate artifact. Developers can swap it, update it, or use it with multiple LLMs.
-
-**Flexibility:** Alignment model can be optimized for different criteria (safety, factuality, style) without modifying the LLM.
-
-**Iteration:** Retraining the alignment model is faster than retraining a large LLM. Developers can update alignment strategies weekly without waiting for weeks of LLM training.
-
-**Distributed Training:** No need for a frozen reference model. Distributed LLM training is simpler.
+This approach does not require training a separate reward model — rewards come directly from objective correctness checks.
 
 ---
 
 ## Training Workflow
 
-### Step 1: Collect Preference Data
+DAPO training follows an RL loop using the verl framework (released by the DAPO authors).
 
-Target: 10K-100K preference pairs for a 7B-13B model.
+### Step 1: Prepare Reasoning Prompts
 
-Format: JSON lines, each line is a preference pair.
+Collect math or coding problems with verifiable ground-truth answers. The DAPO paper used AIME and competition math problems. The reward is simply: does the model's final answer match the ground truth?
+
+Format: JSON lines with a prompt and the expected answer.
 
 ```json
 {
-  "prompt": "Explain quantum computing in 3 sentences.",
-  "completion_a": "Quantum computers use qubits that exist in superposition, allowing them to process multiple states simultaneously. This enables faster computation for specific problems like factorization and optimization. Current quantum computers are noisy and error-prone.",
-  "completion_b": "Quantum computers do quantum things with quantum bits.",
-  "label": 1
+  "prompt": "Solve: Find all positive integers n such that n^2 + 2 divides n^3 + 4.",
+  "answer": "1, 2"
 }
 ```
 
-Label: 1 means completion_a > completion_b.
-
 **Data Sources:**
 
-- [Common crawl instruction datasets](/llms) (public)
-- Proprietary company feedback (if available)
-- Synthetic pairs (generated with a stronger model, e.g., GPT-4, then ranked)
+- AIME problems (publicly available)
+- AMC competition problems
+- Code execution tasks (pass/fail reward from running tests)
 
-**Realistic Timeline:**
+### Step 2: Run DAPO RL Training
 
-- 1K pairs: 1 person, 1 week of manual annotation
-- 10K pairs: 1-2 people, 2-4 weeks
-- 100K pairs: team effort or synthetic generation + light filtering
+DAPO uses the verl framework. Key configuration parameters:
 
-### Step 2: Train Alignment Model
+- `clip_ratio_low`: lower clip threshold for negative advantages (e.g., 0.2)
+- `clip_ratio_high`: upper clip threshold for positive advantages (e.g., 0.28)
+- `max_response_length`: cap for overlong reward shaping
+- `filter_groups`: enable dynamic sampling (filter all-correct/all-wrong groups)
 
-Framework: HuggingFace Transformers + TRL (Transformers Reinforcement Learning).
+**Hardware:** Multi-GPU setup (the DAPO paper used a GPU cluster for 32B training).
+**Time:** Days to weeks depending on model size and dataset.
 
-**Hardware:** Single 80GB GPU (H100 or A100) for 7B model.
-**Time:** 4-8 hours for 10K pairs.
+### Step 3: Evaluate on Reasoning Benchmarks
 
-### Step 3 (Optional): Distill into LLM
-
-Generate completions from the LLM, score them with the alignment model, retrain the LLM on high-scoring outputs.
-
-```python
-prompts = load_prompts("eval_prompts.txt")
-completions = lm.generate(prompts, num_return_sequences=4)
-
-scores = alignment_model.score(prompts, completions)
-
-high_quality = filter(scores > 0.8)
-
-trainer = SFTTrainer(
-    model=lm,
-    args=training_args,
-    train_dataset=high_quality,
-    tokenizer=tokenizer,
-)
-
-trainer.train()
-```
-
-**Hardware:** Same as before (single 80GB GPU).
-**Time:** 8-16 hours for 50K distilled examples.
+After training, evaluate on AIME 2024, MATH-500, or similar reasoning benchmarks to measure improvement. The DAPO paper reports 50 points on AIME 2024 using Qwen2.5-32B as the base model.
 
 ---
 
 ## Hardware Requirements
 
-### Minimum Setup
+DAPO is RL training on large models, which requires substantial GPU resources.
 
-**For Training Alignment Model (10K-100K pairs):**
-- 1x 80GB GPU (H100 or A100)
-- 16GB system RAM
-- 500GB disk (dataset + checkpoints)
+### Small-Scale Experiments (7B–13B models)
 
-**Time:** 4-12 hours depending on dataset size.
+- 4–8x 80GB GPUs (H100 or A100)
+- 64GB+ system RAM
+- 1TB disk (checkpoints)
 
-**Cost (cloud):** $10-30 (RunPod: $1.99-2.69/hr for 8-12 hours).
+**Time:** 1–3 days for a full training run.
 
-### Recommended Setup
+**Cost (cloud):** $200–800 depending on GPU hours.
 
-**For Training + Distillation:**
-- 2x 80GB GPUs (parallel: alignment model + LLM)
-- 32GB system RAM
-- 1TB disk
+### Production Scale (32B model, as in the DAPO paper)
 
-**Time:** 12-24 hours total (both stages).
+- GPU cluster (multiple nodes, 32–64 GPUs)
+- High-speed interconnect (NVLink or InfiniBand recommended)
+- Multi-TB disk for checkpoints
 
-**Cost (cloud):** $30-60.
+**Time:** Days to weeks.
 
-### Large-Scale Distillation (100K+ pairs)
+**Cost (cloud):** $5,000–$50,000+ depending on scale and duration.
 
-- 8x 80GB GPUs (distributed LLM training)
-- 128GB system RAM
-- 5TB disk
+### Note on Compute Requirements
 
-**Time:** 1-2 days.
-
-**Cost (cloud):** $400-800.
-
-### Note on Efficiency
-
-DAPO's main advantage: low compute. Alignment model training (the expensive stage) requires only a single 80GB GPU. No need for 8-16 GPU clusters like RLHF. This makes DAPO practical for small teams and startups.
+Unlike DPO (which trains on preference pairs in a single pass), DAPO is RL training and requires many iterations of generation + policy updates. The compute is comparable to RLHF — DAPO's advantage is training stability and not needing a separate reward model, not reduced compute.
 
 ---
 

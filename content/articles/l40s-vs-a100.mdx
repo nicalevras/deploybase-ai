@@ -4,8 +4,8 @@ slug: l40s-vs-a100
 description: >-
   Compare NVIDIA L40S vs A100: memory, bandwidth, price per hour. L40S excels at
   inference, A100 dominates training. Full cost analysis inside.
-date: '2026-03-22'
-author: DeployBase
+date: '2025-02-07'
+author: Deploybase
 category: GPU Comparison
 keywords:
   - l40s vs a100
@@ -66,8 +66,8 @@ The architectural difference manifests in tensor core specialization. L40S tenso
 ## Memory and Bandwidth Deep Dive
 
 **L40S Memory Subsystem:**
-- Total memory: 48GB GDDR6X
-- Memory bandwidth: 960 GB/s
+- Total memory: 48GB GDDR6
+- Memory bandwidth: 864 GB/s
 - Memory type: Synchronous DRAM (SDRAM)
 - Error correction: Single error correction (SEC)
 
@@ -102,8 +102,8 @@ Pricing consistency across major providers demonstrates mature market dynamics:
 - L40S: Not currently offered (Lambda focuses on A100/H100 segments)
 
 **CoreWeave Pricing:**
-- L40S: Comparable to RunPod (~$0.75-0.85/hour)
-- A100: ~$1.20-1.40/hour depending on configuration
+- L40S: $2.25/GPU/hour (sold in 8-GPU bundles at $18/hour)
+- A100: ~$21.60/hour for 8-GPU bundle ($2.70/GPU)
 
 Cost amortization over different deployment periods illustrates economic implications:
 
@@ -182,11 +182,11 @@ The L40S's lower cost per token reflects its optimization for inference-specific
 
 ## Memory Bandwidth and Its Limitations
 
-The 2.1x bandwidth gap (960 GB/s vs 2,039 GB/s) appears dramatic until contextualized against model sizes:
+The 2.4x bandwidth gap (864 GB/s vs 2,039 GB/s) appears dramatic until contextualized against model sizes:
 
 **L40S memory bandwidth utilization (LLaMA 7B, batch 1):**
 - Model size: 14GB
-- Bandwidth needed: 960 GB/s × utilization factor
+- Bandwidth needed: 864 GB/s × utilization factor
 - Actual achieved: ~300 GB/s (31% utilization)
 
 **A100 memory bandwidth utilization (LLaMA 7B, batch 1):**
@@ -265,9 +265,9 @@ This fits comfortably on A100 (80GB) with 44GB free. L40S (48GB) accommodates th
 ## Power Efficiency and Heat Generation
 
 **L40S power profile:**
-- TDP: 320W
-- Cost per joule: $0.79/(320W × 3,600 sec/hour) = $6.84 × 10^-7 per joule
-- Typical power draw: 280W (87.5% utilization)
+- TDP: 350W
+- Cost per joule: $0.79/(350W × 3,600 sec/hour) = $6.25 × 10^-7 per joule
+- Typical power draw: 306W (87.5% utilization)
 
 **A100 power profile:**
 - TDP: 400W
@@ -342,18 +342,18 @@ Different precision formats reveal architecture-specific strengths.
 L40S tensor cores excel at lower-precision operations. The architecture optimizes for INT8 and FP8 rather than full FP16, creating relative advantage in these formats.
 
 **FP32 operations (scientific computing):**
-- L40S: 45 TFLOPS sustained
-- A100: 85 TFLOPS sustained
-- Advantage: A100 by 89%
+- L40S: 91.6 TFLOPS (peak)
+- A100: 19.5 TFLOPS (peak)
+- Advantage: L40S by 4.7x (A100 prioritizes TF32/FP16 over raw FP32)
 
 A100's balanced architecture handles full-precision compute better. Teams requiring scientific accuracy prefer A100.
 
 **TF32 operations (neural networks):**
-- L40S: 180 TFLOPS
-- A100: 310 TFLOPS
-- Advantage: A100 by 72%
+- L40S: 366 TFLOPS (with sparsity) / 183 TFLOPS (without sparsity)
+- A100: 312 TFLOPS (with sparsity) / 156 TFLOPS (without sparsity)
+- Advantage: Comparable; L40S leads with sparsity, A100 preferred for training due to HBM2e bandwidth
 
-TF32 balances precision and performance for training. A100's full support makes it preferred for training workloads.
+TF32 balances precision and performance for training. A100's superior memory bandwidth (2 TB/s vs L40S's 864 GB/s) makes it preferred for training workloads despite similar TF32 compute.
 
 **Practical implication:** L40S excels at optimized inference using INT8/FP8 quantization. A100 handles broader precision requirements. Choose L40S if committed to quantization strategies; choose A100 if precision flexibility matters.
 

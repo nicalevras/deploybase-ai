@@ -4,8 +4,8 @@ slug: gh200-vs-h100
 description: >-
   Compare NVIDIA GH200 and H100 specifications, performance, and pricing to
   determine the best GPU for your inference workloads and AI applications.
-date: '2026-03-22'
-author: DeployBase
+date: '2025-10-09'
+author: Deploybase
 category: GPU Comparison
 ---
 ## Contents
@@ -27,7 +27,7 @@ category: GPU Comparison
 
 H100: 80GB HBM3 (SXM) / HBM2e (PCIe), standard. Proven, mature, cheaper.
 
-GH200: 96GB HBM3e + 480GB unified CPU memory + 72-core Grace CPU. Newer, faster for big models.
+GH200: 141GB HBM3e + 480GB unified CPU memory + 72-core Grace CPU. Newer, faster for big models.
 
 For serving large models (70B+), GH200 is 15-25% faster. For small models or tight budgets, H100 is fine.
 
@@ -35,7 +35,7 @@ For serving large models (70B+), GH200 is 15-25% faster. For small models or tig
 
 The fundamental divergence between these GPUs begins with their memory subsystems. The H100 SXM (the dominant cloud variant) uses 80GB of HBM3 with a theoretical peak bandwidth of 3.35 TB/s; the PCIe variant uses HBM2e at 2.0 TB/s. This configuration has enabled billions in AI inference spending since its 2022 release, making it the industry standard for LLM deployment.
 
-The GH200, released in late 2023 and ramping through 2024–2025, combines NVIDIA's H100 GPU with their Grace CPU processor into a single unified system. The GPU component includes 96GB of HBM3e memory, representing 20% more capacity than the H100. More significantly, the unified memory architecture allows both the CPU and GPU to access the same 480GB of CPU memory via NVIDIA's NVLink-C2C interconnect at 900 GB/s speed.
+The GH200, released in late 2023 and ramping through 2024–2025, combines NVIDIA's H100 GPU with their Grace CPU processor into a single unified system. The GPU component includes 141GB of HBM3e memory, representing 76% more capacity than the H100. More significantly, the unified memory architecture allows both the CPU and GPU to access the same 480GB of CPU memory via NVIDIA's NVLink-C2C interconnect at 900 GB/s speed.
 
 This architectural difference matters profoundly for inference applications. Token processing in large language models involves substantial memory movement. When a 70-billion parameter model processes prompts and generates output, the bottleneck typically involves shuttling weights and intermediate activations between storage and compute. The H100 handles this through traditional PCIe or NVLink connections to host CPUs, while the GH200's unified memory space eliminates copies entirely.
 
@@ -45,7 +45,7 @@ The Grace CPU component of the GH200 itself provides meaningful computational ca
 
 ## Memory Specifications and Capacity
 
-The GH200's 96GB of HBM3e stands against the H100 SXM's 80GB of HBM3. The additional 16GB enables loading slightly larger models or maintaining larger batch processing windows. For teams serving multiple models simultaneously or maintaining substantial attention caches for long-context inference, this difference proves material.
+The GH200's 141GB of HBM3e stands against the H100 SXM's 80GB of HBM3. The additional 61GB enables loading significantly larger models or maintaining larger batch processing windows. For teams serving multiple models simultaneously or maintaining substantial attention caches for long-context inference, this difference proves material.
 
 Memory bandwidth tells another story. The H100 SXM's 3.35 TB/s bandwidth has proven sufficient for most inference scenarios, where compute requirements remain modest compared to training. The GH200's HBM3e provides comparable bandwidth, but the unified memory access to 480GB of LPDDR5x CPU memory effectively provides multiple tiers of memory bandwidth. Data hot in the CPU cache transfers at NVLink-C2C speeds (900 GB/s), while frequently accessed weights benefit from HBM3e speed.
 
@@ -75,14 +75,14 @@ The GH200's superior memory hierarchy for this workload pattern makes it particu
 
 ## Provider Pricing and Accessibility
 
-The practical choice between these processors hinges significantly on provider pricing. Lambda Labs offers GH200 instances at $1.99 per hour, while their H100 SXM instances command $2.49 per hour. This 20% price advantage positions the GH200 as the more economical choice for pure inference work.
+The practical choice between these processors hinges significantly on provider pricing. Lambda Labs offers GH200 instances at $1.99 per hour, while their H100 SXM instances command $3.78 per hour. This 20% price advantage positions the GH200 as the more economical choice for pure inference work.
 
 However, availability matters. As of March 2026, GH200 capacity remains constrained across most providers. RunPod lists H100 instances from $1.99-$2.69 per hour but does not yet offer GH200 in their catalog. This supplier variance means actual deployment costs depend heavily on provider selection and capacity access.
 
 CoreWeave prices GH200 hardware at $6.50 per hour, substantially above Lambda Labs. This pricing variance reflects both capacity constraints and customer mix differences. Teams capable of committing to sustained reservations can negotiate better per-hour rates on both processors.
 
 For a deployment running continuously over one month (730 hours):
-- H100 on Lambda Labs: 730 × $2.49 = $1,818
+- H100 on Lambda Labs: 730 × $3.78 = $2,760
 - GH200 on Lambda Labs: 730 × $1.99 = $1,453
 - H100 on RunPod: 730 × $1.99 = $1,454
 - H100 on CoreWeave: 730 × $1.50 (estimated) = $1,095
@@ -137,7 +137,7 @@ A100-based systems show larger advantages from GH200 upgrades. The older A100 ar
 
 ## Financial Impact Analysis
 
-The decision between GH200 and H100 carries significant financial implications. A 200-GPU inference cluster switching from H100 at $2.49/hour to GH200 at $1.99/hour saves $73,000 monthly in compute costs. Annual savings reach $876,000 at current pricing.
+The decision between GH200 and H100 carries significant financial implications. A 200-GPU inference cluster switching from H100 at $3.78/hour to GH200 at $1.99/hour saves $130,766 monthly in compute costs. Annual savings reach $876,000 at current pricing.
 
 However, availability constraints limit this calculation's applicability. Few teams can provision 200 GH200 GPUs immediately. Hybrid approaches deploying available GH200 capacity while maintaining H100 fallback infrastructure prove more practical.
 
@@ -155,7 +155,7 @@ For a typical inference request, tokenization and preprocessing consume 5-10ms o
 
 The unified memory architecture enables memory oversubscription strategies. Models exceeding GPU memory occupy CPU memory transparently. This simplifies deployment of slightly-larger-than-GPU models without explicit distributed inference coordination.
 
-A 120GB model in FP16 exceeds H100 capacity (80GB) by 40GB, requiring H100 clusters to employ tensor parallelism across multiple GPUs. The GH200 loads the model into its 96GB GPU memory plus 24GB from the 480GB CPU pool smoothly.
+A 120GB model in FP16 exceeds H100 capacity (80GB) by 40GB, requiring H100 clusters to employ tensor parallelism across multiple GPUs. The GH200 loads the model entirely into its 141GB GPU memory with room to spare.
 
 ## Comprehensive Testing Methodology
 

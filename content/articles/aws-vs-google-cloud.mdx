@@ -4,9 +4,9 @@ slug: aws-vs-google-cloud
 description: >-
   AWS vs Google Cloud GPU pricing comparison: p5, a3-highgpu, A100, H100, TPU
   v5e. Cost analysis, performance benchmarks, and region availability.
-date: '2026-03-22'
-author: DeployBase
-category: Cloud Infrastructure
+date: '2025-07-09'
+author: Deploybase
+category: GPU Cloud
 keywords:
   - aws vs google cloud
   - AWS GPU pricing
@@ -53,7 +53,8 @@ p5 represents AWS's current flagship for AI training:
 - Memory per H100: 80GB HBM2e (640GB total)
 - GPU Memory Bandwidth: 3.3 TB/s per GPU
 - Network: 3,200 Gbps (400 GB/s) per instance
-- On-demand pricing: $98.47/hour (US East 1)
+- On-demand pricing: $98.32/hour (US East 1)
+- 1-year reserved pricing: $55.04/hour (US East 1)
 
 p5 instances target large-scale LLM training where maximum GPU count and network bandwidth matter. Eight-GPU clusters enable full-precision training on 70B parameter models or higher.
 
@@ -71,9 +72,9 @@ p4d instances step back from latest hardware, offering A100 GPUs:
 - Memory per A100: 40GB HBM2 (320GB total)
 - GPU Memory Bandwidth: 2.0 TB/s per GPU
 - Network: 400 Gbps per instance
-- On-demand pricing: $32.77/hour (US East 1)
+- On-demand pricing: $21.96/hour (US East 1)
 
-p4d costs 1/3 of p5 while achieving 85-90% of training performance on large LLM tasks. Teams training 30-70B models efficiently choose p4d over p5, avoiding 3-4 week wait times and reducing costs by $65k+ per month.
+p4d costs less than p5 while achieving 85-90% of training performance on large LLM tasks. Teams training 30-70B models efficiently choose p4d over p5, avoiding 3-4 week wait times and reducing costs by $65k+ per month.
 
 p4d maintains availability across most US regions, enabling faster provisioning (1-2 weeks typical wait times).
 
@@ -105,7 +106,7 @@ A3-Highgpu represents Google Cloud's H100 offering:
 - GPU: 8x NVIDIA H100 per instance
 - Memory per H100: 80GB HBM2e (640GB total)
 - Network: 2,400 Gbps per instance
-- On-demand pricing: $12.93/hour per H100 (approximately $103.44/hour for 8-GPU instance)
+- On-demand pricing: $11.06/hour per H100 (approximately $88.49/hour for 8-GPU instance)
 
 A3-Highgpu costs significantly more than AWS p5 on hourly rates. However, Google Cloud applies committed discounts more aggressively, reducing effective costs.
 
@@ -193,12 +194,12 @@ Hourly pricing varies substantially by region and instance configuration.
 | AWS | g4dn.xlarge | T4 | $0.35 | $255 |
 | GCP | n1-standard-8 + L4 | L4 | $0.35 | $255 |
 | AWS | g5.2xlarge | RTX A10G | $0.94 | $686 |
-| GCP | a2-highgpu-1g | A100 | $6.39 | $4,665 |
-| AWS | p4d-24xlarge | A100 x8 | $32.77 | $23,921 |
-| GCP | a3-highgpu | H100 x8 | $103.44 | $75,511 |
-| AWS | p5-48xlarge | H100 x8 | $98.47 | $71,843 |
+| GCP | a2-highgpu-1g | A100 | $3.67 | $2,679 |
+| AWS | p4d-24xlarge | A100 x8 | $21.96 | $16,031 |
+| GCP | a3-highgpu | H100 x8 | $88.49 | $64,598 |
+| AWS | p5-48xlarge | H100 x8 | $55.04 | $40,179 |
 
-AWS undercuts Google Cloud on H100 hourly rates. Effective monthly costs favor AWS by 5-7% for similar configurations.
+AWS undercuts Google Cloud on H100 hourly rates by 38% ($55.04 vs $88.49 for 8×H100). Effective monthly costs favor AWS significantly for H100 configurations.
 
 However, workload-specific analysis changes the calculus.
 
@@ -207,23 +208,23 @@ However, workload-specific analysis changes the calculus.
 Assuming 10-day training timeline:
 
 AWS p5 (8x H100):
-- Hourly rate: $98.47
+- Hourly rate: $55.04
 - Days required: 10
-- Total compute cost: $98.47 × 24 × 10 = $23,593
+- Total compute cost: $55.04 × 24 × 10 = $13,210
 
 Google Cloud A3-Highgpu (8x H100):
-- Hourly rate: $103.44
+- Hourly rate: $88.49
 - Days required: 10 (same hardware, same speed)
-- Total compute cost: $103.44 × 24 × 10 = $24,825
+- Total compute cost: $88.49 × 24 × 10 = $21,238
 
-AWS wins by $1,232. Small advantage on same hardware.
+AWS wins by $8,028 (38% cheaper) on H100.
 
 However, if using different hardware:
 
 AWS p4d (8x A100):
-- Hourly rate: $32.77
+- Hourly rate: $21.96
 - Days required: 11.5 (slower GPU, larger batch overhead)
-- Total compute cost: $32.77 × 24 × 11.5 = $9,036
+- Total compute cost: $21.96 × 24 × 11.5 = $6,061
 
 GCP TPU v5e (16-pod):
 - Hourly rate: $30.24
@@ -239,25 +240,25 @@ Spot instances (preemptible in Google Cloud terminology) offer 60-80% discounts 
 **AWS Spot Pricing**
 
 p5 spot instances (March 2026):
-- On-demand: $98.47/hour
-- Spot: $29.54/hour (70% discount)
-- Monthly cost (730 hours): $21,584
+- On-demand: $55.04/hour
+- Spot: $16.51/hour (70% discount)
+- Monthly cost (730 hours): $12,053
 
 Spot availability: High for p5 in us-east-1 (interruption risk ~2-3 per month)
 
 p4d spot instances:
-- On-demand: $32.77/hour
-- Spot: $9.83/hour (70% discount)
-- Monthly cost (730 hours): $7,176
+- On-demand: $21.96/hour
+- Spot: $6.59/hour (70% discount)
+- Monthly cost (730 hours): $4,811
 
 p4d spot offers reliable capacity with low interruption risk.
 
 **Google Cloud Preemptible Instances**
 
 A3-Highgpu preemptible (H100 x8):
-- On-demand: $103.44/hour
-- Preemptible: $30.96/hour (70% discount)
-- Monthly cost (730 hours): $22,601
+- On-demand: $88.49/hour
+- Preemptible: $26.55/hour (70% discount)
+- Monthly cost (730 hours): $19,381
 
 GCP preemptible instances feature 24-hour maximum duration before mandatory termination. This constraint complicates long training jobs (>24 hours) requiring checkpoint/restart logic.
 
@@ -286,24 +287,24 @@ Long-term commitments reduce effective hourly costs significantly.
 **AWS Reserved Instances (1-year)**
 
 p5 1-year reserved (All Upfront):
-- On-demand: $98.47/hour
-- Reserved: $68.93/hour (30% discount)
-- Effective monthly cost: $50,359
-- Annual commitment: $603,408
+- On-demand: $55.04/hour
+- Reserved: $38.53/hour (30% discount)
+- Effective monthly cost: $28,127
+- Annual commitment: $337,523
 
 p4d 1-year reserved (All Upfront):
-- On-demand: $32.77/hour
-- Reserved: $22.94/hour (30% discount)
-- Effective monthly cost: $16,747
-- Annual commitment: $200,964
+- On-demand: $21.96/hour
+- Reserved: $15.37/hour (30% discount)
+- Effective monthly cost: $11,220
+- Annual commitment: $134,641
 
 **Google Cloud Commitments (1-year)**
 
 A3-Highgpu 1-year commitment (All Upfront):
-- On-demand: $103.44/hour
-- Commitment: $69.32/hour (33% discount)
-- Effective monthly cost: $50,604
-- Annual commitment: $607,254
+- On-demand: $88.49/hour
+- Commitment: $59.29/hour (33% discount)
+- Effective monthly cost: $43,282
+- Annual commitment: $519,380
 
 TPU v5e 1-year commitment (All Upfront):
 - On-demand: $30.24/hour
@@ -491,10 +492,10 @@ Complete cost accounting includes compute, storage, egress, and operational over
 Scenario: Train 70B model, checkpoint every epoch (72 hours), egress checkpoints to S3/Cloud Storage.
 
 **AWS p4d route:**
-- Compute (p4d on-demand): $32.77/hour × 2,160 hours = $70,826
+- Compute (p4d on-demand): $21.96/hour × 2,160 hours = $47,434
 - S3 storage (10GB daily): $0.023/GB-month × 10 × 12 = $2.76
 - Egress (1TB total): $0.02/GB × 1,024 = $20.48
-- Total: $70,849
+- Total: $47,457
 
 **GCP TPU v5e route:**
 - Compute (TPU preemptible): $9.07/hour × 2,160 hours = $19,591
@@ -509,10 +510,10 @@ GCP saves $51,133 (72%) through TPU efficiency and lower egress preference (redu
 Scenario: Serve 70B model continuously, process 1M tokens/day (inference only).
 
 **AWS approach (p4d for optimal latency):**
-- Compute (p4d reserved, 1-year): $22.94/hour × 730 = $16,746/month
+- Compute (p4d reserved, 1-year): $15.37/hour × 730 = $11,220/month
 - Storage/egress: Negligible
 - Operational overhead: ~2 FTE ($400k/year = $33k/month)
-- Total: $49,746/month or $596,952/year
+- Total: $44,220/month or $530,640/year
 
 **GCP approach (TPU v5e):**
 - Compute (TPU v5e reserved): $19.56/hour × 730 = $14,289/month

@@ -5,8 +5,9 @@ description: >-
   Fine-tune Llama 4 Scout with LoRA: step-by-step guide, GPU requirements (A100
   sufficient), dataset preparation, evaluation metrics. Cost breakdown and ROI
   analysis.
-date: 2026-03-22T00:00:00.000Z
-author: DeployBase
+category: Tutorials
+date: '2026-01-06'
+author: Deploybase
 ---
 
 Fine-tuning Llama 4 Scout (17B active parameters) specializes the base model for the domain without retraining from scratch. Using Low-Rank Adaptation (LoRA), teams achieve comparable task performance to full fine-tuning while reducing computational requirements and training cost by 90%. This guide walks through the complete fine-tuning pipeline from dataset preparation through evaluation and production deployment.
@@ -32,11 +33,11 @@ Fine-tuning Llama 4 Scout (17B active parameters) specializes the base model for
 
 ## Understanding Llama 4 Architecture and Fine-Tuning Approaches
 
-Llama 4 Scout represents Meta's efficient variant within the Llama 4 family, optimized for inference rather than maximum capabilities. With 17B active parameters (49B total with MoE architecture), Scout requires approximately 34GB of VRAM for FP16 weight loading. This fits within a single [H100 GPU ($2.49/hour on Lambda)](/articles/lambda-labs-gpu-pricing), enabling cost-effective experimentation and prototyping.
+Llama 4 Scout represents Meta's efficient variant within the Llama 4 family, optimized for inference rather than maximum capabilities. With 17B active parameters (109B total with MoE architecture, 16 experts), Scout requires approximately 34GB of VRAM for FP16 weight loading of the active parameters, or fits within a single NVIDIA H100 GPU with int4 quantization. Cloud GPU pricing: [H100 PCIe at $2.86/hour on Lambda or $1.99/hour on RunPod](/articles/lambda-labs-gpu-pricing), enabling cost-effective experimentation and prototyping.
 
 As of March 2026, Llama 4 Scout represents the latest generation of Meta's open-source language models. The MoE architecture provides efficiency benefits for both training and inference compared to dense alternatives like Llama 3.
 
-Full fine-tuning updates all model weights, requiring approximately 150GB of memory for training a 17B model with gradient accumulation and optimizer states. This necessitates [A100 40GB or H100](/articles/nvidia-h100-price) pairing (or multi-GPU setups), driving training cost to $500-1,500 per training job. For teams experimenting iteratively, these costs compound rapidly across multiple training runs.
+Full fine-tuning updates all model weights, requiring approximately 150GB+ of memory for training a 17B active-parameter MoE model with gradient accumulation and optimizer states. This necessitates [A100 80GB or H100](/articles/nvidia-h100-price) multi-GPU setups, driving training cost to $500-1,500 per training job. For teams experimenting iteratively, these costs compound rapidly across multiple training runs.
 
 LoRA fine-tuning updates only low-rank adapter matrices rather than full weights. A typical LoRA configuration (rank=8, alpha=16) introduces only 8-12 million trainable parameters versus 17 billion in the base model. With 4-bit quantization (QLoRA), memory requirements drop to 40-50GB, fitting on a single [A100 80GB ($1.19/hour on RunPod)](/articles/runpod-gpu-pricing) and enabling training jobs to complete for $50-200. Standard LoRA (without quantization) still requires ~80GB for the 17B active parameters plus optimizer states.
 
@@ -156,7 +157,7 @@ At scale (50,000 examples):
 - GPU cost: $18-24
 - Effective cost-per-example: $0.0004
 
-Even relatively expensive setups (using H100 at $2.49/hour) cost less than $100 for complete fine-tuning on datasets below 20,000 examples.
+Even relatively expensive setups (using H100 at $2.86/hour on Lambda PCIe) cost less than $100 for complete fine-tuning on datasets below 20,000 examples.
 
 ## Evaluation and Validation Strategies
 

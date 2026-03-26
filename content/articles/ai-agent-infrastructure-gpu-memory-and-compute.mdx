@@ -4,8 +4,9 @@ slug: ai-agent-infrastructure-gpu-memory-and-compute
 description: >-
   AI agent infrastructure planning. GPU memory, compute requirements,
   multi-agent systems. Design patterns for agent deployment at scale.
-date: 2026-03-22T00:00:00.000Z
-author: DeployBase
+date: '2026-01-14'
+author: Deploybase
+category: AI Infrastructure
 keywords:
   - ai agent infrastructure
 ---
@@ -56,7 +57,7 @@ Memory per agent instance: 2-4 GB (including model)
 Example: Email classifier using Llama 4 Scout
 
 Deployment: Single GPU instance supports 10-20 concurrent agents
-Cost: ~$0.10 per decision ($0.95 H100/hour, 10 agents)
+Cost: ~$0.20 per decision ($1.99 H100 PCIe/hour, 10 agents)
 
 **Moderate Agents (Information Retrieval, Multi-Turn)**
 
@@ -213,7 +214,7 @@ Disadvantages: Inefficient resource utilization, high per-agent cost.
 
 Deployment: Kubernetes pod per agent. Each pod: 1-8 GPU allocation.
 
-Cost example: 100 agents requiring 16GB each = 100 * $0.20/hour = $20/hour = $14,400/month
+Cost example: 100 agents requiring 16GB each = 100 * $1.99/hour (per H100 PCIe) = $199/hour = $145,270/month (with shared model servers this drops dramatically)
 
 ### Shared Model Server
 
@@ -224,7 +225,7 @@ Disadvantages: Complex state management, latency variability.
 
 Deployment: vLLM or similar serving layer, agents submit requests as RPC calls.
 
-Cost example: 100 agents, 50GB shared model = 1 * $0.95/hour = $0.95/hour = $700/month
+Cost example: 100 agents, 50GB shared model = 1 * $1.99/hour = $1.99/hour = $1,453/month
 
 95% cost reduction vs single-agent model through sharing.
 
@@ -416,11 +417,11 @@ Architecture:
 - Moderate support agent (Scout): 400 agents, shared on 8xH100
 - Complex escalation agent (Claude): 100 agents, dedicated GPU access
 
-Total GPU: 18xH100 = 18 * $0.95/hour = $17.10/hour
+Total GPU: 18xH100 = 18 * $1.99/hour = $35.82/hour
 
-Daily cost: $17.10 * 24 = $410/day = $150,000/year
+Daily cost: $35.82 * 24 = $860/day = $313,000/year
 
-Per-query cost: $150,000 / 10,000 = $15/query
+Per-query cost: $313,000 / 10,000 = $31/query
 
 Breakdown: 70% simple agent queries ($3 cost), 25% moderate ($8 cost), 5% complex ($50 cost).
 
@@ -444,10 +445,10 @@ GPU requirement: 10,000 agents / 50 per GPU = 200 GPUs
 
 Using [RunPod](/articles/runpod-gpu-pricing) spot instances:
 - H100: Too expensive
-- A100: $1.60/hour * 200 = $320/hour
-- L40: $1.20/hour * 200 = $240/hour
+- A100 SXM: $1.39/hour * 200 = $278/hour
+- L40: $0.69/hour * 200 = $138/hour
 
-Daily cost: $240 * 24 = $5,760/day = $2.1M/year
+Daily cost: $138 * 24 = $3,312/day = $1.2M/year (using L40 option)
 
 Processed queries: 10,000 agents * 100 queries/day = 1M daily classifications
 Cost per classification: $5,760 / 1,000,000 = $0.005

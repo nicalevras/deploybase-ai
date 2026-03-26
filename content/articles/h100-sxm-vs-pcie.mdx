@@ -5,8 +5,8 @@ description: >-
   Compare H100 SXM vs PCIe: NVLink bandwidth, power consumption, multi-GPU
   scaling efficiency, cloud pricing, and deployment considerations as of March
   2026.
-date: '2026-03-22'
-author: DeployBase
+date: '2025-06-10'
+author: Deploybase
 category: GPU Comparison
 keywords:
   - h100 sxm vs pcie
@@ -50,22 +50,24 @@ In cloud: Both are pre-configured. Doesn't matter. What matters: bandwidth and p
 
 ## Memory and Bandwidth Specifications
 
-### Identical HBM3 Memory
+### Different Memory Types
 
-Both H100 SXM and PCIe variants include 80GB HBM3 memory. Memory capacity, density, and bandwidth are identical:
+H100 SXM and PCIe variants use different memory types with different bandwidth:
 
-- 80GB total capacity
+**H100 SXM:**
+- 80GB HBM3 memory
 - 6 HBM3 stacks of ~13.3GB each
-- High-bandwidth stacked DRAM
-- Total memory bandwidth: 3.35 TB/s nominal
+- Total memory bandwidth: 3.35 TB/s
 
-The memory is mounted directly on the GPU package in both variants. Addressing schemes, access patterns, and latency profiles are identical. For single-GPU workloads, memory bandwidth performance is indistinguishable.
+**H100 PCIe:**
+- 80GB HBM2e memory
+- Total memory bandwidth: 2.0 TB/s
+
+This is a significant difference: the SXM variant's HBM3 provides 67% more memory bandwidth than the PCIe variant's HBM2e. For memory-bound workloads such as large language model inference, this bandwidth gap translates directly to throughput differences.
 
 ### GPU-Internal Bandwidth
 
-Both variants feature identical internal fabric connecting compute cores to memory controllers. Peak memory bandwidth consumption is 3.35 TB/s for both, achieved under identical workload conditions.
-
-Practical memory bandwidth utilization typically reaches 2.5-3 TB/s sustained for dense workloads (matrix multiplication with large batch sizes). This translates to identical performance on single-GPU inference, fine-tuning, and training workloads.
+The SXM variant's HBM3 reaches 3.35 TB/s peak bandwidth while the PCIe variant's HBM2e reaches 2.0 TB/s. Practical sustained bandwidth on the SXM variant reaches 2.5-3 TB/s for dense workloads; the PCIe variant sustains roughly 1.5-1.8 TB/s. This bandwidth difference is material for large-batch inference and training workloads.
 
 ### GPU-to-GPU Connectivity
 
@@ -142,8 +144,8 @@ The higher power consumption creates infrastructure implications. Data centers r
 Both variants deliver identical peak compute performance:
 
 - 66.9 teraFLOPS (TFLOPS) FP32 peak
-- 133.8 TFLOPS TF32 (for tensor operations)
-- 1,457 TFLOPS FP8 (for quantized operations)
+- 989 TFLOPS TF32 (for tensor operations, with sparsity: 1,979 TFLOPS)
+- 3,958 TFLOPS FP8 (for quantized operations, with sparsity)
 
 These figures are identical between SXM and PCIe variants. A Llama 70B inference task runs identically fast on both, provided GPU memory isn't shared with other processes. Single-GPU workload latency is identical.
 
@@ -208,10 +210,10 @@ PCIe systems can implement similar algorithms but are bandwidth-limited regardle
 
 **Lambda Labs Pricing:**
 - H100 PCIe: $2.86/hour
-- H100 SXM: $2.49/hour
-- Note: Lambda's SXM is actually priced below PCIe, reflecting availability and demand dynamics
+- H100 SXM: $3.78/hour
+- SXM premium over PCIe: 32%
 
-The pricing spread varies by provider. RunPod shows a 35% SXM premium, while Lambda inverts the pattern — SXM is priced below PCIe, making it the better value for multi-GPU distributed training workloads.
+The pricing spread varies by provider. RunPod shows a 35% SXM premium; Lambda Labs shows a 32% SXM premium. For both providers, SXM is more expensive than PCIe.
 
 ### Cost Per Unit Throughput
 

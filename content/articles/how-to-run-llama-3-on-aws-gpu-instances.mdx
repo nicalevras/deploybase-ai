@@ -2,8 +2,9 @@
 title: How to Run Llama 3 on AWS GPU Instances
 slug: how-to-run-llama-3-on-aws-gpu-instances
 description: 'p3.2xlarge: One V100 (16GB). $3.06/hour. Handles quantized Llama 3.'
-date: '2026-03-22'
-author: DeployBase
+date: '2025-07-18'
+author: Deploybase
+category: Tutorials
 ---
 
 ## Contents
@@ -21,7 +22,7 @@ author: DeployBase
 
 **p3.2xlarge:** One V100 (16GB). $3.06/hour. Handles quantized Llama 3.
 
-**p4d.24xlarge:** Eight A100s (40GB each). $32.77/hour. Production-scale inference. [CoreWeave's 8xA100: $21.60/hour](/articles/coreweave-gpu-pricing):cheaper for sustained workloads.
+**p4d.24xlarge:** Eight A100s (40GB each). ~$21.96/hour. Production-scale inference. [CoreWeave's 8xA100: $21.60/hour](/articles/coreweave-gpu-pricing): comparable pricing for sustained workloads.
 
 **g4dn.xlarge:** T4 (16GB). $0.52/hour. Dev and learning. Low throughput but great cost.
 
@@ -64,7 +65,7 @@ Start server:
 
 ```
 python -m vllm.entrypoints.openai.api_server \
-  --model meta-llama/Llama-3-13b-hf \
+  --model meta-llama/Llama-3-8b-hf \
   --tensor-parallel-size 8
 ```
 
@@ -81,7 +82,7 @@ Query on port 8000:
 ```
 curl http://localhost:8000/v1/completions \
   -H "Content-Type: application/json" \
-  -d '{"model": "meta-llama/Llama-3-13b-hf", "prompt": "Write Python", "max_tokens": 100}'
+  -d '{"model": "meta-llama/Llama-3-8b-hf", "prompt": "Write Python", "max_tokens": 100}'
 ```
 
 ## Running with Ollama
@@ -95,7 +96,7 @@ curl https://ollama.ai/install.sh | sh
 Pull:
 
 ```
-ollama pull llama3:13b
+ollama pull llama3:8b
 ```
 
 Serve:
@@ -107,14 +108,14 @@ ollama serve
 Query on port 11434:
 
 ```
-curl http://localhost:11434/api/generate -d '{"model": "llama3:13b", "prompt": "Write Python", "stream": false}'
+curl http://localhost:11434/api/generate -d '{"model": "llama3:8b", "prompt": "Write Python", "stream": false}'
 ```
 
 Ollama auto-manages GPU. No manual CUDA. Great for learning.
 
 ## Cost Optimization
 
-AWS for sustained inference runs pricey. p4d.24xlarge $32.77/hour = $23.7K/month. Specialize GPU clouds beat it.
+AWS for sustained inference runs pricey. p4d.24xlarge ~$21.96/hour = $16K/month. Specialized GPU clouds beat it.
 
 [Lambda A100 instances](/articles/lambda-labs-gpu-pricing) cheaper. [RunPod A100s](/articles/runpod-gpu-pricing) with spot discounts.
 

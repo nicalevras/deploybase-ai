@@ -5,9 +5,9 @@ description: >-
   CoreWeave vs Lambda Labs: GPU pricing breakdown, multi-GPU scaling, per-GPU
   cost analysis, and production workload recommendations. Pricing as of March
   2026.
-date: '2026-03-21'
-author: DeployBase
-category: GPU Providers
+date: '2025-11-25'
+author: Deploybase
+category: GPU Cloud
 keywords:
   - coreweave vs lambda
   - coreweave pricing
@@ -71,8 +71,8 @@ Lambda's single-GPU pricing is where the provider shines.
 | A100 PCIe | 40GB | $1.48 |
 | A100 SXM | 40GB | $1.48 |
 | H100 PCIe | 80GB | $2.86 |
-| H100 SXM | 80GB | $2.49 |
-| GH200 | 96GB | $1.99 |
+| H100 SXM | 80GB | $3.78 |
+| GH200 | 141GB | $1.99 |
 | B200 SXM | 192GB | $6.08 |
 
 **CoreWeave Single-GPU Effective Rates (from 8x clusters)**
@@ -105,14 +105,14 @@ Where CoreWeave's positioning becomes relevant: multi-GPU distributed training.
 
 | Provider | H100 Config | Price/hr |
 |----------|------------|----------|
-| Lambda | 8x H100 SXM (extrapolated) | ~$21.68 |
+| Lambda | 8x H100 SXM | $27.52 |
 | CoreWeave | 8x H100 SXM cluster | $49.24 |
 
-Lambda offers 8x H100 SXM at $21.68/hr. CoreWeave's equivalent 8x cluster is $49.24/hr. CoreWeave costs 2.27x more. Why would anyone choose CoreWeave?
+Lambda offers 8x H100 SXM at $27.52/hr. CoreWeave's equivalent 8x cluster is $49.24/hr. CoreWeave costs 1.79x more. Why would anyone choose CoreWeave?
 
 **The hidden costs of Lambda's pricing**
 
-Lambda's per-GPU SXM rate is $2.49 for a single H100 SXM. Multiply by 8: $19.92/hr for an 8x cluster. CoreWeave plays differently.
+Lambda's per-GPU SXM rate is $3.78 for a single H100 SXM. The 8x cluster lists at $27.52/hr. CoreWeave plays differently.
 
 CoreWeave's $49.24 for 8x H100 includes:
 - NVLink-ready cluster topology
@@ -126,14 +126,14 @@ Lambda's $21.68 is bare-metal: compute only. Teams orchestrate the distributed t
 **Real 1-week training cost: Llama 2 70B**
 
 Lambda 8x H100 SXM:
-- Weekly: $21.68/hr × 168 hours = **$3,642**
-- Monthly: $3,642 × 4.3 = **$15,660**
+- Weekly: $27.52/hr × 168 hours = **$4,623**
+- Monthly: $4,623 × 4.3 = **$19,879**
 
 CoreWeave 8x H100:
 - Weekly: $49.24/hr × 168 hours = **$8,272**
 - Monthly: $8,272 × 4.3 = **$35,570**
 
-Lambda is 2.27x cheaper. But Lambda's cluster is also ~5% less reliable in distributed training due to non-dedicated orchestration. CoreWeave's overhead buys teams stability.
+Lambda is 1.63x cheaper. But Lambda's cluster is also ~5% less reliable in distributed training due to non-dedicated orchestration. CoreWeave's overhead buys teams stability.
 
 ---
 
@@ -148,13 +148,13 @@ The definitive single-GPU rate table:
 | A100 SXM | $1.48 | $2.70 | Lambda |
 | GH200 | $1.99 | $6.50 (1x) | Lambda (3.3x) |
 | H100 PCIe | $2.86 |. | Lambda |
-| H100 SXM | $2.49 | $6.16 (÷8) | Lambda (2.5x) |
+| H100 SXM | $3.78 | $6.16 (÷8) | Lambda (1.6x) |
 | H200 |. | $6.31 (÷8) | CoreWeave only |
 | B200 SXM | $6.08 | $8.60 (÷8) | Lambda (1.4x) |
 
 *CoreWeave rates are per-GPU from 8-GPU clusters only. Single-GPU GH200 at CoreWeave is $6.50/hr.
 
-**Key insight:** Lambda dominates per-GPU pricing across all models except H200 (CoreWeave only). Lambda's advantage is largest for older, high-volume GPUs (A100: 82% cheaper). Even on newest hardware (B200), Lambda is still 41% cheaper per GPU.
+**Key insight:** Lambda dominates per-GPU pricing across all models except H200 (CoreWeave only). Lambda's advantage is largest for older, high-volume GPUs (A100: 45% cheaper). Even on newest hardware (B200), Lambda is still 29% cheaper per GPU.
 
 ---
 
@@ -210,13 +210,13 @@ Winner: Lambda. Only viable option for small fine-tuning.
 
 **Requirements:** 8x H100 SXM, distributed training, checkpoint every 6 hours
 
-Lambda: 336 hours × $21.68/hr = **$7,284**
+Lambda: 336 hours × $27.52/hr = **$9,247**
 CoreWeave with InfiniBand: 336 hours × $53.24/hr = **$17,889**
 
-Lambda is 2.45x cheaper. But CoreWeave's built-in cluster stability and networking mean training runs are less likely to crash mid-epoch. Lambda requires custom orchestration. One failed all-reduce at hour 200 and teams restart from hour 180 (checkpoints 6 hours apart). Costs compound.
+Lambda is 1.93x cheaper. But CoreWeave's built-in cluster stability and networking mean training runs are less likely to crash mid-epoch. Lambda requires custom orchestration. One failed all-reduce at hour 200 and teams restart from hour 180 (checkpoints 6 hours apart). Costs compound.
 
 Adjusted cost (accounting for potential restarts):
-- Lambda: $7,284 + ($7,284 × 0.15 restart overhead) = **$8,377**
+- Lambda: $9,247 + ($9,247 × 0.15 restart overhead) = **$10,634**
 - CoreWeave: $17,889 (orchestration overhead built-in)
 
 Gap narrows but Lambda still cheaper.
@@ -229,7 +229,7 @@ Winner: Lambda if the MLOps team is strong. CoreWeave if teams want operational 
 
 Monthly cost (730 hours):
 
-Lambda: 2 × $2.49/hr × 730 hours = **$3,635/month**
+Lambda: 2 × $3.78/hr × 730 hours = **$5,519/month**
 CoreWeave 8x cluster: $49.24/hr × 730 hours = **$35,945/month** (required)
 
 Lambda wins for small deployments. CoreWeave makes sense if teams are serving multiple models on the same cluster (amortized cost per model).
@@ -240,9 +240,9 @@ Lambda wins for small deployments. CoreWeave makes sense if teams are serving mu
 
 CoreWeave: 8x H100 cluster at $49.24/hr handles 5B tokens per hour (4x parallel inference per GPU). To process 1B tokens: 200 hours × $49.24 = **$9,848**
 
-Lambda: 8x H100 at $19.92/hr for same throughput. 200 hours × $19.92 = **$3,984**
+Lambda: 8x H100 at $27.52/hr for same throughput. 200 hours × $27.52 = **$5,504**
 
-Lambda saves $5,512. But Lambda's single-GPU focus means teams are paying for idle capacity or running suboptimal batch sizes. CoreWeave's orchestration enables better packing.
+Lambda saves $4,344. But Lambda's single-GPU focus means teams are paying for idle capacity or running suboptimal batch sizes. CoreWeave's orchestration enables better packing.
 
 Winner: Lambda for cost, CoreWeave for efficiency.
 
@@ -353,7 +353,7 @@ Empirical reports (forums, Slack communities): both are reliable for non-mission
 ## FAQ
 
 **Which is cheaper overall?**
-Lambda for <8 GPU workloads. 2.3x cheaper at single-GPU. CoreWeave for 8+ GPU clusters where orchestration overhead on Lambda becomes significant. At 8x H100 scale, CoreWeave's built-in management can offset its 2.27x higher per-GPU cost through reliability gains.
+Lambda for <8 GPU workloads. 1.6x cheaper at single-GPU H100 SXM. CoreWeave for 8+ GPU clusters where orchestration overhead on Lambda becomes significant. At 8x H100 scale, CoreWeave's built-in management can offset its 1.63x higher per-GPU cost through reliability gains.
 
 **Can I move workloads between them?**
 Yes. Both support Docker, SSH, standard frameworks. Export model, spin up on new provider, resume. Moving data off CoreWeave incurs egress fees (~$0.08-0.10/GB). Lambda charges $0 egress. Plan for CoreWeave egress costs in your budget.

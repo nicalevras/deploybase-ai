@@ -2,11 +2,11 @@
 title: 'A100 AWS: EC2 p4d Instances, Pricing, and Cost Optimization'
 slug: a100-aws
 description: >-
-  AWS p4d.24xlarge (8xA100) costs $32.77/hr on-demand. Explore reserved pricing,
+  AWS p4d.24xlarge (8xA100) costs $21.96/hr on-demand. Explore reserved pricing,
   spot savings, and when managed services justify GPU cost premium.
-date: '2026-03-22'
-author: DeployBase
-category: GPU Providers
+date: '2025-01-20'
+author: Deploybase
+category: GPU Pricing
 ---
 
 ## Contents
@@ -25,7 +25,7 @@ category: GPU Providers
 
 ## A100 AWS: EC2 p4d for Managed GPU Infrastructure
 
-**A100 AWS** is available exclusively through p4d.24xlarge instances with 8xA100 GPUs, high-performance CPUs, and networking. On-demand pricing is approximately $32.77 per hour. That's 3x more expensive than dedicated providers on raw cost, but includes managed services, IAM, and automated scaling.
+**A100 AWS** is available exclusively through p4d.24xlarge instances with 8xA100 GPUs, high-performance CPUs, and networking. On-demand pricing is approximately $21.96 per hour. That's ~2x more expensive than dedicated providers on raw cost, but includes managed services, IAM, and automated scaling.
 
 This guide covers AWS p4d pricing, instance selection, reserved capacity, and cost optimization strategies for A100 workloads.
 
@@ -37,13 +37,13 @@ AWS prices A100 exclusively as 8-GPU clusters via p4d.24xlarge. Individual A100 
 
 | Pricing Model | Hourly | Monthly (730 hrs) | Annual | Per-GPU | Effective Cost |
 |---|---|---|---|---|---|
-| On-Demand | $32.77 | $23,922 | $287,051 | $4.10 | $4.10/GPU |
-| 1-Year Reserved | $16.38 | $11,957 | $143,525 | $2.05 | $2.05/GPU |
-| 3-Year Reserved | $14.33 | $10,461 | $123,846 | $1.79 | $1.79/GPU |
-| Savings Plan (1-year) | $16.38 | $11,957 | $143,525 | $2.05 | $2.05/GPU |
-| Spot (typical) | $9.83 | $7,176 | $86,108 | $1.23 | $1.23/GPU |
+| On-Demand | $21.96 | $16,031 | $192,370 | $2.745 | $2.745/GPU |
+| 1-Year Reserved | $10.98 | $8,015 | $96,185 | $1.37 | $1.37/GPU |
+| 3-Year Reserved | $9.60 | $7,008 | $84,095 | $1.20 | $1.20/GPU |
+| Savings Plan (1-year) | $10.98 | $8,015 | $96,185 | $1.37 | $1.37/GPU |
+| Spot (typical) | $6.59 | $4,811 | $57,718 | $0.82 | $0.82/GPU |
 
-Per-GPU on-demand cost: $4.10 (8 A100s / $32.77/hr). This exceeds dedicated providers: [RunPod A100 costs $1.19/hr](/articles/a100-runpod) ($0.15/GPU per single instance), making AWS on-demand 27x more expensive per GPU. However, AWS includes CPU, RAM, networking, and managed services worth $15-20/hr separately.
+Per-GPU on-demand cost: $2.745 (8 A100s / $21.96/hr). This exceeds dedicated providers: [RunPod A100 costs $1.19/hr](/articles/a100-runpod), making AWS on-demand ~2.3x more expensive per GPU. However, AWS includes CPU, RAM, networking, and managed services worth $15-20/hr separately.
 
 **Performance Benchmarks on AWS p4d A100**
 
@@ -55,7 +55,7 @@ Per-GPU on-demand cost: $4.10 (8 A100s / $32.77/hr). This exceeds dedicated prov
 
 **Savings Plans Discount**
 
-AWS compute Savings Plans provide 50% on-demand discounts for 1-year or 3-year commitments. A p4d.24xlarge under 1-year Savings Plan costs ~$16.38/hr ($2.05/GPU), matching [CoreWeave's reserved pricing](/articles/coreweave-gpu-pricing) while providing integrated AWS services.
+AWS compute Savings Plans provide 50% on-demand discounts for 1-year or 3-year commitments. A p4d.24xlarge under 1-year Savings Plan costs ~$10.98/hr ($1.37/GPU), matching or undercutting [CoreWeave's reserved pricing](/articles/coreweave-gpu-pricing) while providing integrated AWS services.
 
 ## AWS EC2 p4d Specifications
 
@@ -78,7 +78,7 @@ EFA provides 400Gbps bandwidth for GPU-to-GPU communication across p4d clusters.
 
 ## Spot Instance Strategy
 
-AWS Spot pricing for p4d.24xlarge averages $9.83/hr (70% savings), making it competitive with CoreWeave reserved pricing ($13.82/hr for 8xA100).
+AWS Spot pricing for p4d.24xlarge averages $6.59/hr (70% savings), making it competitive with CoreWeave reserved pricing ($13.82/hr for 8xA100).
 
 **Spot Interruption Handling**
 
@@ -99,7 +99,7 @@ for epoch in range(num_epochs):
         save_checkpoint(f'checkpoint_epoch_{epoch}.pt')
 ```
 
-For resumable workloads with checkpointing, Spot p4d ($9.83/hr) provides exceptional value.
+For resumable workloads with checkpointing, Spot p4d ($6.59/hr) provides exceptional value.
 
 ## Setup and Cost Optimization
 
@@ -216,9 +216,9 @@ AWS offers both p4d (A100) and p5 (H100) instances. Comparison:
 
 | Metric | p4d (A100) | p5 (H100) |
 |---|---|---|
-| Hourly Rate | $32.77 | $98.16 |
-| Per-GPU Cost | $4.10 | $12.27 |
-| Performance | 312 TFLOPS | 989 TFLOPS |
+| Hourly Rate | $21.96 | $55.04 |
+| Per-GPU Cost | $2.745 | $6.88 |
+| Performance (BF16 Tensor) | 312 TFLOPS | 1,979 TFLOPS |
 | Memory | 320GB (8x40GB) | 640GB (8x80GB) |
 | EFA Networking | 400Gbps | 400Gbps |
 
@@ -239,7 +239,7 @@ spec:
   template:
     spec:
       containers:
-      - name: trainer
+  - name: trainer
         image: pytorch-training:latest
         resources:
           limits:
@@ -282,11 +282,11 @@ predictor.deploy_config.auto_scaling_config = {
 
 **Is AWS p4d worth the cost premium versus RunPod or Lambda?**
 
-AWS excels for teams requiring integrated IAM, logging, compliance, and multi-team cost allocation. For solo engineers or small teams prioritizing GPU cost alone, [RunPod A100 at $1.19/hr](/articles/a100-runpod) is 27x cheaper. AWS becomes cost-competitive at 1-year Savings Plan rates ($16.38/hr = $2.05/GPU) for sustained workloads exceeding 6 months when including managed services value. Compare [Lambda A100 reserved pricing](/articles/lambda-labs-gpu-pricing) and [CoreWeave Kubernetes clusters](/articles/coreweave-gpu-pricing) for alternative production setups.
+AWS excels for teams requiring integrated IAM, logging, compliance, and multi-team cost allocation. For solo engineers or small teams prioritizing GPU cost alone, [RunPod A100 at $1.19/hr](/articles/a100-runpod) is ~2.3x cheaper per GPU. AWS becomes cost-competitive at 1-year Savings Plan rates ($10.98/hr = $1.37/GPU) for sustained workloads exceeding 6 months when including managed services value. Compare [Lambda A100 reserved pricing](/articles/lambda-labs-gpu-pricing) and [CoreWeave Kubernetes clusters](/articles/coreweave-gpu-pricing) for alternative production setups.
 
 **Should I use p4d Spot instances for training?**
 
-Yes, if implementing checkpointing and tolerating rare interruptions. Spot at $9.83/hr saves $23/hr versus on-demand. For a 100-hour training job, Spot saves $2,294. The trade-off: occasional reruns from checkpoints versus guaranteed on-demand execution.
+Yes, if implementing checkpointing and tolerating rare interruptions. Spot at $6.59/hr saves $15.37/hr versus on-demand. For a 100-hour training job, Spot saves $1,537. The trade-off: occasional reruns from checkpoints versus guaranteed on-demand execution.
 
 **How does p4d performance compare to p5 for A100-compatible models?**
 
@@ -307,8 +307,8 @@ A100's 312 TFLOPS matches p5's peak performance for 8-bit and 4-bit quantized wo
 | RunPod (8x A100 single instances) | $1.19 × 8 | $952 | 30 min ($50) | $1,002 |
 | Lambda (8x A100 cluster) | $1.48 | $148 | 15 min ($25) | $173 |
 | Lambda (4x cluster × 2) | $5.92 × 2 | $1,184 | 30 min ($50) | $1,234 |
-| AWS p4d Spot | $9.83 | $983 | 1 hour ($150) | $1,133 |
-| AWS p4d Reserved (break-even) | $16.38 | $1,638 | 1 hour ($150) | $1,788 |
+| AWS p4d Spot | $6.59 | $659 | 1 hour ($150) | $809 |
+| AWS p4d On-Demand | $21.96 | $2,196 | 1 hour ($150) | $2,346 |
 
 For single 100-hour job: RunPod single-GPU instances cheapest. For sustained multi-GPU training: Lambda 8xA100 cluster most economical. AWS becomes optimal for 6+ month commitments with managed service integration value.
 

@@ -4,9 +4,9 @@ slug: runpod-vs-lambda
 description: >-
   RunPod vs Lambda GPU cloud pricing and features compared. RTX 3090 from
   $0.22-$0.58/hr. Serverless, data transfer, and multi-GPU training analyzed.
-date: '2026-03-21'
-author: DeployBase
-category: GPU Cloud Comparison
+date: '2026-03-04'
+author: Deploybase
+category: GPU Cloud
 keywords:
   - runpod vs lambda
   - lambda vs runpod
@@ -44,7 +44,7 @@ RunPod vs Lambda is a common choice for teams building on-demand GPU infrastruct
 |-----------|--------|--------|------|
 | **Cheapest GPU (on-demand)** | RTX 3090 $0.22/hr (Community) | Quadro RTX 6000 $0.58/hr | RunPod |
 | **H100 PCIe (on-demand)** | $1.99/hr | $2.86/hr | RunPod |
-| **H100 SXM (on-demand)** | $2.69/hr | $2.49/hr | Lambda |
+| **H100 SXM (on-demand)** | $2.69/hr | $3.78/hr | RunPod |
 | **A100 PCIe (on-demand)** | $1.19/hr | $1.48/hr | RunPod |
 | **Data Transfer Cost** | $0.05/GB out | $0 out | Lambda |
 | **Multi-GPU NVLink** | Weaker PCIe | 95%+ efficiency | Lambda |
@@ -69,7 +69,7 @@ On modern chips, RunPod wins on base rate. H100 PCIe: RunPod $1.99/hr vs Lambda 
 
 Lambda charges $0 for outbound data transfer. RunPod charges $0.05/GB out. Scale this across teams moving large datasets. A team pushing 10TB monthly to storage or ML platforms saves $500/month on Lambda just from egress. Factor that into the total cost.
 
-Lambda's multi-GPU instances are NVLink-connected for training. 8x A100 SXM on Lambda at $11.84/hr runs full distributed training with 95%+ efficiency. RunPod's H100 SXM 8x runs $21.52/hr, higher per-hour but also more raw performance per dollar on modern silicon.
+Lambda's multi-GPU instances are NVLink-connected for training. 8x A100 SXM on Lambda at $11.84/hr runs full distributed training with 95%+ efficiency. RunPod's H100 SXM 8x runs $21.52/hr, higher per-hour but also more raw performance per dollar on modern silicon. Lambda's H100 SXM 8x at $30.24/hr ($3.78 × 8) is more expensive than RunPod's equivalent.
 
 ### Monthly Cost at Scale
 
@@ -144,7 +144,7 @@ RunPod is cheaper. But Lambda's consistency and zero-egress model appeal to risk
 
 RunPod SXM pricing is lower, but NVLink efficiency matters. A team training a 13B parameter model across 8x GPUs sees 60-80% throughput on RunPod PCIe, 95%+ on Lambda SXM. The extra efficiency reduces wall-clock training time. For time-sensitive research, that advantage cuts training schedule by 15-30%, offsetting the higher hourly rate.
 
-Lambda H100 SXM 8x: $21.68/hr. RunPod H100 SXM 8x: $21.52/hr. Similar rates. Lambda wins on efficiency.
+Lambda H100 SXM 8x: $27.52/hr. RunPod H100 SXM 8x: $21.52/hr. RunPod is cheaper per hour; Lambda wins on NVLink efficiency.
 
 ### Next-Gen Hardware
 
@@ -236,16 +236,16 @@ To move beyond hourly rates and understand total cost of ownership, here are thr
 
 Fine-tuning task: 20 hours of training on 8x A100 SXM GPUs.
 
-**RunPod SXM:** $2.69/hr × 8 × 20 = **$431.20**
-**Lambda SXM:** $2.49/hr × 8 × 20 = **$398.40**
-**Savings on RunPod: $173.60 (29%)**
+**RunPod SXM:** $1.39/hr × 8 × 20 = **$222.40**
+**Lambda SXM (A100 PCIe):** $1.48/hr × 8 × 20 = **$236.80**
+**RunPod advantage: $14.40**
 
 But add data transfer. Download 100GB model weights (free on both), upload 50GB checkpoints (RunPod: $2.50, Lambda: $0).
 
-**RunPod total: $433.70**
-**Lambda total: $604.80**
+**RunPod total: $224.90**
+**Lambda total: $236.80**
 
-RunPod still wins, but the gap narrows when egress is factored in. For fine-tuning tasks that generate large checkpoint sets, Lambda's zero egress fees help.
+RunPod still wins. For fine-tuning tasks that generate large checkpoint sets, Lambda's zero egress fees help narrow the gap.
 
 ### Scenario 2: Inference API, 1 Million Requests/Month
 
@@ -275,12 +275,12 @@ RunPod with checkpointing (restart on eviction): total cost same, operational ov
 
 RunPod Community: Same cost, but SLA risk. One eviction per week = 4-8 hours downtime/month. At $500 per hour lost revenue, that's $2,000-4,000/month in losses. Total cost of ownership: $451.92 + $3,000 = **$3,451.92**
 
-Lambda: $2.49/hr × 168 hrs = **$418.32/week**. Near-99% uptime guaranteed. Zero unscheduled downtime.
+Lambda H100 SXM: $3.78/hr × 168 hrs = **$635.04/week**. Near-99% uptime guaranteed. Zero unscheduled downtime.
 
-**Lambda total: $2,621 per month (about $635 × 4)**
+**Lambda total: ~$2,540 per month (about $635 × 4)**
 **RunPod Community real cost: ~$3,451/month (compute + lost revenue)**
 
-Lambda is cheaper when downtime costs are factored in.
+Lambda is cheaper when downtime costs are factored in despite the higher hourly rate.
 
 This scenario illustrates a common mistake: evaluating compute cost in isolation. Reliability has costs. Production workloads need uptime guarantees.
 

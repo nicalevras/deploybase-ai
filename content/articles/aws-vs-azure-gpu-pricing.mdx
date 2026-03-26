@@ -4,9 +4,9 @@ slug: aws-vs-azure-gpu-pricing
 description: >-
   AWS vs Azure vs GCP GPU pricing: H100, A100 costs, spot discounts, reserved
   instances as of March 2026.
-date: '2026-03-22'
-author: DeployBase
-category: Comparisons
+date: '2025-06-30'
+author: Deploybase
+category: GPU Cloud
 keywords:
   - aws vs azure gpu pricing
   - aws vs azure vs gcp gpu
@@ -73,15 +73,17 @@ As of March 2026, AWS on-demand pricing (US East, N. Virginia):
 | Instance | GPUs | GPU Type | Hourly Rate |
 |---|---|---|---|
 | p5.48xlarge | 8 | H100 SXM | $98.32 |
-| p4d.24xlarge | 8 | A100 SXM | $30.60 |
+| p4d.24xlarge | 8 | A100 SXM | $21.96 |
 | g5.2xlarge | 1 | A10G | $1.01 |
 | g4dn.xlarge | 1 | T4 | $0.35 |
 
-**Per-GPU cost for p5.48xlarge:** $98.32 ÷ 8 = $12.29/hour per H100 SXM
+**Per-GPU cost for p5.48xlarge (on-demand):** $98.32 ÷ 8 = $12.29/hour per H100 SXM
 
-**Per-GPU cost for p4d.24xlarge:** $30.60 ÷ 8 = $3.825/hour per A100 SXM
+**1-year reserved pricing for p5.48xlarge:** $55.04/hour ($6.88/GPU)
 
-AWS H100 on p5 instances is 4-5x more expensive per GPU than specialty providers (RunPod at $2.69/hour for H100 SXM) but includes 400Gbps EFA networking, 1.1TB RAM, and deep AWS managed services integration (IAM, VPC, CloudWatch, SageMaker, etc.).
+**Per-GPU cost for p4d.24xlarge:** $21.96 ÷ 8 = $2.745/hour per A100 SXM
+
+AWS H100 on p5 instances is 2-3x more expensive per GPU than specialty providers (RunPod at $2.69/hour for H100 SXM) but includes 400Gbps EFA networking, 1.1TB RAM, and deep AWS managed services integration (IAM, VPC, CloudWatch, SageMaker, etc.).
 
 ### Spot Pricing
 
@@ -90,7 +92,7 @@ AWS spot prices fluctuate based on demand. March 2026 average spot prices (US Ea
 | Instance | Spot Rate | Discount |
 |---|---|---|
 | p5.48xlarge | $29.50 | ~70% off on-demand |
-| p4d.24xlarge | $9.18 | 70% off on-demand |
+| p4d.24xlarge | $6.59 | 70% off on-demand |
 | g5.2xlarge | $0.30 | 70% off on-demand |
 
 Spot instances can be interrupted with 2-minute notice. Interruption frequency is ~1-5% annually depending on instance type.
@@ -100,14 +102,14 @@ Spot instances can be interrupted with 2-minute notice. Interruption frequency i
 AWS reserved instances (RIs) lock in rates for 1 or 3 years.
 
 **1-year reserved (p4d.24xlarge, 8x A100):**
-- Upfront: $137,000
-- Effective hourly: $15.66 (49% discount)
+- Upfront: ~$96,000
+- Effective hourly: $10.98 (50% discount)
 
 **3-year reserved (p4d.24xlarge, 8x A100):**
-- Upfront: $216,000
-- Effective hourly: $8.20 (73% discount)
+- Upfront: ~$150,000
+- Effective hourly: $5.93 (73% discount)
 
-Monthly cost at 3-year rate: $8.20 × 730 hours = $5,986/month for 8x A100s.
+Monthly cost at 3-year rate: $5.93 × 730 hours = $4,329/month for 8x A100s.
 
 ---
 
@@ -198,22 +200,25 @@ As of March 2026, GCP on-demand pricing (us-central1):
 
 | Instance | GPUs | GPU Type | Hourly Rate |
 |---|---|---|---|
-| a3-megagpu-8g | 8 | H100 | $26.40 |
-| a2-highgpu-8g | 8 | A100 SXM | $19.20 |
+| a3-highgpu-8g | 8 | H100 | $88.49 |
+| a2-highgpu-8g | 8 | A100 | $35.20 |
+| a2-highgpu-1g | 1 | A100 | $3.67 |
 | n1-standard-4 (1x T4) | 1 | T4 | $0.35 |
 
-**Per-GPU cost for a3-megagpu-8g:** $26.40 ÷ 8 = $3.30/hour per H100
+**Per-GPU cost for a3-highgpu-8g:** $88.49 ÷ 8 = $11.06/hour per H100
 
-GCP is the cheapest hyperscaler for H100 on-demand pricing.
+GCP H100 on-demand pricing ($11.06/GPU, a3-highgpu-8g) is comparable to Azure ($11.06/GPU) and significantly cheaper than AWS ($12.29/GPU).
 
 ### Preemptible VMs
 
-GCP's "preemptible" pricing is the deepest discount among hyperscalers:
+GCP preemptible pricing (A3 H100 instances not eligible):
 
 | Instance | Preemptible Rate | Discount |
 |---|---|---|
-| a3-megagpu-8g | $2.64 | 90% off on-demand |
-| a2-highgpu-8g | $1.92 | 90% off on-demand |
+| a2-highgpu-8g | $10.56 | ~70% off on-demand |
+| a2-highgpu-1g | $1.10 | ~70% off on-demand |
+
+Note: A3 (H100) instances do not support preemptible pricing on GCP.
 
 Preemptible instances terminate every 24 hours automatically + can be interrupted at any time. The 90% discount makes them attractive for fault-tolerant batch workloads.
 
@@ -222,16 +227,16 @@ Preemptible instances terminate every 24 hours automatically + can be interrupte
 GCP offers 1 and 3-year commitment discounts:
 
 **1-year CUD (a3-megagpu-8g):**
-- Rate: $17.60/hour
-- Discount: 33% off on-demand
+- Rate: ~$59.29/hour
+- Discount: ~33% off on-demand
 
 **3-year CUD (a3-megagpu-8g):**
-- Rate: $10.18/hour
-- Discount: 61% off on-demand
+- Rate: ~$34.51/hour
+- Discount: ~61% off on-demand
 
-Monthly cost at 3-year rate: $10.18 × 730 hours = $7,431/month for 8x H100s.
+Monthly cost at 3-year rate: $34.51 × 730 hours = $25,192/month for 8x H100s.
 
-GCP's committed discounts are lower than AWS/Azure, but the on-demand base is cheaper, so the absolute cost is competitive.
+GCP's committed discounts bring H100 costs down significantly, but AWS 1-year reserved ($55.04/hr) and CoreWeave on-demand ($49.24/hr) remain more cost-effective for most teams.
 
 ---
 
@@ -241,22 +246,23 @@ GCP's committed discounts are lower than AWS/Azure, but the on-demand base is ch
 
 | Provider | Instance | Per-GPU Cost | Full Node Cost |
 |---|---|---|---|
-| AWS | p4d.24xlarge (8x A100 SXM) | $3.83 | $30.60 |
+| AWS | p4d.24xlarge (8x A100 SXM) | $2.75 | $21.96 |
 | Azure | ND96asr_v4 (8x A100 SXM) | $3.56 | $28.50 |
-| GCP | a2-highgpu-8g (8x A100 SXM) | $2.40 | $19.20 |
+| GCP | a2-highgpu-8g (8x A100) | $4.40 | $35.20 |
 | CoreWeave | 8x A100 SXM | $2.70 | $21.60 |
 
-**Winner for A100:** GCP on-demand, CoreWeave as specialty alternative.
+**Winner for A100:** CoreWeave at $2.70/GPU ($21.60 total) narrowly beats AWS p4d ($2.75/GPU, $21.96 total). Azure and GCP are significantly more expensive per GPU.
 
 ### H100 SXM (LLM training, large-scale)
 
 | Provider | Instance | Per-GPU Cost | Full Node Cost |
 |---|---|---|---|
-| AWS | p5.48xlarge (8x H100 SXM) | $4.00 | $32.00 |
-| GCP | a3-megagpu-8g (8x H100) | $3.30 | $26.40 |
+| AWS | p5.48xlarge (8x H100 SXM) | $12.29 | $98.32 |
+| Azure | ND H100 v5 (8x H100) | $11.06 | $88.49 |
+| GCP | a3-highgpu-8g (8x H100) | $11.06 | $88.49 |
 | CoreWeave | 8x H100 SXM | $6.16 | $49.24 |
 
-**Winner for H100:** GCP on-demand at $3.30/GPU (17% cheaper than AWS). CoreWeave premium due to bare-metal multi-GPU system overhead.
+**Winner for H100 on-demand:** CoreWeave is the cheapest at $6.16/GPU ($49.24 for 8x). Among hyperscalers, AWS and GCP are comparable (~$11/GPU), both cheaper than AWS on-demand ($12.29/GPU).
 
 ### T4 GPU (Inference, development)
 
@@ -276,11 +282,11 @@ GCP's committed discounts are lower than AWS/Azure, but the on-demand base is ch
 
 | Provider | Node Type | On-Demand | Spot | Discount |
 |---|---|---|---|
-| AWS | p5.48xlarge (8x H100) | $32.00 | $9.60 | 70% |
-| GCP | a3-megagpu-8g (8x H100) | $26.40 | $2.64 | 90% |
-| Azure | NC80adis_H100_v5 (2x H100) | $18.00 | $5.40 | 70% |
+| AWS | p5.48xlarge (8x H100) | $98.32 | $29.50 | ~70% |
+| Azure | ND H100 v5 (8x H100) | $88.49 | $26.55 | ~70% |
+| GCP | a3-highgpu-8g (8x H100) | $88.49 | N/A | Not available |
 
-**Winner for deep discounts:** GCP preemptible at 90% off. But requires fault tolerance (auto-restarts, checkpointing).
+**Winner for deep discounts on H100:** AWS and Azure spot pricing. GCP does not offer preemptible pricing on A3 H100 instances. For A100 workloads, GCP preemptible is available at ~70% off.
 
 ### Risk & Interruption Rates
 
@@ -302,14 +308,14 @@ All three hyperscalers offer 70-73% discounts for 3-year commitments on GPU inst
 
 | Provider | Instance | On-Demand | 3-Year Rate | Monthly Cost |
 |---|---|---|---|
-| AWS | p5.48xlarge (8x H100 SXM) | $32.00 | $9.60 | $7,008 |
-| AWS | p4d.24xlarge (8x A100 SXM) | $30.60 | $8.20 | $5,986 |
+| AWS | p5.48xlarge (8x H100 SXM) | $98.32 | ~$39.33 | $28,711 |
+| AWS | p4d.24xlarge (8x A100 SXM) | $21.96 | $6.59 | $4,810 |
 | Azure | ND96asr_v4 (8x A100 SXM) | $28.50 | $7.89 | $5,759 |
-| GCP | a3-megagpu-8g (8x H100) | $26.40 | $10.18 | $7,431 |
+| GCP | a3-highgpu-8g (8x H100) | $88.49 | ~$34.51 | $25,192 |
 
-**Winner for committed A100 use:** Azure at $5,759/month for 8x A100s.
+**Winner for committed H100 use:** GCP 3-year CUD at ~$34.51/hr ($25,192/month). AWS 1-year reserved at $55.04/hr ($40,179/month). CoreWeave on-demand at $49.24/hr ($35,945/month) is competitive without a long-term commitment.
 
-**Key insight:** AWS and Azure offer nearly identical 3-year discounts. GCP's committed discount is smaller (61% vs. 73%), making AWS/Azure more attractive for multi-year A100 contracts. For H100, compare AWS p5 vs GCP a3 on-demand before committing.
+**Key insight:** For H100 with long-term commitment, GCP 3-year CUD is cheapest among hyperscalers. For A100, Azure ND at $7.89/hr 3-year reserved is cheapest.
 
 ---
 
@@ -325,7 +331,7 @@ All three hyperscalers offer 70-73% discounts for 3-year commitments on GPU inst
 
 **A100 advantages:**
 - Older, more stable drivers and software
-- Lower per-GPU cost (GCP A100 = $2.40 vs. H100 = $3.30)
+- Lower per-GPU cost (GCP A100 = $4.40 vs. H100 = $11.06 on GCP)
 - Sufficient for most models under 100B parameters
 - Better supported in older ML frameworks
 
@@ -362,18 +368,16 @@ For distributed training with 8+ GPUs, GCP's interconnect is marginally faster, 
 
 **AWS on-demand (p5.48xlarge, 8x H100):**
 - 100 hours ÷ 8 GPUs = 12.5 hours of node time
-- Cost: 12.5 × $32.00 = $400
+- Cost: 12.5 × $98.32 = $1,229
 
-**GCP on-demand (a3-megagpu-8g, 8x H100):**
+**GCP on-demand (a3-highgpu-8g, 8x H100):**
 - 100 hours ÷ 8 GPUs = 12.5 hours
-- Cost: 12.5 × $26.40 = $330
+- Cost: 12.5 × $88.49 = $1,106
 
-**GCP preemptible (a3-megagpu-8g):**
-- Same compute time, accounting for 24-hour preemption
-- Multiple restarts needed: ~3 checkpoints over 100 hours
-- Cost: 12.5 × $2.64 = $33 + ~50 wasted hours due to restarts = $33 + $165 = $198 total
+**Azure on-demand (ND H100 v5, 8x H100):**
+- 12.5 × $88.49 = $1,106
 
-**Verdict:** GCP on-demand saves $70 vs AWS. GCP preemptible saves $202 with fault tolerance implementation.
+**Verdict:** GCP and Azure are similarly priced ($1,106) for H100 fine-tuning on-demand; both are cheaper than AWS ($1,229). GCP does not offer preemptible on A3 H100 instances. CoreWeave ($49.24/hr) would cost $617 for the same workload.
 
 ### Scenario 2: 3-Month LLM Training Project
 
@@ -381,22 +385,21 @@ For distributed training with 8+ GPUs, GCP's interconnect is marginally faster, 
 
 **AWS on-demand (p5.48xlarge, H100):**
 - 10,000 ÷ 8 = 1,250 node-hours
-- Cost: 1,250 × $32.00 = $40,000
+- Cost: 1,250 × $98.32 = $122,900
 
-**AWS 3-year reserved (commitment):**
-- Assume 3-year contract (paid upfront)
-- Effective: 1,250 × $9.60 = $12,000 (estimated 3-year p5 rate)
-- Plus 30% additional discount for volume negotiations
-- Likely cost: ~$8,400 (after negotiation)
+**AWS 1-year reserved (commitment):**
+- 1-year rate: $55.04/hr
+- Cost: 1,250 × $55.04 = $68,800
 
-**GCP preemptible (with checkpointing every 12 hours):**
-- 10,000 compute hours + ~1,000 wasted restart hours = 11,000 effective hours
-- 11,000 ÷ 8 = 1,375 node-hours
-- Cost: 1,375 × $2.64 = $3,630
-- Manual intervention cost: ~50 hours @ $100/hour = $5,000 (engineer time)
-- Total: $8,630
+**GCP on-demand (a3-highgpu-8g, H100):**
+- 10,000 ÷ 8 = 1,250 node-hours
+- Cost: 1,250 × $88.49 = $110,613
 
-**Verdict:** GCP preemptible ($8,630 with overhead) and AWS reserved ($8,400) are comparable. GCP on-demand ($40,000) is significantly more expensive than AWS on-demand ($40,000). Choose based on operational tolerance for interruptions.
+**GCP 1-year CUD (a3-highgpu-8g):**
+- 1-year rate: ~$59.29/hr (33% off)
+- Cost: 1,250 × $59.29 = $74,113
+
+**Verdict:** AWS 1-year reserved ($68,800) is the most cost-effective hyperscaler option. GCP on-demand ($110,613) and Azure on-demand ($110,613) are similar. CoreWeave ($49.24/hr × 1,250 = $61,550) is the cheapest option for this scale.
 
 ### Scenario 3: Production Inference Service (Ongoing)
 
@@ -407,17 +410,17 @@ For distributed training with 8+ GPUs, GCP's interconnect is marginally faster, 
 - Monthly: $5.05 × 730 = $3,686.50
 - Annual: $44,238
 
-**GCP on-demand (a2-highgpu, 1 A100 = $2.40/hour, need 5):**
-- 5 × $2.40 = $12.00/hour
-- Monthly: $12 × 730 = $8,760
-- Annual: $105,120
+**GCP on-demand (a2-highgpu-1g, 1 A100 = $3.67/hour, need 5):**
+- 5 × $3.67 = $18.35/hour
+- Monthly: $18.35 × 730 = $13,396
+- Annual: $160,748
 
 **GCP 3-year CUD (committed):**
-- 5 × $1.36/hour (3-year A100 rate) = $6.80/hour
-- Monthly: $6.80 × 730 = $4,964
-- Annual: $59,568
+- 5 × $2.20/hour (3-year A100 rate) = $11.00/hour
+- Monthly: $11.00 × 730 = $8,030
+- Annual: $96,360
 
-**Verdict:** AWS on-demand (A10G) is cheapest at $44,238/year. GCP 3-year commitment ($59,568) is more expensive for this A100-based scenario. AWS spot on A10G instances would be even cheaper (~$13,000/year) but risks interruptions for production.
+**Verdict:** AWS on-demand (A10G) is cheapest at $44,238/year for this inference use case. GCP 3-year commitment ($96,360) is more expensive than AWS A10G for this scenario but uses a more powerful A100 GPU. AWS spot on A10G instances would be even cheaper (~$13,000/year) but risks interruptions for production.
 
 ---
 
@@ -447,7 +450,7 @@ This mix reduces cost volatility and guarantees core capacity (reserved) while c
 ## FAQ
 
 **Q: Which cloud has the cheapest H100?**
-GCP at $3.30/hour on-demand (per GPU, a3-megagpu-8g), $0.33/hour preemptible per GPU. AWS p5.48xlarge is $4.00/hour per H100 on-demand. But GCP preemptible requires fault tolerance (guaranteed 24-hour termination).
+Among hyperscalers, GCP and Azure are comparable at $11.06/GPU ($88.49 for 8×H100), with AWS on-demand at $12.29/GPU ($98.32 for 8×H100). AWS 1-year reserved drops to $6.88/GPU ($55.04/hr). For specialty providers, CoreWeave at $6.16/GPU ($49.24/hr for 8x) is cheaper than hyperscalers. RunPod H100 SXM at $2.69/hr is the cheapest single-GPU option.
 
 **Q: Can I use spot pricing for production inference?**
 Not recommended. Interruption rate is 1-5% annually, which translates to ~4-50 hours downtime per year. Most production systems can't tolerate this.
@@ -461,8 +464,8 @@ Yes, with multi-GPU checkpointing. Every 12-24 hours, preemptible instances term
 **Q: Can I move workloads between AWS, Azure, and GCP?**
 Yes, if workloads are containerized (Docker). All three support Kubernetes. Framework code (PyTorch, JAX, TensorFlow) is portable.
 
-**Q: Which cloud is best for multi-year commitments?**
-AWS and Azure offer comparable 3-year discounts (72-73% off). GCP's CUD discount is lower (61% off). AWS and Azure are slightly cheaper long-term.
+**Q: Which cloud is best for multi-year commitments on H100?**
+GCP's 3-year CUD (~$34.51/hr for 8x H100) is the cheapest hyperscaler commitment option, offering ~61% off on-demand. AWS 1-year reserved ($55.04/hr) is a strong alternative with shorter commitment. For A100 workloads, Azure ND A100 v4 3-year reserved is the most cost-effective hyperscaler option.
 
 **Q: Are there hidden costs (data egress, storage)?**
 Data egress from GPU instances costs $0.01-0.12 per GB depending on destination. Storage (EBS, persistent disks) costs $0.10-0.30/GB/month. These add 10-20% overhead for intensive ML workloads. Budget accordingly.

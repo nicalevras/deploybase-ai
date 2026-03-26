@@ -5,8 +5,8 @@ description: >-
   B200 vs H100 comparison: Blackwell architecture, FP8 performance, memory
   bandwidth, and cloud pricing as of March 2026. Current pricing and data as of
   March 2026.
-date: '2026-03-22'
-author: DeployBase
+date: '2026-02-14'
+author: Deploybase
 category: GPU Comparison
 keywords:
   - nvidia b200 vs h100
@@ -47,7 +47,7 @@ The real question: does Blackwell's performance justify the cost premium over [H
 
 H100 is built on NVIDIA's Hopper architecture. Fourth-generation Tensor cores with native FP8 support. Transformer Engine hardware accelerates attention and feedforward layers automatically. HBM3 memory supplies 3.35 TB/s bandwidth.
 
-Peak FP32 performance: 60 TFLOPS. TF32 Tensor: 1,457 TFLOPS. FP8 Tensor: 5,825 TFLOPS.
+Peak FP32 performance: 67 TFLOPS (SXM). TF32 Tensor: 1,979 TFLOPS (with sparsity). FP8 Tensor: 3,958 TFLOPS (with sparsity).
 
 NVLink bandwidth: 900 GB/s per GPU in SXM form factor. That translates to 7.2 TB/s aggregate across an 8-GPU cluster.
 
@@ -57,7 +57,7 @@ Designed for transformer workloads. Attention, FFN, embedding operations are acc
 
 B200 is the first GPU in Blackwell architecture. Fifth-generation Tensor cores. Native FP6 support (6-bit floating point for inference quantization). Sparsity engine processes sparse models at full throughput (only compute nonzero weights).
 
-Peak FP32: 120 TFLOPS (2x H100). TF32 Tensor: 2,914 TFLOPS. FP8 Tensor: 11,650 TFLOPS (2x). FP6 Tensor: 17,475 TFLOPS (new).
+Peak FP32: 120 TFLOPS. TF32 Tensor: 2,914 TFLOPS. FP8 Tensor: 9,000 TFLOPS (with sparsity). FP6 Tensor: 17,475 TFLOPS (new).
 
 VRAM: 192GB HBM3e (double H100's 80GB). Bandwidth: 8.0 TB/s (2.4x H100).
 
@@ -74,13 +74,13 @@ The sparsity engine is novel. Models trained with structured sparsity (zeroing o
 | **Architecture** | Hopper (2023) | Blackwell (2025) | B200 (newer) |
 | **Memory (VRAM)** | 80GB HBM3 | 192GB HBM3e | B200 (2.4x) |
 | **Memory Bandwidth** | 3.35 TB/s | 8.0 TB/s | B200 (2.4x) |
-| **Peak FP32** | 60 TFLOPS | 120 TFLOPS | B200 (2x) |
-| **Peak FP8** | 5,825 TFLOPS | 11,650 TFLOPS | B200 (2x) |
+| **Peak FP32** | 67 TFLOPS (SXM) | 120 TFLOPS | B200 (~1.8x) |
+| **Peak FP8** | 3,958 TFLOPS (w/ sparsity) | 9,000 TFLOPS (w/ sparsity) | B200 (~2.3x) |
 | **FP6 Tensor** | Not supported | 17,475 TFLOPS | B200 (only) |
 | **Sparsity Engine** | No | Yes (2x speedup) | B200 (only) |
 | **NVLink (SXM)** | 900 GB/s per GPU | 1.8 TB/s per GPU | B200 (2x) |
 | **TDP (SXM)** | 700W | 1000W | H100 (lower power) |
-| **Price/GPU-hr** | $1.99-$2.49 | $5.98-$6.08 | H100 (cheaper) |
+| **Price/GPU-hr** | $1.99-$3.78 | $5.98-$6.08 | H100 (cheaper) |
 
 Data from NVIDIA datasheets and DeployBase cloud pricing (March 2026).
 
@@ -94,7 +94,7 @@ Data from NVIDIA datasheets and DeployBase cloud pricing (March 2026).
 
 H100 supports FP8 natively. Transformer Engine converts from FP16 to FP8 on-the-fly, re-ups to FP16 after compute. No accuracy loss on well-quantized models.
 
-B200 doubles the FP8 throughput (11,650 TFLOPS vs 5,825 TFLOPS). Inference on FP8 models runs 2x faster on B200. The speedup doesn't require retraining; older models quantized for H100 run 2x faster on B200 with zero code changes.
+B200 delivers ~2.3x the FP8 throughput (9,000 TFLOPS vs 3,958 TFLOPS with sparsity). Inference on FP8 models runs significantly faster on B200. The speedup doesn't require retraining; older models quantized for H100 run 2x faster on B200 with zero code changes.
 
 ### FP6 on B200
 
@@ -178,7 +178,7 @@ Example: A model trained with sparsity runs 2,100 tok/s on H100 (not sparse-awar
 | RunPod | H100 | SXM | $2.69 | $1,964 |
 | RunPod | B200 | 192GB | $5.98 | $4,365 |
 | Lambda | H100 | PCIe | $2.86 | $2,088 |
-| Lambda | H100 | SXM | $2.49 | $1,818 |
+| Lambda | H100 | SXM | $3.78 | $2,759 |
 | Lambda | B200 | 192GB | $6.08 | $4,438 |
 
 B200 is 2.2x to 2.6x more expensive per hour than H100. But remember: B200 is 2.5x faster on inference and 2.5x faster on training. The cost-per-task can be similar or favor B200 depending on workload.
@@ -297,7 +297,7 @@ No. Existing CUDA kernels, PyTorch models, and inference servers work on B200 wi
 
 **How does B200 compare to AMD MI300X?**
 
-MI300X: 192GB HBM3e, 5.3 TB/s bandwidth. B200: 192GB HBM3e, 8.0 TB/s bandwidth. B200 is 1.5x faster on bandwidth. MI300X has comparable VRAM. On proprietary benchmarks, B200 typically leads MI300X by 15-25% on LLM inference, but open-source benchmarks are scarce. Both are significantly more expensive than H100.
+MI300X: 192GB HBM3, 5.3 TB/s bandwidth. B200: 192GB HBM3e, 8.0 TB/s bandwidth. B200 is 1.5x faster on bandwidth. MI300X has comparable VRAM. On proprietary benchmarks, B200 typically leads MI300X by 15-25% on LLM inference, but open-source benchmarks are scarce. Both are significantly more expensive than H100.
 
 **What about cost per token on inference?**
 
