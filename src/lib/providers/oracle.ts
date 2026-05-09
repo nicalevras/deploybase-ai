@@ -4,7 +4,7 @@ import type { OraclePriceRow, ProviderResult } from '@/types/pricing';
 import type { ProviderScraper } from './types';
 import { logger } from "@/lib/logger";
 
-const PRICING_URL = 'https://www.oracle.com/cloud/compute/pricing/';
+const PRICING_URL = 'https://www.oracle.com/cloud/price-list/';
 
 
 // Oracle GPU pricing per GPU (from internal pricing table)
@@ -12,7 +12,7 @@ const PRICING_URL = 'https://www.oracle.com/cloud/compute/pricing/';
 const ORACLE_GPU_PRICING: Record<string, number> = {
   // Large scale-out AI training, data analytics, and HPC
   'BM.GPU.B200.8': 14.00,      // 8x GPUs = $112.00 total
-  'BM.GPU.GB200.41': 16.00,    // 4x GPUs = $64.00 total (HTML has superscript 1)
+  'BM.GPU.GB200.4': 16.00,     // 4x GPUs = $64.00 total
   'BM.GPU.GB300.4': 18.00,     // 4x GPUs = $72.00 total (NVIDIA B300)
   'BM.GPU.H200.8': 10.00,      // 8x GPUs = $80.00 total
   'BM.GPU.H100.8': 10.00,      // 8x GPUs = $80.00 total
@@ -33,6 +33,64 @@ const ORACLE_GPU_PRICING: Record<string, number> = {
   'VM.GPU2.1': 1.275,          // 1x GPU = $1.275 total
   'BM.GPU2.2': 1.275,          // 2x GPUs = $2.55 total
 };
+
+const ORACLE_FALLBACK_VRAM_PER_GPU: Record<string, number> = {
+  'NVIDIA A10': 24,
+  'NVIDIA Tesla V100': 16,
+  'NVIDIA Tesla P100': 16,
+};
+
+function normalizeOracleShape(shape: string): string {
+  let normalized = shape
+    .replace(/\s*\(new\)\s*$/i, '')
+    .replace(/\s+/g, '')
+    .trim();
+
+  // Oracle renders footnote superscripts as trailing digits in textContent.
+  normalized = normalized.replace(/^(BM\.GPU\.GB(?:200|300)\.4)\d+$/, '$1');
+
+  return normalized;
+}
+
+function normalizeOracleGpuInfo(shape: string, gpuInfo: string): { model: string; count: number; vramGb: number } | null {
+  const gpuMatch = gpuInfo.match(/^(\d+)\s*x\s+(.+)$/i);
+  if (!gpuMatch) return null;
+
+  const count = Number(gpuMatch[1]);
+  if (!Number.isFinite(count) || count <= 0) return null;
+
+  const rawModel = gpuMatch[2].trim();
+  const vramMatch = rawModel.match(/(\d+)\s*GB/i);
+  const vramPerGpu = vramMatch ? Number(vramMatch[1]) : undefined;
+
+  let model = rawModel
+    .replace(/\s+\d+\s*GB\b.*$/i, '')
+    .replace(/\s+Tensor Core.*$/i, '')
+    .replace(/\s+Matrix Core.*$/i, '')
+    .replace(/^Nvidia\b/i, 'NVIDIA')
+    .replace(/^NVIDIA\s+P100\b/i, 'NVIDIA Tesla P100')
+    .replace(/^NVIDIA\s+V100\b/i, 'NVIDIA Tesla V100')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (shape.startsWith('BM.GPU.GB200.')) {
+    model = 'NVIDIA GB200 NVL72';
+  } else if (shape.startsWith('BM.GPU.GB300.')) {
+    model = 'NVIDIA GB300 NVL72';
+  } else if (/^NVIDIA\s+RTX\s+PRO\s+6000$/i.test(model)) {
+    model = 'NVIDIA RTX PRO 6000';
+  }
+
+  const fallbackVramPerGpu = ORACLE_FALLBACK_VRAM_PER_GPU[model];
+  const resolvedVramPerGpu = vramPerGpu ?? fallbackVramPerGpu;
+  if (!resolvedVramPerGpu) return null;
+
+  return {
+    model,
+    count,
+    vramGb: resolvedVramPerGpu * count,
+  };
+}
 
 class OracleScraper implements ProviderScraper {
   name = 'oracle';
@@ -81,7 +139,7 @@ class OracleScraper implements ProviderScraper {
 
     const $ = cheerio.load(html);
 
-    // Find the GPU instances table - it's in the rc34w5 div after the compute-gpu header
+    // Find the GPU - Accelerated Compute table under the Compute section.
     const gpuSection = $('#compute-gpu').closest('.rc34w3');
     const gpuTable = gpuSection.find('table').first();
 
@@ -99,96 +157,56 @@ class OracleScraper implements ProviderScraper {
         return; // Skip malformed rows
       }
 
-      // Extract data from each cell - Oracle table has varying column counts
-      const shape = $(cells[0]).find('div').first().text().trim();
+      // Current columns: Shape, GPUs, Architecture, Network, GPU price per hour.
+      const shape = normalizeOracleShape($(cells[0]).find('div').first().text().trim() || $(cells[0]).text().trim());
       const gpuInfo = $(cells[1]).find('div').first().text().trim();
 
-      // Extract other fields based on position relative to known fields
-      let architecture = '';
-      let interconnect = '';
-      let gpuMemoryText = '';
-      let cpuCoresText = '';
-      let cpuMemoryText = '';
-      let storage = '';
-      let network = '';
-
-      if (cells.length >= 3) architecture = $(cells[2]).find('div').first().text().trim() || $(cells[2]).text().trim();
-      if (cells.length >= 4) interconnect = $(cells[3]).find('div').first().text().trim() || $(cells[3]).text().trim();
-      if (cells.length >= 5) gpuMemoryText = $(cells[4]).find('div').first().text().trim() || $(cells[4]).text().trim();
-      if (cells.length >= 6) cpuCoresText = $(cells[5]).find('div').first().text().trim() || $(cells[5]).text().trim();
-      if (cells.length >= 7) cpuMemoryText = $(cells[6]).find('div').first().text().trim() || $(cells[6]).text().trim();
-      if (cells.length >= 8) storage = $(cells[7]).find('div').first().text().trim() || $(cells[7]).text().trim();
-      if (cells.length >= 9) network = $(cells[8]).find('div').first().text().trim() || $(cells[8]).text().trim();
-
-      // Parse GPU information to get gpuCount
-      let gpuCount = 1;
-      let gpuModel = gpuInfo;
-
-      const gpuMatch = gpuInfo.match(/^(\d+)\s*x\s+(.+)$/);
-      if (gpuMatch) {
-        gpuCount = parseInt(gpuMatch[1]);
-        gpuModel = gpuMatch[2].trim();
-      }
-
-      // Clean up GPU model name
-      gpuModel = gpuModel.replace(/\s+\d+GB.*$/, '').trim(); // Remove memory info
-      gpuModel = gpuModel.replace(/\s+Tensor Core.*$/, '').trim(); // Remove Tensor Core suffix
-      gpuModel = gpuModel.replace(/^Nvidia$/, 'NVIDIA').replace(/^Nvidia\s+/, 'NVIDIA '); // Fix capitalization
-      gpuModel = gpuModel.replace(/\bNVIDIA P100\b/g, 'NVIDIA Tesla P100');  // Add Tesla prefix for P100
-      gpuModel = gpuModel.replace(/\bNVIDIA V100\b/g, 'NVIDIA Tesla V100');  // Add Tesla prefix for V100
-
-      // Get pricing from the manual mapping (per GPU pricing)
-      let priceHourUsd = 0;
-      let rawCost = 'Contact Oracle for pricing';
-
-      const perGpuPrice = ORACLE_GPU_PRICING[shape];
-      if (perGpuPrice !== undefined) {
-        priceHourUsd = perGpuPrice * gpuCount; // Multiply by GPU count for total instance price
-        rawCost = `$${priceHourUsd.toFixed(2)}`;
-      }
+      const architecture = cells.length >= 3 ? ($(cells[2]).find('div').first().text().trim() || $(cells[2]).text().trim()) : '';
+      const network = cells.length >= 4 ? ($(cells[3]).find('div').first().text().trim() || $(cells[3]).text().trim()) : '';
 
       if (!shape || !gpuInfo) {
         return; // Skip rows without essential data
       }
 
-      // Parse GPU memory (total, not per GPU)
-      const gpuMemoryMatch = gpuMemoryText.match(/(\d+(?:,\d+)?)/);
-      const vramGb = gpuMemoryMatch ? parseInt(gpuMemoryMatch[1].replace(',', '')) : 0;
-
-      // Parse CPU cores - use undefined if not available
-      const cpuCoresMatch = cpuCoresText.match(/(\d+)/);
-      const vcpus = cpuCoresMatch ? parseInt(cpuCoresMatch[1]) : undefined;
-
-      // Parse CPU memory - use undefined if not available
-      const cpuMemoryMatch = cpuMemoryText.match(/(\d+(?:,\d+)?)/);
-      const systemRamGb = cpuMemoryMatch ? parseInt(cpuMemoryMatch[1].replace(',', '')) : undefined;
-
-      // Skip if we don't have essential hardware data
-      if (!gpuModel || vramGb === 0) {
-        logger.warn(`Skipping Oracle GPU ${shape}: missing hardware data`);
+      const gpuDetails = normalizeOracleGpuInfo(shape, gpuInfo);
+      if (!gpuDetails) {
+        logger.warn(`Skipping Oracle GPU ${shape}: could not parse GPU details`);
         return;
       }
 
-      rows.push({
+      // Get pricing from the manual mapping (per GPU pricing)
+      let rawCost = 'Contact Oracle for pricing';
+      let priceHourUsd: number | undefined;
+
+      const perGpuPrice = ORACLE_GPU_PRICING[shape];
+      if (perGpuPrice !== undefined) {
+        priceHourUsd = perGpuPrice * gpuDetails.count; // Multiply by GPU count for total instance price
+        rawCost = `$${priceHourUsd.toFixed(2)}`;
+      }
+
+      const priceRow: OraclePriceRow = {
         provider: 'oracle',
         source_url: PRICING_URL,
         observed_at: observedAt,
         instance_id: shape,
-        gpu_model: gpuModel,
-        gpu_count: gpuCount,
-        vram_gb: vramGb,
-        vcpus: vcpus,
-        system_ram_gb: systemRamGb,
-        storage: storage || 'Not specified',
+        gpu_model: gpuDetails.model,
+        gpu_count: gpuDetails.count,
+        vram_gb: gpuDetails.vramGb,
+        storage: 'Not specified',
         network: network || 'Not specified',
         architecture: architecture || 'Not specified',
-        interconnect: interconnect || 'Not specified',
+        interconnect: network || 'Not specified',
         price_unit: 'instance_hour',
-        price_hour_usd: priceHourUsd,
         raw_cost: rawCost,
         class: 'GPU',
         type: shape.startsWith('BM') ? 'Bare Metal' : shape.startsWith('VM') ? 'Virtual Machine' : undefined,
-      });
+      };
+
+      if (priceHourUsd !== undefined) {
+        priceRow.price_hour_usd = priceHourUsd;
+      }
+
+      rows.push(priceRow);
 
       // Intentionally no logger here to reduce noise in production logs
     });

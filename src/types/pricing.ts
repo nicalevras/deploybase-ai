@@ -41,6 +41,7 @@ export type NebiusPriceRow = {
 
   // Compute identifiers
   item: string;                 // e.g. "NVIDIA HGX H100"
+  sku?: string;                 // optional variant key, e.g. L40S Intel vs AMD CPU rows
   gpu_model?: string;           // normalized copy of item for downstream consumers
   class: "GPU";                 // GPU table only
 
@@ -176,7 +177,7 @@ export type DigitalOceanPriceRow = {
 // Oracle pricing schema
 export type OraclePriceRow = {
   provider: "oracle";
-  source_url: string;           // https://www.oracle.com/cloud/compute/pricing/
+  source_url: string;           // https://www.oracle.com/cloud/price-list/
   observed_at: string;          // ISO timestamp
 
   // Identification
@@ -197,7 +198,7 @@ export type OraclePriceRow = {
 
   // Pricing (per instance, calculated from per-GPU pricing)
   price_unit: "instance_hour";  // per instance-hour (total cost)
-  price_hour_usd: number;       // total instance price per hour
+  price_hour_usd?: number;      // total instance price per hour; omitted when Oracle does not expose a price
   raw_cost: string;             // original price text
 
   // Flags

@@ -12,10 +12,13 @@ const MONEY_RE = /\$([0-9.]+)/;
 // Source: NVIDIA product pages and datasheets
 // Keys must match output of cleanGpuModelName() (without HGX prefix)
 const VRAM_MAPPING: Record<string, number> = {
+  'NVIDIA GB300 NVL72': 279,    // Current app convention: 4 GPUs = 1116 GB total
+  'NVIDIA B300': 288,           // B300 convention used by existing scrapers
   'NVIDIA GB200 NVL72': 186,    // 372 GB HBM3e per superchip (2 GPUs) → 186 per GPU
-  'NVIDIA B200': 180,           // B200 spec: 180 GB HBM3e
+  'NVIDIA B200': 192,           // Align with existing B200 convention in scraper data
   'NVIDIA H200': 141,           // H200 spec: 141 GB HBM3e
   'NVIDIA H100': 80,            // H100 spec: 80 GB HBM3
+  'NVIDIA RTX PRO 6000': 96,    // RTX PRO 6000 Blackwell
   'NVIDIA L40S': 48,            // L40S spec: 48 GB GDDR6
 };
 
@@ -44,12 +47,25 @@ function cleanGpuModelName(item: string): string {
 
   // Handle specific patterns for L40S GPUs - strip Intel/AMD suffixes
   cleaned = cleaned
+    .replace(/\bNVIDIA L40S\s+with\s+(Intel|AMD)\s+CPU\b/gi, 'NVIDIA L40S')
     .replace(/NVIDIA L40S GPU with AMD/g, 'NVIDIA L40S')
     .replace(/NVIDIA L40S GPU with Intel/g, 'NVIDIA L40S')
     .replace(/\bNVIDIA L40S\s+(Intel|AMD)\b/gi, 'NVIDIA L40S')
     .replace(/\bHGX\s*/gi, '');  // Strip HGX prefix (e.g., "NVIDIA HGX B200" -> "NVIDIA B200")
 
   return cleaned.trim();
+}
+
+function cleanPriceText(text: string): string {
+  const markdownLink = text.match(/^\[([^\]]+)\]\([^)]+\)$/);
+  return (markdownLink ? markdownLink[1] : text).trim();
+}
+
+function getVariantSku(item: string): string | undefined {
+  if (!/\bNVIDIA\s+L40S\b/i.test(item)) return undefined;
+  if (/\bIntel\b/i.test(item)) return 'nvidia-l40s-intel';
+  if (/\bAMD\b/i.test(item)) return 'nvidia-l40s-amd';
+  return undefined;
 }
 
 function normalizeSpecValue(value: string): string {
@@ -179,9 +195,10 @@ class NebiusScraper implements ProviderScraper {
     // Skip header row (first row)
     for (let i = 1; i < tableContent.length; i++) {
       const row = tableContent[i];
-      if (row.length !== 4) continue; // Skip malformed rows
+      if (row.length < 4) continue; // Skip malformed rows
 
-      const [item, vcpus, ramGb, priceText] = row;
+      const [item, vcpus, ramGb] = row;
+      const priceText = cleanPriceText(row.length >= 5 ? row[4] : row[3]);
       const normalizedModel = cleanGpuModelName(item);
       const normalizedVcpus = normalizeSpecValue(vcpus);
       const normalizedRam = normalizeSpecValue(ramGb);
@@ -192,6 +209,7 @@ class NebiusScraper implements ProviderScraper {
         source_url: PRICING_URL,
         observed_at: observedAt,
         item: normalizedModel,
+        sku: getVariantSku(item),
         gpu_model: normalizedModel,
         class: 'GPU',
         gpu_count: 1,
