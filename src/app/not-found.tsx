@@ -1,4 +1,5 @@
 import { Track404 } from "@/components/analytics/track-404";
+import Link from "next/link";
 
 export default function NotFound() {
   return (
@@ -13,12 +14,12 @@ export default function NotFound() {
           Double-check the URL or head back to the homepage.
         </p>
       </div>
-      <a
+      <Link
         href="/"
         className="inline-flex items-center rounded-md border border-border/60 bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm transition hover:bg-muted"
       >
         Return to Homepage
-      </a>
+      </Link>
     </div>
   );
 }

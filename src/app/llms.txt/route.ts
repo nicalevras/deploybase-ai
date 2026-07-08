@@ -1,15 +1,14 @@
-import { NextResponse } from "next/server";
-import { gpuPricingCache } from "@/lib/gpu-pricing-cache";
-import { modelsCache } from "@/lib/models-cache";
-import { toGpuModelSlug } from "@/lib/gpu-model-slug";
-import { getAllArticleSlugs, getArticleBySlug } from "@/lib/articles-loader";
 import { CATEGORIES } from "@/lib/article-categories";
+import { getAllArticleSlugs, getArticleBySlug } from "@/lib/articles-loader";
+import { toGpuModelSlug } from "@/lib/gpu-model-slug";
+import { gpuPricingCache } from "@/lib/gpu-pricing-cache";
 import { logger } from "@/lib/logger";
+import { modelsCache } from "@/lib/models-cache";
+import { NextResponse } from "next/server";
 
 export const revalidate = 43200;
 
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL ?? "https://deploybase.ai";
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://deploybase.ai";
 
 const GPU_DISPLAY_NAMES: Record<string, string> = {
   coreweave: "CoreWeave",
@@ -25,6 +24,7 @@ const GPU_DISPLAY_NAMES: Record<string, string> = {
   sesterce: "Sesterce",
   thundercompute: "ThunderCompute",
   paperspace: "Paperspace",
+  togetherai: "Together AI",
   fluidstack: "FluidStack",
   tensordock: "TensorDock",
   datacrunch: "DataCrunch",
@@ -33,6 +33,7 @@ const GPU_DISPLAY_NAMES: Record<string, string> = {
   scaleway: "Scaleway",
   massedcompute: "Massed Compute",
   jarvis: "Jarvis Labs",
+  voltagepark: "Voltage Park",
   aws: "AWS",
   gcp: "Google Cloud",
   googlecloud: "Google Cloud",
@@ -46,22 +47,21 @@ const GPU_DISPLAY_NAMES: Record<string, string> = {
 
 function formatGpuProvider(slug: string): string {
   return (
-    GPU_DISPLAY_NAMES[slug] ??
-    slug.charAt(0).toUpperCase() + slug.slice(1)
+    GPU_DISPLAY_NAMES[slug] ?? slug.charAt(0).toUpperCase() + slug.slice(1)
   );
 }
 
 export async function GET() {
   const lines: string[] = [
-    "# Deploybase",
+    "# Deploybase: AI Infrastructure Pricing Index",
     "",
-    "> Deploybase is a dashboard for comparing GPU cloud and LLM API pricing across all major providers. It offers near real-time pricing, performance stats, pricing history, and side-by-side comparisons.",
+    "> Deploybase is an AI infrastructure pricing index for GPU cloud pricing, LLM API pricing, provider specs, availability, performance stats, and pricing history. Deploybase tracks pricing data across major GPU cloud, inference, and AI infrastructure providers to help engineers compare compute costs.",
     "",
-    "## Key Pages",
+    "## Primary Deploybase Resources",
     "",
-    `- [GPU Pricing Comparison](${SITE_URL}/gpus): Compare GPU cloud pricing across all providers with hourly rates, VRAM, specs, and availability.`,
-    `- [LLM API Pricing Comparison](${SITE_URL}/llms): Compare LLM API pricing across all providers with cost per token, context windows, and models.`,
-    `- [MLOps Tools Directory](${SITE_URL}/tools): Directory of MLOps tools for training, inference, and deployment.`,
+    `- [Deploybase GPU Pricing Index](${SITE_URL}/gpus): Deploybase GPU cloud pricing comparison with hourly rates, VRAM, specs, provider availability, and pricing history.`,
+    `- [Deploybase LLM API Pricing Index](${SITE_URL}/llms): Deploybase LLM API pricing comparison with cost per token, context windows, model availability, and provider coverage.`,
+    `- [Deploybase MLOps Tools Directory](${SITE_URL}/tools): Deploybase directory of MLOps tools for training, inference, deployment, monitoring, and AI infrastructure workflows.`,
     "",
   ];
 
@@ -138,9 +138,7 @@ export async function GET() {
         if (!article) continue;
         const { title, description } = article.frontmatter;
         const desc = description || title;
-        lines.push(
-          `- [${title}](${SITE_URL}/articles/${slug}): ${desc}`,
-        );
+        lines.push(`- [${title}](${SITE_URL}/articles/${slug}): ${desc}`);
       }
       lines.push("");
     }
