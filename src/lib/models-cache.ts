@@ -388,12 +388,8 @@ class ModelsCache {
 
     logger.info(`[ModelsCache] Storing ${models.length} AI models (keeping all provider instances)...`);
 
-    // Wipe the table (as requested - no historical data)
-    await db.delete(aiModels);
-
     if (!models.length) {
-      logger.info(`[ModelsCache] Successfully stored 0 AI models (empty payload)`);
-      return 0;
+      throw new Error("Refusing to replace AI models with an empty scrape result");
     }
 
     const rows = models.map((model) => ({

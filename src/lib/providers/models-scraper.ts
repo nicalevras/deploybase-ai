@@ -1,381 +1,385 @@
-import type { AIModel, ModelScrapeResult } from '@/types/models';
+import type { AIModel, ModelScrapeResult } from "@/types/models";
 import { logger } from "@/lib/logger";
-
-/** Shape of a single model returned by the OpenRouter cards API. */
-interface OpenRouterModel {
-  id?: string;
-  slug?: string;
-  name?: string;
-  short_name?: string;
-  author?: string;
-  description?: string;
-  model_version_group_id?: string;
-  context_length?: number;
-  input_modalities?: string[];
-  output_modalities?: string[];
-  has_text_output?: boolean;
-  group?: string;
-  instruct_type?: string;
-  permaslug?: string;
-  features?: Record<string, unknown>;
-  endpoint?: OpenRouterEndpoint;
-}
-
-interface OpenRouterEndpoint {
-  id?: string;
-  provider_name?: string;
-  variant?: string;
-  pricing?: Record<string, unknown>;
-  supported_parameters?: unknown[];
-  max_completion_tokens?: number;
-  model?: { max_completion_tokens?: number };
-}
+import {
+  fetchOpenRouterCatalog,
+  fetchOpenRouterEndpointStats,
+  getOpenRouterPermaslug,
+  mapConcurrent,
+  OpenRouterHttpError,
+  parseOpenRouterNumber,
+  type OpenRouterCatalogModel,
+  type OpenRouterEndpointRow,
+} from "@/lib/providers/openrouter-api";
 
 const AUTHOR_MAP: Record<string, string> = {
-  'x-ai': 'xAI',
-  'agentica-org': 'Agentica',
-  'anthropic': 'Anthropic',
-  'google': 'Google',
-  'meta-llama': 'Meta',
-  'microsoft': 'Microsoft',
-  'nvidia': 'NVIDIA',
-  'openai': 'OpenAI',
-  'perplexity': 'Perplexity',
-  'ai21': 'AI21',
-  'aion-labs': 'AionLabs',
-  'alfredpros': 'AlfredPros',
-  'allenai': 'AllenAI',
-  'amazon': 'Amazon',
-  'arcee-ai': 'Arcee AI',
-  'arliai': 'ArliAI',
-  'baidu': 'Baidu',
-  'bytedance': 'ByteDance',
-  'deepcogito': 'Deep Cogito',
-  'deepseek': 'DeepSeek',
-  'cohere': 'Cohere',
-  'cognitivecomputations': 'Cognitive Computations',
-  'eleutherai': 'EleutherAI',
-  'alpindale': 'Alpindale',
-  'inception': 'Inception',
-  'inclusionai': 'inclusionAI',
-  'inflection': 'Inflection',
-  'liquid': 'Liquid',
-  'anthracite-org': 'Anthracite',
-  'mancer': 'Mancer',
-  'meituan': 'Meituan',
-  'minimax': 'MiniMax',
-  'mistralai': 'Mistral',
-  'moonshotai': 'MoonshotAI',
-  'morph': 'Morph',
-  'gryphe': 'Gryphe',
-  'neversleep': 'NeverSleep',
-  'nousresearch': 'Nous Research',
-  'opengvlab': 'OpenGVLab',
-  'qwen': 'Qwen',
-  'relace': 'Relace',
-  'undi95': 'Undi',
-  'sao10k': 'Sao10K',
-  'shisa-ai': 'Shisa AI',
-  'raifle': 'rAIfle',
-  'stepfun': 'StepFun',
-  'stepfun-ai': 'StepFun',
-  'switchpoint': 'Switchpoint',
-  'tencent': 'Tencent',
-  'thedrummer': 'TheDrummer',
-  'thudm': 'THUDM',
-  'tngtech': 'TNG',
-  'alibaba': 'Alibaba',
-  'black-forest-labs': 'Black Forest Labs',
-  'bytedance-seed': 'ByteDance',
-  'kwaipilot': 'KwaiPilot',
-  'sourceful': 'Sourceful',
-  'upstage': 'Upstage',
-  'xiaomi': 'Xiaomi',
-  'z-ai': 'Z.AI',
-  'baai': 'BAAI',
-  'deepseek-ai': 'DeepSeek',
-  'essentialai': 'Essential AI',
-  'ibm-granite': 'IBM',
-  'intfloat': 'intfloat',
-  'nex-agi': 'Nex AGI',
-  'prime-intellect': 'Prime Intellect',
-  'sentence-transformers': 'Sentence Transformers',
-  'thenlper': 'thenlper',
-  'venice': 'Venice',
-  'writer': 'Writer',
+  "x-ai": "xAI",
+  "agentica-org": "Agentica",
+  "anthropic": "Anthropic",
+  "google": "Google",
+  "meta-llama": "Meta",
+  "microsoft": "Microsoft",
+  "nvidia": "NVIDIA",
+  "openai": "OpenAI",
+  "perplexity": "Perplexity",
+  "ai21": "AI21",
+  "aion-labs": "AionLabs",
+  "alfredpros": "AlfredPros",
+  "allenai": "AllenAI",
+  "amazon": "Amazon",
+  "arcee-ai": "Arcee AI",
+  "arliai": "ArliAI",
+  "baidu": "Baidu",
+  "bytedance": "ByteDance",
+  "deepcogito": "Deep Cogito",
+  "deepseek": "DeepSeek",
+  "cohere": "Cohere",
+  "cognitivecomputations": "Cognitive Computations",
+  "eleutherai": "EleutherAI",
+  "alpindale": "Alpindale",
+  "inception": "Inception",
+  "inclusionai": "inclusionAI",
+  "inflection": "Inflection",
+  "liquid": "Liquid",
+  "anthracite-org": "Anthracite",
+  "mancer": "Mancer",
+  "meituan": "Meituan",
+  "minimax": "MiniMax",
+  "mistralai": "Mistral",
+  "moonshotai": "MoonshotAI",
+  "morph": "Morph",
+  "gryphe": "Gryphe",
+  "neversleep": "NeverSleep",
+  "nousresearch": "Nous Research",
+  "opengvlab": "OpenGVLab",
+  "qwen": "Qwen",
+  "relace": "Relace",
+  "undi95": "Undi",
+  "sao10k": "Sao10K",
+  "shisa-ai": "Shisa AI",
+  "raifle": "rAIfle",
+  "stepfun": "StepFun",
+  "stepfun-ai": "StepFun",
+  "switchpoint": "Switchpoint",
+  "tencent": "Tencent",
+  "thedrummer": "TheDrummer",
+  "thudm": "THUDM",
+  "tngtech": "TNG",
+  "alibaba": "Alibaba",
+  "black-forest-labs": "Black Forest Labs",
+  "bytedance-seed": "ByteDance",
+  "kwaipilot": "KwaiPilot",
+  "sourceful": "Sourceful",
+  "upstage": "Upstage",
+  "xiaomi": "Xiaomi",
+  "z-ai": "Z.AI",
+  "baai": "BAAI",
+  "deepseek-ai": "DeepSeek",
+  "essentialai": "Essential AI",
+  "ibm-granite": "IBM",
+  "intfloat": "intfloat",
+  "nex-agi": "Nex AGI",
+  "prime-intellect": "Prime Intellect",
+  "sentence-transformers": "Sentence Transformers",
+  "thenlper": "thenlper",
+  "venice": "Venice",
+  "writer": "Writer",
 };
 
 const PROVIDER_MAP: Record<string, string> = {
-  'WandB': 'Weights and Biases',
-  'Google': 'Google Vertex',
-  'Alibaba': 'Alibaba Cloud',
-  'Mancer 2': 'Mancer',
-  'Minimax': 'MiniMax',
-  'Moonshot AI': 'MoonshotAI',
-  'Nvidia': 'NVIDIA',
+  "WandB": "Weights and Biases",
+  "Google": "Google Vertex",
+  "Alibaba": "Alibaba Cloud",
+  "Mancer 2": "Mancer",
+  "Minimax": "MiniMax",
+  "Moonshot AI": "MoonshotAI",
+  "Nvidia": "NVIDIA",
+  "Sail Research": "Sail Research",
 };
 
-// Providers to skip (test/fake providers on OpenRouter)
-const SKIP_PROVIDERS = new Set(['FakeProvider']);
+const MIN_FULL_SCRAPE_ROWS = 500;
+const ENDPOINT_FETCH_CONCURRENCY = 10;
 
-/**
- * Scrapes AI models from OpenRouter API
- */
+interface ModelEndpointScrape {
+  permaslug: string;
+  rows: OpenRouterEndpointRow[];
+  error?: string;
+  skipped?: boolean;
+}
+
+function sanitizeSlugPart(value: string): string {
+  const sanitized = value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return sanitized || "unknown";
+}
+
+function normalizeModality(value: string): string {
+  const trimmed = value.trim();
+  if (!trimmed) return trimmed;
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
+function normalizeModalities(values?: string[] | null): string[] {
+  if (!Array.isArray(values)) return [];
+  return values
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .map(normalizeModality);
+}
+
+function normalizeSupportedParameters(values?: unknown[] | null): string[] {
+  if (!Array.isArray(values)) return [];
+  return values.filter((value): value is string => typeof value === "string" && value.length > 0);
+}
+
+function transformProviderName(provider: string): string {
+  return PROVIDER_MAP[provider] ?? provider;
+}
+
+function transformAuthorName(author: string): string {
+  return AUTHOR_MAP[author] ?? author;
+}
+
+function cleanShortName(value?: string | null, author?: string | null): string | null {
+  if (!value) return null;
+
+  let cleaned = value.trim();
+  cleaned = cleaned.replace(/\s*\(free\)/gi, "").trim();
+  cleaned = cleaned.replace(/\s*\(thinking\)/gi, " Thinking").trim();
+
+  if (author && cleaned.length > 0 && author.toLowerCase() === "deepseek") {
+    const cleanedLower = cleaned.toLowerCase();
+    const startsWithCodename = /^[A-Za-z]\d/.test(cleaned);
+    if (startsWithCodename && !cleanedLower.includes("deepseek")) {
+      cleaned = `${author} ${cleaned}`;
+    }
+  }
+
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+function extractProviderName(endpoint: OpenRouterEndpointRow): string {
+  const raw =
+    endpoint.provider_display_name ||
+    endpoint.provider_name ||
+    endpoint.provider_info?.displayName ||
+    endpoint.provider_info?.name ||
+    endpoint.provider_slug ||
+    "unknown";
+
+  return transformProviderName(raw);
+}
+
+function extractAuthor(endpoint: OpenRouterEndpointRow): string | null {
+  const raw = endpoint.model?.author_display_name || endpoint.model?.author;
+  return raw ? transformAuthorName(raw) : null;
+}
+
+function extractPricing(
+  endpoint: OpenRouterEndpointRow,
+  catalogModel: OpenRouterCatalogModel,
+): Record<string, unknown> {
+  if (endpoint.pricing && typeof endpoint.pricing === "object") {
+    return endpoint.pricing;
+  }
+  if (catalogModel.pricing && typeof catalogModel.pricing === "object") {
+    return catalogModel.pricing;
+  }
+  return {};
+}
+
+function extractFeatures(
+  endpoint: OpenRouterEndpointRow,
+  catalogModel: OpenRouterCatalogModel,
+): Record<string, unknown> {
+  if (endpoint.features && typeof endpoint.features === "object") {
+    return endpoint.features;
+  }
+  if (endpoint.model?.features && typeof endpoint.model.features === "object") {
+    return endpoint.model.features;
+  }
+  if (catalogModel.default_parameters && typeof catalogModel.default_parameters === "object") {
+    return { default_parameters: catalogModel.default_parameters };
+  }
+  return {};
+}
+
+function transformEndpointToModel(
+  catalogModel: OpenRouterCatalogModel,
+  endpoint: OpenRouterEndpointRow,
+  permaslug: string,
+  scrapedAt: string,
+): AIModel | null {
+  if (!endpoint.id) {
+    return null;
+  }
+
+  const provider = extractProviderName(endpoint);
+  const author = extractAuthor(endpoint);
+  const inputModalities = normalizeModalities(
+    endpoint.model?.input_modalities ?? catalogModel.architecture?.input_modalities,
+  );
+  const outputModalities = normalizeModalities(
+    endpoint.model?.output_modalities ?? catalogModel.architecture?.output_modalities,
+  );
+  const hasTextOutput =
+    endpoint.model?.has_text_output === true ||
+    outputModalities.some((modality) => modality.toLowerCase() === "text");
+  const pricing = extractPricing(endpoint, catalogModel);
+  const throughput = parseOpenRouterNumber(endpoint.stats?.p50_throughput);
+  const modelName = endpoint.model?.name || catalogModel.name || endpoint.name || undefined;
+  const modelShortName = cleanShortName(endpoint.model?.short_name, author) ?? undefined;
+  const modelSlug = endpoint.model?.slug || endpoint.model_variant_slug || catalogModel.id || permaslug;
+  const slug =
+    `${sanitizeSlugPart(provider)}/${sanitizeSlugPart(permaslug || modelSlug)}--endpoint-${sanitizeSlugPart(endpoint.id)}`;
+
+  return {
+    id: `openrouter:${endpoint.id}`,
+    slug,
+    name: modelName,
+    shortName: modelShortName,
+    author: author ?? undefined,
+    description: endpoint.model?.description || catalogModel.description || undefined,
+    modelVersionGroupId: endpoint.model?.model_version_group_id || null,
+    contextLength:
+      endpoint.context_length ??
+      endpoint.model?.context_length ??
+      catalogModel.context_length ??
+      catalogModel.top_provider?.context_length ??
+      undefined,
+    inputModalities,
+    outputModalities,
+    hasTextOutput: hasTextOutput ? "true" : "false",
+    group: endpoint.model?.group || undefined,
+    instructType: endpoint.model?.instruct_type || catalogModel.architecture?.instruct_type || null,
+    permaslug,
+    endpointId: endpoint.id,
+    pricing,
+    features: extractFeatures(endpoint, catalogModel),
+    provider,
+    throughput,
+    maxCompletionTokens:
+      endpoint.max_completion_tokens ??
+      endpoint.model?.max_completion_tokens ??
+      catalogModel.top_provider?.max_completion_tokens ??
+      null,
+    supportedParameters: normalizeSupportedParameters(
+      endpoint.supported_parameters ?? catalogModel.supported_parameters,
+    ),
+    scrapedAt,
+  };
+}
 
 class ModelsScraper {
-  private readonly baseUrl = 'https://openrouter.ai/api/frontend/models/find?fmt=cards';
-  private readonly providersUrl = 'https://openrouter.ai/api/frontend/providers';
-
-  /**
-   * Fetch the live provider list from OpenRouter instead of using a hardcoded list.
-   * New providers are automatically picked up on the next scrape.
-   */
-  private async fetchProviders(): Promise<{ name: string; parameter: string }[]> {
-    const response = await fetch(this.providersUrl, {
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ModelsScraper/1.0)' },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch providers: HTTP ${response.status}`);
-    }
-
-    const json = await response.json() as { data?: string[] };
-    const providers = json.data;
-
-    if (!Array.isArray(providers) || providers.length === 0) {
-      throw new Error('OpenRouter returned empty provider list');
-    }
-
-    return providers
-      .filter((name) => !SKIP_PROVIDERS.has(name))
-      .map((name) => ({
-        name,
-        parameter: encodeURIComponent(name),
-      }));
-  }
-
-  private sanitizeSuffix(value: string): string {
-    return value.toLowerCase().replace(/[^a-z0-9]+/g, '-');
-  }
-
-  private transformProviderName(provider: string): string {
-    // Transform provider names during ingestion using lookup map
-    return PROVIDER_MAP[provider] ?? provider;
-  }
-
-  private transformAuthorName(author: string): string {
-    // Transform author names during ingestion using lookup map
-    return AUTHOR_MAP[author] ?? author;
-  }
-
-  private cleanShortName(value?: string | null, author?: string | null): string | null {
-    if (!value) {
-      return null;
-    }
-
-    let cleaned = value.trim();
-
-    // Strip " (free)" — OpenRouter pricing variant, not part of the model name
-    cleaned = cleaned.replace(/\s*\(free\)/gi, '').trim();
-
-    // Convert " (thinking)" to " Thinking"
-    cleaned = cleaned.replace(/\s*\(thinking\)/gi, ' Thinking').trim();
-
-    // Prepend author when the short name starts with a version/codename identifier
-    // that's meaningless without the brand — e.g. "R1" → "DeepSeek R1"
-    // Only applies to DeepSeek models where codenames like R1, V3 are ambiguous alone
-    if (author && cleaned.length > 0 && author.toLowerCase() === 'deepseek') {
-      const cleanedLower = cleaned.toLowerCase();
-      const startsWithCodename = /^[A-Za-z]\d/.test(cleaned);
-      if (startsWithCodename && !cleanedLower.includes('deepseek')) {
-        cleaned = `${author} ${cleaned}`;
-      }
-    }
-
-    return cleaned.length > 0 ? cleaned : null;
-  }
-
-  /**
-   * Scrape all AI models from OpenRouter by hitting each provider's endpoint individually
-   */
   async scrapeAll(limit?: number): Promise<ModelScrapeResult> {
     const startTime = Date.now();
-    logger.info(`[ModelsScraper] Starting AI models scrape${limit ? ` (limit: ${limit})` : ''}...`);
+    const isLimitedRun = typeof limit === "number" && limit > 0;
+    logger.info(`[ModelsScraper] Starting OpenRouter models scrape${isLimitedRun ? ` (limit: ${limit})` : ""}...`);
 
-    try {
-      const confirmedProviders = await this.fetchProviders();
-      logger.info(`[ModelsScraper] Found ${confirmedProviders.length} providers from OpenRouter`);
-
-      const allModels: AIModel[] = [];
-      let totalFetched = 0;
-      // Use global counters to ensure uniqueness across all providers
-      const slugCounters: Record<string, number> = {};
-      const idCounters: Record<string, number> = {};
-      let globalSequence = 0; // Fallback sequence number for guaranteed uniqueness
-
-      // Scrape each provider individually
-      for (const { name, parameter } of confirmedProviders) {
-        try {
-          logger.info(`[ModelsScraper] Scraping ${name} with parameter: ${parameter}`);
-
-          const providerUrl = `${this.baseUrl}&providers=${parameter}`;
-          const response = await fetch(providerUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (compatible; ModelsScraper/1.0)',
-            },
-          });
-
-          if (!response.ok) {
-            logger.warn(`[ModelsScraper] Failed to fetch ${name}: HTTP ${response.status}`);
-            continue;
-          }
-
-          const data = await response.json();
-
-          if (!data?.data?.models) {
-            logger.warn(`[ModelsScraper] Invalid response structure for ${name}`);
-            continue;
-          }
-
-          const modelsData = data.data.models;
-          logger.info(`[ModelsScraper] ${name}: fetched ${modelsData.length} models`);
-
-          // Process models for this provider
-          const processedModels: AIModel[] = modelsData.map((model: OpenRouterModel, index: number) => {
-            globalSequence++; // Increment for each model processed
-            const supportedParameters = Array.isArray(model.endpoint?.supported_parameters)
-              ? model.endpoint.supported_parameters.filter(
-                  (parameter: unknown): parameter is string => typeof parameter === 'string',
-                )
-              : [];
-
-            // Extract max_completion_tokens from endpoint
-            const extractMaxCompletionTokens = (endpoint?: OpenRouterEndpoint): number | null => {
-              if (!endpoint) return null;
-
-              // Try top-level first
-              if (typeof endpoint.max_completion_tokens === "number") {
-                return endpoint.max_completion_tokens;
-              }
-
-              // Try nested in model object
-              if (endpoint.model) {
-                const modelValue = endpoint.model.max_completion_tokens;
-                if (typeof modelValue === "number") {
-                  return modelValue;
-                }
-              }
-
-              return null;
-            };
-            const maxCompletionTokens = extractMaxCompletionTokens(model.endpoint);
-
-            const rawProvider = model.endpoint?.provider_name || 'unknown';
-            const modelProvider = this.transformProviderName(rawProvider);
-            const originalSlug = model.slug || `unknown_${Date.now()}_${index}`;
-            const slugBase = `${modelProvider.toLowerCase()}/${originalSlug}`;
-            const variantRaw = typeof model.endpoint?.variant === 'string' ? model.endpoint.variant : null;
-            const variantSuffix = variantRaw ? `--variant-${this.sanitizeSuffix(variantRaw)}` : '';
-
-            // Create unique slug with provider prefix and variant
-            const baseSlugKey = `${slugBase}${variantSuffix}`;
-            const slugDuplicateIndex = slugCounters[baseSlugKey] ?? 0;
-            slugCounters[baseSlugKey] = slugDuplicateIndex + 1;
-            const slugDuplicateSuffix = slugDuplicateIndex > 0 ? `--dup-${slugDuplicateIndex}` : '';
-            const uniqueSlug = `${baseSlugKey}${slugDuplicateSuffix}`;
-
-            // Create unique ID - use original model.id if available, otherwise use slug
-            // Add global sequence as final fallback for absolute uniqueness
-            const idBase = model.id || slugBase;
-            const baseIdKey = `${idBase}${variantSuffix}`;
-            const idDuplicateIndex = idCounters[baseIdKey] ?? 0;
-            idCounters[baseIdKey] = idDuplicateIndex + 1;
-            const idDuplicateSuffix = idDuplicateIndex > 0 ? `--dup-${idDuplicateIndex}` : '';
-            const uniqueId = `${baseIdKey}${idDuplicateSuffix}--seq-${globalSequence}`;
-
-            const modelAuthor = model.author ? this.transformAuthorName(model.author) : null;
-
-            return {
-              id: uniqueId,
-              slug: uniqueSlug, // Now includes provider prefix for uniqueness
-              name: model.name || null,
-              shortName: this.cleanShortName(model.short_name, modelAuthor),
-              author: modelAuthor,
-              description: model.description || null,
-              modelVersionGroupId: model.model_version_group_id || null,
-              contextLength: model.context_length || null,
-              inputModalities: Array.isArray(model.input_modalities)
-                ? model.input_modalities.map((m: string) => m.charAt(0).toUpperCase() + m.slice(1))
-                : [],
-              outputModalities: Array.isArray(model.output_modalities)
-                ? model.output_modalities.map((m: string) => m.charAt(0).toUpperCase() + m.slice(1))
-                : [],
-              hasTextOutput: model.has_text_output ? 'true' : 'false',
-              group: model.group || null,
-              instructType: model.instruct_type || null,
-              permaslug: model.permaslug || null,
-              endpointId: typeof model.endpoint?.id === 'string' ? model.endpoint.id : null,
-              pricing: model.endpoint?.pricing || {},
-              features: model.features || {},
-              provider: modelProvider,
-              throughput: null,
-              maxCompletionTokens: maxCompletionTokens ?? null,
-              supportedParameters,
-              scrapedAt: new Date().toISOString(),
-            };
-          });
-
-          allModels.push(...processedModels);
-          totalFetched += modelsData.length;
-
-          // Apply limit if specified (for testing)
-          if (limit && totalFetched >= limit) {
-            break;
-          }
-
-        } catch (error) {
-          logger.error(`[ModelsScraper] Failed to scrape ${name}:`, error);
-          continue; // Continue with next provider
-        }
-      }
-
-      // Apply limit if specified (for testing)
-      let finalModels = allModels;
-      if (limit && limit > 0) {
-        finalModels = allModels.slice(0, limit);
-      }
-
-      const sourceHash = this.generateHash(JSON.stringify(finalModels));
-      const scrapedAt = new Date().toISOString();
-
-      const duration = Date.now() - startTime;
-      logger.info(`[ModelsScraper] Scraped ${finalModels.length} AI models from ${confirmedProviders.length} providers in ${duration}ms`);
-
-      return {
-        models: finalModels,
-        scrapedAt,
-        sourceHash,
-      };
-
-    } catch (error) {
-      logger.error('[ModelsScraper] Failed to scrape AI models:', error);
-      throw error;
+    const catalog = await fetchOpenRouterCatalog(limit);
+    if (!catalog.length) {
+      throw new Error("OpenRouter returned an empty model catalog");
     }
+
+    const scrapedAt = new Date().toISOString();
+    const endpointResults = await mapConcurrent(
+      catalog,
+      async (model): Promise<ModelEndpointScrape> => {
+        const permaslug = getOpenRouterPermaslug(model);
+        if (!permaslug) {
+          return { permaslug: "unknown", rows: [], skipped: true, error: "missing permaslug" };
+        }
+
+        try {
+          const rows = await fetchOpenRouterEndpointStats(permaslug);
+          return { permaslug, rows };
+        } catch (error) {
+          const isNotFound = error instanceof OpenRouterHttpError && error.status === 404;
+          return {
+            permaslug,
+            rows: [],
+            skipped: isNotFound,
+            error: error instanceof Error ? error.message : String(error),
+          };
+        }
+      },
+      ENDPOINT_FETCH_CONCURRENCY,
+    );
+
+    const modelByPermaslug = new Map<string, OpenRouterCatalogModel>();
+    for (const model of catalog) {
+      const permaslug = getOpenRouterPermaslug(model);
+      if (permaslug) {
+        modelByPermaslug.set(permaslug, model);
+      }
+    }
+
+    const models: AIModel[] = [];
+    let endpointRowsFetched = 0;
+    let skippedModels = 0;
+    const endpointErrors: { permaslug: string; message: string }[] = [];
+    const seenIds = new Set<string>();
+
+    for (const result of endpointResults) {
+      endpointRowsFetched += result.rows.length;
+      if (result.skipped || result.error) {
+        skippedModels += 1;
+      }
+      if (result.error && !result.skipped) {
+        endpointErrors.push({ permaslug: result.permaslug, message: result.error });
+      }
+
+      const catalogModel = modelByPermaslug.get(result.permaslug);
+      if (!catalogModel) continue;
+
+      for (const endpoint of result.rows) {
+        const transformed = transformEndpointToModel(catalogModel, endpoint, result.permaslug, scrapedAt);
+        if (!transformed || seenIds.has(transformed.id)) continue;
+        seenIds.add(transformed.id);
+        models.push(transformed);
+      }
+    }
+
+    if (!isLimitedRun && models.length < MIN_FULL_SCRAPE_ROWS) {
+      throw new Error(
+        `OpenRouter scrape produced only ${models.length} rows; refusing to replace existing AI models`,
+      );
+    }
+
+    const sourceHash = this.generateHash(JSON.stringify(models));
+    const duration = Date.now() - startTime;
+    logger.info(
+      JSON.stringify({
+        event: "models.openrouter.scrape.completed",
+        catalogModels: catalog.length,
+        endpointRowsFetched,
+        modelsScraped: models.length,
+        skippedModels,
+        endpointErrors: endpointErrors.slice(0, 20),
+        duration,
+      }),
+    );
+
+    if (endpointErrors.length > 0) {
+      logger.warn(`[ModelsScraper] ${endpointErrors.length} endpoint stats requests failed`);
+    }
+
+    return {
+      models,
+      scrapedAt,
+      sourceHash,
+    };
   }
 
-  /**
-   * Generate a simple hash for change detection
-   */
   private generateHash(content: string): string {
     let hash = 0;
-    for (let i = 0; i < content.length; i++) {
+    for (let i = 0; i < content.length; i += 1) {
       const char = content.charCodeAt(i);
       hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32-bit integer
+      hash &= hash;
     }
     return hash.toString(36);
   }
 }
 
-// Export singleton instance
 export const modelsScraper = new ModelsScraper();
