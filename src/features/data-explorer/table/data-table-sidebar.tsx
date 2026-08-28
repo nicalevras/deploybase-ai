@@ -1,166 +1,94 @@
 "use client";
 
-import { Button } from "@/components/ui/button";
 import { DataTableFilterControls } from "@/features/data-explorer/data-table/data-table-filter-controls";
-import { DataTableFilterInput } from "@/features/data-explorer/data-table/data-table-filter-input";
-import type { DataTableInputFilterField } from "@/features/data-explorer/data-table/types";
-import { cn } from "@/lib/utils";
-import * as React from "react";
-import { Bookmark, Search } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import Link from "next/link";
-import { UserMenu, type AccountUser } from "./account-components";
-import type { NavItem } from "./data-table-infinite";
+import { DataTableResetButton } from "@/features/data-explorer/data-table/data-table-reset-button";
+import { Button } from "@/components/ui/button";
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/custom/sheet";
+import { PanelLeftClose, SlidersHorizontal } from "lucide-react";
 
-export interface DataTableSidebarProps {
-  searchFilterField: DataTableInputFilterField<any> | undefined;
-  isDesktopSearchOpen: boolean;
-  toggleDesktopSearch: () => void;
-  currentNavValue: string;
-  currentNavItem: NavItem | undefined;
-  resolvedNavItems: NavItem[];
-  isBookmarksMode: boolean;
-  handleNavChange: (value: string) => void;
-  routerPrefetch: (url: string) => void;
-  routerPush: (url: string) => void;
-  accountUser: AccountUser | null;
-  accountOnSignOut: () => void;
-  accountIsSigningOut: boolean;
-  accountOnSignIn?: () => void;
-  accountOnSignUp?: () => void;
-  accountIsLoading: boolean;
-}
-
-export function DataTableSidebar({
-  searchFilterField,
-  isDesktopSearchOpen,
-  toggleDesktopSearch,
-  currentNavValue,
-  currentNavItem,
-  resolvedNavItems,
-  isBookmarksMode,
-  handleNavChange,
-  routerPrefetch,
-  routerPush,
-  accountUser,
-  accountOnSignOut,
-  accountIsSigningOut,
-  accountOnSignIn,
-  accountOnSignUp,
-  accountIsLoading,
-}: DataTableSidebarProps) {
+export function DataTableSidebar({ onCollapse }: { onCollapse: () => void }) {
   return (
-    <div
-      className={cn(
-        "hidden sm:flex h-[calc(100dvh-var(--total-padding-mobile))] sm:h-[100dvh] flex-col sticky top-0 self-start min-w-72 max-w-72 rounded-lg overflow-hidden"
-      )}
-    >
-      <div className="flex h-full w-full flex-col">
-        <div className="mx-auto w-full max-w-full pt-4 px-4 mb-4 space-y-3">
-          <div className="flex items-center">
-            <Link href="/" prefetch={false} className="text-lg tracking-tight">
-              <span className="font-light text-foreground">deploy</span>
-              <span className="font-bold text-foreground">base</span>
-            </Link>
-          </div>
-          <div className="flex items-center gap-4">
-            {searchFilterField && isDesktopSearchOpen ? (
-              <div className="w-full">
-                <DataTableFilterInput
-                  autoFocus={isDesktopSearchOpen}
-                  {...(searchFilterField as DataTableInputFilterField<Record<string, unknown>>)}
-                />
-              </div>
-            ) : (
-              <Select
-                value={currentNavValue}
-                onValueChange={handleNavChange}
-                onOpenChange={(open) => {
-                  // Prefetch all nav routes when Select opens (skip current page)
-                  if (open) {
-                    resolvedNavItems.forEach((item) => {
-                      if (item.value !== currentNavValue) {
-                        routerPrefetch(item.value);
-                      }
-                    });
-                  }
-                }}
-                hotkeys={[
-                  { combo: "mod+k", value: "/llms" },
-                  { combo: "mod+g", value: "/gpus" },
-                  { combo: "mod+e", value: "/tools" },
-                ]}
-              >
-                <SelectTrigger className="h-8 w-full justify-between rounded-lg py-0" aria-label="Page navigation">
-                  <SelectValue aria-label={currentNavItem?.label}>
-                    {currentNavItem && (
-                      <span className="flex min-w-0 items-center gap-2">
-                        {isBookmarksMode ? (
-                          <Bookmark className="h-4 w-4" aria-hidden="true" />
-                        ) : (
-                          <currentNavItem.icon className="h-4 w-4" aria-hidden="true" />
-                        )}
-                        {currentNavItem.label}
-                      </span>
-                    )}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {resolvedNavItems.map((item) => (
-                    <SelectItem
-                      key={item.value}
-                      value={item.value}
-                      className="gap-2 cursor-pointer"
-                      shortcut={item.shortcut}
-                      onPointerDown={(e) => {
-                        // Only navigate for same-page clicks in bookmarks mode
-                        // onPointerDown fires before Radix prevents re-selection of checked items
-                        if (isBookmarksMode && item.value === currentNavValue) {
-                          e.preventDefault();
-                          routerPush(item.value);
-                        }
-                      }}
-                    >
-                      <item.icon className="h-4 w-4" aria-hidden="true" />
-                      {item.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-            {searchFilterField ? (
-              <Button
-                type="button"
-                variant="outline"
-                size="icon"
-                onClick={toggleDesktopSearch}
-                aria-pressed={isDesktopSearchOpen}
-                className="shrink-0 h-8 w-8 rounded-lg bg-gradient-to-b from-muted/70 via-muted/40 to-background"
-              >
-                <Search className="h-4 w-4" aria-hidden="true" />
-                <span className="sr-only">Search</span>
-              </Button>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex-1 overflow-y-auto scrollbar-hide">
-          <div className="mx-auto w-full max-w-full px-4 pb-4">
-            <DataTableFilterControls showSearch={false} />
-          </div>
-        </div>
-        <div className="flex-shrink-0 p-4 border-t border-border">
-          <UserMenu
-            user={accountUser}
-            onSignOut={accountOnSignOut}
-            isSigningOut={accountIsSigningOut}
-            isAuthenticated={Boolean(accountUser)}
-            forceUnauthSignInButton
-            onSignIn={accountOnSignIn}
-            onSignUp={accountOnSignUp}
-            isLoading={accountIsLoading}
-          />
+    <aside className="sticky top-0 hidden h-full min-h-0 w-72 shrink-0 flex-col border-r border-border bg-background sm:flex">
+      <div className="box-border flex h-10 items-center justify-between border-b border-border px-4">
+        <span className="text-xs font-semibold text-foreground">
+          Filters
+        </span>
+        <div className="flex items-center gap-1">
+          <DataTableResetButton />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={onCollapse}
+            title="Hide filters"
+            aria-label="Hide filters"
+          >
+            <PanelLeftClose className="h-4 w-4" />
+          </Button>
         </div>
       </div>
-    </div>
+      <div className="flex-1 overflow-y-auto scrollbar-hide">
+        <DataTableFilterControls showSearch={false} />
+      </div>
+    </aside>
+  );
+}
+
+export function DataTableMobileFilters() {
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button
+          variant="outline"
+          size="icon"
+          className="absolute bottom-4 left-4 z-40 bg-card shadow-sm sm:hidden"
+          title="Filters"
+          aria-label="Filters"
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+        </Button>
+      </SheetTrigger>
+      <SheetContent
+        side="left"
+        hideClose
+        className="flex w-[min(18rem,90vw)] flex-col gap-0 p-0"
+      >
+        <SheetHeader className="box-border flex h-10 flex-row items-center justify-between space-y-0 border-b border-border px-4 text-left">
+          <SheetTitle className="text-xs font-semibold text-foreground">
+            Filters
+          </SheetTitle>
+          <div className="flex items-center gap-1">
+            <DataTableResetButton />
+            <SheetClose asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                title="Hide filters"
+                aria-label="Hide filters"
+              >
+                <PanelLeftClose className="h-4 w-4" />
+              </Button>
+            </SheetClose>
+          </div>
+          <SheetDescription className="sr-only">
+            Refine the current results.
+          </SheetDescription>
+        </SheetHeader>
+        <div className="flex-1 overflow-y-auto scrollbar-hide">
+          <DataTableFilterControls showSearch={false} />
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

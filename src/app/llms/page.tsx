@@ -10,10 +10,14 @@ import { modelsDataOptions } from "@/features/data-explorer/models/models-query-
 import { modelsSearchParamsCache } from "@/features/data-explorer/models/models-search-params";
 import { getModelsPage } from "@/lib/models-loader";
 import { buildModelsSchema } from "@/features/data-explorer/models/build-models-schema";
-import { SectionNav } from "@/components/seo/section-nav";
 import { InternalLinkSection } from "@/components/seo/internal-links";
 import { modelsCache } from "@/lib/models-cache";
 import { logger } from "@/lib/logger";
+import { getResearchFreshness } from "@/lib/research/loader";
+import {
+  buildLlmDatasetStructuredData,
+  combineStructuredData,
+} from "@/lib/research/structured-data";
 
 export const revalidate = 43200;
 
@@ -87,6 +91,11 @@ export default async function ModelsPage() {
 
   const dehydratedState = dehydrate(queryClient);
   const schemaMarkup = buildModelsSchema(captured.firstPage);
+  const freshness = await getResearchFreshness();
+  const structuredData = combineStructuredData(
+    schemaMarkup,
+    buildLlmDatasetStructuredData(freshness.llmUpdatedAt),
+  );
 
   // Fetch providers for sr-only internal links (uses cached singleton, same data as sitemap)
   let providerLinks: { href: string; label: string }[] = [];
@@ -104,20 +113,16 @@ export default async function ModelsPage() {
 
   return (
     <>
-      {schemaMarkup ? (
-        <script
-          type="application/ld+json"
-          suppressHydrationWarning
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(schemaMarkup).replace(/</g, "\\u003c"),
-          }}
-        />
-      ) : null}
-      <h1 className="sr-only">Compare LLM Inference Pricing</h1>
-      <SectionNav />
+      <script
+        type="application/ld+json"
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
+        }}
+      />
       <HydrationBoundary state={dehydratedState}>
         <div
-          className="flex min-h-dvh w-full flex-col sm:flex-row sm:p-0"
+          className="w-full"
           style={{
             "--total-padding-mobile": "0.5rem",
             "--total-padding-desktop": "3rem",

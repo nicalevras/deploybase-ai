@@ -1,27 +1,19 @@
 import { Track404 } from "@/components/analytics/track-404";
+import { StatusPage } from "@/components/site/status-page";
+import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-dvh w-full flex-col items-center justify-center gap-4 text-center">
+    <StatusPage
+      eyebrow="404"
+      title="GPU view not found."
+      description="Check the address or return to the full GPU pricing explorer."
+    >
       <Track404 />
-      <div className="space-y-2">
-        <p className="text-sm uppercase tracking-wide text-muted-foreground">
-          Not Found
-        </p>
-        <h1 className="text-2xl font-semibold">
-          Unable to locate that GPU view.
-        </h1>
-        <p className="text-muted-foreground">
-          Double-check the URL or go back to the main pricing table.
-        </p>
-      </div>
-      <Link
-        href="/gpus"
-        className="inline-flex items-center rounded-md border border-border/60 bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm transition hover:bg-muted"
-      >
-        Return to GPU Pricing
-      </Link>
-    </div>
+      <Button asChild>
+        <Link href="/gpus">Return to GPU pricing</Link>
+      </Button>
+    </StatusPage>
   );
 }

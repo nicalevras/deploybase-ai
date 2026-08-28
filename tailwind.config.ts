@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss";
+
 const { fontFamily } = require("tailwindcss/defaultTheme");
 
 const config = {
@@ -20,7 +21,11 @@ const config = {
     },
     extend: {
       fontFamily: {
-        sans: ["var(--font-geist-sans)", ...fontFamily.sans],
+        sans: [
+          "var(--font-satoshi)",
+          "var(--font-geist-sans)",
+          ...fontFamily.sans,
+        ],
         mono: ["var(--font-geist-mono)", ...fontFamily.mono],
       },
       colors: {
@@ -29,6 +34,7 @@ const config = {
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
+        "site-chrome": "hsl(var(--site-chrome))",
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
@@ -61,6 +67,7 @@ const config = {
         warning: "hsl(var(--warning))",
         error: "hsl(var(--error))",
         info: "hsl(var(--info))",
+        signal: "hsl(var(--signal))",
       },
       borderRadius: {
         lg: "var(--radius)",

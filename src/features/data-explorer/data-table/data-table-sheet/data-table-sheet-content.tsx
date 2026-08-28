@@ -48,7 +48,15 @@ function DataTableSheetContent<TData, TMeta>({
         if (field.condition && !field.condition(data)) return null;
 
         const Component = field.component;
-        const value = String(data[field.id]);
+        const rawValue = data[field.id];
+        const value = String(rawValue);
+        const isNumericValue =
+          field.numeric ??
+          (typeof rawValue === "number" ||
+            (typeof rawValue === "string" &&
+              /^[$~<>]?\d[\d.,]*(\s*(%|x|\/|[a-zA-Z].*))?$/.test(
+                rawValue.trim(),
+              )));
         const previousVisibleField = prevVisibleMap.get(fieldIndex) ?? null;
         const shouldAddDivider =
           previousVisibleField !== null &&
@@ -61,14 +69,15 @@ function DataTableSheetContent<TData, TMeta>({
 
         const showLabel = !field.hideLabel;
         const containerClasses = cn(
-          "flex items-start gap-4 text-sm w-full",
-          field.noPadding ? "py-0" : "py-2",
+          "flex w-full items-start gap-5 px-5 text-xs",
+          field.noPadding ? "py-0" : "py-3",
           field.fullRowValue || !showLabel ? "justify-start" : "justify-between",
-          shouldAddDivider && "border-t border-border/60",
+          shouldAddDivider && "border-t border-border",
           field.className,
         );
         const valueClasses = cn(
-          "flex w-full min-w-0 items-center font-mono",
+          "flex w-full min-w-0 items-center",
+          isNumericValue && "numeric",
           field.fullRowValue || !showLabel
             ? "justify-start text-left"
             : "justify-end text-right",
@@ -79,13 +88,13 @@ function DataTableSheetContent<TData, TMeta>({
             {field.type === "readonly" ? (
               <div className={containerClasses}>
                 {showLabel ? (
-                  <dt className="flex shrink-0 items-start text-foreground/70">
+                  <dt className="flex shrink-0 items-start font-semibold text-foreground">
                     {field.label}
                   </dt>
                 ) : null}
                 <dd className={valueClasses}>
                   {field.truncate ? (
-                    <span className="truncate block w-full">
+                    <span className="block w-full truncate">
                       {Component ? (
                         <Component {...data} metadata={metadata} />
                       ) : (
@@ -110,7 +119,7 @@ function DataTableSheetContent<TData, TMeta>({
                 className={containerClasses}
               >
                 {showLabel ? (
-                  <dt className="flex shrink-0 items-start text-foreground/70">
+                  <dt className="flex shrink-0 items-start font-semibold text-foreground">
                     {field.label}
                   </dt>
                 ) : null}

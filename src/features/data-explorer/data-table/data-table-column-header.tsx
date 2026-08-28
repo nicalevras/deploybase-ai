@@ -42,7 +42,7 @@ export function DataTableColumnHeader<TData, TValue>({
         column.toggleSorting(undefined);
       }}
       className={cn(
-        "py-0 px-[12px] h-7 flex gap-[10px] items-center",
+        "flex h-7 items-center gap-2 px-3.5 py-0 text-xs font-semibold",
         "hover:bg-transparent active:bg-transparent focus-visible:bg-transparent hover:text-foreground",
         centerTitle ? "justify-center" : "justify-between",
         className,

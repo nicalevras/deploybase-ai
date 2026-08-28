@@ -15,7 +15,7 @@ import {
 } from "./models-constants";
 import type { ModelsColumnSchema, ModelsFacetMetadataSchema } from "./models-schema";
 import type { ModelFavoriteKey } from "@/types/model-favorites";
-import { MobileTopNav, SidebarPanel, type AccountUser } from "../table/account-components";
+import { type AccountUser } from "../table/account-components";
 import {
   DataTableInfinite,
   type DataTableMeta,
@@ -204,6 +204,8 @@ export function ModelsClient({ initialFavoriteKeys, isFavoritesMode }: ModelsCli
 
   const metadata: DataTableMeta<Record<string, unknown>, ModelFavoriteKey> = {
     ...(lastPage?.meta?.metadata ?? {}),
+    totalRowCount: lastPage?.meta?.totalRowCount,
+    filterRowCount: lastPage?.meta?.filterRowCount,
     initialFavoriteKeys: effectiveFavoriteKeys,
   };
 
@@ -314,27 +316,6 @@ export function ModelsClient({ initialFavoriteKeys, isFavoritesMode }: ModelsCli
           onSignUp: handleSignUp,
           isLoading: authPending,
         }}
-        headerSlot={
-          <MobileTopNav
-            user={accountUser}
-            onSignOut={handleSignOut}
-            onSignIn={handleSignIn}
-            onSignUp={handleSignUp}
-            isSigningOut={isSigningOut}
-            isAuthLoading={authPending}
-            renderSidebar={() => (
-              <SidebarPanel
-                user={accountUser}
-                onSignOut={handleSignOut}
-                isSigningOut={isSigningOut}
-                className="flex-1"
-                showUserMenuFooter={false}
-                isAuthLoading={authPending}
-              />
-            )}
-          />
-        }
-        mobileHeaderOffset="44px"
         primaryColumnId="name"
         renderSheetCharts={(row) => {
           const selectedModel = row?.original as ModelsColumnSchema | undefined;
@@ -352,7 +333,6 @@ export function ModelsClient({ initialFavoriteKeys, isFavoritesMode }: ModelsCli
           );
         }}
         getRowHref={(row) => row.permaslug ? `https://openrouter.ai/models/${row.permaslug}` : null}
-        showAffiliateTooltip={false}
         renderCheckedActions={(meta) => (
           <ModelsCheckedActionsIsland
             initialFavoriteKeys={meta.initialFavoriteKeys}
@@ -362,4 +342,3 @@ export function ModelsClient({ initialFavoriteKeys, isFavoritesMode }: ModelsCli
     </>
   );
 }
-

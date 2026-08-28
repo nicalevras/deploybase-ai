@@ -47,6 +47,8 @@ export async function POST(request: NextRequest) {
     // Also invalidates favorites cache since favorites JOIN with gpuPricing
     revalidateTag("pricing", 'max');
     revalidateTag("favorites", 'max');
+    revalidateTag("research-gpu", { expire: 0 });
+    revalidateTag("research-stats", { expire: 0 });
     await Promise.all([
       revalidatePath("/api"),
       ...touchedStableKeys.map((stableKey) =>
@@ -55,7 +57,7 @@ export async function POST(request: NextRequest) {
     ]);
     await revalidateCorePages();
     
-    logger.info(`[GpuPricingJob] Cache invalidated (tags: 'pricing', 'favorites', path: '/api', pages: ${CORE_PAGE_PATHS.join(", ")})`);
+    logger.info(`[GpuPricingJob] Cache invalidated (tags: 'pricing', 'favorites', 'research-gpu', 'research-stats', path: '/api', pages: ${CORE_PAGE_PATHS.join(", ")})`);
 
     const duration = Date.now() - startTime;
     const totalRows = scrapeResult.providerResults.reduce((acc, result) => acc + result.rows.length, 0);
@@ -128,6 +130,8 @@ export async function GET(request: NextRequest) {
       // Also invalidates favorites cache since favorites JOIN with gpuPricing
       revalidateTag("pricing", 'max');
       revalidateTag("favorites", 'max');
+      revalidateTag("research-gpu", { expire: 0 });
+      revalidateTag("research-stats", { expire: 0 });
       await Promise.all([
         revalidatePath("/api"),
         ...touchedStableKeys.map((stableKey) =>
@@ -136,7 +140,7 @@ export async function GET(request: NextRequest) {
       ]);
       await revalidateCorePages();
       
-      logger.info(`[GpuPricingJob] [cron] Cache invalidated (tags: 'pricing', 'favorites', path: '/api', pages: ${CORE_PAGE_PATHS.join(", ")})`);
+      logger.info(`[GpuPricingJob] [cron] Cache invalidated (tags: 'pricing', 'favorites', 'research-gpu', 'research-stats', path: '/api', pages: ${CORE_PAGE_PATHS.join(", ")})`);
 
       const duration = Date.now() - startedAt;
       const totalRows = scrapeResult.providerResults.reduce((acc, result) => acc + result.rows.length, 0);

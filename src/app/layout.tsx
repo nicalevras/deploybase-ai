@@ -1,15 +1,30 @@
 import type { Metadata, Viewport } from "next";
+import localFont from "next/font/local";
 import "@/styles/globals.css";
-import { Suspense } from "react";
-import { ThemeProvider } from "@/components/theme/theme-provider";
-import { ReactQueryProvider } from "@/providers/react-query";
-import { NuqsAdapter } from "nuqs/adapters/next/app";
-import { GeistSans } from "geist/font/sans";
-import { GeistMono } from "geist/font/mono";
-import { AuthProvider } from "@/providers/auth-provider";
-import { AuthDialogProvider } from "@/providers/auth-dialog-provider";
+import { AppHeader } from "@/components/site/app-header-shell";
 import { AuthDialogParamsSync } from "@/providers/auth-dialog-params-sync";
+import { AuthDialogProvider } from "@/providers/auth-dialog-provider";
+import { AuthProvider } from "@/providers/auth-provider";
+import { ReactQueryProvider } from "@/providers/react-query";
+import { GeistMono } from "geist/font/mono";
+import { GeistSans } from "geist/font/sans";
 import PlausibleProvider from "next-plausible";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
+import { Suspense } from "react";
+
+const satoshi = localFont({
+  src: [
+    { path: "./fonts/Satoshi-Light.woff2", weight: "300", style: "normal" },
+    { path: "./fonts/Satoshi-Regular.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/Satoshi-Medium.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/Satoshi-Bold.woff2", weight: "700", style: "normal" },
+    { path: "./fonts/Satoshi-Black.woff2", weight: "900", style: "normal" },
+    { path: "./fonts/Satoshi-Italic.woff2", weight: "400", style: "italic" },
+    { path: "./fonts/Satoshi-BoldItalic.woff2", weight: "700", style: "italic" },
+  ],
+  display: "swap",
+  variable: "--font-satoshi",
+});
 
 const TITLE = "Compare GPU & LLM API Pricing | Deploybase";
 const DESCRIPTION =
@@ -29,9 +44,7 @@ function resolveMetadataBase() {
   }
 
   try {
-    const normalized = envUrl.startsWith("http")
-      ? envUrl
-      : `https://${envUrl}`;
+    const normalized = envUrl.startsWith("http") ? envUrl : `https://${envUrl}`;
     return new URL(normalized);
   } catch {
     return new URL(DEFAULT_SITE_URL);
@@ -56,6 +69,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
+    siteName: "Deploybase",
     images: ["/assets/og-image.png"],
     title: TITLE,
     description: DESCRIPTION,
@@ -76,31 +90,27 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${GeistSans.variable} ${GeistMono.variable}`}
-      suppressHydrationWarning
+      className={`${satoshi.variable} ${GeistSans.variable} ${GeistMono.variable}`}
     >
       <head>
         <PlausibleProvider domain="deploybase.ai" trackOutboundLinks />
       </head>
-      <body className="min-h-[100dvh] bg-background antialiased overscroll-x-none">
+      <body className="min-h-[100dvh] overscroll-x-none bg-background antialiased">
         <AuthProvider>
           <ReactQueryProvider>
             <NuqsAdapter>
-              <ThemeProvider
-                attribute="class"
-                defaultTheme="system"
-                enableSystem
-                disableTransitionOnChange
-              >
-                <AuthDialogProvider>
-                  <main id="content" className="flex min-h-[100dvh] flex-col">
-                    {children}
-                  </main>
-                  <Suspense fallback={null}>
-                    <AuthDialogParamsSync />
-                  </Suspense>
-                </AuthDialogProvider>
-              </ThemeProvider>
+              <AuthDialogProvider>
+                <AppHeader />
+                <main
+                  id="content"
+                  className="flex min-h-[calc(100dvh-var(--app-header-height))] flex-col"
+                >
+                  {children}
+                </main>
+                <Suspense fallback={null}>
+                  <AuthDialogParamsSync />
+                </Suspense>
+              </AuthDialogProvider>
             </NuqsAdapter>
           </ReactQueryProvider>
         </AuthProvider>

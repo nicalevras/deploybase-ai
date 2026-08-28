@@ -1,3 +1,7 @@
+import {
+  getLegacyArticleSearchRedirect,
+  getLegacyGpuRedirectFromSearchParams,
+} from "@/lib/research/legacy-query";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -12,7 +16,19 @@ const csp = [
 ].join("; ");
 
 export function proxy(request: NextRequest) {
-  const response = NextResponse.next();
+  const legacyArticleSearch = getLegacyArticleSearchRedirect(
+    request.nextUrl.pathname,
+    request.nextUrl.searchParams,
+  );
+  const legacyRedirect =
+    request.nextUrl.pathname === "/"
+      ? getLegacyGpuRedirectFromSearchParams(request.nextUrl.searchParams)
+      : null;
+  const response = legacyArticleSearch
+    ? NextResponse.redirect(new URL(legacyArticleSearch, request.url), 308)
+    : legacyRedirect
+      ? NextResponse.redirect(new URL(legacyRedirect, request.url))
+      : NextResponse.next();
 
   // Security headers
   response.headers.set("Content-Security-Policy", csp);

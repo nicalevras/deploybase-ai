@@ -170,7 +170,7 @@ export function SheetLineChart({
   }, [linearDomain]);
 
   return (
-    <Card className="border-border/60 bg-background shadow-none">
+    <Card className="border-border/60 bg-site-chrome shadow-none">
       <CardHeader className="space-y-1.5 p-4 pb-1">
         <CardTitle className="text-sm font-medium text-foreground">
           {title}

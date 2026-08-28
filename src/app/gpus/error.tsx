@@ -1,5 +1,6 @@
-'use client';
+"use client";
 
+import { StatusPage } from "@/components/site/status-page";
 import { Button } from "@/components/ui/button";
 
 export default function Error({
@@ -12,13 +13,12 @@ export default function Error({
   void error;
 
   return (
-    <div className="flex min-h-dvh w-full flex-col items-center justify-center space-y-4 text-center">
-      <div className="space-y-1">
-        <p className="text-sm uppercase tracking-wide text-destructive">Something went wrong</p>
-        <h1 className="text-2xl font-semibold">We couldn&apos;t load GPU pricing.</h1>
-        <p className="text-muted-foreground">Please try again. If the issue persists, contact support.</p>
-      </div>
-      <Button onClick={reset}>Retry</Button>
-    </div>
+    <StatusPage
+      eyebrow="GPU DATA UNAVAILABLE"
+      title="We couldn't load GPU pricing."
+      description="The current pricing view could not be loaded. Try the request again."
+    >
+      <Button onClick={reset}>Try again</Button>
+    </StatusPage>
   );
 }

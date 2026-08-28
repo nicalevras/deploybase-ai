@@ -1,16 +1,22 @@
 "use client";
 
-import * as React from "react";
-import { useForm as useFormspree } from "@formspree/react";
-import { Controller, useForm, useWatch } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAnalytics } from "@/lib/analytics";
+import { useForm as useFormspree } from "@formspree/react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as React from "react";
+import { Controller, useForm, useWatch } from "react-hook-form";
+import * as z from "zod";
 
 const submitSchema = z
   .object({
@@ -27,7 +33,10 @@ const submitSchema = z
         return /^https?:\/\//i.test(value) ? value : `https://${value}`;
       })
       .pipe(z.string().url("Enter a valid URL.")),
-    message: z.string().trim().min(10, "Message must be at least 10 characters."),
+    message: z
+      .string()
+      .trim()
+      .min(10, "Message must be at least 10 characters."),
     _gotcha: z.string().optional(),
   })
   .superRefine((data, ctx) => {
@@ -106,7 +115,7 @@ export function SettingsSubmitForm({
 
   if (state.succeeded) {
     return (
-      <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
+      <div className="rounded border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700">
         Thanks! We received your submission and will review it soon.
       </div>
     );
@@ -130,7 +139,11 @@ export function SettingsSubmitForm({
           {...register("name")}
         />
         {errors.name ? (
-          <p id="submit-name-error" className="text-sm text-destructive" aria-live="polite">
+          <p
+            id="submit-name-error"
+            className="text-sm text-destructive"
+            aria-live="polite"
+          >
             {errors.name.message}
           </p>
         ) : null}
@@ -148,7 +161,11 @@ export function SettingsSubmitForm({
           {...register("email")}
         />
         {errors.email ? (
-          <p id="submit-email-error" className="text-sm text-destructive" aria-live="polite">
+          <p
+            id="submit-email-error"
+            className="text-sm text-destructive"
+            aria-live="polite"
+          >
             {errors.email.message}
           </p>
         ) : null}
@@ -193,11 +210,17 @@ export function SettingsSubmitForm({
             type="text"
             placeholder="Provider name"
             aria-invalid={Boolean(errors.providerName)}
-            aria-describedby={errors.providerName ? "submit-provider-name-error" : undefined}
+            aria-describedby={
+              errors.providerName ? "submit-provider-name-error" : undefined
+            }
             {...register("providerName")}
           />
           {errors.providerName ? (
-            <p id="submit-provider-name-error" className="text-sm text-destructive" aria-live="polite">
+            <p
+              id="submit-provider-name-error"
+              className="text-sm text-destructive"
+              aria-live="polite"
+            >
               {errors.providerName.message}
             </p>
           ) : null}
@@ -212,18 +235,24 @@ export function SettingsSubmitForm({
             type="text"
             placeholder="Tool name"
             aria-invalid={Boolean(errors.toolName)}
-            aria-describedby={errors.toolName ? "submit-tool-name-error" : undefined}
+            aria-describedby={
+              errors.toolName ? "submit-tool-name-error" : undefined
+            }
             {...register("toolName")}
           />
           {errors.toolName ? (
-            <p id="submit-tool-name-error" className="text-sm text-destructive" aria-live="polite">
+            <p
+              id="submit-tool-name-error"
+              className="text-sm text-destructive"
+              aria-live="polite"
+            >
               {errors.toolName.message}
             </p>
           ) : null}
         </div>
       ) : null}
 
-      {(isProviderType || isToolType) ? (
+      {isProviderType || isToolType ? (
         <>
           <div className="space-y-1">
             <Label htmlFor="submit-url">URL</Label>
@@ -237,7 +266,11 @@ export function SettingsSubmitForm({
               {...register("url")}
             />
             {errors.url ? (
-              <p id="submit-url-error" className="text-sm text-destructive" aria-live="polite">
+              <p
+                id="submit-url-error"
+                className="text-sm text-destructive"
+                aria-live="polite"
+              >
                 {errors.url.message}
               </p>
             ) : null}
@@ -250,11 +283,17 @@ export function SettingsSubmitForm({
               placeholder="Add any helpful details"
               rows={5}
               aria-invalid={Boolean(errors.message)}
-              aria-describedby={errors.message ? "submit-message-error" : undefined}
+              aria-describedby={
+                errors.message ? "submit-message-error" : undefined
+              }
               {...register("message")}
             />
             {errors.message ? (
-              <p id="submit-message-error" className="text-sm text-destructive" aria-live="polite">
+              <p
+                id="submit-message-error"
+                className="text-sm text-destructive"
+                aria-live="polite"
+              >
                 {errors.message.message}
               </p>
             ) : null}
@@ -279,7 +318,13 @@ export function SettingsSubmitForm({
 
       <div className="flex items-center justify-end gap-3">
         {onCancel ? (
-          <Button type="button" size="sm" variant="outline" onClick={onCancel} disabled={state.submitting}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onCancel}
+            disabled={state.submitting}
+          >
             Cancel
           </Button>
         ) : null}

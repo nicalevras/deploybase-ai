@@ -10,7 +10,6 @@ import { ProviderGpuClient } from "./provider-gpu-client";
 import { searchParamsCache } from "@/features/data-explorer/table/search-params";
 import { getGpuPricingPage } from "@/lib/gpu-pricing-loader";
 import { buildGpuSchema } from "@/features/data-explorer/table/gpu-schema";
-import { SectionNav } from "@/components/seo/section-nav";
 import { logger } from "@/lib/logger";
 
 export const revalidate = 43200;
@@ -153,11 +152,9 @@ export default async function GpuProviderPage({ params }: Props) {
           }}
         />
       ) : null}
-      <h1 className="sr-only">{name} GPU Pricing</h1>
-      <SectionNav />
       <HydrationBoundary state={dehydratedState}>
         <div
-          className="flex min-h-dvh w-full flex-col sm:flex-row sm:p-0"
+          className="w-full"
           style={{
             "--total-padding-mobile": "0.5rem",
             "--total-padding-desktop": "3rem",

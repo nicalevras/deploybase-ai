@@ -1,4 +1,5 @@
 import { getModelsPage } from "@/lib/models-loader";
+import { newestIsoTimestamp } from "@/lib/research/freshness";
 
 export function buildModelsSchema(
   payload: Awaited<ReturnType<typeof getModelsPage>> | null,
@@ -56,7 +57,7 @@ export function buildModelsSchema(
     if (inputPricePerMillion !== null) {
       additionalProperty.push({
         "@type": "PropertyValue",
-        name: "Prompt Price (USD / 1M tokens)",
+        name: "Input Price (USD / 1M tokens)",
         value: inputPricePerMillion,
       });
     }
@@ -117,7 +118,9 @@ export function buildModelsSchema(
     "@type": "DataFeed",
     name: feedName ?? "LLM Inference Pricing Feed",
     description: feedDescription ?? "LLM API pricing across providers.",
-    dateModified: new Date().toISOString(),
+    dateModified:
+      newestIsoTimestamp(payload.data.map((model) => model.scrapedAt)) ??
+      undefined,
     dataFeedElement: items,
   };
 }
@@ -142,4 +145,3 @@ function normalizeModelId(value: unknown) {
     .trim()
     .replace(/\s+/g, "/");
 }
-

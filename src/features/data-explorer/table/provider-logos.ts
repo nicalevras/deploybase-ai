@@ -1,4 +1,3 @@
-import type { ComponentType } from "react";
 import {
   AlibabaCloud,
   Aws,
@@ -10,11 +9,16 @@ import {
   Replicate,
   Together,
 } from "@lobehub/icons";
+import type { ComponentType } from "react";
 
 // ---------------------------------------------------------------------------
 // Lobe Avatar mapping for GPU providers (brand bg + icon, self-contained)
 // ---------------------------------------------------------------------------
-type LobeAvatar = ComponentType<{ size: number; shape?: "circle" | "square"; className?: string }>;
+type LobeAvatar = ComponentType<{
+  size: number;
+  shape?: "circle" | "square";
+  className?: string;
+}>;
 
 const GPU_LOBE_ICON_MAP: Record<string, LobeAvatar> = {
   nebius: Nebius.Avatar,
@@ -63,6 +67,24 @@ const PROVIDER_LOGOS: Record<string, { src: string; alt: string }> = {
   togetherai: { src: "/logos/together.svg", alt: "Together AI" },
 };
 
+const GPU_PROVIDER_ALIASES: Record<string, string> = {
+  alibabacloud: "alibaba",
+  amazonwebservices: "aws",
+  google: "googlecloud",
+  latitudesh: "latitude",
+  together: "togetherai",
+  vastai: "vast",
+  voltageparkinc: "voltagepark",
+};
+
+function resolveGpuProviderKey(provider: string) {
+  const collapsed = provider
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]/g, "");
+  return GPU_PROVIDER_ALIASES[collapsed] ?? collapsed;
+}
+
 // ---------------------------------------------------------------------------
 // Unified logo result
 // ---------------------------------------------------------------------------
@@ -73,7 +95,7 @@ export type GpuLogoResult =
 
 export function getGpuProviderLogo(provider?: string | null): GpuLogoResult {
   if (!provider) return null;
-  const key = provider.toLowerCase().trim();
+  const key = resolveGpuProviderKey(provider);
 
   // 1. Try lobe Avatar first
   const Avatar = GPU_LOBE_ICON_MAP[key];
@@ -94,7 +116,7 @@ export function getGpuProviderLogo(provider?: string | null): GpuLogoResult {
 // Get display name from PROVIDER_LOGOS.alt (single source of truth)
 export function getProviderDisplayName(provider?: string | null): string {
   if (!provider) return "Unknown";
-  const key = provider.toLowerCase().trim();
+  const key = resolveGpuProviderKey(provider);
   const logo = PROVIDER_LOGOS[key];
   if (logo) return logo.alt;
   // Fallback: capitalize first letter

@@ -1,6 +1,7 @@
 import type { InfiniteQueryResponse, LogsMeta } from "./query-options";
 import type { ColumnSchema } from "./schema";
 import { getGpuPricingPage } from "@/lib/gpu-pricing-loader";
+import { newestIsoTimestamp } from "@/lib/research/freshness";
 
 export function buildGpuSchema(
   payload: Awaited<ReturnType<typeof getGpuPricingPage>> | null,
@@ -98,7 +99,8 @@ export function buildGpuSchema(
     "@type": "DataFeed",
     name: feedName ?? "GPU Pricing Feed",
     description: feedDescription ?? "Real-time GPU cloud pricing across providers.",
-    dateModified: new Date().toISOString(),
+    dateModified:
+      newestIsoTimestamp(pricedRows.map((row) => row.observed_at)) ?? undefined,
     dataFeedElement: items,
   };
 }
@@ -213,4 +215,3 @@ function normalizeSku(value: unknown) {
   if (!trimmed) return null;
   return trimmed.replace(/\s+/g, "-");
 }
-

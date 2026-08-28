@@ -22,6 +22,7 @@ async function runThroughputScrape(limit?: number) {
       ),
     );
   }
+  revalidateTag("research-llm", { expire: 0 });
   await revalidateCorePages();
 
   logger.info(

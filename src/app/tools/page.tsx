@@ -10,7 +10,6 @@ import { toolsDataOptions } from "@/features/data-explorer/tools/tools-query-opt
 import { toolsSearchParamsCache } from "@/features/data-explorer/tools/tools-search-params";
 import { getToolsPage } from "@/lib/tools-loader";
 import { buildToolsSchema } from "@/features/data-explorer/tools/build-tools-schema";
-import { SectionNav } from "@/components/seo/section-nav";
 import { logger } from "@/lib/logger";
 
 export const revalidate = 43200;
@@ -91,11 +90,9 @@ export default async function ToolsPage() {
           }}
         />
       ) : null}
-      <h1 className="sr-only">AI/ML Tools Directory</h1>
-      <SectionNav />
       <HydrationBoundary state={dehydratedState}>
         <div
-          className="flex min-h-dvh w-full flex-col sm:flex-row sm:p-0"
+          className="w-full"
           style={{
             "--total-padding-mobile": "0.5rem",
             "--total-padding-desktop": "3rem",

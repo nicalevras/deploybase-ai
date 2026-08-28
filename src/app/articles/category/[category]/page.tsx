@@ -1,8 +1,9 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import { notFound } from "next/navigation";
+import { SiteFooter } from "@/components/site/site-footer";
 import { CATEGORIES, getCategoryBySlug } from "@/lib/article-categories";
 import { getArticlesByCategory } from "@/lib/articles-loader";
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { ArticleCollection } from "../../_components/article-collection";
 
 export const revalidate = 43200;
 
@@ -11,23 +12,21 @@ interface Props {
 }
 
 export function generateStaticParams() {
-  return CATEGORIES.map((c) => ({ category: c.slug }));
+  return CATEGORIES.map((category) => ({ category: category.slug }));
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category: slug } = await params;
-  const cat = getCategoryBySlug(slug);
-  if (!cat) return {};
-
+  const category = getCategoryBySlug(slug);
+  if (!category) return {};
   const url = `/articles/category/${slug}`;
-
   return {
-    title: `${cat.name} Articles | DeployBase`,
-    description: cat.description,
+    title: `${category.name} Articles | Deploybase`,
+    description: category.description,
     alternates: { canonical: url },
     openGraph: {
-      title: `${cat.name} Articles`,
-      description: cat.description,
+      title: `${category.name} Articles`,
+      description: category.description,
       url,
       type: "website",
     },
@@ -36,29 +35,30 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CategoryPage({ params }: Props) {
   const { category: slug } = await params;
-  const cat = getCategoryBySlug(slug);
-  if (!cat) notFound();
-
+  const category = getCategoryBySlug(slug);
+  if (!category) notFound();
   const articles = getArticlesByCategory(slug);
+  const categoryIndex = CATEGORIES.findIndex((item) => item.slug === slug);
+  const nextCategory = CATEGORIES[(categoryIndex + 1) % CATEGORIES.length];
 
+  const itemListElement = articles.slice(0, 50).map((article, index) => ({
+    "@type": "ListItem",
+    position: index + 1,
+    url: `https://deploybase.ai/articles/${article.slug}`,
+    name: article.title,
+  }));
   const collectionJsonLd = {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: `${cat.name} Articles`,
-    description: cat.description,
+    name: `${category.name} Articles`,
+    description: category.description,
     url: `https://deploybase.ai/articles/category/${slug}`,
     mainEntity: {
       "@type": "ItemList",
-      numberOfItems: articles.length,
-      itemListElement: articles.slice(0, 50).map((a, i) => ({
-        "@type": "ListItem",
-        position: i + 1,
-        url: `https://deploybase.ai/articles/${a.slug}`,
-        name: a.title,
-      })),
+      numberOfItems: itemListElement.length,
+      itemListElement,
     },
   };
-
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -66,13 +66,13 @@ export default async function CategoryPage({ params }: Props) {
       {
         "@type": "ListItem",
         position: 1,
-        name: "Articles",
+        name: "Research",
         item: "https://deploybase.ai/articles",
       },
       {
         "@type": "ListItem",
         position: 2,
-        name: cat.name,
+        name: category.name,
         item: `https://deploybase.ai/articles/category/${slug}`,
       },
     ],
@@ -80,7 +80,6 @@ export default async function CategoryPage({ params }: Props) {
 
   return (
     <>
-      <h1 className="sr-only">{cat.name} Articles</h1>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
@@ -93,36 +92,17 @@ export default async function CategoryPage({ params }: Props) {
           __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, "\\u003c"),
         }}
       />
-      <div className="mx-auto max-w-3xl px-6 py-16">
-        <nav className="mb-4 text-sm text-foreground/50">
-          <Link
-            href="/articles"
-            prefetch={false}
-            className="hover:text-foreground"
-          >
-            Articles
-          </Link>
-          <span className="mx-1.5">/</span>
-          <span className="text-foreground/70">{cat.name}</span>
-        </nav>
-        <h2 className="text-2xl font-bold text-foreground">{cat.name}</h2>
-        <p className="mt-2 text-sm text-foreground/50">
-          {articles.length} articles &middot; {cat.description}
-        </p>
-        <ul className="mt-8 space-y-3">
-          {articles.map((a) => (
-            <li key={a.slug}>
-              <Link
-                href={`/articles/${a.slug}`}
-                prefetch={false}
-                className="text-sm text-foreground/80 hover:text-foreground underline underline-offset-2"
-              >
-                {a.title}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
+      <ArticleCollection
+        eyebrow="RESEARCH TOPIC"
+        title={category.name}
+        description={category.description}
+        articles={articles}
+        continuation={{
+          label: nextCategory.name,
+          href: `/articles/category/${nextCategory.slug}`,
+        }}
+      />
+      <SiteFooter />
     </>
   );
 }

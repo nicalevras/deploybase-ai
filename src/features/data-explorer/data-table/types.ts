@@ -73,4 +73,6 @@ export type SheetField<TData, TMeta = Record<string, unknown>> = {
   noPadding?: boolean;
   /** If true, truncate long values with ellipsis instead of wrapping */
   truncate?: boolean;
+  /** Force mono/numeric styling — for component-rendered numeric values the raw-value heuristic can't detect */
+  numeric?: boolean;
 };

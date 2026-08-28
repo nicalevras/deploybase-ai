@@ -1,5 +1,5 @@
 import { CATEGORIES } from "@/lib/article-categories";
-import { getAllArticleSlugs, getArticleBySlug } from "@/lib/articles-loader";
+import { getAllArticleMetadata } from "@/lib/articles-loader";
 import { toGpuModelSlug } from "@/lib/gpu-model-slug";
 import { gpuPricingCache } from "@/lib/gpu-pricing-cache";
 import { logger } from "@/lib/logger";
@@ -130,13 +130,11 @@ export async function GET() {
 
   // Articles
   try {
-    const slugs = getAllArticleSlugs();
-    if (slugs.length) {
+    const articles = getAllArticleMetadata();
+    if (articles.length) {
       lines.push("## Articles", "");
-      for (const slug of slugs) {
-        const article = getArticleBySlug(slug);
-        if (!article) continue;
-        const { title, description } = article.frontmatter;
+      for (const article of articles) {
+        const { title, description, slug } = article;
         const desc = description || title;
         lines.push(`- [${title}](${SITE_URL}/articles/${slug}): ${desc}`);
       }

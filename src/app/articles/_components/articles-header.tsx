@@ -13,7 +13,7 @@ const navItems = [
   { label: "GPUs", href: "/gpus", icon: Server, match: "/gpus" },
   { label: "LLMs", href: "/llms", icon: Bot, match: "/llms" },
   { label: "MLOps", href: "/tools", icon: Wrench, match: "/tools" },
-  { label: "Articles", href: "/articles", icon: Newspaper, match: "/articles" },
+  { label: "Research", href: "/articles", icon: Newspaper, match: "/articles" },
 ];
 
 export function ArticlesHeader() {

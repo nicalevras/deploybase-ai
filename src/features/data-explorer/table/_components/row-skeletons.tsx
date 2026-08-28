@@ -26,7 +26,7 @@ export function RowSkeletons<TData>({
         <TableRow
           key={`skeleton-${rowIndex}`}
           className={cn(
-            "bg-background border-b transition-colors",
+            "bg-site-chrome border-b transition-colors",
             "hover:bg-transparent",
           )}
         >

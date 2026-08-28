@@ -15,8 +15,6 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/custom/sheet";
-import { DataTableFilterControls } from "@/features/data-explorer/data-table/data-table-filter-controls";
-import { DataTableResetButton } from "@/features/data-explorer/data-table/data-table-reset-button";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -41,32 +39,34 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DataTableFilterControls } from "@/features/data-explorer/data-table/data-table-filter-controls";
+import { DataTableResetButton } from "@/features/data-explorer/data-table/data-table-reset-button";
 import { cn } from "@/lib/utils";
 import {
   Bookmark,
+  Bot,
   EllipsisVertical,
   LogIn,
   LogOut,
   Search,
-  UserPlus,
-  Settings as SettingsIcon,
-  X,
-  Bot,
   Server,
+  Settings as SettingsIcon,
+  UserPlus,
   Wrench,
+  X,
 } from "lucide-react";
-import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import * as React from "react";
 // Use next/dynamic with ssr: false for truly client-only lazy loading
 // This prevents any SSR/prefetching and ensures components only load when dialog is opened
 import dynamic from "next/dynamic";
-
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import * as React from "react";
 
 const LazySettingsDialog = dynamic(
-  () => import("./settings-dialog").then((module) => ({
-    default: module.SettingsDialog,
-  })),
+  () =>
+    import("./settings-dialog").then((module) => ({
+      default: module.SettingsDialog,
+    })),
   {
     ssr: false, // Client-only - only loads when settings dialog is opened
   },
@@ -140,12 +140,7 @@ export function UserMenu({
   if (isLoading) {
     if (!showDetails) {
       return (
-        <Skeleton
-          className={cn(
-            "h-9 w-9 rounded-full",
-            triggerClassName,
-          )}
-        />
+        <Skeleton className={cn("h-9 w-9 rounded-full", triggerClassName)} />
       );
     }
     return (
@@ -156,8 +151,8 @@ export function UserMenu({
           triggerClassName,
         )}
       >
-        <Skeleton className={cn("rounded-full shrink-0", avatarSizeClass)} />
-        <div className="flex flex-1 flex-col gap-1.5 min-w-0">
+        <Skeleton className={cn("shrink-0 rounded-full", avatarSizeClass)} />
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <Skeleton className="h-4 w-20 rounded" />
           <Skeleton className="h-3 w-32 rounded" />
         </div>
@@ -171,7 +166,7 @@ export function UserMenu({
       "flex h-auto items-center gap-3 rounded-md p-0 text-left text-sm font-medium text-foreground hover:text-accent-foreground",
       showDetails
         ? "bg-transparent hover:bg-transparent"
-        : "border border-border bg-gradient-to-b from-muted/70 via-muted/40 to-background text-accent-foreground",
+        : "border border-border bg-background text-foreground hover:bg-muted",
       fullWidth ? "w-full" : "w-auto",
       !showDetails
         ? "!gap-1.5 !rounded-md !px-2 !py-1.5 md:h-9 md:rounded-md"
@@ -180,7 +175,7 @@ export function UserMenu({
     const preferredActionLabel = hasSignUpHandler ? "Sign up" : "Sign in";
     const ariaLabel = showDetails
       ? undefined
-      : triggerAriaLabel ?? preferredActionLabel;
+      : (triggerAriaLabel ?? preferredActionLabel);
     const primaryClickHandler = hasSignUpHandler
       ? handleSignUpClick
       : handleSignInClick;
@@ -196,7 +191,7 @@ export function UserMenu({
         <Button
           type="button"
           variant="ghost"
-          className="flex flex-1 items-center gap-3 h-auto p-0 bg-transparent hover:bg-transparent text-left text-sm font-medium text-foreground hover:text-accent-foreground focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none"
+          className="flex h-auto flex-1 items-center gap-3 bg-transparent p-0 text-left text-sm font-medium text-foreground hover:bg-transparent hover:text-accent-foreground focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none"
           onClick={primaryClickHandler}
           disabled={isSigningOut}
           aria-label={ariaLabel}
@@ -210,7 +205,9 @@ export function UserMenu({
             <LogIn className="h-4 w-4" />
           </div>
           <div className="flex min-w-0 flex-1 flex-col text-left">
-            <span className="truncate text-sm font-semibold">{displayName}</span>
+            <span className="truncate text-sm font-semibold">
+              {displayName}
+            </span>
             {secondaryText ? (
               <span className="truncate text-xs text-foreground/70">
                 {secondaryText}
@@ -221,7 +218,7 @@ export function UserMenu({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="flex items-center justify-center p-0 bg-transparent hover:bg-transparent focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none"
+            className="flex items-center justify-center bg-transparent p-0 hover:bg-transparent focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none"
             aria-label="Open account menu"
             disabled={isSigningOut}
           >
@@ -237,8 +234,7 @@ export function UserMenu({
           variant="ghost"
           className={cn(
             "flex items-center text-sm font-medium text-foreground hover:text-accent-foreground focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none",
-            "!h-9 !w-9 justify-center rounded-full px-0",
-            "border border-border bg-gradient-to-b from-muted/70 via-muted/40 to-background text-accent-foreground hover:text-accent-foreground shadow-sm",
+            "!h-9 !w-9 justify-center rounded-full border border-border bg-background px-0 hover:bg-muted",
             triggerClassName,
           )}
           disabled={isSigningOut}
@@ -258,9 +254,11 @@ export function UserMenu({
           className={cn(
             "flex items-center text-sm font-medium text-foreground hover:text-accent-foreground focus:outline-none focus:ring-0 focus-visible:outline-none focus-visible:ring-0 active:outline-none",
             showDetails
-              ? "h-auto gap-3 p-0 bg-transparent hover:bg-transparent"
+              ? "h-auto gap-3 bg-transparent p-0 hover:bg-transparent"
               : "!h-9 !w-9 justify-center rounded-full px-0",
-            !showDetails && !shouldRenderAvatar && "border border-border bg-gradient-to-b from-muted/70 via-muted/40 to-background text-accent-foreground hover:text-accent-foreground shadow-sm",
+            !showDetails &&
+              !shouldRenderAvatar &&
+              "border border-border bg-background text-foreground hover:bg-muted",
             showDetails && (fullWidth ? "w-full justify-start" : "w-auto"),
             triggerClassName,
           )}
@@ -297,7 +295,9 @@ export function UserMenu({
             <>
               {showDetails ? (
                 <div className="flex min-w-0 flex-1 flex-col text-left">
-                  <span className="truncate text-sm font-semibold">{displayName}</span>
+                  <span className="truncate text-sm font-semibold">
+                    {displayName}
+                  </span>
                   {secondaryText ? (
                     <span className="truncate text-xs text-foreground/70">
                       {secondaryText}
@@ -320,8 +320,8 @@ export function UserMenu({
       <DropdownMenu>
         {triggerElement}
         <DropdownMenuContent
-          align="center"
-          className="w-auto sm:w-60 mt-[4px] sm:mt-0 mr-2 sm:mr-0 rounded-2xl sm:rounded-md"
+          align="end"
+          className="mt-1 w-auto rounded border-border bg-site-chrome sm:mr-0 sm:mt-0"
         >
           <div className="flex flex-col space-y-1">
             {isAuthenticated ? (
@@ -341,19 +341,34 @@ export function UserMenu({
                     <div className="relative flex flex-col gap-1 pl-[25px]">
                       <span
                         aria-hidden
-                        className="pointer-events-none absolute left-[15px] top-1 bottom-1 w-px bg-muted"
+                        className="pointer-events-none absolute bottom-1 left-[15px] top-1 w-px bg-muted"
                       />
-                      <DropdownMenuItem asChild className={"flex w-full items-center gap-2 rounded-sm px-2 py-1.5 pl-2 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:no-underline focus-visible:bg-muted focus-visible:text-accent-foreground"}>
+                      <DropdownMenuItem
+                        asChild
+                        className={
+                          "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 pl-2 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:no-underline focus-visible:bg-muted focus-visible:text-accent-foreground"
+                        }
+                      >
                         <Link href="/gpus?bookmarks=true">
                           <span>GPUs</span>
                         </Link>
                       </DropdownMenuItem>
-                      <DropdownMenuItem asChild className={"flex w-full items-center gap-2 rounded-sm px-2 py-1.5 pl-2 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:no-underline focus-visible:bg-muted focus-visible:text-accent-foreground"}>
+                      <DropdownMenuItem
+                        asChild
+                        className={
+                          "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 pl-2 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:no-underline focus-visible:bg-muted focus-visible:text-accent-foreground"
+                        }
+                      >
                         <Link href="/llms?bookmarks=true">
                           <span>LLMs</span>
                         </Link>
                       </DropdownMenuItem>
-                      <DropdownMenuItem asChild className={"flex w-full items-center gap-2 rounded-sm px-2 py-1.5 pl-2 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:no-underline focus-visible:bg-muted focus-visible:text-accent-foreground"}>
+                      <DropdownMenuItem
+                        asChild
+                        className={
+                          "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 pl-2 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:no-underline focus-visible:bg-muted focus-visible:text-accent-foreground"
+                        }
+                      >
                         <Link href="/tools?bookmarks=true">
                           <span>MLOps</span>
                         </Link>
@@ -575,18 +590,18 @@ export function MobileTopNav({
   );
 
   return (
-    <NavigationMenu className="flex w-full max-w-none justify-between pt-2 px-4 sm:hidden">
+    <NavigationMenu className="flex w-full max-w-none justify-between px-4 pt-2 sm:hidden">
       <NavigationMenuList className="grid w-full grid-cols-3 items-center gap-2">
-        <NavigationMenuItem className="flex justify-start min-w-0">
-          <div className="flex items-center h-9">
+        <NavigationMenuItem className="flex min-w-0 justify-start">
+          <div className="flex h-9 items-center">
             <Link href="/" prefetch={false} className="text-lg tracking-tight">
               <span className="font-light text-foreground">deploy</span>
               <span className="font-bold text-foreground">base</span>
             </Link>
           </div>
         </NavigationMenuItem>
-        <NavigationMenuItem className="flex justify-center min-w-0">
-          <div className="flex items-center h-9">
+        <NavigationMenuItem className="flex min-w-0 justify-center">
+          <div className="flex h-9 items-center">
             <Select
               value={currentNavValue}
               onValueChange={handleNavChange}
@@ -602,7 +617,7 @@ export function MobileTopNav({
               }}
             >
               <SelectTrigger
-                className="h-9 w-auto gap-2 rounded-full border-0 shadow-none bg-transparent p-0 text-accent-foreground hover:text-accent-foreground"
+                className="h-9 w-auto gap-2 rounded-full border-0 bg-transparent p-0 text-accent-foreground shadow-none hover:text-accent-foreground"
                 aria-label={`${brandLabelDisplay} navigation`}
               >
                 <SelectValue aria-label={currentNavItem?.label}>
@@ -611,20 +626,22 @@ export function MobileTopNav({
                       {isBookmarksMode ? (
                         <Bookmark className="h-4 w-4" aria-hidden="true" />
                       ) : (
-                        <currentNavItem.icon className="h-4 w-4" aria-hidden="true" />
+                        <currentNavItem.icon
+                          className="h-4 w-4"
+                          aria-hidden="true"
+                        />
                       )}
                       {currentNavItem.label}
                     </span>
                   )}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent
-                className="mt-[4px] sm:mt-0 rounded-2xl">
+              <SelectContent className="mt-1 rounded sm:mt-0">
                 {navItems.map((item) => (
                   <SelectItem
                     key={item.value}
                     value={item.value}
-                    className="gap-2 cursor-pointer"
+                    className="cursor-pointer gap-2"
                     onPointerDown={(e) => {
                       // Only navigate for same-page clicks in bookmarks mode
                       if (isBookmarksMode && item.value === currentNavValue) {
@@ -659,9 +676,12 @@ export function MobileTopNav({
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="h-9 w-9 rounded-full border border-border bg-gradient-to-b from-muted/70 via-muted/40 to-background text-accent-foreground hover:text-accent-foreground shadow-sm"
+                className="h-9 w-9 rounded-full border border-border bg-background text-foreground hover:bg-muted"
               >
-                <Search className="h-[18px] w-[18px] text-foreground" strokeWidth={1.5} />
+                <Search
+                  className="h-[18px] w-[18px] text-foreground"
+                  strokeWidth={1.5}
+                />
                 <span className="sr-only">Toggle filters</span>
               </Button>
             </SheetTrigger>

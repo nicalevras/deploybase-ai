@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { formatThroughputDisplay } from "./models-constants";
 
 const ChartSkeleton = () => (
-  <div className="h-36 w-full rounded-md border border-border/60 bg-muted/20" />
+  <div className="h-36 w-full rounded-md border border-border/60 bg-site-chrome" />
 );
 
 const SheetLineChart = dynamic(
@@ -183,7 +183,7 @@ export function ModelSheetCharts({
         title="Latency"
         description={latencyDescription}
         data={latencyData}
-        stroke="hsl(var(--chart-2))"
+        stroke="hsl(var(--signal))"
         isLoading={latencyQuery.isPending || latencyQuery.isFetching}
         emptyMessage={latencyEmptyMessage}
         valueFormatter={latencyValueFormatter}

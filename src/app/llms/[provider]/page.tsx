@@ -10,7 +10,6 @@ import { ProviderLlmClient } from "./provider-llm-client";
 import { modelsSearchParamsCache } from "@/features/data-explorer/models/models-search-params";
 import { getModelsPage } from "@/lib/models-loader";
 import { buildModelsSchema } from "@/features/data-explorer/models/build-models-schema";
-import { SectionNav } from "@/components/seo/section-nav";
 import { logger } from "@/lib/logger";
 
 export const revalidate = 43200;
@@ -116,11 +115,9 @@ export default async function LlmProviderPage({ params }: Props) {
           }}
         />
       ) : null}
-      <h1 className="sr-only">{decodedProvider} LLM Pricing</h1>
-      <SectionNav />
       <HydrationBoundary state={dehydratedState}>
         <div
-          className="flex min-h-dvh w-full flex-col sm:flex-row sm:p-0"
+          className="w-full"
           style={{
             "--total-padding-mobile": "0.5rem",
             "--total-padding-desktop": "3rem",

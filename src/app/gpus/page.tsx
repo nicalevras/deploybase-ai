@@ -10,12 +10,16 @@ import { dataOptions } from "@/features/data-explorer/table/query-options";
 import { searchParamsCache } from "@/features/data-explorer/table/search-params";
 import { getGpuPricingPage } from "@/lib/gpu-pricing-loader";
 import { buildGpuSchema } from "@/features/data-explorer/table/gpu-schema";
-import { SectionNav } from "@/components/seo/section-nav";
 import { InternalLinkSection } from "@/components/seo/internal-links";
 import { gpuPricingCache } from "@/lib/gpu-pricing-cache";
 import { toGpuModelSlug } from "@/lib/gpu-model-slug";
 import { getProviderDisplayName } from "@/features/data-explorer/table/provider-logos";
 import { logger } from "@/lib/logger";
+import { getResearchFreshness } from "@/lib/research/loader";
+import {
+  buildGpuDatasetStructuredData,
+  combineStructuredData,
+} from "@/lib/research/structured-data";
 
 export const revalidate = 43200;
 
@@ -89,6 +93,11 @@ export default async function GpusPage() {
 
   const dehydratedState = dehydrate(queryClient);
   const schemaMarkup = buildGpuSchema(captured.firstPage);
+  const freshness = await getResearchFreshness();
+  const structuredData = combineStructuredData(
+    schemaMarkup,
+    buildGpuDatasetStructuredData(freshness.gpuUpdatedAt),
+  );
 
   // Fetch facets for sr-only internal links (uses cached singleton, same data as sitemap)
   let providerLinks: { href: string; label: string }[] = [];
@@ -111,20 +120,16 @@ export default async function GpusPage() {
 
   return (
     <>
-      {schemaMarkup ? (
-        <script
-          type="application/ld+json"
-          suppressHydrationWarning
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(schemaMarkup).replace(/</g, "\\u003c"),
-          }}
-        />
-      ) : null}
-      <h1 className="sr-only">Compare GPU Cloud Pricing</h1>
-      <SectionNav />
+      <script
+        type="application/ld+json"
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData).replace(/</g, "\\u003c"),
+        }}
+      />
       <HydrationBoundary state={dehydratedState}>
         <div
-          className="flex min-h-dvh w-full flex-col sm:flex-row sm:p-0"
+          className="w-full"
           style={{
             "--total-padding-mobile": "0.5rem",
             "--total-padding-desktop": "3rem",

@@ -1,13 +1,20 @@
 "use client";
 
-import type { DataTableFilterField, SheetField } from "@/features/data-explorer/data-table/types";
-import type { ModelsColumnSchema } from "./models-schema";
+import { Skeleton } from "@/components/ui/skeleton";
+import type {
+  DataTableFilterField,
+  SheetField,
+} from "@/features/data-explorer/data-table/types";
+import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 import * as React from "react";
-import { getModelProviderLogo, getModelLogo, type LogoResult } from "./model-provider-logos";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import {
+  getModelLogo,
+  getModelProviderLogo,
+  type LogoResult,
+} from "./model-provider-logos";
+import type { ModelsColumnSchema } from "./models-schema";
 
 export const modelsColumnOrder = [
   "blank",
@@ -65,7 +72,9 @@ const LogoBadge = ({
     >
       {logo?.type === "image" ? (
         <>
-          {!loaded ? <Skeleton className="absolute inset-0 h-full w-full animate-pulse" /> : null}
+          {!loaded ? (
+            <Skeleton className="absolute inset-0 h-full w-full animate-pulse" />
+          ) : null}
           <Image
             src={logo.src}
             alt=""
@@ -79,7 +88,10 @@ const LogoBadge = ({
           />
         </>
       ) : initial ? (
-        <span className="text-[10px] font-semibold uppercase text-foreground/70" aria-hidden="true">
+        <span
+          className="text-[10px] font-semibold uppercase text-foreground/70"
+          aria-hidden="true"
+        >
           {initial}
         </span>
       ) : null}
@@ -94,7 +106,7 @@ const ModelProviderBadge = ({ provider }: { provider?: string | null }) => {
     <Link
       href={`/llms/${encodeURIComponent(providerName)}`}
       prefetch={false}
-      className="flex min-w-0 items-center gap-2 underline"
+      className="flex min-w-0 items-center gap-2"
       onClick={(e) => e.stopPropagation()}
     >
       <LogoBadge
@@ -126,7 +138,8 @@ const formatContextLength = (value: number | null | undefined) => {
 const formatModalities = (modalities?: string[]) => {
   if (!Array.isArray(modalities) || modalities.length === 0) return "N/A";
   const validModalities = modalities.filter(
-    (modality): modality is string => typeof modality === "string" && modality.trim().length > 0,
+    (modality): modality is string =>
+      typeof modality === "string" && modality.trim().length > 0,
   );
   if (validModalities.length === 0) return "N/A";
   return validModalities.join(", ");
@@ -170,8 +183,16 @@ export const filterFields: DataTableFilterField<ModelsColumnSchema>[] = [
     defaultOpen: true,
   },
   {
-    label: "Prompt",
+    label: "Input",
     value: "inputPrice",
+    type: "slider",
+    min: 0,
+    max: 0.00001,
+    defaultOpen: true,
+  },
+  {
+    label: "Output",
+    value: "outputPrice",
     type: "slider",
     min: 0,
     max: 0.00001,
@@ -213,7 +234,8 @@ export const sheetFields: SheetField<ModelsColumnSchema>[] = [
       const titleClassName =
         typeof metadata === "object" &&
         metadata &&
-        typeof (metadata as { titleClassName?: unknown }).titleClassName === "string"
+        typeof (metadata as { titleClassName?: unknown }).titleClassName ===
+          "string"
           ? (metadata as { titleClassName: string }).titleClassName
           : undefined;
       const fallback = row.name ?? "N/A";
@@ -232,10 +254,17 @@ export const sheetFields: SheetField<ModelsColumnSchema>[] = [
             <div className="h-10 w-10 shrink-0" />
           )}
           <div className="flex flex-col gap-0 leading-tight">
-            <h2 className={cn("text-lg font-semibold leading-tight tracking-tight", titleClassName)}>
+            <h2
+              className={cn(
+                "text-lg font-semibold leading-tight tracking-tight",
+                titleClassName,
+              )}
+            >
               {value || fallback}
             </h2>
-            <p className="pb-4 text-sm text-foreground/70 leading-tight">{row.author ?? "N/A"}</p>
+            <p className="pb-4 text-sm leading-tight text-foreground/70">
+              {row.author ?? "N/A"}
+            </p>
           </div>
         </div>
       );
@@ -249,14 +278,16 @@ export const sheetFields: SheetField<ModelsColumnSchema>[] = [
   },
   {
     id: "inputPrice" as keyof ModelsColumnSchema,
-    label: "Prompt Price",
+    label: "Input Price",
     type: "readonly",
+    numeric: true,
     component: (row) => formatPricePerMillion(row.promptPrice),
   },
   {
     id: "outputPrice" as keyof ModelsColumnSchema,
     label: "Output Price",
     type: "readonly",
+    numeric: true,
     component: (row) => formatPricePerMillion(row.completionPrice),
   },
   {
@@ -287,6 +318,7 @@ export const sheetFields: SheetField<ModelsColumnSchema>[] = [
     id: "supportedParameters",
     label: "Parameters",
     type: "readonly",
-    component: (row) => formatParameterList(row.supportedParameters ?? undefined),
+    component: (row) =>
+      formatParameterList(row.supportedParameters ?? undefined),
   },
 ];

@@ -23,7 +23,7 @@ import { useToolsFavoritesState } from "./hooks/use-tools-favorites-state";
 import { ToolsCheckedActionsIsland } from "./tools-checked-actions-island";
 import { getToolFavoritesBroadcastId } from "@/lib/tool-favorites/broadcast";
 import { TOOL_FAVORITES_QUERY_KEY } from "@/lib/tool-favorites/constants";
-import { MobileTopNav, SidebarPanel, type AccountUser } from "../table/account-components";
+import { type AccountUser } from "../table/account-components";
 import { Bot, Server, Wrench } from "lucide-react";
 import { stableToolKey } from "../stable-keys";
 import dynamic from "next/dynamic";
@@ -181,6 +181,8 @@ export function ToolsClient({ initialFavoriteKeys, isFavoritesMode }: ToolsClien
 
   const metadata: DataTableMeta<Record<string, unknown>, ToolFavoriteKey> = {
     ...(lastPage?.meta?.metadata ?? {}),
+    totalRowCount: lastPage?.meta?.totalRowCount,
+    filterRowCount: lastPage?.meta?.filterRowCount,
     initialFavoriteKeys: effectiveFavoriteKeys,
   };
 
@@ -287,32 +289,11 @@ export function ToolsClient({ initialFavoriteKeys, isFavoritesMode }: ToolsClien
           onSignUp: handleSignUp,
           isLoading: authPending,
         }}
-        headerSlot={
-          <MobileTopNav
-            user={accountUser}
-            onSignOut={handleSignOut}
-            onSignIn={handleSignIn}
-            onSignUp={handleSignUp}
-            isSigningOut={isSigningOut}
-            isAuthLoading={authPending}
-            renderSidebar={() => (
-              <SidebarPanel
-                user={accountUser}
-                onSignOut={handleSignOut}
-                isSigningOut={isSigningOut}
-                className="flex-1"
-                showUserMenuFooter={false}
-                isAuthLoading={authPending}
-              />
-            )}
-          />
-        }
-        mobileHeaderOffset="44px"
         primaryColumnId="description"
         renderSheetCharts={() => null}
         sheetContentClassName="border-b border-border/60"
         getRowHref={(row) => row.url || null}
-        showAffiliateTooltip={false}
+        ctaLabel="Learn More"
         renderCheckedActions={(meta) => (
           <ToolsCheckedActionsIsland initialFavoriteKeys={meta.initialFavoriteKeys} />
         )}

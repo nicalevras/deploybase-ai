@@ -1,15 +1,15 @@
 "use client";
 
-import * as React from "react";
-import { useForm as useFormspree } from "@formspree/react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useAnalytics } from "@/lib/analytics";
+import { useForm as useFormspree } from "@formspree/react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as React from "react";
+import { useForm } from "react-hook-form";
+import * as z from "zod";
 
 const contactSchema = z.object({
   name: z.string().trim().min(2, "Please enter your name."),
@@ -65,7 +65,7 @@ export function SettingsContactForm({
 
   if (state.succeeded) {
     return (
-      <div className="rounded-md border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700 dark:text-emerald-400">
+      <div className="rounded border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-700">
         Thanks! We received your message and will get back to you shortly.
       </div>
     );
@@ -89,7 +89,11 @@ export function SettingsContactForm({
           {...register("name")}
         />
         {errors.name ? (
-          <p id="contact-name-error" className="text-sm text-destructive" aria-live="polite">
+          <p
+            id="contact-name-error"
+            className="text-sm text-destructive"
+            aria-live="polite"
+          >
             {errors.name.message}
           </p>
         ) : null}
@@ -107,7 +111,11 @@ export function SettingsContactForm({
           {...register("email")}
         />
         {errors.email ? (
-          <p id="contact-email-error" className="text-sm text-destructive" aria-live="polite">
+          <p
+            id="contact-email-error"
+            className="text-sm text-destructive"
+            aria-live="polite"
+          >
             {errors.email.message}
           </p>
         ) : null}
@@ -120,11 +128,17 @@ export function SettingsContactForm({
           placeholder="How can we help?"
           rows={5}
           aria-invalid={Boolean(errors.message)}
-          aria-describedby={errors.message ? "contact-message-error" : undefined}
+          aria-describedby={
+            errors.message ? "contact-message-error" : undefined
+          }
           {...register("message")}
         />
         {errors.message ? (
-          <p id="contact-message-error" className="text-sm text-destructive" aria-live="polite">
+          <p
+            id="contact-message-error"
+            className="text-sm text-destructive"
+            aria-live="polite"
+          >
             {errors.message.message}
           </p>
         ) : null}
@@ -147,7 +161,13 @@ export function SettingsContactForm({
 
       <div className="flex items-center justify-end gap-3">
         {onCancel ? (
-          <Button type="button" size="sm" variant="outline" onClick={onCancel} disabled={state.submitting}>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={onCancel}
+            disabled={state.submitting}
+          >
             Cancel
           </Button>
         ) : null}

@@ -6,7 +6,7 @@ import dynamic from "next/dynamic";
 import { getProviderDisplayName } from "./provider-logos";
 
 const ChartSkeleton = () => (
-  <div className="h-36 w-full rounded-md border border-border/60 bg-muted/20" />
+  <div className="h-36 w-full rounded-md border border-border/60 bg-site-chrome" />
 );
 
 const SheetLineChart = dynamic(
@@ -194,7 +194,7 @@ export function GpuSheetCharts({ stableKey, provider }: GpuSheetChartsProps) {
       title="Pricing"
       description={priceChangeDescription}
       data={chartData}
-      stroke="hsl(var(--chart-2))"
+      stroke="hsl(var(--signal))"
       isLoading={isLoading}
       emptyMessage={emptyMessage}
       valueLabel="USD"

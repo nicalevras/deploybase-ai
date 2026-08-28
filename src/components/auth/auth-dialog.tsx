@@ -1,6 +1,10 @@
 "use client";
 
-import * as React from "react";
+import { Github } from "@/components/icons/github";
+import { Google } from "@/components/icons/google";
+import { HuggingFace } from "@/components/icons/huggingface";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -8,20 +12,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Github } from "@/components/icons/github";
-import { Google } from "@/components/icons/google";
-import { HuggingFace } from "@/components/icons/huggingface";
-import { authClient } from "@/lib/auth-client";
-import { useAuth } from "@/providers/auth-client-provider";
 import { useAnalytics } from "@/lib/analytics";
+import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/providers/auth-client-provider";
 import { Loader2 } from "lucide-react";
 import Link from "next/link";
+import * as React from "react";
 
 export type AuthView = "signIn" | "signUp" | "forgotPassword";
 
@@ -59,9 +59,13 @@ export function AuthDialog({
   const [name, setName] = React.useState("");
   const [pending, setPending] = React.useState(false);
   const [agreedToPolicies, setAgreedToPolicies] = React.useState(false);
-  const [socialPending, setSocialPending] = React.useState<"github" | "google" | "huggingface" | null>(null);
+  const [socialPending, setSocialPending] = React.useState<
+    "github" | "google" | "huggingface" | null
+  >(null);
   const [error, setError] = React.useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = React.useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = React.useState<string | null>(
+    null,
+  );
   const [resetEmailSent, setResetEmailSent] = React.useState(false);
   const { refetch } = useAuth();
   const plausible = useAnalytics();
@@ -127,7 +131,8 @@ export function AuthDialog({
     if (view === "forgotPassword") {
       return {
         title: "Reset your password",
-        description: "Enter your email address and we'll send you a link to reset your password",
+        description:
+          "Enter your email address and we'll send you a link to reset your password",
         cta: pending ? "Sending…" : "Send reset link",
         alternateLabel: "Remember your password?",
         alternateAction: "Sign in",
@@ -135,12 +140,12 @@ export function AuthDialog({
     }
 
     return {
-        title: "Sign up",
-        description: "Please fill in the details to get started",
-        cta: pending ? "Creating…" : "Create account",
-        alternateLabel: "Already have an account?",
-        alternateAction: "Sign in",
-      };
+      title: "Sign up",
+      description: "Please fill in the details to get started",
+      cta: pending ? "Creating…" : "Create account",
+      alternateLabel: "Already have an account?",
+      alternateAction: "Sign in",
+    };
   }, [isLoading, pending, view]);
 
   const switchView = React.useCallback(
@@ -150,7 +155,7 @@ export function AuthDialog({
       setError(null);
       onViewChange?.(next);
     },
-    [onViewChange, view]
+    [onViewChange, view],
   );
 
   const handleEmailSignIn = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -169,12 +174,14 @@ export function AuthDialog({
           onError: (ctx) => {
             // Handle email verification required error
             if (ctx.error.status === 403) {
-              setError("Please verify your email address before signing in. Check your inbox for a verification link.");
+              setError(
+                "Please verify your email address before signing in. Check your inbox for a verification link.",
+              );
             } else {
               setError(ctx.error.message);
             }
           },
-        }
+        },
       );
 
       if (!result.error) {
@@ -212,7 +219,7 @@ export function AuthDialog({
         },
         {
           onError: (ctx) => setError(ctx.error.message),
-        }
+        },
       );
 
       if (!result.error) {
@@ -220,7 +227,9 @@ export function AuthDialog({
         plausible("Signup", { props: { method: "email" } });
         // Email verification is required, so show success message instead of signing in
         setError(null); // Clear any errors
-        setSuccessMessage("Account created! Please check your email and click the verification link to sign in.");
+        setSuccessMessage(
+          "Account created! Please check your email and click the verification link to sign in.",
+        );
         // Switch to sign-in view
         setView("signIn");
       }
@@ -231,7 +240,9 @@ export function AuthDialog({
     }
   };
 
-  const handleForgotPassword = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handleForgotPassword = async (
+    event: React.FormEvent<HTMLFormElement>,
+  ) => {
     event.preventDefault();
     if (!email) {
       setError("Please enter your email address.");
@@ -244,10 +255,14 @@ export function AuthDialog({
     try {
       // Type assertion: better-auth 1.4.x BetterFetch conditional types
       // fail to resolve with TS 5.7, but the method exists at runtime.
-      const result = await (authClient as unknown as {
-        forgetPassword: (data: { email: string; redirectTo: string }) =>
-          Promise<{ error: { message: string } | null }>;
-      }).forgetPassword({
+      const result = await (
+        authClient as unknown as {
+          forgetPassword: (data: {
+            email: string;
+            redirectTo: string;
+          }) => Promise<{ error: { message: string } | null }>;
+        }
+      ).forgetPassword({
         email,
         redirectTo: `${window.location.origin}/reset-password`,
       });
@@ -257,7 +272,9 @@ export function AuthDialog({
         plausible("Forgot Password");
         setResetEmailSent(true);
         setError(null);
-        setSuccessMessage("Password reset link sent! Check your email for instructions.");
+        setSuccessMessage(
+          "Password reset link sent! Check your email for instructions.",
+        );
       }
     } catch (err) {
       setError("We could not send the reset email. Please try again.");
@@ -324,15 +341,16 @@ export function AuthDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         className={cn(
-          "max-w-md gap-0 p-6 sm:rounded-2xl",
-          "border-border bg-background",
-          contentClassName
+          "max-w-md gap-0 border-border bg-site-chrome p-6 sm:p-7",
+          contentClassName,
         )}
       >
         <div className={cn("grid gap-6", bodyClassName)}>
           <DialogHeader className="text-left">
             <DialogTitle>{copy.title}</DialogTitle>
-            <DialogDescription className="text-foreground/70">{copy.description}</DialogDescription>
+            <DialogDescription className="text-foreground/70">
+              {copy.description}
+            </DialogDescription>
           </DialogHeader>
 
           {view !== "forgotPassword" ? (
@@ -363,7 +381,7 @@ export function AuthDialog({
                   label="Continue with Hugging Face"
                 />
               </div>
-              <div className="flex items-center gap-6 text-xs uppercase tracking-wide text-foreground/70">
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <Separator className="flex-1" />
                 <span>or continue with</span>
                 <Separator className="flex-1" />
@@ -378,7 +396,7 @@ export function AuthDialog({
           ) : null}
 
           {successMessage ? (
-            <div className="rounded-md border border-green-500/40 bg-green-500/10 px-3 py-2 text-sm text-green-700 dark:text-green-400">
+            <div className="rounded border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-700">
               {successMessage}
             </div>
           ) : null}
@@ -402,12 +420,14 @@ export function AuthDialog({
 
               <div className="space-y-2">
                 <div className="relative">
-                  <Label htmlFor="password" className="block">Password</Label>
+                  <Label htmlFor="password" className="block">
+                    Password
+                  </Label>
                   {view === "signIn" && (
                     <Button
                       type="button"
                       variant="link"
-                      className="absolute right-0 -top-[11px] px-0 text-sm text-foreground/70 hover:text-foreground h-auto"
+                      className="absolute -top-[11px] right-0 h-auto px-0 text-sm text-foreground/70 hover:text-foreground"
                       onClick={() => switchView("forgotPassword")}
                     >
                       Forgot password?
@@ -464,10 +484,10 @@ export function AuthDialog({
                   placeholder="Name or organization"
                   required
                   value={name}
-                onChange={(event) => setName(event.target.value)}
-                disabled={isLocked}
-              />
-            </div>
+                  onChange={(event) => setName(event.target.value)}
+                  disabled={isLocked}
+                />
+              </div>
 
               <div className="grid gap-2">
                 <Label htmlFor="signup-email">Email</Label>
@@ -479,10 +499,10 @@ export function AuthDialog({
                   placeholder="email@example.com"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                required
-                disabled={isLocked}
-              />
-            </div>
+                  required
+                  disabled={isLocked}
+                />
+              </div>
 
               <div className="grid gap-2">
                 <Label htmlFor="signup-password">Password</Label>
@@ -494,16 +514,18 @@ export function AuthDialog({
                   placeholder="Minimum 8 characters"
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                required
-                disabled={isLocked}
-              />
-            </div>
+                  required
+                  disabled={isLocked}
+                />
+              </div>
 
               <label className="flex items-start gap-3 text-sm text-foreground/80">
                 <Checkbox
                   id="signup-terms"
                   checked={agreedToPolicies}
-                  onCheckedChange={(checked) => setAgreedToPolicies(Boolean(checked))}
+                  onCheckedChange={(checked) =>
+                    setAgreedToPolicies(Boolean(checked))
+                  }
                   disabled={isLocked}
                 />
                 <span className="leading-5">
@@ -573,7 +595,7 @@ interface SocialButtonProps {
 }
 
 const socialButtonClassName =
-  "flex w-full items-center justify-center rounded-lg border border-border bg-gradient-to-b from-muted/70 via-muted/40 to-background text-foreground transition hover:bg-gradient-to-b hover:from-muted hover:via-muted/40 hover:to-background disabled:cursor-not-allowed disabled:opacity-70";
+  "flex w-full items-center justify-center rounded border border-border bg-background text-foreground transition hover:bg-muted disabled:cursor-not-allowed disabled:opacity-70";
 
 function SocialButton({
   icon: Icon,

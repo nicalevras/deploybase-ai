@@ -1,11 +1,18 @@
+import { SiteFooter } from "@/components/site/site-footer";
+import { categoryToSlug, getCategoryBySlug } from "@/lib/article-categories";
+import {
+  getAllArticleSlugs,
+  getArticleBySlug,
+  getArticleMetadataBySlug,
+  getArticlesByCategory,
+} from "@/lib/articles-loader";
+import { ArrowLeft, ArrowRight } from "lucide-react";
 import type { Metadata } from "next";
+import { MDXRemote } from "next-mdx-remote/rsc";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MDXRemote } from "next-mdx-remote/rsc";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
-import { getAllArticleSlugs, getArticleBySlug } from "@/lib/articles-loader";
-import { categoryToSlug, getCategoryBySlug } from "@/lib/article-categories";
 import { mdxComponents } from "../_components/mdx-components";
 
 export const revalidate = 43200;
@@ -20,15 +27,13 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const article = getArticleBySlug(slug);
-  if (!article) return {};
-
-  const { frontmatter } = article;
+  const frontmatter = getArticleMetadataBySlug(slug);
+  if (!frontmatter) return {};
   const url = `/articles/${slug}`;
   const dateModified = frontmatter.dateModified || frontmatter.date;
 
   return {
-    title: `${frontmatter.title} | DeployBase`,
+    title: `${frontmatter.title} | Deploybase`,
     description: frontmatter.description,
     keywords: frontmatter.keywords,
     alternates: { canonical: url },
@@ -88,12 +93,17 @@ export default async function ArticlePage({ params }: Props) {
     ? categoryToSlug(frontmatter.category)
     : null;
   const catObj = catSlug ? getCategoryBySlug(catSlug) : null;
+  const relatedArticles = catSlug
+    ? getArticlesByCategory(catSlug)
+        .filter((item) => item.slug !== slug)
+        .slice(0, 5)
+    : [];
 
   const breadcrumbItems = [
     {
       "@type": "ListItem" as const,
       position: 1,
-      name: "Articles",
+      name: "Research",
       item: "https://deploybase.ai/articles",
     },
   ];
@@ -139,57 +149,58 @@ export default async function ArticlePage({ params }: Props) {
           __html: JSON.stringify(breadcrumbJsonLd).replace(/</g, "\\u003c"),
         }}
       />
-      <div className="mx-auto max-w-3xl px-6 py-16">
-        <nav className="mb-4 text-sm text-foreground/50">
+      <div className="mx-auto w-full max-w-5xl px-5 pb-16 pt-10 sm:px-8 sm:pt-14">
+        <nav
+          className="flex min-w-0 items-center gap-2 text-sm text-muted-foreground"
+          aria-label="Breadcrumb"
+        >
           <Link
             href="/articles"
             prefetch={false}
-            className="hover:text-foreground"
+            className="inline-flex shrink-0 items-center gap-1 hover:text-foreground"
           >
-            Articles
+            <ArrowLeft className="h-4 w-4" />
+            Research
           </Link>
           {catObj && catSlug && (
             <>
-              <span className="mx-1.5">/</span>
+              <span>/</span>
               <Link
                 href={`/articles/category/${catSlug}`}
                 prefetch={false}
-                className="hover:text-foreground"
+                className="truncate hover:text-foreground"
               >
                 {catObj.name}
               </Link>
             </>
           )}
-          <span className="mx-1.5">/</span>
-          <span className="text-foreground/70">{frontmatter.title}</span>
         </nav>
-        <header className="mb-10">
-          <h1 className="text-3xl font-bold tracking-tight text-foreground">
+        <header className="mt-8 border-b border-border pb-10">
+          {frontmatter.category ? (
+            <p className="text-xs font-semibold text-signal">
+              {frontmatter.category.toUpperCase()}
+            </p>
+          ) : null}
+          <h1 className="mt-4 max-w-4xl text-balance text-4xl font-semibold leading-[1.1] sm:text-5xl">
             {frontmatter.title}
           </h1>
-          <p className="mt-2 text-sm text-foreground/50">
-            {frontmatter.author} &middot;{" "}
+          <p className="mt-5 max-w-3xl text-lg leading-8 text-muted-foreground">
+            {frontmatter.description}
+          </p>
+          <p className="mt-6 text-sm text-muted-foreground">
+            By{" "}
+            <span className="font-medium text-foreground">
+              {frontmatter.author}
+            </span>{" "}
+            ·{" "}
             {new Date(frontmatter.date).toLocaleDateString("en-US", {
               year: "numeric",
               month: "long",
               day: "numeric",
             })}
-            {frontmatter.category && catSlug && (
-              <>
-                {" "}
-                &middot;{" "}
-                <Link
-                  href={`/articles/category/${catSlug}`}
-                  prefetch={false}
-                  className="hover:text-foreground"
-                >
-                  {frontmatter.category}
-                </Link>
-              </>
-            )}
           </p>
         </header>
-        <article className="prose dark:prose-invert max-w-none">
+        <article className="prose prose-neutral mx-auto max-w-3xl py-10 prose-headings:font-semibold prose-a:text-signal prose-a:no-underline hover:prose-a:underline prose-code:font-mono prose-table:text-sm sm:py-14">
           <MDXRemote
             source={content}
             components={mdxComponents}
@@ -202,7 +213,54 @@ export default async function ArticlePage({ params }: Props) {
             }}
           />
         </article>
+        {relatedArticles.length ? (
+          <aside
+            className="border-t border-border pt-8"
+            aria-labelledby="related-title"
+          >
+            <div className="flex items-end justify-between border-b border-border pb-4">
+              <div>
+                <p className="text-xs font-semibold text-signal">
+                  CONTINUE READING
+                </p>
+                <h2 id="related-title" className="mt-2 text-2xl font-semibold">
+                  Related research
+                </h2>
+              </div>
+              {catObj && catSlug ? (
+                <Link
+                  href={`/articles/category/${catSlug}`}
+                  prefetch={false}
+                  className="text-sm font-medium text-foreground hover:text-signal"
+                >
+                  View topic
+                </Link>
+              ) : null}
+            </div>
+            <div className="divide-y divide-border">
+              {relatedArticles.map((related) => (
+                <Link
+                  key={related.slug}
+                  href={`/articles/${related.slug}`}
+                  prefetch={false}
+                  className="grid gap-2 py-4 hover:text-signal sm:grid-cols-[8rem_minmax(0,1fr)_auto]"
+                >
+                  <time className="numeric text-xs text-muted-foreground">
+                    {new Date(related.date).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                  </time>
+                  <span className="font-medium">{related.title}</span>
+                  <ArrowRight className="hidden h-4 w-4 sm:block" />
+                </Link>
+              ))}
+            </div>
+          </aside>
+        ) : null}
       </div>
+      <SiteFooter />
     </>
   );
 }

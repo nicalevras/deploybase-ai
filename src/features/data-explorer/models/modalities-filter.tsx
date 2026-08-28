@@ -1,12 +1,12 @@
 "use client";
 
-import * as React from "react";
-import { useDataTable } from "@/features/data-explorer/data-table/data-table-provider";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from "@/lib/utils";
-import type { ModelsColumnSchema } from "./models-schema";
-import { ArrowLeftRight } from "lucide-react";
 import { CheckboxListSkeleton } from "@/features/data-explorer/data-table/data-table-filter-skeletons";
+import { useDataTable } from "@/features/data-explorer/data-table/data-table-provider";
+import { cn } from "@/lib/utils";
+import { ArrowLeftRight } from "lucide-react";
+import * as React from "react";
+import type { ModelsColumnSchema } from "./models-schema";
 
 export type ModalitiesDirection = "input" | "output";
 
@@ -41,8 +41,12 @@ export function ModalitiesFilter() {
     getFacetedUniqueValues,
   } = useDataTable<ModelsColumnSchema, unknown>();
 
-  const modalitiesFilter = columnFilters.find((filter) => filter.id === "modalities");
-  const directionFilter = columnFilters.find((filter) => filter.id === "modalityDirections");
+  const modalitiesFilter = columnFilters.find(
+    (filter) => filter.id === "modalities",
+  );
+  const directionFilter = columnFilters.find(
+    (filter) => filter.id === "modalityDirections",
+  );
   const selectedValues = React.useMemo(() => {
     const value = modalitiesFilter?.value as string[] | undefined;
     return value ?? [];
@@ -78,7 +82,8 @@ export function ModalitiesFilter() {
 
   const facetedValues = getFacetedUniqueValues?.(table, "modalities");
   const filterOptions = React.useMemo(() => {
-    if (!facetedValues) return [] as Array<{ label: string; value: string; total: number }>;
+    if (!facetedValues)
+      return [] as Array<{ label: string; value: string; total: number }>;
 
     return Array.from(facetedValues.entries())
       .map(([value, total]) => ({
@@ -102,17 +107,22 @@ export function ModalitiesFilter() {
     }));
 
     return [...base, ...extras].sort((a, b) => {
-      const rankDifference = getModalityRank(a.label) - getModalityRank(b.label);
+      const rankDifference =
+        getModalityRank(a.label) - getModalityRank(b.label);
       if (rankDifference !== 0) return rankDifference;
       return a.label.localeCompare(b.label);
     });
   }, [filterOptions, selectedValues]);
 
   const updateFilters = React.useCallback(
-    (nextValues: string[], nextDirections: Record<string, ModalitiesDirection>) => {
+    (
+      nextValues: string[],
+      nextDirections: Record<string, ModalitiesDirection>,
+    ) => {
       const uniqueValues = Array.from(new Set(nextValues.filter(Boolean)));
       const remainingFilters = columnFilters.filter(
-        (filter) => filter.id !== "modalities" && filter.id !== "modalityDirections",
+        (filter) =>
+          filter.id !== "modalities" && filter.id !== "modalityDirections",
       );
 
       if (!uniqueValues.length) {
@@ -121,7 +131,9 @@ export function ModalitiesFilter() {
       }
 
       const normalizedDirections = Object.fromEntries(
-        Object.entries(nextDirections).filter(([, direction]) => direction !== "input"),
+        Object.entries(nextDirections).filter(
+          ([, direction]) => direction !== "input",
+        ),
       );
 
       const nextFilters = [
@@ -133,7 +145,10 @@ export function ModalitiesFilter() {
       ];
 
       if (Object.keys(normalizedDirections).length) {
-        nextFilters.push({ id: "modalityDirections", value: normalizedDirections });
+        nextFilters.push({
+          id: "modalityDirections",
+          value: normalizedDirections,
+        });
       }
 
       setColumnFilters(nextFilters);
@@ -165,7 +180,7 @@ export function ModalitiesFilter() {
   return (
     <div className="grid gap-2">
       <ScrollArea className="max-h-[149px]">
-        <div className="pr-0 space-y-1">
+        <div className="space-y-1 pr-0">
           {optionsWithSelections.map((option) => {
             const checked = selectedValues.includes(option.value);
             const label = option.label;
@@ -175,10 +190,10 @@ export function ModalitiesFilter() {
               <div
                 key={option.value}
                 className={cn(
-                  "group relative flex w-full items-center gap-2 px-2 py-1.5 cursor-pointer rounded-md",
+                  "group relative flex w-full cursor-pointer items-center gap-2 rounded border px-2 py-1.5 text-xs",
                   checked
-                    ? "border border-border bg-gradient-to-b from-muted/70 via-muted/40 to-background text-accent-foreground"
-                    : "border border-transparent hover:border-border hover:bg-gradient-to-b hover:from-muted/70 hover:via-muted/40 hover:to-background hover:text-accent-foreground",
+                    ? "border-border bg-muted text-foreground"
+                    : "border-transparent hover:border-border hover:bg-muted hover:text-foreground",
                 )}
               >
                 <button

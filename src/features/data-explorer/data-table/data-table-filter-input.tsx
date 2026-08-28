@@ -93,9 +93,9 @@ export function DataTableFilterInput<TData>({
           ref={inputRef}
           placeholder={placeholder}
           leading={<Search className="h-4 w-4" />}
-          containerClassName="h-8 rounded-lg"
+          containerClassName="h-9 rounded-md border-input bg-background"
           autoFocus={autoFocus}
-          className="placeholder:text-foreground/70 pr-8"
+          className="pr-8 placeholder:text-muted-foreground"
           name={value}
           id={value}
           value={input || ""}
@@ -105,16 +105,11 @@ export function DataTableFilterInput<TData>({
           }}
         />
         <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-2">
-          {!isFilterActive ? (
-             <span className="inline-flex select-none items-center gap-1 rounded border px-[6px] py-0 text-xs font-mono font-normal h-[18px] bg-accent text-muted-foreground hidden sm:block">
-            <span className="opacity-90">{typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.userAgent) ? "⌘" : "Ctrl"}</span>
-            <span className="tracking-tight opacity-70">/</span> </span>
-          ) : null}
           {isFilterActive ? (
             <button
               type="button"
               onClick={handleClear}
-              className="inline-flex h-5 items-center justify-center rounded-full border border-border bg-background px-1 py-1 text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="inline-flex h-5 w-5 items-center justify-center rounded border border-border bg-background text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               aria-label="Clear search filter"
               title="Clear search filter"
             >

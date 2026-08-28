@@ -1,27 +1,33 @@
-import type { ComponentType } from "react";
 import {
   Ai21,
-  AiStudio,
   AionLabs,
+  AiStudio,
   AlibabaCloud,
   Anthropic,
   Arcee,
   AtlasCloud,
+  Aya,
   Azure,
   Baseten,
   Bedrock,
   Bfl,
   ByteDance,
   Cerebras,
+  // Model-family icons
+  Claude,
   Cloudflare,
   Cohere,
   Crusoe,
+  Dbrx,
   DeepInfra,
   DeepSeek,
   Featherless,
   Fireworks,
   Friendli,
+  Gemini,
+  Gemma,
   Google,
+  Grok,
   Groq,
   Hyperbolic,
   Inception,
@@ -52,22 +58,20 @@ import {
   VertexAI,
   XAI,
   XiaomiMiMo,
-  ZAI,
-  // Model-family icons
-  Claude,
-  Gemini,
-  Gemma,
-  Grok,
   Yi,
-  Aya,
-  Dbrx,
+  ZAI,
 } from "@lobehub/icons";
+import type { ComponentType } from "react";
 
 // ---------------------------------------------------------------------------
 // Lobe icon mapping — Avatar variant (brand bg + colored icon, self-contained)
 // Accepts `size` and `shape` props
 // ---------------------------------------------------------------------------
-type LobeAvatar = ComponentType<{ size: number; shape?: "circle" | "square"; className?: string }>;
+type LobeAvatar = ComponentType<{
+  size: number;
+  shape?: "circle" | "square";
+  className?: string;
+}>;
 
 const LOBE_ICON_MAP: Record<string, LobeAvatar> = {
   ai21: Ai21.Avatar,
@@ -154,7 +158,10 @@ const MODEL_PROVIDER_LOGOS: Record<
   fireworks: { src: "/logos/Fireworks.png", alt: "Fireworks" },
   friendli: { src: "/logos/friendli.png", alt: "Friendli" },
   gmicloud: { src: "/logos/gmicloud.png", alt: "GMICloud" },
-  "google ai studio": { src: "/logos/GoogleAIStudio.png", alt: "Google AI Studio" },
+  "google ai studio": {
+    src: "/logos/GoogleAIStudio.png",
+    alt: "Google AI Studio",
+  },
   groq: { src: "/logos/groq.png", alt: "Groq" },
   "z.ai": { src: "/logos/zai.png", alt: "Z.AI" },
   xai: { src: "/logos/xai.png", alt: "xAI" },
@@ -197,6 +204,27 @@ const MODEL_PROVIDER_LOGOS: Record<
   sourceful: { src: "/logos/sourceful.ico", alt: "Sourceful" },
 };
 
+const MODEL_PROVIDER_ALIASES: Record<string, string> = {
+  amazon: "amazon bedrock",
+  amazonbedrock: "amazon bedrock",
+  amazonwebservices: "amazon bedrock",
+  googleaistudio: "google ai studio",
+  googlevertex: "google vertex",
+  metalama: "meta",
+  mistralai: "mistral",
+  moonshot: "moonshotai",
+  nvidiacorporation: "nvidia",
+  togetherai: "together",
+  xiaomimimo: "xiaomi",
+  zai: "z.ai",
+};
+
+function resolveModelProviderKey(provider: string) {
+  const key = provider.toLowerCase().trim();
+  const collapsed = key.replace(/[^a-z0-9]/g, "");
+  return MODEL_PROVIDER_ALIASES[collapsed] ?? key;
+}
+
 // ---------------------------------------------------------------------------
 // Unified logo result — consumers check `type` to decide how to render
 // ---------------------------------------------------------------------------
@@ -210,7 +238,7 @@ export type LogoResult =
  */
 export function getModelProviderLogo(provider?: string | null): LogoResult {
   if (!provider) return null;
-  const key = provider.toLowerCase().trim();
+  const key = resolveModelProviderKey(provider);
 
   // 1. Try lobe Avatar first
   const Avatar = LOBE_ICON_MAP[key];
@@ -233,15 +261,16 @@ export function getModelProviderLogo(provider?: string | null): LogoResult {
 // (e.g., Claude icon instead of Anthropic, Gemini instead of Google)
 // Falls back to author/provider logo when no family match
 // ---------------------------------------------------------------------------
-const MODEL_FAMILY_MAP: { keyword: string; Avatar: LobeAvatar; alt: string }[] = [
-  { keyword: "claude", Avatar: Claude.Avatar, alt: "Claude" },
-  { keyword: "gemini", Avatar: Gemini.Avatar, alt: "Gemini" },
-  { keyword: "gemma", Avatar: Gemma.Avatar, alt: "Gemma" },
-  { keyword: "grok", Avatar: Grok.Avatar, alt: "Grok" },
-  { keyword: "yi-", Avatar: Yi.Avatar, alt: "Yi" },
-  { keyword: "aya", Avatar: Aya.Avatar, alt: "Aya" },
-  { keyword: "dbrx", Avatar: Dbrx.Avatar, alt: "DBRX" },
-];
+const MODEL_FAMILY_MAP: { keyword: string; Avatar: LobeAvatar; alt: string }[] =
+  [
+    { keyword: "claude", Avatar: Claude.Avatar, alt: "Claude" },
+    { keyword: "gemini", Avatar: Gemini.Avatar, alt: "Gemini" },
+    { keyword: "gemma", Avatar: Gemma.Avatar, alt: "Gemma" },
+    { keyword: "grok", Avatar: Grok.Avatar, alt: "Grok" },
+    { keyword: "yi-", Avatar: Yi.Avatar, alt: "Yi" },
+    { keyword: "aya", Avatar: Aya.Avatar, alt: "Aya" },
+    { keyword: "dbrx", Avatar: Dbrx.Avatar, alt: "DBRX" },
+  ];
 
 /**
  * Resolve a model's icon for the sheet detail view.

@@ -31,6 +31,7 @@ export function DataTableFilterControls({
     () =>
       otherFilters
         ?.filter(({ defaultOpen }) => defaultOpen)
+        .slice(0, 1)
         ?.map(({ value }) => value as string) ?? [],
     [otherFilters],
   );
@@ -50,23 +51,29 @@ export function DataTableFilterControls({
             <AccordionItem
               key={value}
               value={value}
-              className="border-none mb-4 last:mb-0"
+              className="mb-0 border-b border-border"
             >
-              <AccordionTrigger className="w-full py-0 hover:no-underline data-[state=closed]:text-muted-foreground data-[state=open]:text-foreground focus-within:data-[state=closed]:text-foreground hover:data-[state=closed]:text-foreground [&>svg]:text-foreground/70 [&>svg]:mb-2">
-                <div className="flex w-full items-center justify-between gap-2 truncate pb-2 pr-2">
+              <AccordionTrigger className="h-10 w-full rounded-none px-4 py-0 hover:no-underline data-[state=closed]:text-muted-foreground data-[state=open]:text-foreground focus-within:data-[state=closed]:text-foreground hover:data-[state=closed]:text-foreground [&>svg]:text-muted-foreground">
+                <div className="flex w-full items-center justify-between gap-2 truncate pr-2">
                   <div className="flex items-center gap-2 truncate">
-                    <p className="text-sm font-semibold text-foreground">{field.label}</p>
+                    <p className="text-xs font-semibold text-foreground">{field.label}</p>
                   </div>
-                  <DataTableFilterResetButton {...field} />
+                  <div className="flex h-5 w-10 shrink-0 justify-end">
+                    <DataTableFilterResetButton {...field} />
+                  </div>
                 </div>
               </AccordionTrigger>
               <AccordionContent className={cn(
-                field.type === "slider" ? "overflow-visible [&>div]:pb-[2px]" : "[&>div]:pb-0"
+                field.type === "slider"
+                  ? "data-[state=closed]:overflow-hidden data-[state=open]:overflow-visible [&>div]:pb-3"
+                  : "[&>div]:pb-0"
               )}>
                 <div
                   className={cn(
-                    "p-0",
-                    field.type === "slider" ? "pl-2 pr-0 pt-3 pb-0" : null,
+                    "px-4",
+                    field.type === "slider"
+                      ? "pb-0 pl-6 pr-4 pt-3"
+                      : "py-1",
                   )}
                 >
                   {(() => {

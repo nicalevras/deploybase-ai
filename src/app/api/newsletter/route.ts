@@ -6,6 +6,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { user } from "@/db/auth-schema";
 import { enqueueNewsletterSync } from "@/lib/newsletter-queue";
+import { ensureNewsletterSubscribed } from "@/lib/newsletter";
 import { newsletterLimiter, getNewsletterRateLimitKey } from "@/lib/redis/ratelimit";
 import { logger } from "@/lib/logger";
 
@@ -52,6 +53,56 @@ export async function GET() {
     return NextResponse.json(
       { error: "Internal server error" },
       { status: 500, headers: noStoreHeaders }
+    );
+  }
+}
+
+const PublicSubscribeSchema = z.object({
+  email: z.string().trim().email().max(320),
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    const ip =
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      "unknown";
+    const rate = await newsletterLimiter.limit(getNewsletterRateLimitKey(ip));
+
+    if (!rate.success) {
+      return NextResponse.json(
+        { error: "Too many requests" },
+        {
+          status: 429,
+          headers: {
+            ...noStoreHeaders,
+            ...buildRateHeaders(rate.limit, rate.remaining, rate.reset),
+          },
+        },
+      );
+    }
+
+    const body = await request.json().catch(() => null);
+    const parsed = PublicSubscribeSchema.safeParse(body);
+    if (!parsed.success) {
+      return NextResponse.json(
+        { error: "Enter a valid email address" },
+        { status: 400, headers: noStoreHeaders },
+      );
+    }
+
+    await ensureNewsletterSubscribed({
+      email: parsed.data.email.toLowerCase(),
+    });
+
+    return NextResponse.json(
+      { subscribed: true },
+      { headers: noStoreHeaders },
+    );
+  } catch (error) {
+    logger.error("[POST /api/newsletter] Failed to subscribe", error);
+    return NextResponse.json(
+      { error: "Unable to subscribe" },
+      { status: 500, headers: noStoreHeaders },
     );
   }
 }

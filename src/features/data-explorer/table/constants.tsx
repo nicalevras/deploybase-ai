@@ -1,17 +1,21 @@
 "use client";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import type {
   DataTableFilterField,
   Option,
   SheetField,
 } from "@/features/data-explorer/data-table/types";
-import type { ColumnSchema } from "./schema";
+import { cn } from "@/lib/utils";
 import Image from "next/image";
 import Link from "next/link";
 import * as React from "react";
-import { getGpuProviderLogo, getProviderDisplayName, type GpuLogoResult } from "./provider-logos";
-import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import {
+  getGpuProviderLogo,
+  getProviderDisplayName,
+  type GpuLogoResult,
+} from "./provider-logos";
+import type { ColumnSchema } from "./schema";
 
 export const gpuColumnOrder = [
   "blank",
@@ -60,7 +64,9 @@ const LogoBadge = ({
     >
       {logo?.type === "image" ? (
         <>
-          {!loaded ? <Skeleton className="absolute inset-0 h-full w-full animate-pulse" /> : null}
+          {!loaded ? (
+            <Skeleton className="absolute inset-0 h-full w-full animate-pulse" />
+          ) : null}
           <Image
             src={logo.src}
             alt=""
@@ -74,7 +80,10 @@ const LogoBadge = ({
           />
         </>
       ) : initial ? (
-        <span className="text-[10px] font-semibold uppercase text-foreground/70" aria-hidden="true">
+        <span
+          className="text-[10px] font-semibold uppercase text-foreground/70"
+          aria-hidden="true"
+        >
           {initial}
         </span>
       ) : null}
@@ -90,7 +99,7 @@ const ProviderBadge = ({ provider }: { provider?: string | null }) => {
     <Link
       href={`/gpus/${slug}`}
       prefetch={false}
-      className="flex min-w-0 items-center gap-2 underline"
+      className="flex min-w-0 items-center gap-2"
       onClick={(e) => e.stopPropagation()}
     >
       <LogoBadge
@@ -129,19 +138,32 @@ const getGpuBrandLogo = (brand?: string) => {
 const TruncatedOption = ({ label }: Option) => {
   const base = String(label ?? "");
   const maxLength = 23;
-  const display = base.length > maxLength ? `${base.slice(0, maxLength)}…` : base;
-  return <span className="block w-full truncate font-normal" title={base}>{display}</span>;
+  const display =
+    base.length > maxLength ? `${base.slice(0, maxLength)}…` : base;
+  return (
+    <span className="block w-full truncate font-normal" title={base}>
+      {display}
+    </span>
+  );
 };
 
 const CapitalizedOption = ({ label }: Option) => {
   const base = String(label ?? "");
-  return <span className="block w-full truncate font-normal capitalize" title={base}>{base}</span>;
+  return (
+    <span className="block w-full truncate font-normal capitalize" title={base}>
+      {base}
+    </span>
+  );
 };
 
 const ProviderOption = ({ label }: Option) => {
   const base = String(label ?? "");
   const displayName = getProviderDisplayName(base);
-  return <span className="block w-full truncate font-normal" title={displayName}>{displayName}</span>;
+  return (
+    <span className="block w-full truncate font-normal" title={displayName}>
+      {displayName}
+    </span>
+  );
 };
 
 const VRAM_SLIDER_MIN = 16;
@@ -210,11 +232,13 @@ export const sheetFields = [
     component: ({ metadata, ...row }) => {
       const titleClassName =
         typeof metadata === "object" &&
-          metadata &&
-          typeof (metadata as { titleClassName?: unknown }).titleClassName === "string"
+        metadata &&
+        typeof (metadata as { titleClassName?: unknown }).titleClassName ===
+          "string"
           ? (metadata as { titleClassName: string }).titleClassName
           : undefined;
-      const headlineSource = row.gpu_model || row.item || row.sku || "Unknown configuration";
+      const headlineSource =
+        row.gpu_model || row.item || row.sku || "Unknown configuration";
       const headlineParts = headlineSource.trim().split(/\s+/);
       const firstWord = headlineParts.shift() ?? "";
       const remaining = headlineParts.join(" ") || "Unknown configuration";
@@ -231,10 +255,17 @@ export const sheetFields = [
             fallbackLabel={firstWord}
           />
           <div className="flex flex-col gap-0 leading-tight">
-            <h2 className={cn("text-lg font-semibold leading-tight tracking-tight", titleClassName)}>
+            <h2
+              className={cn(
+                "text-lg font-semibold leading-tight tracking-tight",
+                titleClassName,
+              )}
+            >
               {remaining}
             </h2>
-            <p className="pb-4 text-sm text-foreground/70 leading-tight">{firstWord}</p>
+            <p className="pb-4 text-sm leading-tight text-foreground/70">
+              {firstWord}
+            </p>
           </div>
         </div>
       );
@@ -253,7 +284,9 @@ export const sheetFields = [
     label: "Price",
     type: "readonly",
     component: (row) =>
-      row.price_hour_usd ? `$${row.price_hour_usd.toFixed(2)} HR` : (
+      row.price_hour_usd ? (
+        `$${row.price_hour_usd.toFixed(2)} HR`
+      ) : (
         <span className="text-muted-foreground">N/A</span>
       ),
     skeletonClassName: "w-24",

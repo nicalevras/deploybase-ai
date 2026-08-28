@@ -19,7 +19,7 @@ import type { RowWithId } from "@/types/api";
 import type { ColumnSchema, FacetMetadataSchema } from "./schema";
 // Inline notices handle favorites feedback; no toasts here.
 import { getFavoritesBroadcastId } from "@/lib/favorites/broadcast";
-import { MobileTopNav, SidebarPanel, type AccountUser } from "./account-components";
+import { type AccountUser } from "./account-components";
 import { FAVORITES_QUERY_KEY } from "@/lib/favorites/constants";
 import { useTableSearchState } from "./hooks/use-table-search-state";
 import { useFavoritesState } from "./hooks/use-favorites-state";
@@ -171,6 +171,8 @@ export function Client({ initialFavoriteKeys, isFavoritesMode }: ClientProps = {
 
   const metadata: DataTableMeta<Record<string, unknown>> = {
     ...(lastPage?.meta?.metadata ?? {}),
+    totalRowCount: lastPage?.meta?.totalRowCount,
+    filterRowCount: lastPage?.meta?.filterRowCount,
     initialFavoriteKeys: effectiveFavoriteKeys,
   };
 
@@ -304,29 +306,7 @@ export function Client({ initialFavoriteKeys, isFavoritesMode }: ClientProps = {
           onSignUp: handleSignUp,
           isLoading: authPending,
         }}
-        headerSlot={
-          <MobileTopNav
-            user={accountUser}
-            onSignOut={handleSignOut}
-            onSignIn={handleSignIn}
-            onSignUp={handleSignUp}
-            isSigningOut={isSigningOut}
-            isAuthLoading={authPending}
-            renderSidebar={() => (
-              <SidebarPanel
-                user={accountUser}
-                onSignOut={handleSignOut}
-                isSigningOut={isSigningOut}
-                className="flex-1"
-                showUserMenuFooter={false}
-                isAuthLoading={authPending}
-              />
-            )}
-          />
-        }
-        mobileHeaderOffset="44px"
         primaryColumnId="gpu_model"
-        showAffiliateTooltip={false}
         getRowHref={(row) => row.source_url || null}
       />
     </>

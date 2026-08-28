@@ -84,7 +84,7 @@ export const toolsColumns: ColumnDef<ToolColumnSchema>[] = [
               </span>
             ) : null}
           </span>
-          <span className="truncate" title={name || undefined}>
+          <span className="truncate font-medium" title={name || undefined}>
             {name || "Unknown"}
           </span>
         </div>
@@ -206,7 +206,7 @@ export const toolsColumns: ColumnDef<ToolColumnSchema>[] = [
       }
       return (
         <div className="flex justify-start">
-          <span className="block max-w-full truncate text-[12px] border border-border/70 w-fit bg-gradient-to-b from-muted/70 via-muted/40 to-background leading-[18px] rounded-sm h-[20px] px-[6px]">
+          <span className="block h-5 w-fit max-w-full truncate rounded border border-border bg-muted px-1.5 text-xs leading-[18px] text-muted-foreground">
             {category}
           </span>
         </div>

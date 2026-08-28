@@ -1,13 +1,13 @@
 "use client";
 
-import { ChevronDown, ChevronUp, Info, X } from "lucide-react";
+import { ChevronDown, ChevronUp, X } from "lucide-react";
 import * as React from "react";
-import { Popover as PopoverPrimitive } from "radix-ui";
 import {
   Sheet,
   SheetClose,
   SheetContent,
   SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/custom/sheet";
@@ -23,42 +23,7 @@ interface DataTableSheetDetailsProps {
   titleClassName?: string;
   children?: React.ReactNode;
   getRowHref?: (row: Record<string, unknown>) => string | null;
-  /** Show affiliate link tooltip on the Info icon (default: true) */
-  showAffiliateTooltip?: boolean;
-}
-
-/** Hover on desktop + tap on mobile affiliate disclosure popover */
-function AffiliateInfoPopover() {
-  const [open, setOpen] = React.useState(false);
-
-  return (
-    <PopoverPrimitive.Root open={open} onOpenChange={setOpen}>
-      <PopoverPrimitive.Trigger
-        asChild
-        onClick={(e) => e.preventDefault()}
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-      >
-        <span className="inline-flex">
-          <Info className="h-4 w-4" />
-        </span>
-      </PopoverPrimitive.Trigger>
-      <PopoverPrimitive.Portal>
-        <PopoverPrimitive.Content
-          side="top"
-          align="center"
-          sideOffset={8}
-          onMouseEnter={() => setOpen(true)}
-          onMouseLeave={() => setOpen(false)}
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          className="z-50 rounded bg-popover px-2 py-1 text-[11px] font-normal text-popover-foreground shadow-md ring-1 ring-border animate-in fade-in-0 zoom-in-95"
-        >
-          This link may be an affiliate link
-          <PopoverPrimitive.Arrow className="fill-popover" />
-        </PopoverPrimitive.Content>
-      </PopoverPrimitive.Portal>
-    </PopoverPrimitive.Root>
-  );
+  ctaLabel?: string;
 }
 
 export function DataTableSheetDetails({
@@ -66,7 +31,7 @@ export function DataTableSheetDetails({
   titleClassName,
   children,
   getRowHref,
-  showAffiliateTooltip = true,
+  ctaLabel = "Deploy",
 }: DataTableSheetDetailsProps) {
   "use no memo";
   // Opt out of React Compiler — `table` from context is a stable reference
@@ -178,98 +143,61 @@ export function DataTableSheetDetails({
     >
       <SheetContent
         // onCloseAutoFocus={(e) => e.preventDefault()}
-        className="flex h-full flex-col overflow-hidden p-0 sm:max-w-md gap-0"
+        className="flex h-full w-[min(34rem,92vw)] flex-col gap-0 overflow-hidden bg-background p-0 sm:max-w-lg"
         hideClose
       >
-        <SheetHeader className="sr-only">
-          <SheetTitle className={cn(titleClassName)}>
-            {isLoading && !selectedRowKey ? (
-              <Skeleton className="h-6 w-32" />
-            ) : (
-              title
-            )}
-          </SheetTitle>
-        </SheetHeader>
+        <div className="flex min-h-16 items-center gap-3 border-b border-border px-5 py-3">
+          <SheetHeader className="min-w-0 flex-1 text-left">
+            <SheetTitle className={cn("truncate text-lg font-semibold leading-tight", titleClassName)}>
+              {isLoading && !selectedRowKey ? <Skeleton className="h-6 w-32" /> : title}
+            </SheetTitle>
+          </SheetHeader>
+          <div className="flex items-center gap-1">
+            <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!prevId} onClick={onPrev} aria-label="Previous row" title="Previous row"><ChevronUp className="h-4 w-4" /></Button>
+            <Button size="icon" variant="ghost" className="h-8 w-8" disabled={!nextId} onClick={onNext} aria-label="Next row" title="Next row"><ChevronDown className="h-4 w-4" /></Button>
+            <Separator orientation="vertical" className="mx-1 h-5" />
+            <SheetClose autoFocus asChild><Button size="icon" variant="ghost" className="h-8 w-8"><X className="h-4 w-4" /><span className="sr-only">Close</span></Button></SheetClose>
+          </div>
+        </div>
         <SheetDescription className="sr-only">
           Selected row details
         </SheetDescription>
-        <div className="flex-1 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-          <div className="mb-[10px] flex h-6 items-center justify-end gap-1">
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-6 w-6"
-              disabled={!prevId}
-              onClick={onPrev}
-              aria-label="Previous (↑)"
-              title="Previous (↑)"
-            >
-              <ChevronUp className="h-5 w-5 text-accent-foreground" />
-              <span className="sr-only">Previous</span>
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-6 w-6"
-              disabled={!nextId}
-              onClick={onNext}
-              aria-label="Next (↓)"
-              title="Next (↓)"
-            >
-              <ChevronDown className="h-5 w-5 text-accent-foreground" />
-              <span className="sr-only">Next</span>
-            </Button>
-            <Separator orientation="vertical" className="mx-1" />
-            <SheetClose autoFocus={true} asChild>
-              <Button size="icon" variant="ghost" className="h-6 w-6">
-                <X className="h-5 w-5 text-accent-foreground" />
-                <span className="sr-only">Close</span>
-              </Button>
-            </SheetClose>
-          </div>
+        <div className="flex-1 overflow-y-auto py-5">
           <div className="space-y-4">{children}</div>
-          <div className="pt-4">
-            {href ? (
-              <Button asChild className="w-full font-semibold">
-                {/* [Analytics] Track affiliate/outbound click */}
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center gap-2"
-                  onClick={() => {
-                    if (selectedRowData) {
-                      plausible("Affiliate Click", {
-                        props: {
-                          provider: String(selectedRowData.provider || selectedRowData.name || "unknown"),
-                          table: analyticsTable,
-                        },
-                      });
-                    }
-                  }}
-                >
-                  Learn More
-                  {showAffiliateTooltip ? (
-                    <AffiliateInfoPopover />
-                  ) : (
-                    <Info className="h-4 w-4" />
-                  )}
-                </a>
-              </Button>
-            ) : (
-              <Button
-                className="w-full font-semibold"
-                type="button"
-                disabled
-              >
-                <span className="inline-flex items-center gap-2">
-                  Learn More
-                  <Info className="h-4 w-4" />
-                </span>
-              </Button>
-            )}
-          </div>
         </div>
+        <SheetFooter className="border-t border-border p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:flex-row">
+          {href ? (
+            <Button asChild className="w-full font-semibold">
+              {/* [Analytics] Track affiliate/outbound click */}
+              <a
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2"
+                onClick={() => {
+                  if (selectedRowData) {
+                    plausible("Affiliate Click", {
+                      props: {
+                        provider: String(selectedRowData.provider || selectedRowData.name || "unknown"),
+                        table: analyticsTable,
+                        },
+                    });
+                  }
+                }}
+              >
+                {ctaLabel}
+              </a>
+            </Button>
+          ) : (
+            <Button
+              className="w-full font-semibold"
+              type="button"
+              disabled
+            >
+              {ctaLabel}
+            </Button>
+          )}
+        </SheetFooter>
       </SheetContent>
     </Sheet>
   );

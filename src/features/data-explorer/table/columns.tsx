@@ -1,16 +1,19 @@
 "use client";
 
+import { Checkbox } from "@/components/ui/checkbox";
 import { DataTableColumnHeader } from "@/features/data-explorer/data-table/data-table-column-header";
 import { DataTableHeaderCheckbox } from "@/features/data-explorer/data-table/data-table-header-checkbox";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useDataTable } from "@/features/data-explorer/data-table/data-table-provider";
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from "next/image";
-import type { ColumnSchema } from "./schema";
 import { getGpuProviderLogo, getProviderDisplayName } from "./provider-logos";
+import type { ColumnSchema } from "./schema";
 
 function RowCheckboxCell({ rowId }: { rowId: string }) {
-  const { checkedRows, toggleCheckedRow } = useDataTable<ColumnSchema, unknown>();
+  const { checkedRows, toggleCheckedRow } = useDataTable<
+    ColumnSchema,
+    unknown
+  >();
   const isChecked = checkedRows[rowId] ?? false;
   return (
     <Checkbox
@@ -22,15 +25,19 @@ function RowCheckboxCell({ rowId }: { rowId: string }) {
   );
 }
 
-
 export const columns: ColumnDef<ColumnSchema>[] = [
   {
     accessorKey: "provider",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Provider" className="pl-0 pr-[12px]" />
+      <DataTableColumnHeader
+        column={column}
+        title="Provider"
+        className="pl-0 pr-[12px]"
+      />
     ),
     cell: ({ row }) => {
-      const providerRaw = row.getValue<ColumnSchema["provider"]>("provider") ?? "";
+      const providerRaw =
+        row.getValue<ColumnSchema["provider"]>("provider") ?? "";
       const provider = typeof providerRaw === "string" ? providerRaw : "";
       const logo = getGpuProviderLogo(provider);
       const displayName = getProviderDisplayName(provider);
@@ -39,7 +46,12 @@ export const columns: ColumnDef<ColumnSchema>[] = [
       return (
         <div className="flex min-w-0 items-center gap-2">
           {logo?.type === "icon" ? (
-            <logo.Avatar size={20} shape="circle" className="shrink-0" aria-hidden="true" />
+            <logo.Avatar
+              size={20}
+              shape="circle"
+              className="shrink-0"
+              aria-hidden="true"
+            />
           ) : (
             <span className="relative flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/40 bg-background">
               {logo?.type === "image" ? (
@@ -54,13 +66,16 @@ export const columns: ColumnDef<ColumnSchema>[] = [
                   loading="eager"
                 />
               ) : fallbackInitial ? (
-                <span className="text-[10px] font-semibold uppercase text-foreground/70" aria-hidden="true">
+                <span
+                  className="text-[10px] font-semibold uppercase text-foreground/70"
+                  aria-hidden="true"
+                >
                   {fallbackInitial}
                 </span>
               ) : null}
             </span>
           )}
-          <span className="truncate" title={displayName}>
+          <span className="truncate font-medium" title={displayName}>
             {displayName}
           </span>
         </div>
@@ -83,9 +98,7 @@ export const columns: ColumnDef<ColumnSchema>[] = [
 
       if (!displayName) return <span className="text-foreground/70">N/A</span>;
 
-      return (
-        <span className="block truncate">{displayName}</span>
-      );
+      return <span className="block truncate font-medium">{displayName}</span>;
     },
     size: 275,
     minSize: 275,
@@ -107,7 +120,13 @@ export const columns: ColumnDef<ColumnSchema>[] = [
     cell: ({ row }) => {
       const stop = (e: React.SyntheticEvent) => e.stopPropagation();
       return (
-        <div className="flex items-center justify-center h-full" onClick={stop} onMouseDown={stop} onPointerDown={stop} onKeyDown={stop}>
+        <div
+          className="flex h-full items-center justify-center"
+          onClick={stop}
+          onMouseDown={stop}
+          onPointerDown={stop}
+          onKeyDown={stop}
+        >
           <RowCheckboxCell rowId={row.id} />
         </div>
       );
@@ -161,7 +180,9 @@ export const columns: ColumnDef<ColumnSchema>[] = [
       return (
         <div className="text-right">
           <span className="font-mono">{gpuCount}</span>{" "}
-          <span className="text-foreground/70">{gpuCount === 1 ? "GPU" : "GPUs"}</span>
+          <span className="font-mono text-foreground/70">
+            {gpuCount === 1 ? "GPU" : "GPUs"}
+          </span>
         </div>
       );
     },
@@ -185,7 +206,7 @@ export const columns: ColumnDef<ColumnSchema>[] = [
       return vramGb ? (
         <div className="text-right">
           <span className="font-mono">{vramGb}</span>{" "}
-          <span className="text-foreground/70">GB</span>
+          <span className="font-mono text-foreground/70">GB</span>
         </div>
       ) : (
         <span className="text-foreground/70">N/A</span>
@@ -213,7 +234,7 @@ export const columns: ColumnDef<ColumnSchema>[] = [
       return (
         <div className="text-right">
           <span className="font-mono">{vcpus}</span>{" "}
-          <span className="text-foreground/70">vCPUs</span>
+          <span className="font-mono text-foreground/70">vCPUs</span>
         </div>
       );
     },
@@ -233,11 +254,12 @@ export const columns: ColumnDef<ColumnSchema>[] = [
       </div>
     ),
     cell: ({ row }) => {
-      const ramGb = row.getValue<ColumnSchema["system_ram_gb"]>("system_ram_gb");
+      const ramGb =
+        row.getValue<ColumnSchema["system_ram_gb"]>("system_ram_gb");
       return ramGb ? (
         <div className="text-right">
           <span className="font-mono">{ramGb}</span>{" "}
-          <span className="text-foreground/70">GB</span>
+          <span className="font-mono text-foreground/70">GB</span>
         </div>
       ) : (
         <span className="text-foreground/70">N/A</span>
@@ -262,7 +284,7 @@ export const columns: ColumnDef<ColumnSchema>[] = [
       const type = row.getValue<ColumnSchema["type"]>("type");
       return type ? (
         <div className="flex justify-start">
-          <span className="block text-[12px] border border-border/70 w-fit bg-gradient-to-b from-muted/70 via-muted/40 to-background leading-[18px] rounded-sm h-[20px] px-[6px]">
+          <span className="block h-5 w-fit rounded border border-border bg-muted px-1.5 text-xs leading-[18px] text-muted-foreground">
             {type}
           </span>
         </div>

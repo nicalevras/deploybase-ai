@@ -15,7 +15,6 @@ import { DataTableSheetDetails } from "@/features/data-explorer/data-table/data-
 import type {
   DataTableFilterField,
   SheetField,
-  DataTableInputFilterField,
 } from "@/features/data-explorer/data-table/types";
 import { cn } from "@/lib/utils";
 import { type FetchNextPageOptions } from "@tanstack/react-query";
@@ -47,14 +46,15 @@ const LazyGpuSheetCharts = dynamic(
   },
 );
 import { type AccountUser } from "./account-components";
-import { useRouter } from "next/navigation";
-import { Bot, Server, Wrench } from "lucide-react";
+import { Bot, PanelLeftOpen, Server, Wrench } from "lucide-react";
 import type { FavoriteKey } from "@/types/favorites";
-import { useGlobalHotkeys } from "@/hooks/use-global-hotkeys";
 
 // Extracted sub-components and hooks
 import { MemoizedRow } from "./data-table-row";
-import { DataTableSidebar } from "./data-table-sidebar";
+import {
+  DataTableMobileFilters,
+  DataTableSidebar,
+} from "./data-table-sidebar";
 import { useVirtualScroll } from "./hooks/use-virtual-scroll";
 import { useColumnResize } from "./hooks/use-column-resize";
 
@@ -132,7 +132,7 @@ interface DataTableInfiniteProps<TData, TValue, TMeta, TFavorite> {
   primaryColumnId?: string;
   sheetContentClassName?: string;
   getRowHref?: (row: TData) => string | null;
-  showAffiliateTooltip?: boolean;
+  ctaLabel?: string;
 }
 
 export function DataTableInfinite<TData, TValue, TMeta, TFavorite = FavoriteKey>({
@@ -162,9 +162,6 @@ export function DataTableInfinite<TData, TValue, TMeta, TFavorite = FavoriteKey>
   meta,
   renderSheetTitle,
   focusTargetRef,
-  account,
-  headerSlot,
-  mobileHeaderOffset,
   navItems,
   activeNavValue,
   renderCheckedActions,
@@ -172,7 +169,7 @@ export function DataTableInfinite<TData, TValue, TMeta, TFavorite = FavoriteKey>
   primaryColumnId = "gpu_model",
   sheetContentClassName,
   getRowHref,
-  showAffiliateTooltip,
+  ctaLabel,
 }: DataTableInfiniteProps<TData, TValue, TMeta, TFavorite>) {
   // Independent checkbox-only state (does not control the details pane)
   const [checkedRows, setCheckedRows] = React.useState<Record<string, boolean>>({});
@@ -188,46 +185,7 @@ export function DataTableInfinite<TData, TValue, TMeta, TFavorite = FavoriteKey>
 
   const tableRef = React.useRef<HTMLTableElement>(null);
   const containerRef = React.useRef<HTMLDivElement>(null);
-  const accountUser: AccountUser | null = account?.user ?? null;
-  const accountOnSignOut = account?.onSignOut ?? noop;
-  const accountIsSigningOut = account?.isSigningOut ?? false;
-  const accountOnSignIn = account?.onSignIn;
-  const accountOnSignUp = account?.onSignUp;
-  const accountIsLoading = account?.isLoading ?? false;
-  const router = useRouter();
-  const [isDesktopSearchOpen, setIsDesktopSearchOpen] = React.useState(false);
-  const searchFilterField = React.useMemo(
-    () =>
-      filterFields.find(
-        (field): field is DataTableInputFilterField<TData> =>
-          field.type === "input" && field.value === "search",
-      ),
-    [filterFields],
-  );
-  const toggleDesktopSearch = React.useCallback(() => {
-    setIsDesktopSearchOpen((prev) => !prev);
-  }, []);
-  React.useEffect(() => {
-    setIsDesktopSearchOpen(false);
-  }, [activeNavValue]);
-
-  const searchFieldId =
-    (searchFilterField?.value as string | undefined) ?? undefined;
-  useGlobalHotkeys(
-    React.useMemo(
-      () =>
-        searchFieldId
-          ? [
-            {
-              combo: "mod+/",
-              handler: () => setIsDesktopSearchOpen((prev) => !prev),
-              allowWhenFocusedIds: [searchFieldId],
-            },
-          ]
-          : [],
-      [searchFieldId],
-    ),
-  );
+  const [filtersOpen, setFiltersOpen] = React.useState(true);
   const resolvedNavItems = React.useMemo(() => {
     const baseItems: NavItem[] = navItems ?? DEFAULT_NAV_ITEMS;
     const inferredValueFromItems =
@@ -243,50 +201,8 @@ export function DataTableInfinite<TData, TValue, TMeta, TFavorite = FavoriteKey>
 
   // Bookmarks mode is indicated by explicit navItems being passed (clients only pass navItems in favorites mode)
   const isBookmarksMode = navItems !== undefined;
-  const currentNavItem = resolvedNavItems.find((item) => item.isCurrent);
-
   const currentNavValue =
     resolvedNavItems.find((item) => item.isCurrent)?.value ?? "/gpus";
-  const handleNavChange = React.useCallback(
-    (value: string) => {
-      if (!value) return;
-      router.push(value);
-    },
-    [router],
-  );
-  const mobileHeightClass = mobileHeaderOffset
-    ? "h-[calc(100dvh-var(--total-padding-mobile)-var(--mobile-header-offset))]"
-    : "h-[calc(100dvh-var(--total-padding-mobile))]";
-  const mobileHeightStyle = React.useMemo(() => {
-    if (!mobileHeaderOffset) return undefined;
-    const trimmed = mobileHeaderOffset.replace(/\s+/g, "");
-    const spacedChars: string[] = [];
-    for (let index = 0; index < trimmed.length; index++) {
-      const char = trimmed[index];
-      if (char === "+") {
-        spacedChars.push(" ", "+", " ");
-        continue;
-      }
-      if (char === "-") {
-        const prev = trimmed[index - 1];
-        const next = trimmed[index + 1];
-        if (prev === "-" || next === "-") {
-          spacedChars.push(char);
-          continue;
-        }
-        spacedChars.push(" ", "-", " ");
-        continue;
-      }
-      spacedChars.push(char);
-    }
-    const normalized = spacedChars.join("").replace(/\s{2,}/g, " ").trim();
-    const offsetValue = normalized.startsWith("calc(")
-      ? normalized
-      : `calc(${normalized})`;
-    return {
-      "--mobile-header-offset": offsetValue,
-    } as React.CSSProperties;
-  }, [mobileHeaderOffset]);
 
   const resolvedGetRowId = React.useMemo(() => {
     if (getRowId) {
@@ -491,15 +407,23 @@ export function DataTableInfinite<TData, TValue, TMeta, TFavorite = FavoriteKey>
     );
   }, [meta, renderCheckedActions]);
 
-  // Stable callbacks for the sidebar to avoid re-renders
-  const routerPrefetch = React.useCallback(
-    (url: string) => router.prefetch(url),
-    [router],
-  );
-  const routerPush = React.useCallback(
-    (url: string) => router.push(url),
-    [router],
-  );
+  const activeProvider = columnFilters.find((filter) => filter.id === "provider")?.value;
+  const activeModel = columnFilters.find((filter) => filter.id === "gpu_model")?.value;
+  const firstFilterValue = (value: unknown) => Array.isArray(value) ? value[0] : value;
+  const providerLabel = String(firstFilterValue(activeProvider) ?? "").trim();
+  const modelLabel = String(firstFilterValue(activeModel) ?? "").trim();
+  let explorerTitle = currentNavValue === "/llms"
+    ? "LLM inference"
+    : currentNavValue === "/tools"
+      ? "MLOps directory"
+      : "GPU cloud pricing";
+  if (currentNavValue === "/llms" && providerLabel) {
+    explorerTitle = `${providerLabel} LLM inference`;
+  } else if (modelLabel) {
+    explorerTitle = `${modelLabel} pricing`;
+  } else if (providerLabel) {
+    explorerTitle = `${providerLabel} GPU pricing`;
+  }
 
   return (
     <DataTableProvider
@@ -523,37 +447,36 @@ export function DataTableInfinite<TData, TValue, TMeta, TFavorite = FavoriteKey>
       getFacetedUniqueValues={getFacetedUniqueValues}
       getFacetedMinMaxValues={getFacetedMinMaxValues}
     >
-      <div className="flex flex-col gap-2 sm:gap-4">
-        {headerSlot}
-        <div className="grid h-full grid-cols-1 gap-0 sm:grid-cols-[18rem_1fr]">
-          <DataTableSidebar
-            searchFilterField={searchFilterField}
-            isDesktopSearchOpen={isDesktopSearchOpen}
-            toggleDesktopSearch={toggleDesktopSearch}
-            currentNavValue={currentNavValue}
-            currentNavItem={currentNavItem}
-            resolvedNavItems={resolvedNavItems}
-            isBookmarksMode={isBookmarksMode}
-            handleNavChange={handleNavChange}
-            routerPrefetch={routerPrefetch}
-            routerPush={routerPush}
-            accountUser={accountUser}
-            accountOnSignOut={accountOnSignOut}
-            accountIsSigningOut={accountIsSigningOut}
-            accountOnSignIn={accountOnSignIn}
-            accountOnSignUp={accountOnSignUp}
-            accountIsLoading={accountIsLoading}
-          />
+      <div className="flex h-[calc(100dvh-var(--app-header-height))] min-h-0 flex-col overflow-hidden bg-background">
+        <h1 className="sr-only">{explorerTitle}</h1>
+        <div className="relative flex min-h-0 flex-1">
+          <DataTableMobileFilters />
+          {filtersOpen ? (
+            <DataTableSidebar onCollapse={() => setFiltersOpen(false)} />
+          ) : null}
+          {!filtersOpen ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="absolute bottom-4 left-4 z-40 hidden bg-card shadow-sm sm:inline-flex"
+              onClick={() => setFiltersOpen(true)}
+              title="Show filters"
+              aria-label="Show filters"
+            >
+              <PanelLeftOpen className="h-4 w-4" />
+            </Button>
+          ) : null}
           <div
             className={cn(
               "flex max-w-full flex-1 flex-col min-w-0"
             )}
             data-table-container=""
           >
-            <div className={cn("z-0 flex flex-col", mobileHeightClass, "sm:h-[100dvh]")} style={mobileHeightStyle}>
+            <div className="z-0 flex min-h-0 flex-1 flex-col">
               <div
                 className={cn(
-                  "border-0 sm:border-l bg-background overflow-hidden flex-1 min-h-0 flex flex-col"
+                  "bg-site-chrome overflow-hidden flex-1 min-h-0 flex flex-col"
                 )}
               >
                 <Table
@@ -571,11 +494,11 @@ export function DataTableInfinite<TData, TValue, TMeta, TFavorite = FavoriteKey>
                     "h-full overscroll-x-none scrollbar-hide flex-1 min-h-0"
                   )}
                 >
-                  <TableHeader className={cn("sticky top-0 z-50 bg-background")}>
+                  <TableHeader className={cn("sticky top-0 z-50 bg-muted")}>
                     {table.getHeaderGroups().map((headerGroup) => (
                       <TableRow
                         key={headerGroup.id}
-                        className={cn("bg-muted")}
+                        className="bg-muted"
                       >
                         {headerGroup.headers.map((header) => {
                           const isModelColumn = primaryColumnId
@@ -653,7 +576,7 @@ export function DataTableInfinite<TData, TValue, TMeta, TFavorite = FavoriteKey>
                               key={header.id}
                               ref={headerRef}
                               className={cn(
-                                "relative select-none truncate border-b border-border bg-background text-foreground [&>.cursor-col-resize]:last:opacity-0",
+                                "relative select-none truncate border-b border-t-0 border-border bg-muted text-foreground [&>.cursor-col-resize]:last:opacity-0",
                                 header.column.columnDef.meta?.headerClassName,
                               )}
                               data-column-id={header.column.id}
@@ -841,9 +764,9 @@ export function DataTableInfinite<TData, TValue, TMeta, TFavorite = FavoriteKey>
       </div>
       <DataTableSheetDetails
         title={renderSheetTitle({ row: selectedRow })}
-        titleClassName="font-mono"
+        titleClassName="font-sans"
         getRowHref={getRowHref ? (row) => getRowHref(row as TData) : undefined}
-        showAffiliateTooltip={showAffiliateTooltip}
+        ctaLabel={ctaLabel}
       >
         <div className="space-y-0">
           <MemoizedDataTableSheetContent
@@ -873,7 +796,7 @@ export function DataTableInfinite<TData, TValue, TMeta, TFavorite = FavoriteKey>
             if (!chartsNode) return null;
 
             return (
-              <div className="border-t border-border/60 pt-4">
+              <div className="border-t border-border/60 px-5 pt-4">
                 {chartsNode}
               </div>
             );

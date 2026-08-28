@@ -13,7 +13,6 @@ import { getGpuPricingPage } from "@/lib/gpu-pricing-loader";
 import { buildGpuSchema } from "@/features/data-explorer/table/gpu-schema";
 import { gpuPricingCache } from "@/lib/gpu-pricing-cache";
 import { toGpuModelSlug, resolveGpuModelFromSlug } from "@/lib/gpu-model-slug";
-import { SectionNav } from "@/components/seo/section-nav";
 import { logger } from "@/lib/logger";
 
 export const revalidate = 43200;
@@ -135,11 +134,9 @@ export default async function GpuModelPage({ params }: Props) {
           }}
         />
       ) : null}
-      <h1 className="sr-only">{modelName} GPU Pricing</h1>
-      <SectionNav />
       <HydrationBoundary state={dehydratedState}>
         <div
-          className="flex min-h-dvh w-full flex-col sm:flex-row sm:p-0"
+          className="w-full"
           style={
             {
               "--total-padding-mobile": "0.5rem",

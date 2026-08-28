@@ -1,16 +1,10 @@
 "use client";
 
-import {
-  TableCell,
-  TableRow,
-} from "@/components/custom/table";
+import { TableCell, TableRow } from "@/components/custom/table";
 import { cn } from "@/lib/utils";
-import * as React from "react";
-import type {
-  Row,
-  Table as TTable,
-} from "@tanstack/react-table";
+import type { Row, Table as TTable } from "@tanstack/react-table";
 import { flexRender } from "@tanstack/react-table";
+import * as React from "react";
 
 /**
  * REMINDER: this is the heaviest component in the table if lots of rows
@@ -41,8 +35,8 @@ function RowComponent<TData>({
 }) {
   const canHover =
     typeof window !== "undefined" &&
-      window.matchMedia &&
-      window.matchMedia("(hover: hover) and (pointer: fine)").matches
+    window.matchMedia &&
+    window.matchMedia("(hover: hover) and (pointer: fine)").matches
       ? true
       : undefined;
 
@@ -76,10 +70,11 @@ function RowComponent<TData>({
       }}
       className={cn(
         "group/model-row relative",
-        "bg-background border-b transition-colors focus-visible:bg-muted hover:cursor-pointer",
-        canHover && "data-[can-hover=true]:hover:bg-muted data-[state=selected]:bg-muted data-[checked=checked]:bg-muted",
-        !canHover && selected && "bg-muted",
-        !canHover && checked && "bg-muted",
+        "h-11 border-b bg-site-chrome transition-colors hover:cursor-pointer focus-visible:bg-accent/70",
+        canHover &&
+          "data-[checked=checked]:bg-accent data-[state=selected]:bg-accent data-[can-hover=true]:hover:bg-accent/55",
+        !canHover && selected && "bg-accent",
+        !canHover && checked && "bg-accent",
         table.options.meta?.getRowClassName?.(row),
       )}
     >
@@ -100,7 +95,7 @@ function RowComponent<TData>({
             onPointerDown={isCheckboxCell ? stopPropagation : undefined}
             onKeyDown={isCheckboxCell ? stopPropagation : undefined}
             className={cn(
-              "truncate border-b border-border px-[12px] py-[10px] transition-colors",
+              "truncate border-b border-border/65 px-3.5 py-2.5 transition-colors",
               isCheckboxCell && "cursor-default hover:cursor-default",
               cell.column.columnDef.meta?.cellClassName,
             )}
@@ -108,10 +103,9 @@ function RowComponent<TData>({
               width: getModelColumnWidth
                 ? getModelColumnWidth(cell.column.id, cell.column.getSize())
                 : `${cell.column.getSize()}px`,
-              minWidth:
-                isModelColumn
-                  ? `${minimumModelColumnWidth}px`
-                  : cell.column.columnDef.minSize,
+              minWidth: isModelColumn
+                ? `${minimumModelColumnWidth}px`
+                : cell.column.columnDef.minSize,
             }}
           >
             {flexRender(cell.column.columnDef.cell, cell.getContext())}

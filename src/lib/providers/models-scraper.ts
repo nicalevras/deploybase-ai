@@ -255,7 +255,13 @@ function transformEndpointToModel(
     permaslug,
     endpointId: endpoint.id,
     pricing,
-    features: extractFeatures(endpoint, catalogModel),
+    features: {
+      ...extractFeatures(endpoint, catalogModel),
+      openrouter_created_at:
+        typeof catalogModel.created === "number"
+          ? new Date(catalogModel.created * 1_000).toISOString()
+          : null,
+    },
     provider,
     throughput,
     maxCompletionTokens:

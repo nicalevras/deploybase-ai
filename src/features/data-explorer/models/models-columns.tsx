@@ -1,19 +1,26 @@
 "use client";
 
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@/components/ui/hover-card";
 import { DataTableColumnHeader } from "@/features/data-explorer/data-table/data-table-column-header";
 import { DataTableHeaderCheckbox } from "@/features/data-explorer/data-table/data-table-header-checkbox";
 import { useDataTable } from "@/features/data-explorer/data-table/data-table-provider";
-import { Checkbox } from "@/components/ui/checkbox";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
 import { cn } from "@/lib/utils";
-import { HoverCard as HoverCardPrimitive } from "radix-ui";
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from "next/image";
-import type { ModelsColumnSchema } from "./models-schema";
+import { HoverCard as HoverCardPrimitive } from "radix-ui";
 import { getModelProviderLogo } from "./model-provider-logos";
+import type { ModelsColumnSchema } from "./models-schema";
 
 function RowCheckboxCell({ rowId }: { rowId: string }) {
-  const { checkedRows, toggleCheckedRow } = useDataTable<ModelsColumnSchema, unknown>();
+  const { checkedRows, toggleCheckedRow } = useDataTable<
+    ModelsColumnSchema,
+    unknown
+  >();
   const isChecked = checkedRows[rowId] ?? false;
   return (
     <Checkbox
@@ -25,11 +32,13 @@ function RowCheckboxCell({ rowId }: { rowId: string }) {
   );
 }
 
-function formatPricePerMillion(price: string | number | null | undefined): string {
-  if (price === undefined || price === null) return 'Free';
+function formatPricePerMillion(
+  price: string | number | null | undefined,
+): string {
+  if (price === undefined || price === null) return "Free";
 
-  const numericPrice = typeof price === 'string' ? parseFloat(price) : price;
-  if (isNaN(numericPrice) || numericPrice === 0) return 'Free';
+  const numericPrice = typeof price === "string" ? parseFloat(price) : price;
+  if (isNaN(numericPrice) || numericPrice === 0) return "Free";
 
   // Convert from per-token to per-million-tokens
   const perMillion = numericPrice * 1_000_000;
@@ -39,8 +48,8 @@ function formatPricePerMillion(price: string | number | null | undefined): strin
 }
 
 function formatThroughput(value: number | null | undefined): string {
-  if (value === null || value === undefined) return 'N/A';
-  if (!Number.isFinite(value)) return 'N/A';
+  if (value === null || value === undefined) return "N/A";
+  if (!Number.isFinite(value)) return "N/A";
   return value.toFixed(1);
 }
 
@@ -86,10 +95,15 @@ export const modelsColumns: ColumnDef<ModelsColumnSchema>[] = [
   {
     accessorKey: "provider",
     header: ({ column }) => (
-      <DataTableColumnHeader column={column} title="Provider" className="pl-0 pr-[12px]" />
+      <DataTableColumnHeader
+        column={column}
+        title="Provider"
+        className="pl-0 pr-[12px]"
+      />
     ),
     cell: ({ row }) => {
-      const providerRaw = row.getValue<ModelsColumnSchema["provider"]>("provider") ?? "";
+      const providerRaw =
+        row.getValue<ModelsColumnSchema["provider"]>("provider") ?? "";
       const provider = typeof providerRaw === "string" ? providerRaw : "";
       const logo = getModelProviderLogo(provider);
       const fallbackInitial = provider ? provider.charAt(0).toUpperCase() : "";
@@ -97,7 +111,12 @@ export const modelsColumns: ColumnDef<ModelsColumnSchema>[] = [
       return (
         <div className="flex min-w-0 items-center gap-2">
           {logo?.type === "icon" ? (
-            <logo.Avatar size={20} shape="circle" className="shrink-0" aria-hidden="true" />
+            <logo.Avatar
+              size={20}
+              shape="circle"
+              className="shrink-0"
+              aria-hidden="true"
+            />
           ) : (
             <span className="relative flex h-5 w-5 shrink-0 items-center justify-center overflow-hidden rounded-full border border-border/40 bg-background">
               {logo?.type === "image" ? (
@@ -112,13 +131,16 @@ export const modelsColumns: ColumnDef<ModelsColumnSchema>[] = [
                   loading="eager"
                 />
               ) : fallbackInitial ? (
-                <span className="text-[10px] font-semibold uppercase text-muted-foreground" aria-hidden="true">
+                <span
+                  className="text-[10px] font-semibold uppercase text-muted-foreground"
+                  aria-hidden="true"
+                >
                   {fallbackInitial}
                 </span>
               ) : null}
             </span>
           )}
-          <span className="truncate" title={provider || undefined}>
+          <span className="truncate font-medium" title={provider || undefined}>
             {provider || "Unknown"}
           </span>
         </div>
@@ -133,21 +155,23 @@ export const modelsColumns: ColumnDef<ModelsColumnSchema>[] = [
   },
   {
     id: "name",
-    accessorFn: (row) => (typeof row.shortName === "string" ? row.shortName : ""),
+    accessorFn: (row) =>
+      typeof row.shortName === "string" ? row.shortName : "",
     header: ({ column }) => (
       <DataTableColumnHeader column={column} title="Model" />
     ),
     cell: ({ row }) => {
       const { shortName, name } = row.original;
-      const primaryLabel = typeof shortName === "string" && shortName.trim().length
-        ? shortName
-        : name;
+      const primaryLabel =
+        typeof shortName === "string" && shortName.trim().length
+          ? shortName
+          : name;
 
       if (!primaryLabel) {
         return <span className="text-muted-foreground">Unknown</span>;
       }
 
-      return <div className="truncate">{primaryLabel}</div>;
+      return <div className="truncate font-medium">{primaryLabel}</div>;
     },
     size: 275,
     minSize: 275,
@@ -166,11 +190,13 @@ export const modelsColumns: ColumnDef<ModelsColumnSchema>[] = [
     cell: ({ row }) => {
       const contextLength = row.original.contextLength;
 
-      if (!contextLength) return <span className="text-muted-foreground">N/A</span>;
+      if (!contextLength)
+        return <span className="text-muted-foreground">N/A</span>;
 
       return (
-        <div className="font-mono text-sm text-right">
-          {formatTokenCount(contextLength)} <span className="text-foreground/70">TOK</span>
+        <div className="text-right font-mono text-sm">
+          {formatTokenCount(contextLength)}{" "}
+          <span className="font-mono text-foreground/70">TOK</span>
         </div>
       );
     },
@@ -197,8 +223,9 @@ export const modelsColumns: ColumnDef<ModelsColumnSchema>[] = [
       }
 
       return (
-        <div className="font-mono text-sm text-right">
-          {formatTokenCount(maxTokens)} <span className="text-foreground/70">TOK</span>
+        <div className="text-right font-mono text-sm">
+          {formatTokenCount(maxTokens)}{" "}
+          <span className="font-mono text-foreground/70">TOK</span>
         </div>
       );
     },
@@ -224,7 +251,12 @@ export const modelsColumns: ColumnDef<ModelsColumnSchema>[] = [
       const formatted = formatThroughput(throughput ?? null);
       const isNA = formatted === "N/A";
       return (
-        <span className={cn("block text-right font-mono text-sm tabular-nums", isNA ? "text-foreground/70" : undefined)}>
+        <span
+          className={cn(
+            "block text-right font-mono text-sm tabular-nums",
+            isNA ? "text-foreground/70" : undefined,
+          )}
+        >
           {formatted}
           {!isNA ? <span className="text-foreground/70"> TPS</span> : null}
         </span>
@@ -250,39 +282,47 @@ export const modelsColumns: ColumnDef<ModelsColumnSchema>[] = [
     cell: ({ row }) => {
       const inputModalities = row.original.inputModalities ?? [];
       const outputModalities = row.original.outputModalities ?? [];
-      const hasModalities = inputModalities.length + outputModalities.length > 0;
+      const hasModalities =
+        inputModalities.length + outputModalities.length > 0;
 
-      const computedScore = row.original.modalityScore ?? new Set([
-        ...inputModalities,
-        ...outputModalities,
-      ]).size;
+      const computedScore =
+        row.original.modalityScore ??
+        new Set([...inputModalities, ...outputModalities]).size;
 
       if (!hasModalities || computedScore === 0) {
         return <span className="text-foreground/70">N/A</span>;
       }
 
       const label = computedScore > 1 ? "Multimodal" : "Unimodal";
-      const formatList = (modalities: string[]) => (
-        modalities.length ? modalities.join(", ") : "-"
-      );
+      const formatList = (modalities: string[]) =>
+        modalities.length ? modalities.join(", ") : "-";
 
       return (
         <div className="flex justify-start">
           <HoverCard openDelay={0} closeDelay={0}>
             <HoverCardTrigger asChild>
-              <div className="text-[12px] border border-border/70 w-fit bg-gradient-to-b from-muted/70 via-muted/40 to-background leading-[18px] rounded-sm h-[20px] px-[6px] text-left tracking-wide cursor-pointer">
+              <div className="h-5 w-fit cursor-pointer rounded border border-border bg-muted px-1.5 text-left text-xs leading-[18px] text-muted-foreground">
                 {label}
               </div>
             </HoverCardTrigger>
             <HoverCardPrimitive.Portal>
-              <HoverCardContent side="bottom" sideOffset={8} collisionPadding={12} className="w-fit max-w-[155px] text-left text-xs space-y-1.5 p-2">
+              <HoverCardContent
+                side="bottom"
+                sideOffset={8}
+                collisionPadding={12}
+                className="w-fit max-w-[155px] space-y-1.5 p-2 text-left text-xs"
+              >
                 <div>
                   <span className="font-semibold text-foreground">Input:</span>{" "}
-                  <span className="text-foreground/80">{formatList(inputModalities)}</span>
+                  <span className="text-foreground/80">
+                    {formatList(inputModalities)}
+                  </span>
                 </div>
                 <div>
                   <span className="font-semibold text-foreground">Output:</span>{" "}
-                  <span className="text-foreground/80">{formatList(outputModalities)}</span>
+                  <span className="text-foreground/80">
+                    {formatList(outputModalities)}
+                  </span>
                 </div>
               </HoverCardContent>
             </HoverCardPrimitive.Portal>
@@ -303,7 +343,7 @@ export const modelsColumns: ColumnDef<ModelsColumnSchema>[] = [
     accessorKey: "promptPrice",
     header: ({ column }) => (
       <div className="flex justify-end">
-        <DataTableColumnHeader column={column} title="Prompt" />
+        <DataTableColumnHeader column={column} title="Input" />
       </div>
     ),
     cell: ({ row }) => {

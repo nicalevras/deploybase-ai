@@ -300,7 +300,7 @@ function DataTableFilterSliderComponent<TData>({
 }: DataTableSliderFilterField<TData>) {
   const value = _value as string;
   const { columnFilters, setColumnFilters } = useDataTable();
-  const isPriceFilter = value === "inputPrice";
+  const isPriceFilter = value === "inputPrice" || value === "outputPrice";
   const sliderConfig = isPriceFilter
     ? undefined
     : SLIDER_CONFIG[value as keyof typeof SLIDER_CONFIG];
@@ -572,7 +572,7 @@ function DataTableFilterSliderComponent<TData>({
       };
     }
 
-    if (value === "inputPrice") {
+    if (isPriceFilter) {
       const rawLines = getPromptPriceGridLines();
       const lines = rawLines
         .map((sliderValue, index, arr) => {
@@ -620,7 +620,15 @@ function DataTableFilterSliderComponent<TData>({
     }
 
     return { lines: [], labels: [] };
-  }, [sliderRangeMin, sliderRangeMax, sliderConfig, value, defaultMin, defaultMax]);
+  }, [
+    sliderRangeMin,
+    sliderRangeMax,
+    sliderConfig,
+    value,
+    defaultMin,
+    defaultMax,
+    isPriceFilter,
+  ]);
 
   // Stable change handler
   const handleChange = useCallback((values: number[]) => {
