@@ -1,55 +1,69 @@
 "use client";
 
-import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import * as React from "react";
-import { useRouter } from "next/navigation";
+import { getFavoritesBroadcastId } from "@/lib/model-favorites/broadcast";
 import { useAuth } from "@/providers/auth-client-provider";
-import { useAuthDialog } from "@/providers/auth-dialog-provider";
+import type { ModelFavoriteKey } from "@/types/model-favorites";
+import {
+  useInfiniteQuery,
+  useQueryClient,
+  type InfiniteData,
+} from "@tanstack/react-query";
+import { Bot, Server, Wrench } from "lucide-react";
+// Use next/dynamic with ssr: false for truly client-only lazy loading
+// This prevents any SSR/prefetching and ensures components only load when rendered
+import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
+import * as React from "react";
+import { useStableFacets } from "../data-table/use-stable-facets";
+import {
+  DataTableInfinite,
+  type DataTableMeta,
+} from "../table/data-table-infinite";
+import { useModelsFavoritesState } from "./hooks/use-models-favorites-state";
+import { useModelsTableSearchState } from "./hooks/use-models-table-search-state";
+import { ModelsCheckedActionsIsland } from "./models-checked-actions-island";
 import { modelsColumns } from "./models-columns";
-import { modelsDataOptions } from "./models-query-options";
-import type { ModelsInfiniteQueryResponse, ModelsLogsMeta } from "./models-query-options";
 import {
   filterFields as defaultFilterFields,
   modelsColumnOrder,
   sheetFields,
 } from "./models-constants";
-import type { ModelsColumnSchema, ModelsFacetMetadataSchema } from "./models-schema";
-import type { ModelFavoriteKey } from "@/types/model-favorites";
-import { type AccountUser } from "../table/account-components";
-import {
-  DataTableInfinite,
-  type DataTableMeta,
-} from "../table/data-table-infinite";
-import { getFavoritesBroadcastId } from "@/lib/model-favorites/broadcast";
-import { MODEL_FAVORITES_QUERY_KEY } from "@/lib/model-favorites/constants";
-import { useModelsTableSearchState } from "./hooks/use-models-table-search-state";
-import { useModelsFavoritesState } from "./hooks/use-models-favorites-state";
-import { ModelsCheckedActionsIsland } from "./models-checked-actions-island";
-import { Bot, Server, Wrench } from "lucide-react";
+import { modelsDataOptions } from "./models-query-options";
+import type {
+  ModelsInfiniteQueryResponse,
+  ModelsLogsMeta,
+} from "./models-query-options";
+import type {
+  ModelsColumnSchema,
+  ModelsFacetMetadataSchema,
+} from "./models-schema";
 
 interface ModelsClientProps {
   initialFavoriteKeys?: ModelFavoriteKey[];
   isFavoritesMode?: boolean;
 }
 
-// Use next/dynamic with ssr: false for truly client-only lazy loading
-// This prevents any SSR/prefetching and ensures components only load when rendered
-import dynamic from "next/dynamic";
-
-const LazyFavoritesRuntime = dynamic(() => import("./models-favorites-runtime"), {
-  ssr: false, // Client-only - never SSR or prefetch
-});
+const LazyFavoritesRuntime = dynamic(
+  () => import("./models-favorites-runtime"),
+  {
+    ssr: false, // Client-only - never SSR or prefetch
+  },
+);
 
 const LazyModelSheetCharts = dynamic(
-  () => import("./model-sheet-charts").then((module) => ({
-    default: module.ModelSheetCharts,
-  })),
+  () =>
+    import("./model-sheet-charts").then((module) => ({
+      default: module.ModelSheetCharts,
+    })),
   {
     ssr: false, // Client-only - only loads when sheet is opened
   },
 );
 
-export function ModelsClient({ initialFavoriteKeys, isFavoritesMode }: ModelsClientProps = {}) {
+export function ModelsClient({
+  initialFavoriteKeys,
+  isFavoritesMode,
+}: ModelsClientProps = {}) {
   const contentRef = React.useRef<HTMLTableSectionElement>(null);
   const {
     search,
@@ -65,22 +79,16 @@ export function ModelsClient({ initialFavoriteKeys, isFavoritesMode }: ModelsCli
     typeof isFavoritesMode === "boolean" ? isFavoritesMode : bookmarksFlag;
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { session, signOut, isPending: authPending } = useAuth();
-  const { showSignIn, showSignUp } = useAuthDialog();
-  const [isSigningOut, startSignOutTransition] = React.useTransition();
-  const accountUser = (session?.user ?? null) as AccountUser | null;
+  const { session, isPending: authPending } = useAuth();
   const broadcastId = React.useMemo(() => getFavoritesBroadcastId(), []);
   // Redirect unauthenticated users away from bookmarks mode
   React.useEffect(() => {
     if (effectiveFavoritesMode && !authPending && !session) {
-      router.replace("/signin?callbackUrl=" + encodeURIComponent("/llms?bookmarks=true"));
+      router.replace(
+        "/signin?callbackUrl=" + encodeURIComponent("/llms?bookmarks=true"),
+      );
     }
   }, [effectiveFavoritesMode, authPending, session, router]);
-
-  const clearFavoriteQueries = React.useCallback(() => {
-    queryClient.removeQueries({ queryKey: MODEL_FAVORITES_QUERY_KEY });
-    queryClient.removeQueries({ queryKey: ["model-favorites", "rows"], exact: false });
-  }, [queryClient]);
 
   const { favoritesSnapshot, handleFavoritesSnapshot, shouldHydrateFavorites } =
     useModelsFavoritesState({
@@ -88,41 +96,7 @@ export function ModelsClient({ initialFavoriteKeys, isFavoritesMode }: ModelsCli
       effectiveFavoritesMode,
       queryClient,
     });
-  const noopAsync = React.useCallback(async () => { }, []);
-
-  const handleSignIn = React.useCallback(() => {
-    if (!showSignIn) return;
-    const callbackUrl =
-      typeof window !== "undefined"
-        ? `${window.location.pathname}${window.location.search}`
-        : "/";
-    showSignIn({ callbackUrl });
-  }, [showSignIn]);
-
-  const handleSignUp = React.useCallback(() => {
-    if (!showSignUp) return;
-    const callbackUrl =
-      typeof window !== "undefined"
-        ? `${window.location.pathname}${window.location.search}`
-        : "/";
-    showSignUp({ callbackUrl });
-  }, [showSignUp]);
-
-  const handleSignOut = React.useCallback(() => {
-    startSignOutTransition(async () => {
-      try {
-        await signOut();
-      } finally {
-        clearFavoriteQueries();
-        // Redirect to base path when signing out from bookmarks view
-        if (effectiveFavoritesMode) {
-          router.push("/llms");
-        } else {
-          router.refresh();
-        }
-      }
-    });
-  }, [clearFavoriteQueries, effectiveFavoritesMode, router, signOut]);
+  const noopAsync = React.useCallback(async () => {}, []);
 
   const queryOptions = React.useMemo(() => {
     return {
@@ -135,7 +109,10 @@ export function ModelsClient({ initialFavoriteKeys, isFavoritesMode }: ModelsCli
   // Optimize client-side navigation: use cached data for instant rendering
   // initialData: Persists to cache, skips loading state, marks data as fresh
   // Docs: https://tanstack.com/query/v5/docs/framework/react/guides/initial-query-data
-  type QueryData = InfiniteData<ModelsInfiniteQueryResponse<ModelsColumnSchema[], ModelsLogsMeta>, { cursor: number | null; size: number }>;
+  type QueryData = InfiniteData<
+    ModelsInfiniteQueryResponse<ModelsColumnSchema[], ModelsLogsMeta>,
+    { cursor: number | null; size: number }
+  >;
   const cachedData = queryClient.getQueryData<QueryData>(queryOptions.queryKey);
   const cachedState = queryClient.getQueryState(queryOptions.queryKey);
 
@@ -158,14 +135,18 @@ export function ModelsClient({ initialFavoriteKeys, isFavoritesMode }: ModelsCli
     // Only set initialData if cached data exists (avoids redundant placeholderData)
     ...(cachedData
       ? {
-        initialData: cachedData,
-        initialDataUpdatedAt: cachedState?.dataUpdatedAt,
-      }
+          initialData: cachedData,
+          initialDataUpdatedAt: cachedState?.dataUpdatedAt,
+        }
       : {}),
   });
 
   const baseFlatData = React.useMemo(() => {
-    return (data?.pages?.flatMap((page) => page.data ?? []) as ModelsColumnSchema[]) ?? ([] as ModelsColumnSchema[]);
+    return (
+      (data?.pages?.flatMap(
+        (page) => page.data ?? [],
+      ) as ModelsColumnSchema[]) ?? ([] as ModelsColumnSchema[])
+    );
   }, [data?.pages]);
 
   const baseLastPage = data?.pages?.[data?.pages.length - 1];
@@ -175,12 +156,6 @@ export function ModelsClient({ initialFavoriteKeys, isFavoritesMode }: ModelsCli
   const flatData = effectiveFavoritesMode ? favoritesFlatData : baseFlatData;
   const lastPage = effectiveFavoritesMode ? favoritesLastPage : baseLastPage;
   const rawFacets = lastPage?.meta?.facets;
-  const facetsRef = React.useRef<Record<string, ModelsFacetMetadataSchema> | undefined>(undefined);
-  React.useEffect(() => {
-    if (rawFacets && Object.keys(rawFacets).length) {
-      facetsRef.current = rawFacets;
-    }
-  }, [rawFacets]);
 
   const navItems = React.useMemo(() => {
     if (!effectiveFavoritesMode) return undefined;
@@ -191,15 +166,12 @@ export function ModelsClient({ initialFavoriteKeys, isFavoritesMode }: ModelsCli
     ];
   }, [effectiveFavoritesMode]);
 
-  const stableFacets = React.useMemo(() => {
-    if (rawFacets && Object.keys(rawFacets).length) {
-      return rawFacets;
-    }
-    return facetsRef.current ?? {};
-  }, [rawFacets]);
-  const castFacets = stableFacets as Record<string, ModelsFacetMetadataSchema> | undefined;
+  const stableFacets = useStableFacets(rawFacets);
+  const castFacets = stableFacets as
+    | Record<string, ModelsFacetMetadataSchema>
+    | undefined;
   const effectiveFavoriteKeys = effectiveFavoritesMode
-    ? favoritesSnapshot?.favoriteKeysFromRows ?? []
+    ? (favoritesSnapshot?.favoriteKeysFromRows ?? [])
     : initialFavoriteKeys;
 
   const metadata: DataTableMeta<Record<string, unknown>, ModelFavoriteKey> = {
@@ -210,19 +182,19 @@ export function ModelsClient({ initialFavoriteKeys, isFavoritesMode }: ModelsCli
   };
 
   const tableIsFetching = effectiveFavoritesMode
-    ? favoritesSnapshot?.isFetching ?? false
+    ? (favoritesSnapshot?.isFetching ?? false)
     : isFetching;
   const tableIsLoading = effectiveFavoritesMode
-    ? favoritesSnapshot?.isFavoritesLoading ?? true
+    ? (favoritesSnapshot?.isFavoritesLoading ?? true)
     : isLoading;
   const tableIsFetchingNextPage = effectiveFavoritesMode
-    ? favoritesSnapshot?.isFetchingNextPage ?? false
+    ? (favoritesSnapshot?.isFetchingNextPage ?? false)
     : isFetchingNextPage;
   const tableFetchNextPage = effectiveFavoritesMode
-    ? favoritesSnapshot?.fetchNextPage ?? noopAsync
+    ? (favoritesSnapshot?.fetchNextPage ?? noopAsync)
     : fetchNextPage;
   const tableHasNextPage = effectiveFavoritesMode
-    ? favoritesSnapshot?.hasNextPage ?? false
+    ? (favoritesSnapshot?.hasNextPage ?? false)
     : hasNextPage;
   const tableIsError = effectiveFavoritesMode ? false : isError;
   const tableError = effectiveFavoritesMode ? null : error;
@@ -308,14 +280,6 @@ export function ModelsClient({ initialFavoriteKeys, isFavoritesMode }: ModelsCli
         }}
         getRowId={(row) => row.id}
         focusTargetRef={contentRef}
-        account={{
-          user: accountUser,
-          onSignOut: handleSignOut,
-          isSigningOut,
-          onSignIn: handleSignIn,
-          onSignUp: handleSignUp,
-          isLoading: authPending,
-        }}
         primaryColumnId="name"
         renderSheetCharts={(row) => {
           const selectedModel = row?.original as ModelsColumnSchema | undefined;
@@ -332,7 +296,9 @@ export function ModelsClient({ initialFavoriteKeys, isFavoritesMode }: ModelsCli
             />
           );
         }}
-        getRowHref={(row) => row.permaslug ? `https://openrouter.ai/models/${row.permaslug}` : null}
+        getRowHref={(row) =>
+          row.permaslug ? `https://openrouter.ai/models/${row.permaslug}` : null
+        }
         renderCheckedActions={(meta) => (
           <ModelsCheckedActionsIsland
             initialFavoriteKeys={meta.initialFavoriteKeys}

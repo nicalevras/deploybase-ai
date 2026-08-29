@@ -1,6 +1,7 @@
 "use client";
 
-import * as React from "react";
+import { isColumnFilterParameter } from "@/features/data-explorer/data-table/filter-state";
+import type { DataTableFilterField } from "@/features/data-explorer/data-table/types";
 import type {
   ColumnFiltersState,
   OnChangeFn,
@@ -8,8 +9,8 @@ import type {
   SortingState,
 } from "@tanstack/react-table";
 import { useQueryStates } from "nuqs";
+import * as React from "react";
 import { toolsSearchParamsParser } from "../tools-search-params";
-import type { DataTableFilterField } from "@/features/data-explorer/data-table/types";
 
 interface ToolsTableSearchState {
   search: ReturnType<typeof useQueryStates<typeof toolsSearchParamsParser>>[0];
@@ -30,13 +31,14 @@ export function useToolsTableSearchState(
     sort,
     size: _size,
     cursor: _cursor,
+    uuid: _uuid,
     search: globalSearch,
     ...filter
   } = search;
 
   const columnFilters = React.useMemo<ColumnFiltersState>(() => {
     const baseFilters = Object.entries(filter)
-      .filter(([key]) => key !== "bookmarks")
+      .filter(([key]) => isColumnFilterParameter(key))
       .map(([key, value]) => ({
         id: key,
         value: value as unknown,
@@ -54,9 +56,11 @@ export function useToolsTableSearchState(
     return sort ? [sort] : [];
   }, [sort]);
 
-  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>(() => {
-    return search.uuid ? { [search.uuid]: true } : {};
-  });
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>(
+    () => {
+      return search.uuid ? { [search.uuid]: true } : {};
+    },
+  );
 
   React.useEffect(() => {
     const incomingUuid = search.uuid ?? null;
@@ -67,16 +71,26 @@ export function useToolsTableSearchState(
     });
   }, [search.uuid]);
 
-  const previousFilterPayloadRef = React.useRef<Record<string, unknown> | null>(null);
-  const handleColumnFiltersChange = React.useCallback<OnChangeFn<ColumnFiltersState>>(
+  const previousFilterPayloadRef = React.useRef<Record<string, unknown> | null>(
+    null,
+  );
+  const handleColumnFiltersChange = React.useCallback<
+    OnChangeFn<ColumnFiltersState>
+  >(
     (updater) => {
       const nextFilters =
-        typeof updater === "function" ? updater(columnFilters) : updater ?? [];
+        typeof updater === "function"
+          ? updater(columnFilters)
+          : (updater ?? []);
       const searchPayload: Record<string, unknown> = {};
 
       filterFields.forEach((field) => {
-        const columnFilter = nextFilters.find((filter) => filter.id === field.value);
-        searchPayload[field.value as string] = columnFilter ? columnFilter.value : null;
+        const columnFilter = nextFilters.find(
+          (filter) => filter.id === field.value,
+        );
+        searchPayload[field.value as string] = columnFilter
+          ? columnFilter.value
+          : null;
       });
 
       if (
@@ -99,7 +113,7 @@ export function useToolsTableSearchState(
   const handleSortingChange = React.useCallback<OnChangeFn<SortingState>>(
     (updater) => {
       const nextSorting =
-        typeof updater === "function" ? updater(sorting) : updater ?? [];
+        typeof updater === "function" ? updater(sorting) : (updater ?? []);
       const sortEntry = nextSorting[0] ?? null;
       const serialized =
         sortEntry === null
@@ -117,18 +131,17 @@ export function useToolsTableSearchState(
     [setSearch, sorting],
   );
 
-  const handleRowSelectionChange = React.useCallback<OnChangeFn<RowSelectionState>>(
-    (updater) => {
-      setRowSelection((previous) => {
-        const nextSelection =
-          typeof updater === "function" ? updater(previous) : updater ?? {};
-        const selectedKeys = Object.keys(nextSelection ?? {});
-        const nextUuid = selectedKeys[0];
-        return nextUuid ? { [nextUuid]: true } : {};
-      });
-    },
-    [],
-  );
+  const handleRowSelectionChange = React.useCallback<
+    OnChangeFn<RowSelectionState>
+  >((updater) => {
+    setRowSelection((previous) => {
+      const nextSelection =
+        typeof updater === "function" ? updater(previous) : (updater ?? {});
+      const selectedKeys = Object.keys(nextSelection ?? {});
+      const nextUuid = selectedKeys[0];
+      return nextUuid ? { [nextUuid]: true } : {};
+    });
+  }, []);
 
   return {
     search,
@@ -145,14 +158,20 @@ function areSearchPayloadsEqual(
   a: Record<string, unknown>,
   b: Record<string, unknown>,
 ) {
-  const aEntries = Object.entries(a ?? {}).filter(([_, value]) => value !== undefined);
-  const bEntries = Object.entries(b ?? {}).filter(([_, value]) => value !== undefined);
+  const aEntries = Object.entries(a ?? {}).filter(
+    ([_, value]) => value !== undefined,
+  );
+  const bEntries = Object.entries(b ?? {}).filter(
+    ([_, value]) => value !== undefined,
+  );
   if (aEntries.length !== bEntries.length) return false;
   return aEntries.every(([key, value]) => {
     const other = b[key];
     if (Array.isArray(value) && Array.isArray(other)) {
       if (value.length !== other.length) return false;
-      return value.every((val, index) => JSON.stringify(val) === JSON.stringify(other[index]));
+      return value.every(
+        (val, index) => JSON.stringify(val) === JSON.stringify(other[index]),
+      );
     }
     return JSON.stringify(value) === JSON.stringify(other);
   });

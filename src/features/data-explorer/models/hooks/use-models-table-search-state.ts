@@ -1,6 +1,7 @@
 "use client";
 
-import * as React from "react";
+import { isColumnFilterParameter } from "@/features/data-explorer/data-table/filter-state";
+import type { DataTableFilterField } from "@/features/data-explorer/data-table/types";
 import type {
   ColumnFiltersState,
   OnChangeFn,
@@ -8,9 +9,9 @@ import type {
   SortingState,
 } from "@tanstack/react-table";
 import { useQueryStates } from "nuqs";
-import { modelsSearchParamsParser } from "../models-search-params";
-import type { DataTableFilterField } from "@/features/data-explorer/data-table/types";
+import * as React from "react";
 import type { ModalitiesDirection } from "../modalities-filter";
+import { modelsSearchParamsParser } from "../models-search-params";
 
 interface ModelsTableSearchState {
   search: ReturnType<typeof useQueryStates<typeof modelsSearchParamsParser>>[0];
@@ -33,13 +34,14 @@ export function useModelsTableSearchState(
     start: _start,
     direction: _direction,
     cursor: _cursor,
+    uuid: _uuid,
     search: globalSearch,
     ...filter
   } = search;
 
   const columnFilters = React.useMemo<ColumnFiltersState>(() => {
     const baseFilters = Object.entries(filter)
-      .filter(([key]) => key !== "bookmarks") // bookmarks mode shouldn't count as an active filter
+      .filter(([key]) => isColumnFilterParameter(key))
       .map(([key, value]) => {
         if (key === "modalityDirections") {
           const parsed = deserializeModalityDirections(value);
@@ -70,9 +72,11 @@ export function useModelsTableSearchState(
   }, [sort]);
 
   // Keep selection local so URL stays clean during client navigation.
-  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>(() => {
-    return search.uuid ? { [search.uuid]: true } : {};
-  });
+  const [rowSelection, setRowSelection] = React.useState<RowSelectionState>(
+    () => {
+      return search.uuid ? { [search.uuid]: true } : {};
+    },
+  );
 
   // Seed local selection from a shared link (uuid in URL) without mutating the URL.
   React.useEffect(() => {
@@ -92,7 +96,9 @@ export function useModelsTableSearchState(
   >(
     (updater) => {
       const nextFilters =
-        typeof updater === "function" ? updater(columnFilters) : updater ?? [];
+        typeof updater === "function"
+          ? updater(columnFilters)
+          : (updater ?? []);
       const searchPayload: Record<string, unknown> = {};
 
       filterFields.forEach((field) => {
@@ -106,10 +112,9 @@ export function useModelsTableSearchState(
           const directionsFilter = nextFilters.find(
             (filter) => filter.id === "modalityDirections",
           );
-          const directionsValue = directionsFilter?.value as Record<
-            string,
-            ModalitiesDirection
-          > | undefined;
+          const directionsValue = directionsFilter?.value as
+            | Record<string, ModalitiesDirection>
+            | undefined;
           const directionEntries = directionsValue
             ? Object.entries(directionsValue)
                 .map(([key, dir]) => `${key}:${dir}`)
@@ -147,7 +152,7 @@ export function useModelsTableSearchState(
   const handleSortingChange = React.useCallback<OnChangeFn<SortingState>>(
     (updater) => {
       const nextSorting =
-        typeof updater === "function" ? updater(sorting) : updater ?? [];
+        typeof updater === "function" ? updater(sorting) : (updater ?? []);
       const sortEntry = nextSorting[0] ?? null;
       const serialized =
         sortEntry === null
@@ -162,19 +167,18 @@ export function useModelsTableSearchState(
     [setSearch, sorting],
   );
 
-  const handleRowSelectionChange = React.useCallback<OnChangeFn<RowSelectionState>>(
-    (updater) => {
-      setRowSelection((previous) => {
-        const nextSelection =
-          typeof updater === "function" ? updater(previous) : updater ?? {};
-        const selectedKeys = Object.keys(nextSelection ?? {});
-        const nextUuid = selectedKeys[0];
-        // Enforce single selection state, matching table config
-        return nextUuid ? { [nextUuid]: true } : {};
-      });
-    },
-    [],
-  );
+  const handleRowSelectionChange = React.useCallback<
+    OnChangeFn<RowSelectionState>
+  >((updater) => {
+    setRowSelection((previous) => {
+      const nextSelection =
+        typeof updater === "function" ? updater(previous) : (updater ?? {});
+      const selectedKeys = Object.keys(nextSelection ?? {});
+      const nextUuid = selectedKeys[0];
+      // Enforce single selection state, matching table config
+      return nextUuid ? { [nextUuid]: true } : {};
+    });
+  }, []);
 
   return {
     search,

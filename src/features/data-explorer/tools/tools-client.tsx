@@ -1,43 +1,58 @@
 "use client";
 
-import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import * as React from "react";
-import { useRouter } from "next/navigation";
+import { getToolFavoritesBroadcastId } from "@/lib/tool-favorites/broadcast";
 import { useAuth } from "@/providers/auth-client-provider";
-import { useAuthDialog } from "@/providers/auth-dialog-provider";
-import { toolsColumns } from "./tools-columns";
+import type { ToolFavoriteKey } from "@/types/tool-favorites";
 import {
-  filterFields as defaultFilterFields,
-  toolsColumnOrder,
-  sheetFields,
-} from "./tools-constants";
+  useInfiniteQuery,
+  useQueryClient,
+  type InfiniteData,
+} from "@tanstack/react-query";
+import { Bot, Server, Wrench } from "lucide-react";
+import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
+import * as React from "react";
+import { useStableFacets } from "../data-table/use-stable-facets";
+import { stableToolKey } from "../stable-keys";
 import {
   DataTableInfinite,
   type DataTableMeta,
 } from "../table/data-table-infinite";
-import { toolsDataOptions, type ToolInfiniteQueryResponse, type ToolLogsMeta } from "./tools-query-options";
-import type { ToolColumnSchema, ToolsFacetMetadataSchema } from "./tools-schema";
-import type { ToolFavoriteKey } from "@/types/tool-favorites";
-import { useToolsTableSearchState } from "./hooks/use-tools-table-search-state";
 import { useToolsFavoritesState } from "./hooks/use-tools-favorites-state";
+import { useToolsTableSearchState } from "./hooks/use-tools-table-search-state";
 import { ToolsCheckedActionsIsland } from "./tools-checked-actions-island";
-import { getToolFavoritesBroadcastId } from "@/lib/tool-favorites/broadcast";
-import { TOOL_FAVORITES_QUERY_KEY } from "@/lib/tool-favorites/constants";
-import { type AccountUser } from "../table/account-components";
-import { Bot, Server, Wrench } from "lucide-react";
-import { stableToolKey } from "../stable-keys";
-import dynamic from "next/dynamic";
+import { toolsColumns } from "./tools-columns";
+import {
+  filterFields as defaultFilterFields,
+  sheetFields,
+  toolsColumnOrder,
+} from "./tools-constants";
+import {
+  toolsDataOptions,
+  type ToolInfiniteQueryResponse,
+  type ToolLogsMeta,
+} from "./tools-query-options";
+import type {
+  ToolColumnSchema,
+  ToolsFacetMetadataSchema,
+} from "./tools-schema";
 
-const LazyFavoritesRuntime = dynamic(() => import("./tools-favorites-runtime"), {
-  ssr: false, // Client-only - never SSR or prefetch
-});
+const LazyFavoritesRuntime = dynamic(
+  () => import("./tools-favorites-runtime"),
+  {
+    ssr: false, // Client-only - never SSR or prefetch
+  },
+);
 
 interface ToolsClientProps {
   initialFavoriteKeys?: ToolFavoriteKey[];
   isFavoritesMode?: boolean;
 }
 
-export function ToolsClient({ initialFavoriteKeys, isFavoritesMode }: ToolsClientProps = {}) {
+export function ToolsClient({
+  initialFavoriteKeys,
+  isFavoritesMode,
+}: ToolsClientProps = {}) {
   const contentRef = React.useRef<HTMLTableSectionElement>(null);
   const {
     search,
@@ -55,57 +70,17 @@ export function ToolsClient({ initialFavoriteKeys, isFavoritesMode }: ToolsClien
 
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { session, signOut, isPending: authPending } = useAuth();
-  const { showSignIn, showSignUp } = useAuthDialog();
-  const [isSigningOut, startSignOutTransition] = React.useTransition();
-  const accountUser = (session?.user ?? null) as AccountUser | null;
+  const { session, isPending: authPending } = useAuth();
   const broadcastId = React.useMemo(() => getToolFavoritesBroadcastId(), []);
 
   // Redirect unauthenticated users away from bookmarks mode
   React.useEffect(() => {
     if (effectiveFavoritesMode && !authPending && !session) {
-      router.replace("/signin?callbackUrl=" + encodeURIComponent("/tools?bookmarks=true"));
+      router.replace(
+        "/signin?callbackUrl=" + encodeURIComponent("/tools?bookmarks=true"),
+      );
     }
   }, [effectiveFavoritesMode, authPending, session, router]);
-
-  const clearFavoriteQueries = React.useCallback(() => {
-    queryClient.removeQueries({ queryKey: TOOL_FAVORITES_QUERY_KEY });
-    queryClient.removeQueries({ queryKey: ["tool-favorites", "rows"], exact: false });
-  }, [queryClient]);
-
-  const handleSignIn = React.useCallback(() => {
-    if (!showSignIn) return;
-    const callbackUrl =
-      typeof window !== "undefined"
-        ? `${window.location.pathname}${window.location.search}`
-        : "/";
-    showSignIn({ callbackUrl });
-  }, [showSignIn]);
-
-  const handleSignUp = React.useCallback(() => {
-    if (!showSignUp) return;
-    const callbackUrl =
-      typeof window !== "undefined"
-        ? `${window.location.pathname}${window.location.search}`
-        : "/";
-    showSignUp({ callbackUrl });
-  }, [showSignUp]);
-
-  const handleSignOut = React.useCallback(() => {
-    startSignOutTransition(async () => {
-      try {
-        await signOut();
-      } finally {
-        clearFavoriteQueries();
-        // Redirect to base path when signing out from bookmarks view
-        if (effectiveFavoritesMode) {
-          router.push("/tools");
-        } else {
-          router.refresh();
-        }
-      }
-    });
-  }, [clearFavoriteQueries, effectiveFavoritesMode, router, signOut]);
 
   const { favoritesSnapshot, handleFavoritesSnapshot, shouldHydrateFavorites } =
     useToolsFavoritesState({
@@ -113,7 +88,7 @@ export function ToolsClient({ initialFavoriteKeys, isFavoritesMode }: ToolsClien
       effectiveFavoritesMode,
       queryClient,
     });
-  const noopAsync = React.useCallback(async () => { }, []);
+  const noopAsync = React.useCallback(async () => {}, []);
 
   const queryOptions = React.useMemo(() => {
     return {
@@ -144,14 +119,17 @@ export function ToolsClient({ initialFavoriteKeys, isFavoritesMode }: ToolsClien
     enabled: !effectiveFavoritesMode,
     ...(cachedData
       ? {
-        initialData: cachedData,
-        initialDataUpdatedAt: cachedState?.dataUpdatedAt,
-      }
+          initialData: cachedData,
+          initialDataUpdatedAt: cachedState?.dataUpdatedAt,
+        }
       : {}),
   });
 
   const baseFlatData = React.useMemo(() => {
-    return (data?.pages?.flatMap((page) => page.data ?? []) as ToolColumnSchema[]) ?? [];
+    return (
+      (data?.pages?.flatMap((page) => page.data ?? []) as ToolColumnSchema[]) ??
+      []
+    );
   }, [data?.pages]);
   const baseLastPage = data?.pages?.[data?.pages.length - 1];
 
@@ -161,22 +139,12 @@ export function ToolsClient({ initialFavoriteKeys, isFavoritesMode }: ToolsClien
   const flatData = effectiveFavoritesMode ? favoritesFlatData : baseFlatData;
   const lastPage = effectiveFavoritesMode ? favoritesLastPage : baseLastPage;
   const rawFacets = lastPage?.meta?.facets;
-  const facetsRef = React.useRef<Record<string, ToolsFacetMetadataSchema> | undefined>(undefined);
-  React.useEffect(() => {
-    if (rawFacets && Object.keys(rawFacets).length) {
-      facetsRef.current = rawFacets;
-    }
-  }, [rawFacets]);
-
-  const stableFacets = React.useMemo(() => {
-    if (rawFacets && Object.keys(rawFacets).length) {
-      return rawFacets;
-    }
-    return facetsRef.current ?? {};
-  }, [rawFacets]);
-  const castFacets = stableFacets as Record<string, ToolsFacetMetadataSchema> | undefined;
+  const stableFacets = useStableFacets(rawFacets);
+  const castFacets = stableFacets as
+    | Record<string, ToolsFacetMetadataSchema>
+    | undefined;
   const effectiveFavoriteKeys = effectiveFavoritesMode
-    ? favoritesSnapshot?.favoriteKeysFromRows ?? []
+    ? (favoritesSnapshot?.favoriteKeysFromRows ?? [])
     : initialFavoriteKeys;
 
   const metadata: DataTableMeta<Record<string, unknown>, ToolFavoriteKey> = {
@@ -187,19 +155,19 @@ export function ToolsClient({ initialFavoriteKeys, isFavoritesMode }: ToolsClien
   };
 
   const tableIsFetching = effectiveFavoritesMode
-    ? favoritesSnapshot?.isFetching ?? false
+    ? (favoritesSnapshot?.isFetching ?? false)
     : isFetching;
   const tableIsLoading = effectiveFavoritesMode
-    ? favoritesSnapshot?.isFavoritesLoading ?? true
+    ? (favoritesSnapshot?.isFavoritesLoading ?? true)
     : isLoading;
   const tableIsFetchingNextPage = effectiveFavoritesMode
-    ? favoritesSnapshot?.isFetchingNextPage ?? false
+    ? (favoritesSnapshot?.isFetchingNextPage ?? false)
     : isFetchingNextPage;
   const tableFetchNextPage = effectiveFavoritesMode
-    ? favoritesSnapshot?.fetchNextPage ?? noopAsync
+    ? (favoritesSnapshot?.fetchNextPage ?? noopAsync)
     : fetchNextPage;
   const tableHasNextPage = effectiveFavoritesMode
-    ? favoritesSnapshot?.hasNextPage ?? false
+    ? (favoritesSnapshot?.hasNextPage ?? false)
     : hasNextPage;
   const tableIsError = effectiveFavoritesMode ? false : isError;
   const tableError = effectiveFavoritesMode ? null : error;
@@ -281,21 +249,15 @@ export function ToolsClient({ initialFavoriteKeys, isFavoritesMode }: ToolsClien
         renderSheetTitle={({ row }) => row?.original.name || "Tool Details"}
         getRowId={(row) => row.stable_key || stableToolKey(row)}
         focusTargetRef={contentRef}
-        account={{
-          user: accountUser,
-          onSignOut: handleSignOut,
-          isSigningOut,
-          onSignIn: handleSignIn,
-          onSignUp: handleSignUp,
-          isLoading: authPending,
-        }}
         primaryColumnId="description"
         renderSheetCharts={() => null}
         sheetContentClassName="border-b border-border/60"
         getRowHref={(row) => row.url || null}
         ctaLabel="Learn More"
         renderCheckedActions={(meta) => (
-          <ToolsCheckedActionsIsland initialFavoriteKeys={meta.initialFavoriteKeys} />
+          <ToolsCheckedActionsIsland
+            initialFavoriteKeys={meta.initialFavoriteKeys}
+          />
         )}
       />
     </>

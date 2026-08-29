@@ -4,7 +4,6 @@ import * as React from "react";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -42,41 +41,36 @@ export function CompareDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl gap-0 overflow-hidden border-border bg-background p-0 [&>button:last-of-type]:right-5 [&>button:last-of-type]:top-5">
-        <DialogHeader className="border-b border-border px-6 py-5">
+      <DialogContent className="max-w-5xl">
+        <DialogHeader className="border-b border-border pb-4">
           <DialogTitle>GPU Comparison</DialogTitle>
         </DialogHeader>
-        <div className="grid md:grid-cols-2">
+        <div className="grid gap-6 md:grid-cols-2 md:gap-8">
           {rows.map((row, index) => {
             const data = row.original as ColumnSchema;
 
             return (
-              <div
+              <MemoizedDataTableSheetContent
                 key={row.id ?? `compare-${index}`}
-                className="space-y-4 px-6 py-5 md:border-r md:border-border md:last:border-r-0"
-              >
-                <MemoizedDataTableSheetContent
-                  table={table}
-                  data={data}
-                  filterFields={filterFields}
-                  fields={sheetFields}
-                  metadata={{
-                    titleClassName: "text-base font-semibold leading-none tracking-tight mb-1",
-                  }}
-                />
-              </div>
+                table={table}
+                data={data}
+                filterFields={filterFields}
+                fields={sheetFields}
+                metadata={{
+                  titleClassName: "text-base font-semibold leading-none tracking-tight mb-1",
+                }}
+                className="[&>div>*]:px-0"
+              />
             );
           })}
           {rows.length === 1 ? (
-            <div className="hidden items-center justify-center border-l border-dashed border-border px-6 text-sm text-muted-foreground md:flex">
+            <div className="hidden items-center justify-center border-l border-dashed border-border text-sm text-muted-foreground md:flex">
               Select another row to compare side by side.
             </div>
           ) : null}
-          <div className="border-t border-border p-6 md:col-span-2">
-            {/* Removed React.Suspense wrapper as next/dynamic handles it */}
-            <LazyGpuCompareChart rows={rows} dialogOpen={open} />
-          </div>
         </div>
+        {/* Removed React.Suspense wrapper as next/dynamic handles it */}
+        <LazyGpuCompareChart rows={rows} dialogOpen={open} />
       </DialogContent>
     </Dialog>
   );

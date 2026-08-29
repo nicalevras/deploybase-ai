@@ -6,15 +6,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/custom/accordion";
-import {
-  Sheet,
-  SheetClose,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/custom/sheet";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,41 +16,20 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  NavigationMenu,
-  NavigationMenuItem,
-  NavigationMenuList,
-} from "@/components/ui/navigation-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { DataTableFilterControls } from "@/features/data-explorer/data-table/data-table-filter-controls";
-import { DataTableResetButton } from "@/features/data-explorer/data-table/data-table-reset-button";
 import { cn } from "@/lib/utils";
 import {
   Bookmark,
-  Bot,
   EllipsisVertical,
   LogIn,
   LogOut,
-  Search,
-  Server,
   Settings as SettingsIcon,
   UserPlus,
-  Wrench,
-  X,
 } from "lucide-react";
 // Use next/dynamic with ssr: false for truly client-only lazy loading
 // This prevents any SSR/prefetching and ensures components only load when dialog is opened
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 
 const LazySettingsDialog = dynamic(
@@ -471,246 +441,5 @@ export function UserMenu({
         />
       ) : null}
     </div>
-  );
-}
-
-interface SidebarPanelProps {
-  user: AccountUser | null | undefined;
-  isSigningOut: boolean;
-  onSignOut: () => void;
-  className?: string;
-  showUserMenuFooter?: boolean;
-  onSignIn?: () => void;
-  onSignUp?: () => void;
-  isAuthLoading?: boolean;
-}
-
-export function SidebarPanel({
-  user,
-  isSigningOut,
-  onSignOut,
-  className,
-  showUserMenuFooter = true,
-  onSignIn,
-  onSignUp,
-  isAuthLoading = false,
-}: SidebarPanelProps) {
-  const isAuthenticated = Boolean(user);
-  return (
-    <div className={cn("relative flex h-full flex-col", className)}>
-      <div className="scrollbar-hide flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-full">
-          <DataTableFilterControls />
-        </div>
-      </div>
-      {showUserMenuFooter ? (
-        <div className="flex-shrink-0 border-t border-border p-2">
-          <UserMenu
-            user={user}
-            onSignOut={onSignOut}
-            isSigningOut={isSigningOut}
-            onSignIn={onSignIn}
-            onSignUp={onSignUp}
-            forceUnauthSignInButton
-            isAuthenticated={isAuthenticated}
-            isLoading={isAuthLoading}
-          />
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-interface MobileTopNavProps {
-  brandLabel?: string;
-  user: AccountUser | null;
-  onSignOut: () => void;
-  onSignIn: () => void;
-  onSignUp: () => void;
-  isSigningOut: boolean;
-  renderSidebar: () => React.ReactNode;
-  sheetTitle?: string;
-  isAuthLoading?: boolean;
-}
-
-export function MobileTopNav({
-  brandLabel = "Deploybase",
-  user,
-  onSignOut,
-  onSignIn,
-  onSignUp,
-  isSigningOut,
-  renderSidebar,
-  sheetTitle = "Search",
-  isAuthLoading = false,
-}: MobileTopNavProps) {
-  const brandLabelDisplay = brandLabel;
-  const pathname = usePathname() ?? "";
-  const router = useRouter();
-
-  const navItems = React.useMemo(
-    () => [
-      {
-        label: "GPUs",
-        value: "/gpus",
-        isCurrent: pathname === "/" || pathname.startsWith("/gpus"),
-        icon: Server,
-      },
-      {
-        label: "LLMs",
-        value: "/llms",
-        isCurrent: pathname.startsWith("/llms"),
-        icon: Bot,
-      },
-      {
-        label: "MLOps",
-        value: "/tools",
-        isCurrent: pathname.startsWith("/tools"),
-        icon: Wrench,
-      },
-    ],
-    [pathname],
-  );
-
-  const currentNavValue =
-    navItems.find((item) => item.isCurrent)?.value ?? "/gpus";
-  const currentNavItem = navItems.find((item) => item.isCurrent);
-
-  // Detect bookmarks mode from URL search params
-  const searchParams = useSearchParams();
-  const isBookmarksMode = searchParams.get("bookmarks") === "true";
-
-  const handleNavChange = React.useCallback(
-    (value: string) => {
-      if (!value) return;
-      if (value === pathname) return;
-      router.push(value);
-    },
-    [pathname, router],
-  );
-
-  return (
-    <NavigationMenu className="flex w-full max-w-none justify-between px-4 pt-2 sm:hidden">
-      <NavigationMenuList className="grid w-full grid-cols-3 items-center gap-2">
-        <NavigationMenuItem className="flex min-w-0 justify-start">
-          <div className="flex h-9 items-center">
-            <Link href="/" prefetch={false} className="text-lg tracking-tight">
-              <span className="font-light text-foreground">deploy</span>
-              <span className="font-bold text-foreground">base</span>
-            </Link>
-          </div>
-        </NavigationMenuItem>
-        <NavigationMenuItem className="flex min-w-0 justify-center">
-          <div className="flex h-9 items-center">
-            <Select
-              value={currentNavValue}
-              onValueChange={handleNavChange}
-              onOpenChange={(open) => {
-                // Prefetch all nav routes when Select opens
-                if (open) {
-                  navItems.forEach((item) => {
-                    if (item.value !== pathname) {
-                      router.prefetch(item.value);
-                    }
-                  });
-                }
-              }}
-            >
-              <SelectTrigger
-                className="h-9 w-auto gap-2 rounded-full border-0 bg-transparent p-0 text-accent-foreground shadow-none hover:text-accent-foreground"
-                aria-label={`${brandLabelDisplay} navigation`}
-              >
-                <SelectValue aria-label={currentNavItem?.label}>
-                  {currentNavItem && (
-                    <span className="flex min-w-0 items-center gap-2">
-                      {isBookmarksMode ? (
-                        <Bookmark className="h-4 w-4" aria-hidden="true" />
-                      ) : (
-                        <currentNavItem.icon
-                          className="h-4 w-4"
-                          aria-hidden="true"
-                        />
-                      )}
-                      {currentNavItem.label}
-                    </span>
-                  )}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent className="mt-1 rounded sm:mt-0">
-                {navItems.map((item) => (
-                  <SelectItem
-                    key={item.value}
-                    value={item.value}
-                    className="cursor-pointer gap-2"
-                    onPointerDown={(e) => {
-                      // Only navigate for same-page clicks in bookmarks mode
-                      if (isBookmarksMode && item.value === currentNavValue) {
-                        e.preventDefault();
-                        router.push(item.value);
-                      }
-                    }}
-                  >
-                    <item.icon className="h-4 w-4" aria-hidden="true" />
-                    {item.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </NavigationMenuItem>
-        <NavigationMenuItem className="flex justify-end gap-2">
-          <UserMenu
-            user={user}
-            onSignOut={onSignOut}
-            onSignIn={onSignIn}
-            onSignUp={onSignUp}
-            isSigningOut={isSigningOut}
-            fullWidth={false}
-            showDetails={false}
-            isAuthenticated={Boolean(user)}
-            isLoading={isAuthLoading}
-          />
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="h-9 w-9 rounded-full border border-border bg-background text-foreground hover:bg-muted"
-              >
-                <Search
-                  className="h-[18px] w-[18px] text-foreground"
-                  strokeWidth={1.5}
-                />
-                <span className="sr-only">Toggle filters</span>
-              </Button>
-            </SheetTrigger>
-            <SheetContent
-              side="right"
-              className="overflow-y-auto p-0 sm:max-w-md"
-              hideClose
-            >
-              <SheetHeader className="sr-only">
-                <SheetTitle>{sheetTitle}</SheetTitle>
-                <SheetDescription>Filters and account options</SheetDescription>
-              </SheetHeader>
-              <div className="p-4">
-                <div className="mb-[14px] flex h-6 items-center justify-end gap-1">
-                  <DataTableResetButton />
-                  <Separator orientation="vertical" className="mx-1" />
-                  <SheetClose asChild>
-                    <Button size="icon" variant="ghost" className="h-6 w-6">
-                      <X className="h-5 w-5 text-accent-foreground" />
-                      <span className="sr-only">Close</span>
-                    </Button>
-                  </SheetClose>
-                </div>
-                {renderSidebar()}
-              </div>
-            </SheetContent>
-          </Sheet>
-        </NavigationMenuItem>
-      </NavigationMenuList>
-    </NavigationMenu>
   );
 }

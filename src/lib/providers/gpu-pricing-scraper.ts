@@ -1,39 +1,39 @@
 import { createHash } from "crypto";
-import type { ProviderResult } from "@/types/pricing";
-import type { ProviderScraper } from "./types";
 import { logger } from "@/lib/logger";
-import { scraperDelay } from "./validation";
+import type { ProviderResult } from "@/types/pricing";
 import {
-  coreweaveScraper,
-  nebiusScraper,
-  hyperstackScraper,
-  runpodScraper,
-  lambdaScraper,
-  digitaloceanScraper,
-  oracleScraper,
-  crusoeScraper,
-  flyioScraper,
-  vultrScraper,
-  latitudeScraper,
-  oriScraper,
-  voltageParkScraper,
-  googleCloudScraper,
-  verdaScraper,
-  scalewayScraper,
-  replicateScraper,
-  thundercomputeScraper,
-  koyebScraper,
-  sesterceScraper,
+  alibabaScraper,
   awsScraper,
   azureScraper,
   civoScraper,
-  vastScraper,
+  coreweaveScraper,
+  crusoeScraper,
+  digitaloceanScraper,
+  flyioScraper,
+  googleCloudScraper,
   hotaisleScraper,
-  alibabaScraper,
+  hyperstackScraper,
+  koyebScraper,
+  lambdaScraper,
+  latitudeScraper,
+  nebiusScraper,
   oblivusScraper,
+  oracleScraper,
+  oriScraper,
   paperspaceScraper,
+  replicateScraper,
+  runpodScraper,
+  scalewayScraper,
+  sesterceScraper,
+  thundercomputeScraper,
   togetheraiScraper,
+  vastScraper,
+  verdaScraper,
+  voltageParkScraper,
+  vultrScraper,
 } from "./index";
+import type { ProviderScraper } from "./types";
+import { scraperDelay } from "./validation";
 
 interface GpuScrapeSummary {
   provider: string;
@@ -84,7 +84,9 @@ const DEFAULT_SCRAPERS: ProviderScraper[] = [
 ];
 
 class GpuPricingScraper {
-  constructor(private readonly scrapers: ProviderScraper[] = DEFAULT_SCRAPERS) { }
+  constructor(
+    private readonly scrapers: ProviderScraper[] = DEFAULT_SCRAPERS,
+  ) {}
 
   async scrapeAll(): Promise<GpuScrapeAllResult> {
     const summaries: GpuScrapeSummary[] = [];
@@ -109,9 +111,20 @@ class GpuPricingScraper {
         const result = await Promise.race([
           scraper.scrape(),
           new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error(`Scraper ${scraper.name} timed out after ${PER_SCRAPER_TIMEOUT_MS}ms`)), PER_SCRAPER_TIMEOUT_MS),
+            setTimeout(
+              () =>
+                reject(
+                  new Error(
+                    `Scraper ${scraper.name} timed out after ${PER_SCRAPER_TIMEOUT_MS}ms`,
+                  ),
+                ),
+              PER_SCRAPER_TIMEOUT_MS,
+            ),
           ),
         ]);
+        if (!result.rows.length) {
+          throw new Error(`Scraper ${scraper.name} returned zero rows`);
+        }
         providerResults.push(result);
 
         hash.update(scraper.name);
@@ -125,7 +138,10 @@ class GpuPricingScraper {
           sourceHash: result.sourceHash,
         });
       } catch (error) {
-        logger.error(`[GpuPricingScraper] ${scraper.name} failed:`, error instanceof Error ? error.message : String(error));
+        logger.error(
+          `[GpuPricingScraper] ${scraper.name} failed:`,
+          error instanceof Error ? error.message : String(error),
+        );
         summaries.push({
           provider: scraper.name,
           rowsScraped: 0,
@@ -137,7 +153,9 @@ class GpuPricingScraper {
     }
 
     if (providerResults.length === 0) {
-      const failureSummary = summaries.map((s) => `${s.provider}: ${s.error ?? "unknown error"}`).join("; ");
+      const failureSummary = summaries
+        .map((s) => `${s.provider}: ${s.error ?? "unknown error"}`)
+        .join("; ");
       throw new Error(`All GPU pricing scrapes failed. ${failureSummary}`);
     }
 

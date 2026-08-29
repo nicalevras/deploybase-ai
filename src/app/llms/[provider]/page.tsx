@@ -1,16 +1,18 @@
-import type { Metadata } from "next";
-import * as React from "react";
+import { buildModelsSchema } from "@/features/data-explorer/models/build-models-schema";
+import { modelsDataOptions } from "@/features/data-explorer/models/models-query-options";
+import { modelsSearchParamsCache } from "@/features/data-explorer/models/models-search-params";
+import { logger } from "@/lib/logger";
+import { getModelsPage } from "@/lib/models-loader";
+import { resolveLlmProviderRoute } from "@/lib/provider-route-resolver";
 import {
+  dehydrate,
   HydrationBoundary,
   QueryClient,
-  dehydrate,
 } from "@tanstack/react-query";
-import { modelsDataOptions } from "@/features/data-explorer/models/models-query-options";
+import type { Metadata } from "next";
+import { notFound, permanentRedirect } from "next/navigation";
+import * as React from "react";
 import { ProviderLlmClient } from "./provider-llm-client";
-import { modelsSearchParamsCache } from "@/features/data-explorer/models/models-search-params";
-import { getModelsPage } from "@/lib/models-loader";
-import { buildModelsSchema } from "@/features/data-explorer/models/build-models-schema";
-import { logger } from "@/lib/logger";
 
 export const revalidate = 43200;
 
@@ -20,19 +22,22 @@ type Props = { params: Promise<{ provider: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { provider } = await params;
-  const name = decodeURIComponent(provider);
+  const resolved = await resolveLlmProviderRoute(provider);
+  if (!resolved) notFound();
+  if (!resolved.isCanonical) permanentRedirect(`/llms/${resolved.segment}`);
+  const name = resolved.value;
   const title = `${name} API Pricing | Deploybase`;
   const description = `${name} API pricing with cost per token across all models. Compare context windows and availability.`;
 
   return {
     title,
     description,
-    alternates: { canonical: `/llms/${provider}` },
+    alternates: { canonical: `/llms/${resolved.segment}` },
     openGraph: {
       title,
       description,
       images: [SHARED_OG_IMAGE],
-      url: `/llms/${provider}`,
+      url: `/llms/${resolved.segment}`,
       type: "website",
     },
     twitter: {
@@ -62,10 +67,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export default async function LlmProviderPage({ params }: Props) {
   const { provider } = await params;
-  const decodedProvider = decodeURIComponent(provider);
-  const parsedSearch = modelsSearchParamsCache.parse({ provider: [decodedProvider] });
+  const resolved = await resolveLlmProviderRoute(provider);
+  if (!resolved) notFound();
+  if (!resolved.isCanonical) permanentRedirect(`/llms/${resolved.segment}`);
+  const decodedProvider = resolved.value;
+  const parsedSearch = modelsSearchParamsCache.parse({
+    provider: [decodedProvider],
+  });
   const queryClient = new QueryClient();
-  const captured: { firstPage: Awaited<ReturnType<typeof getModelsPage>> | null } = { firstPage: null };
+  const captured: {
+    firstPage: Awaited<ReturnType<typeof getModelsPage>> | null;
+  } = { firstPage: null };
 
   try {
     const infiniteOptions = modelsDataOptions(parsedSearch);
@@ -118,10 +130,12 @@ export default async function LlmProviderPage({ params }: Props) {
       <HydrationBoundary state={dehydratedState}>
         <div
           className="w-full"
-          style={{
-            "--total-padding-mobile": "0.5rem",
-            "--total-padding-desktop": "3rem",
-          } as React.CSSProperties}
+          style={
+            {
+              "--total-padding-mobile": "0.5rem",
+              "--total-padding-desktop": "3rem",
+            } as React.CSSProperties
+          }
         >
           <React.Suspense fallback={null}>
             <ProviderLlmClient provider={decodedProvider} />

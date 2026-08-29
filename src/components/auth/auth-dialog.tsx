@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { useAnalytics } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
+import type { OAuthAvailability } from "@/lib/auth-configuration";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/providers/auth-client-provider";
 import { Loader2 } from "lucide-react";
@@ -37,6 +38,7 @@ interface AuthDialogProps {
   contentClassName?: string;
   bodyClassName?: string;
   isCompleting?: boolean;
+  oauthProviders: OAuthAvailability;
 }
 
 export function AuthDialog({
@@ -51,6 +53,7 @@ export function AuthDialog({
   contentClassName,
   bodyClassName,
   isCompleting = false,
+  oauthProviders,
 }: AuthDialogProps) {
   const seededEmail = React.useRef(false);
   const [view, setView] = React.useState<AuthView>(initialView);
@@ -353,33 +356,40 @@ export function AuthDialog({
             </DialogDescription>
           </DialogHeader>
 
-          {view !== "forgotPassword" ? (
+          {view !== "forgotPassword" &&
+          Object.values(oauthProviders).some(Boolean) ? (
             <div className="grid gap-6">
               <div className="flex items-center justify-center gap-6">
-                <SocialButton
-                  provider="google"
-                  icon={Google}
-                  pending={socialPending === "google"}
-                  disabled={socialPending !== null || isCompleting}
-                  onClick={handleGoogle}
-                  label="Continue with Google"
-                />
-                <SocialButton
-                  provider="github"
-                  icon={Github}
-                  pending={socialPending === "github"}
-                  disabled={socialPending !== null || isCompleting}
-                  onClick={handleGithub}
-                  label="Continue with GitHub"
-                />
-                <SocialButton
-                  provider="huggingface"
-                  icon={HuggingFace}
-                  pending={socialPending === "huggingface"}
-                  disabled={socialPending !== null || isCompleting}
-                  onClick={handleHuggingFace}
-                  label="Continue with Hugging Face"
-                />
+                {oauthProviders.google ? (
+                  <SocialButton
+                    provider="google"
+                    icon={Google}
+                    pending={socialPending === "google"}
+                    disabled={socialPending !== null || isCompleting}
+                    onClick={handleGoogle}
+                    label="Continue with Google"
+                  />
+                ) : null}
+                {oauthProviders.github ? (
+                  <SocialButton
+                    provider="github"
+                    icon={Github}
+                    pending={socialPending === "github"}
+                    disabled={socialPending !== null || isCompleting}
+                    onClick={handleGithub}
+                    label="Continue with GitHub"
+                  />
+                ) : null}
+                {oauthProviders.huggingface ? (
+                  <SocialButton
+                    provider="huggingface"
+                    icon={HuggingFace}
+                    pending={socialPending === "huggingface"}
+                    disabled={socialPending !== null || isCompleting}
+                    onClick={handleHuggingFace}
+                    label="Continue with Hugging Face"
+                  />
+                ) : null}
               </div>
               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                 <Separator className="flex-1" />

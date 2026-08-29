@@ -1,19 +1,24 @@
-import { auth } from "@/lib/auth";
 import { db } from "@/db/client";
 import { userToolFavorites } from "@/db/schema";
-import { headers } from "next/headers";
-import { eq, and, inArray } from "drizzle-orm";
-import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { PRIVATE_NO_STORE_HEADERS } from "@/lib/http-cache";
+import { logger } from "@/lib/logger";
 import { writeLimiter } from "@/lib/redis/ratelimit";
-import { z } from "zod";
-import type { ToolFavoritesRequest, ToolFavoritesResponse, ToolFavoriteKey } from "@/types/tool-favorites";
-import { revalidateTag, revalidatePath, unstable_cache } from "next/cache";
 import {
-  TOOL_FAVORITES_CACHE_TTL,
   getToolFavoritesCacheTag,
   getToolFavoritesRateLimitKey,
+  TOOL_FAVORITES_CACHE_TTL,
 } from "@/lib/tool-favorites/constants";
-import { logger } from "@/lib/logger";
+import type {
+  ToolFavoriteKey,
+  ToolFavoritesRequest,
+  ToolFavoritesResponse,
+} from "@/types/tool-favorites";
+import { and, eq, inArray } from "drizzle-orm";
+import { revalidatePath, revalidateTag, unstable_cache } from "next/cache";
+import { headers } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 type UserToolFavoriteRow = {
   id: string;
@@ -25,7 +30,8 @@ type UserToolFavoriteRow = {
 function buildRateHeaders(limit?: number, remaining?: number, reset?: number) {
   const headers: Record<string, string> = {};
   if (typeof limit === "number") headers["X-RateLimit-Limit"] = String(limit);
-  if (typeof remaining === "number") headers["X-RateLimit-Remaining"] = String(remaining);
+  if (typeof remaining === "number")
+    headers["X-RateLimit-Remaining"] = String(remaining);
   if (typeof reset === "number") headers["X-RateLimit-Reset"] = String(reset);
   return headers;
 }
@@ -36,7 +42,10 @@ export async function GET() {
     const session = await auth.api.getSession({ headers: hdrs });
 
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: PRIVATE_NO_STORE_HEADERS },
+      );
     }
 
     const getCachedFavorites = unstable_cache(
@@ -57,13 +66,19 @@ export async function GET() {
 
     const favorites = await getCachedFavorites(session.user.id);
 
-    return NextResponse.json<ToolFavoritesResponse>({ favorites });
+    return NextResponse.json<ToolFavoritesResponse>(
+      { favorites },
+      { headers: PRIVATE_NO_STORE_HEADERS },
+    );
   } catch (error) {
     logger.error("[GET /api/tools/favorites] Failed to fetch favorites", {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500, headers: PRIVATE_NO_STORE_HEADERS },
+    );
   }
 }
 
@@ -76,11 +91,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const rate = await writeLimiter.limit(getToolFavoritesRateLimitKey(session.user.id));
+    const rate = await writeLimiter.limit(
+      getToolFavoritesRateLimitKey(session.user.id),
+    );
     if (!rate.success) {
       return NextResponse.json(
         { error: "Too many requests" },
-        { status: 429, headers: buildRateHeaders(rate.limit, rate.remaining, rate.reset) },
+        {
+          status: 429,
+          headers: buildRateHeaders(rate.limit, rate.remaining, rate.reset),
+        },
       );
     }
 
@@ -91,13 +111,19 @@ export async function POST(request: NextRequest) {
 
     const parsed = BodySchema.safeParse(await request.json());
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 },
+      );
     }
 
     const stableKeys = Array.from(new Set(parsed.data.toolIds));
 
     if (stableKeys.length === 0) {
-      return NextResponse.json({ error: "No valid tool stable keys provided" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No valid tool stable keys provided" },
+        { status: 400 },
+      );
     }
 
     const favoritesToInsert = stableKeys.map((stableKey) => ({
@@ -106,7 +132,10 @@ export async function POST(request: NextRequest) {
       toolStableKey: stableKey,
     }));
 
-    await db.insert(userToolFavorites).values(favoritesToInsert).onConflictDoNothing();
+    await db
+      .insert(userToolFavorites)
+      .values(favoritesToInsert)
+      .onConflictDoNothing();
 
     try {
       revalidateTag(getToolFavoritesCacheTag(session.user.id), "max");
@@ -128,7 +157,10 @@ export async function POST(request: NextRequest) {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
 
@@ -141,11 +173,16 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const rate = await writeLimiter.limit(getToolFavoritesRateLimitKey(session.user.id));
+    const rate = await writeLimiter.limit(
+      getToolFavoritesRateLimitKey(session.user.id),
+    );
     if (!rate.success) {
       return NextResponse.json(
         { error: "Too many requests" },
-        { status: 429, headers: buildRateHeaders(rate.limit, rate.remaining, rate.reset) },
+        {
+          status: 429,
+          headers: buildRateHeaders(rate.limit, rate.remaining, rate.reset),
+        },
       );
     }
 
@@ -156,18 +193,29 @@ export async function DELETE(request: NextRequest) {
 
     const parsed = BodySchema.safeParse(await request.json());
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 },
+      );
     }
 
     const stableKeys = Array.from(new Set(parsed.data.toolIds));
 
     if (stableKeys.length === 0) {
-      return NextResponse.json({ error: "No valid tool stable keys provided" }, { status: 400 });
+      return NextResponse.json(
+        { error: "No valid tool stable keys provided" },
+        { status: 400 },
+      );
     }
 
     await db
       .delete(userToolFavorites)
-      .where(and(eq(userToolFavorites.userId, session.user.id), inArray(userToolFavorites.toolStableKey, stableKeys)));
+      .where(
+        and(
+          eq(userToolFavorites.userId, session.user.id),
+          inArray(userToolFavorites.toolStableKey, stableKeys),
+        ),
+      );
 
     try {
       revalidateTag(getToolFavoritesCacheTag(session.user.id), "max");
@@ -189,7 +237,9 @@ export async function DELETE(request: NextRequest) {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }
-

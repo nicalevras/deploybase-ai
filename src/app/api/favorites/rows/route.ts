@@ -1,17 +1,24 @@
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { gpuPricingCache } from "@/lib/gpu-pricing-cache";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import type { ColumnSchema, FacetMetadataSchema } from "@/features/data-explorer/table/schema";
-import type { InfiniteQueryResponse, LogsMeta } from "@/features/data-explorer/table/query-options";
+import { createHash } from "crypto";
+import type {
+  InfiniteQueryResponse,
+  LogsMeta,
+} from "@/features/data-explorer/table/query-options";
+import type {
+  ColumnSchema,
+  FacetMetadataSchema,
+} from "@/features/data-explorer/table/schema";
 import { searchParamsCache } from "@/features/data-explorer/table/search-params";
 import type { SearchParamsType } from "@/features/data-explorer/table/search-params";
-import { unstable_cache } from "next/cache";
-import { createHash } from "crypto";
-import { mapGpuRowToColumnSchema } from "@/lib/gpu-column-transformer";
+import { auth } from "@/lib/auth";
 import { STANDARD_CACHE_TTL } from "@/lib/cache/constants";
+import { mapGpuRowToColumnSchema } from "@/lib/gpu-column-transformer";
+import { gpuPricingCache } from "@/lib/gpu-pricing-cache";
+import { PRIVATE_NO_STORE_HEADERS } from "@/lib/http-cache";
 import { logger } from "@/lib/logger";
+import { unstable_cache } from "next/cache";
+import { headers } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 
 const CACHE_SIZE_LIMIT_BYTES = 2 * 1024 * 1024; // 2MB
 
@@ -74,23 +81,38 @@ function buildFavoritesCacheKey(userId: string, search: SearchParamsType) {
   return ["favorites:filtered", userId, hashObject(sortedEntries)];
 }
 
-async function getCachedFavoriteGpusFiltered(userId: string, search: SearchParamsType) {
+async function getCachedFavoriteGpusFiltered(
+  userId: string,
+  search: SearchParamsType,
+) {
   const cacheFn = unstable_cache(
     async () => {
-      const result = await gpuPricingCache.getFavoriteGpusFiltered(userId, search);
+      const result = await gpuPricingCache.getFavoriteGpusFiltered(
+        userId,
+        search,
+      );
 
       const estimatedSize = JSON.stringify(result).length;
 
       if (estimatedSize > CACHE_SIZE_LIMIT_BYTES) {
-        logger.warn("[getCachedFavoriteGpusFiltered] Cache size limit exceeded, will fall back to direct DB query", {
-          userId,
-          estimatedSizeBytes: estimatedSize,
-          limitBytes: CACHE_SIZE_LIMIT_BYTES,
-          rowCount: result.data.length,
-          searchParams: { cursor: search.cursor, size: search.size, sort: search.sort },
-        });
+        logger.warn(
+          "[getCachedFavoriteGpusFiltered] Cache size limit exceeded, will fall back to direct DB query",
+          {
+            userId,
+            estimatedSizeBytes: estimatedSize,
+            limitBytes: CACHE_SIZE_LIMIT_BYTES,
+            rowCount: result.data.length,
+            searchParams: {
+              cursor: search.cursor,
+              size: search.size,
+              sort: search.sort,
+            },
+          },
+        );
 
-        throw new Error(`Cache size (${estimatedSize} bytes) exceeds limit (${CACHE_SIZE_LIMIT_BYTES} bytes)`);
+        throw new Error(
+          `Cache size (${estimatedSize} bytes) exceeds limit (${CACHE_SIZE_LIMIT_BYTES} bytes)`,
+        );
       }
 
       return result;
@@ -108,40 +130,62 @@ async function getCachedFavoriteGpusFiltered(userId: string, search: SearchParam
 // Get favorite rows with database-level sorting and pagination (TanStack Table best practice)
 async function getFavoriteRowsDirect(
   userId: string,
-  search: SearchParamsType
+  search: SearchParamsType,
 ): Promise<InfiniteQueryResponse<ColumnSchema[], LogsMeta>> {
   // Use cached query to reduce DB load
   // If cache fails (e.g., > 2MB), falls back to DB query gracefully
-  let filteredGpus: Awaited<ReturnType<typeof gpuPricingCache.getFavoriteGpusFiltered>>['data'];
+  let filteredGpus: Awaited<
+    ReturnType<typeof gpuPricingCache.getFavoriteGpusFiltered>
+  >["data"];
   let totalCount: number;
   let filterCount: number;
-  
+
   try {
     const result = await getCachedFavoriteGpusFiltered(userId, search);
     filteredGpus = result.data;
     totalCount = result.totalCount;
     filterCount = result.filterCount;
   } catch (error) {
-      // Fallback to direct DB query if cache fails (e.g., > 2MB or cache error)
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const isSizeError = errorMessage.includes("2MB") || errorMessage.includes("size") || errorMessage.includes("cache");
-      
-      if (isSizeError) {
-        logger.warn("[getFavoriteRowsDirect] Cache size limit exceeded, using direct DB query", {
+    // Fallback to direct DB query if cache fails (e.g., > 2MB or cache error)
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const isSizeError =
+      errorMessage.includes("2MB") ||
+      errorMessage.includes("size") ||
+      errorMessage.includes("cache");
+
+    if (isSizeError) {
+      logger.warn(
+        "[getFavoriteRowsDirect] Cache size limit exceeded, using direct DB query",
+        {
           userId,
-          searchParams: { cursor: search.cursor, size: search.size, sort: search.sort },
+          searchParams: {
+            cursor: search.cursor,
+            size: search.size,
+            sort: search.sort,
+          },
           error: errorMessage,
-        });
-      } else {
-        logger.warn("[getFavoriteRowsDirect] Cache lookup failed, falling back to DB", {
+        },
+      );
+    } else {
+      logger.warn(
+        "[getFavoriteRowsDirect] Cache lookup failed, falling back to DB",
+        {
           userId,
-          searchParams: { cursor: search.cursor, size: search.size, sort: search.sort },
+          searchParams: {
+            cursor: search.cursor,
+            size: search.size,
+            sort: search.sort,
+          },
           error: errorMessage,
-        });
-      }
-      
-      // Fallback to direct DB query
-    const result = await gpuPricingCache.getFavoriteGpusFiltered(userId, search);
+        },
+      );
+    }
+
+    // Fallback to direct DB query
+    const result = await gpuPricingCache.getFavoriteGpusFiltered(
+      userId,
+      search,
+    );
     filteredGpus = result.data;
     totalCount = result.totalCount;
     filterCount = result.filterCount;
@@ -172,7 +216,8 @@ async function getFavoriteRowsDirect(
     };
   }
 
-  const start = typeof search.cursor === "number" && search.cursor >= 0 ? search.cursor : 0;
+  const start =
+    typeof search.cursor === "number" && search.cursor >= 0 ? search.cursor : 0;
   const pageSize = Math.min(Math.max(1, search.size ?? 50), 200);
   return {
     data: filteredGpus.map(mapGpuRowToColumnSchema),
@@ -182,7 +227,10 @@ async function getFavoriteRowsDirect(
       facets,
     },
     prevCursor: start > 0 ? Math.max(0, start - pageSize) : null,
-    nextCursor: start + filteredGpus.length < filterCount ? start + filteredGpus.length : null,
+    nextCursor:
+      start + filteredGpus.length < filterCount
+        ? start + filteredGpus.length
+        : null,
   };
 }
 
@@ -195,12 +243,12 @@ const RequestSchema = z.object({
  * Fetches favorite rows with database-level sorting and pagination
  * Uses JOIN to combine userFavorites with gpuPricing
  * Follows TanStack Table's recommended pattern for server-side pagination
- * 
+ *
  * Query params:
  * - cursor: number (offset for pagination)
  * - size: number (page size, default 50)
  * - sort: string (format: "id.desc" or "id.asc")
- * 
+ *
  * @returns 200 with paginated favorite GPU rows
  * @returns 401 if not authenticated
  * @returns 500 on server error
@@ -211,14 +259,17 @@ export async function GET(req: NextRequest) {
     const session = await auth.api.getSession({ headers: hdrs });
 
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: PRIVATE_NO_STORE_HEADERS },
+      );
     }
 
     // Parse query parameters
     const _search: Map<string, string> = new Map();
     req.nextUrl.searchParams.forEach((value, key) => _search.set(key, value));
     const search = searchParamsCache.parse(Object.fromEntries(_search));
-    
+
     const cursor = search.cursor ?? null;
     // Validate and clamp size parameter to prevent memory abuse
     // Min: 1, Max: 200, Default: 50
@@ -232,12 +283,15 @@ export async function GET(req: NextRequest) {
     // Get paginated rows with database-level sorting and pagination
     // This only loads the rows needed for the current page, not all favorites
     // Cached server-side with 12 hour TTL to reduce DB load
-    const result = await getFavoriteRowsDirect(session.user.id, normalizedSearch);
+    const result = await getFavoriteRowsDirect(
+      session.user.id,
+      normalizedSearch,
+    );
     return NextResponse.json(result, {
       headers: {
         // Use private cache since this is user-specific data
         // This prevents Vercel edge/CDN from caching responses
-        "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        ...PRIVATE_NO_STORE_HEADERS,
       },
     });
   } catch (error) {
@@ -245,7 +299,10 @@ export async function GET(req: NextRequest) {
       error: error instanceof Error ? error.message : String(error),
       stack: error instanceof Error ? error.stack : undefined,
     });
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500, headers: PRIVATE_NO_STORE_HEADERS },
+    );
   }
 }
 
@@ -258,7 +315,10 @@ export async function POST(request: NextRequest) {
   try {
     const parsed = RequestSchema.safeParse(await request.json());
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 },
+      );
     }
 
     // Keys are stable keys, not UUIDs
@@ -268,6 +328,9 @@ export async function POST(request: NextRequest) {
     logger.error("[POST /api/favorites/rows] Failed to resolve rows", {
       error: error instanceof Error ? error.message : String(error),
     });
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

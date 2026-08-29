@@ -1,16 +1,23 @@
+import { createHash } from "crypto";
+import { stableToolKey } from "@/features/data-explorer/stable-keys";
+import type {
+  ToolInfiniteQueryResponse,
+  ToolLogsMeta,
+} from "@/features/data-explorer/tools/tools-query-options";
+import type { ToolColumnSchema } from "@/features/data-explorer/tools/tools-schema";
+import {
+  toolsSearchParamsCache,
+  type ToolsSearchParamsType,
+} from "@/features/data-explorer/tools/tools-search-params";
+import { auth } from "@/lib/auth";
+import { STANDARD_CACHE_TTL } from "@/lib/cache/constants";
+import { PRIVATE_NO_STORE_HEADERS } from "@/lib/http-cache";
+import { logger } from "@/lib/logger";
+import { toolsCache } from "@/lib/tools-cache";
+import { unstable_cache } from "next/cache";
+import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { toolsCache } from "@/lib/tools-cache";
-import { auth } from "@/lib/auth";
-import { headers } from "next/headers";
-import type { ToolColumnSchema } from "@/features/data-explorer/tools/tools-schema";
-import type { ToolInfiniteQueryResponse, ToolLogsMeta } from "@/features/data-explorer/tools/tools-query-options";
-import { toolsSearchParamsCache, type ToolsSearchParamsType } from "@/features/data-explorer/tools/tools-search-params";
-import { unstable_cache } from "next/cache";
-import { createHash } from "crypto";
-import { STANDARD_CACHE_TTL } from "@/lib/cache/constants";
-import { stableToolKey } from "@/features/data-explorer/stable-keys";
-import { logger } from "@/lib/logger";
 
 const CACHE_SIZE_LIMIT_BYTES = 2 * 1024 * 1024; // 2MB
 
@@ -28,20 +35,28 @@ const getCachedFacets = unstable_cache(
 const hashObject = (value: unknown) =>
   createHash("sha256").update(JSON.stringify(value)).digest("hex");
 
-function buildToolFavoritesCacheKey(userId: string, search: ToolsSearchParamsType) {
+function buildToolFavoritesCacheKey(
+  userId: string,
+  search: ToolsSearchParamsType,
+) {
   const sortedEntries = Object.entries(search ?? {})
     .map(([key, value]) => [key, value] as const)
     .sort(([a], [b]) => a.localeCompare(b));
   return ["tool-favorites:filtered", userId, hashObject(sortedEntries)];
 }
 
-async function getCachedFavoriteToolsFiltered(userId: string, search: ToolsSearchParamsType) {
+async function getCachedFavoriteToolsFiltered(
+  userId: string,
+  search: ToolsSearchParamsType,
+) {
   const cacheFn = unstable_cache(
     async () => {
       const result = await toolsCache.getFavoriteToolsFiltered(userId, search);
       const estimatedSize = JSON.stringify(result).length;
       if (estimatedSize > CACHE_SIZE_LIMIT_BYTES) {
-        throw new Error(`Cache size (${estimatedSize} bytes) exceeds limit (${CACHE_SIZE_LIMIT_BYTES} bytes)`);
+        throw new Error(
+          `Cache size (${estimatedSize} bytes) exceeds limit (${CACHE_SIZE_LIMIT_BYTES} bytes)`,
+        );
       }
       return result;
     },
@@ -89,7 +104,8 @@ async function getFavoriteRowsDirect(
     };
   }
 
-  const start = typeof search.cursor === "number" && search.cursor >= 0 ? search.cursor : 0;
+  const start =
+    typeof search.cursor === "number" && search.cursor >= 0 ? search.cursor : 0;
   const pageSize = Math.min(Math.max(1, search.size ?? 50), 200);
   return {
     data: filteredTools.map((tool) => ({
@@ -111,7 +127,10 @@ async function getFavoriteRowsDirect(
       facets,
     },
     prevCursor: start > 0 ? Math.max(0, start - pageSize) : null,
-    nextCursor: start + filteredTools.length < filterCount ? start + filteredTools.length : null,
+    nextCursor:
+      start + filteredTools.length < filterCount
+        ? start + filteredTools.length
+        : null,
   };
 }
 
@@ -124,7 +143,10 @@ export async function GET(req: NextRequest) {
     const hdrs = await headers();
     const session = await auth.api.getSession({ headers: hdrs });
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401, headers: PRIVATE_NO_STORE_HEADERS },
+      );
     }
 
     const _search: Map<string, string> = new Map();
@@ -135,18 +157,27 @@ export async function GET(req: NextRequest) {
     const size = Math.min(Math.max(1, search.size ?? 50), 200);
     const normalizedSearch: ToolsSearchParamsType = { ...search, cursor, size };
 
-    const result = await getFavoriteRowsDirect(session.user.id, normalizedSearch);
+    const result = await getFavoriteRowsDirect(
+      session.user.id,
+      normalizedSearch,
+    );
     return NextResponse.json(result, {
       headers: {
-        "Cache-Control": "private, no-cache, no-store, must-revalidate",
+        ...PRIVATE_NO_STORE_HEADERS,
       },
     });
   } catch (error) {
-    logger.error("[GET /api/tools/favorites/rows] Failed to fetch favorite rows", {
-      error: error instanceof Error ? error.message : String(error),
-      stack: error instanceof Error ? error.stack : undefined,
-    });
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    logger.error(
+      "[GET /api/tools/favorites/rows] Failed to fetch favorite rows",
+      {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+      },
+    );
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500, headers: PRIVATE_NO_STORE_HEADERS },
+    );
   }
 }
 
@@ -154,7 +185,10 @@ export async function POST(request: NextRequest) {
   try {
     const parsed = RequestSchema.safeParse(await request.json());
     if (!parsed.success) {
-      return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Invalid request body" },
+        { status: 400 },
+      );
     }
 
     const rows = await toolsCache.getToolsByStableKeys(parsed.data.keys);
@@ -177,6 +211,9 @@ export async function POST(request: NextRequest) {
     logger.error("[POST /api/tools/favorites/rows] Failed to resolve rows", {
       error: error instanceof Error ? error.message : String(error),
     });
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
 }

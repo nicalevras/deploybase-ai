@@ -145,7 +145,7 @@ export function ModelSheetCharts({
   const latencyDescription = latencyAverage != null
     ? `${latencyAverage.toLocaleString(undefined, {
       maximumFractionDigits: 2,
-    })}s`
+    })}s avg`
     : "";
   const throughputDescription = React.useMemo(() => {
     const formatted = formatThroughputDisplay(throughput ?? null);

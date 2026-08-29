@@ -1,10 +1,21 @@
 "use client";
 
-import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
-import * as React from "react";
-import { useRouter } from "next/navigation";
+// Inline notices handle favorites feedback; no toasts here.
+import { getFavoritesBroadcastId } from "@/lib/favorites/broadcast";
 import { useAuth } from "@/providers/auth-client-provider";
-import { useAuthDialog } from "@/providers/auth-dialog-provider";
+import type { RowWithId } from "@/types/api";
+import {
+  useInfiniteQuery,
+  useQueryClient,
+  type InfiniteData,
+} from "@tanstack/react-query";
+import { Bot, Server, Wrench } from "lucide-react";
+// Use next/dynamic with ssr: false for truly client-only lazy loading
+// This prevents any SSR/prefetching and ensures components only load when rendered
+import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
+import * as React from "react";
+import { useStableFacets } from "../data-table/use-stable-facets";
 import { columns } from "./columns";
 import {
   filterFields as defaultFilterFields,
@@ -13,20 +24,11 @@ import {
 } from "./constants";
 import { DataTableInfinite } from "./data-table-infinite";
 import type { DataTableMeta } from "./data-table-infinite";
+import { useFavoritesState } from "./hooks/use-favorites-state";
+import { useTableSearchState } from "./hooks/use-table-search-state";
 import { dataOptions } from "./query-options";
 import type { InfiniteQueryResponse, LogsMeta } from "./query-options";
-import type { RowWithId } from "@/types/api";
 import type { ColumnSchema, FacetMetadataSchema } from "./schema";
-// Inline notices handle favorites feedback; no toasts here.
-import { getFavoritesBroadcastId } from "@/lib/favorites/broadcast";
-import { type AccountUser } from "./account-components";
-import { FAVORITES_QUERY_KEY } from "@/lib/favorites/constants";
-import { useTableSearchState } from "./hooks/use-table-search-state";
-import { useFavoritesState } from "./hooks/use-favorites-state";
-// Use next/dynamic with ssr: false for truly client-only lazy loading
-// This prevents any SSR/prefetching and ensures components only load when rendered
-import dynamic from "next/dynamic";
-import { Bot, Server, Wrench } from "lucide-react";
 
 interface ClientProps {
   initialFavoriteKeys?: string[];
@@ -37,7 +39,10 @@ const LazyFavoritesRuntime = dynamic(() => import("./favorites-runtime"), {
   ssr: false, // Client-only - never SSR or prefetch
 });
 
-export function Client({ initialFavoriteKeys, isFavoritesMode }: ClientProps = {}) {
+export function Client({
+  initialFavoriteKeys,
+  isFavoritesMode,
+}: ClientProps = {}) {
   const contentRef = React.useRef<HTMLTableSectionElement>(null);
   const {
     search,
@@ -53,57 +58,17 @@ export function Client({ initialFavoriteKeys, isFavoritesMode }: ClientProps = {
     typeof isFavoritesMode === "boolean" ? isFavoritesMode : bookmarksFlag;
   const queryClient = useQueryClient();
   const router = useRouter();
-  const { session, signOut, isPending: authPending } = useAuth();
-  const { showSignIn, showSignUp } = useAuthDialog();
-  const [isSigningOut, startSignOutTransition] = React.useTransition();
-  const accountUser = (session?.user ?? null) as AccountUser | null;
+  const { session, isPending: authPending } = useAuth();
   const broadcastId = React.useMemo(() => getFavoritesBroadcastId(), []);
 
   // Redirect unauthenticated users away from bookmarks mode
   React.useEffect(() => {
     if (effectiveFavoritesMode && !authPending && !session) {
-      router.replace("/signin?callbackUrl=" + encodeURIComponent("/gpus?bookmarks=true"));
+      router.replace(
+        "/signin?callbackUrl=" + encodeURIComponent("/gpus?bookmarks=true"),
+      );
     }
   }, [effectiveFavoritesMode, authPending, session, router]);
-
-  const clearFavoriteQueries = React.useCallback(() => {
-    queryClient.removeQueries({ queryKey: FAVORITES_QUERY_KEY });
-    queryClient.removeQueries({ queryKey: ["favorites", "rows"], exact: false });
-  }, [queryClient]);
-
-  const handleSignIn = React.useCallback(() => {
-    if (!showSignIn) return;
-    const callbackUrl =
-      typeof window !== "undefined"
-        ? `${window.location.pathname}${window.location.search}`
-        : "/";
-    showSignIn({ callbackUrl });
-  }, [showSignIn]);
-
-  const handleSignUp = React.useCallback(() => {
-    if (!showSignUp) return;
-    const callbackUrl =
-      typeof window !== "undefined"
-        ? `${window.location.pathname}${window.location.search}`
-        : "/";
-    showSignUp({ callbackUrl });
-  }, [showSignUp]);
-
-  const handleSignOut = React.useCallback(() => {
-    startSignOutTransition(async () => {
-      try {
-        await signOut();
-      } finally {
-        clearFavoriteQueries();
-        // Redirect to base path when signing out from bookmarks view
-        if (effectiveFavoritesMode) {
-          router.push("/gpus");
-        } else {
-          router.refresh();
-        }
-      }
-    });
-  }, [clearFavoriteQueries, effectiveFavoritesMode, router, signOut]);
 
   const { favoritesSnapshot, handleFavoritesSnapshot, shouldHydrateFavorites } =
     useFavoritesState({
@@ -111,8 +76,7 @@ export function Client({ initialFavoriteKeys, isFavoritesMode }: ClientProps = {
       effectiveFavoritesMode,
       queryClient,
     });
-  const noopAsync = React.useCallback(async () => { }, []);
-
+  const noopAsync = React.useCallback(async () => {}, []);
 
   const queryOptions = React.useMemo(() => {
     return {
@@ -125,7 +89,10 @@ export function Client({ initialFavoriteKeys, isFavoritesMode }: ClientProps = {
   // Optimize client-side navigation: use cached data for instant rendering
   // initialData: Persists to cache, skips loading state, marks data as fresh
   // Docs: https://tanstack.com/query/v5/docs/framework/react/guides/initial-query-data
-  type QueryData = InfiniteData<InfiniteQueryResponse<ColumnSchema[], LogsMeta>, { cursor: number | null; size: number }>;
+  type QueryData = InfiniteData<
+    InfiniteQueryResponse<ColumnSchema[], LogsMeta>,
+    { cursor: number | null; size: number }
+  >;
   const cachedData = queryClient.getQueryData<QueryData>(queryOptions.queryKey);
   const cachedState = queryClient.getQueryState(queryOptions.queryKey);
 
@@ -148,14 +115,17 @@ export function Client({ initialFavoriteKeys, isFavoritesMode }: ClientProps = {
     // Only set initialData if cached data exists (avoids redundant placeholderData)
     ...(cachedData
       ? {
-        initialData: cachedData,
-        initialDataUpdatedAt: cachedState?.dataUpdatedAt,
-      }
+          initialData: cachedData,
+          initialDataUpdatedAt: cachedState?.dataUpdatedAt,
+        }
       : {}),
   });
 
   const baseFlatData = React.useMemo(() => {
-    return (data?.pages?.flatMap((page) => page.data ?? []) as RowWithId[]) ?? ([] as RowWithId[]);
+    return (
+      (data?.pages?.flatMap((page) => page.data ?? []) as RowWithId[]) ??
+      ([] as RowWithId[])
+    );
   }, [data?.pages]);
   const baseLastPage = data?.pages?.[data?.pages.length - 1];
 
@@ -166,7 +136,7 @@ export function Client({ initialFavoriteKeys, isFavoritesMode }: ClientProps = {
   const lastPage = effectiveFavoritesMode ? favoritesLastPage : baseLastPage;
   const facetsFromPage = lastPage?.meta?.facets;
   const effectiveFavoriteKeys = effectiveFavoritesMode
-    ? favoritesSnapshot?.favoriteKeysFromRows ?? []
+    ? (favoritesSnapshot?.favoriteKeysFromRows ?? [])
     : initialFavoriteKeys;
 
   const metadata: DataTableMeta<Record<string, unknown>> = {
@@ -177,36 +147,27 @@ export function Client({ initialFavoriteKeys, isFavoritesMode }: ClientProps = {
   };
 
   const tableIsFetching = effectiveFavoritesMode
-    ? favoritesSnapshot?.isFetching ?? false
+    ? (favoritesSnapshot?.isFetching ?? false)
     : isFetching;
   const tableIsLoading = effectiveFavoritesMode
-    ? favoritesSnapshot?.isFavoritesLoading ?? true
+    ? (favoritesSnapshot?.isFavoritesLoading ?? true)
     : isLoading;
   const tableIsFetchingNextPage = effectiveFavoritesMode
-    ? favoritesSnapshot?.isFetchingNextPage ?? false
+    ? (favoritesSnapshot?.isFetchingNextPage ?? false)
     : isFetchingNextPage;
   const tableFetchNextPage = effectiveFavoritesMode
-    ? favoritesSnapshot?.fetchNextPage ?? noopAsync
+    ? (favoritesSnapshot?.fetchNextPage ?? noopAsync)
     : fetchNextPage;
   const tableHasNextPage = effectiveFavoritesMode
-    ? favoritesSnapshot?.hasNextPage ?? false
+    ? (favoritesSnapshot?.hasNextPage ?? false)
     : hasNextPage;
   const tableIsError = effectiveFavoritesMode ? false : isError;
   const tableError = effectiveFavoritesMode ? null : error;
   const tableRetry = effectiveFavoritesMode ? noopAsync : refetch;
-  const facetsRef = React.useRef<Record<string, FacetMetadataSchema> | undefined>(undefined);
-  React.useEffect(() => {
-    if (facetsFromPage && Object.keys(facetsFromPage).length) {
-      facetsRef.current = facetsFromPage;
-    }
-  }, [facetsFromPage]);
-  const stableFacets = React.useMemo(() => {
-    if (facetsFromPage && Object.keys(facetsFromPage).length) {
-      return facetsFromPage;
-    }
-    return facetsRef.current ?? {};
-  }, [facetsFromPage]);
-  const castFacets = stableFacets as Record<string, FacetMetadataSchema> | undefined;
+  const stableFacets = useStableFacets(facetsFromPage);
+  const castFacets = stableFacets as
+    | Record<string, FacetMetadataSchema>
+    | undefined;
 
   // REMINDER: filter metadata is hydrated from the API so checkboxes/sliders stay accurate
   const filterFields = React.useMemo(() => {
@@ -298,14 +259,6 @@ export function Client({ initialFavoriteKeys, isFavoritesMode }: ClientProps = {
         getRowId={(row) => row.uuid}
         renderSheetTitle={({ row }) => row?.original.gpu_model || "GPU Details"}
         focusTargetRef={contentRef}
-        account={{
-          user: accountUser,
-          onSignOut: handleSignOut,
-          isSigningOut,
-          onSignIn: handleSignIn,
-          onSignUp: handleSignUp,
-          isLoading: authPending,
-        }}
         primaryColumnId="gpu_model"
         getRowHref={(row) => row.source_url || null}
       />

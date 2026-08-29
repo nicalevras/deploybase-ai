@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "@/styles/globals.css";
 import { AppHeader } from "@/components/site/app-header-shell";
+import { getOAuthAvailability } from "@/lib/auth-configuration";
 import { AuthDialogParamsSync } from "@/providers/auth-dialog-params-sync";
 import { AuthDialogProvider } from "@/providers/auth-dialog-provider";
 import { AuthProvider } from "@/providers/auth-provider";
@@ -20,7 +21,11 @@ const satoshi = localFont({
     { path: "./fonts/Satoshi-Bold.woff2", weight: "700", style: "normal" },
     { path: "./fonts/Satoshi-Black.woff2", weight: "900", style: "normal" },
     { path: "./fonts/Satoshi-Italic.woff2", weight: "400", style: "italic" },
-    { path: "./fonts/Satoshi-BoldItalic.woff2", weight: "700", style: "italic" },
+    {
+      path: "./fonts/Satoshi-BoldItalic.woff2",
+      weight: "700",
+      style: "italic",
+    },
   ],
   display: "swap",
   variable: "--font-satoshi",
@@ -87,6 +92,7 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const oauthProviders = getOAuthAvailability();
   return (
     <html
       lang="en"
@@ -99,7 +105,7 @@ export default function RootLayout({
         <AuthProvider>
           <ReactQueryProvider>
             <NuqsAdapter>
-              <AuthDialogProvider>
+              <AuthDialogProvider oauthProviders={oauthProviders}>
                 <AppHeader />
                 <main
                   id="content"

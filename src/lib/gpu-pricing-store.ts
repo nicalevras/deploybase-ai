@@ -1,16 +1,27 @@
 import { createHash } from "crypto";
 import { db } from "@/db/client";
 import { gpuPricing } from "@/db/schema";
-import type { ProviderResult, PriceRow, ProviderSnapshot, Provider } from "@/types/pricing";
-import type { RowWithId } from "@/types/api";
-import { and, eq, sql } from "drizzle-orm";
 import { stableGpuKey } from "@/features/data-explorer/stable-keys";
-import { gpuPriceHistoryStore, type GpuPriceSampleInput } from "@/lib/gpu-price-history-store";
-import { normalizeObservedAt } from "@/lib/normalize-observed-at";
-import { normalizeGpuModel } from "@/lib/normalize-gpu-model";
+import {
+  gpuPriceHistoryStore,
+  type GpuPriceSampleInput,
+} from "@/lib/gpu-price-history-store";
+import { commitGpuSnapshotAtomically } from "@/lib/gpu-snapshot-replacement";
 import { logger } from "@/lib/logger";
+import { normalizeGpuModel } from "@/lib/normalize-gpu-model";
+import { normalizeObservedAt } from "@/lib/normalize-observed-at";
+import type { RowWithId } from "@/types/api";
+import type {
+  PriceRow,
+  Provider,
+  ProviderResult,
+  ProviderSnapshot,
+} from "@/types/pricing";
+import { and, eq, sql } from "drizzle-orm";
 
 type GpuPricingRow = typeof gpuPricing.$inferSelect;
+type GpuPricingInsert = typeof gpuPricing.$inferInsert;
+type DatabaseTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 // Helper type to access optional fields from PriceRow union
 type PriceRowFields = {
@@ -25,7 +36,11 @@ type PriceRowFields = {
   price_month_usd?: number;
 };
 
-function computeRowId(provider: string, observedAt: string, row: PriceRow): string {
+function computeRowId(
+  provider: string,
+  observedAt: string,
+  row: PriceRow,
+): string {
   const hashInput = JSON.stringify({ provider, observed_at: observedAt, row });
   return createHash("sha256").update(hashInput).digest("hex");
 }
@@ -75,25 +90,37 @@ function chunkArray<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
-class GpuPricingStore {
+export class GpuPricingStore {
+  constructor(
+    private readonly database = db,
+    private readonly historyStore = gpuPriceHistoryStore,
+  ) {}
+
   /**
    * Replace all GPU pricing data with the latest scrape results.
-   * The table is cleared before new rows are inserted to ensure parity with the models workflow.
+   * Current pricing and history are committed together so readers never observe
+   * an empty or partially replaced snapshot.
    */
-  async replaceAll(providerResults: ProviderResult[]): Promise<{ stored: number; touchedStableKeys: string[] }> {
-    if (!providerResults.length) {
-      return { stored: 0, touchedStableKeys: [] };
+  async replaceAll(
+    providerResults: ProviderResult[],
+  ): Promise<{ stored: number; touchedStableKeys: string[] }> {
+    const nonemptyResults = providerResults.filter(
+      (result) => result.rows.length > 0,
+    );
+    if (!nonemptyResults.length) {
+      throw new Error(
+        "Refusing to replace GPU pricing with an empty snapshot.",
+      );
     }
 
-    logger.info(`[GpuPricingStore] Replacing GPU pricing data for ${providerResults.length} providers...`);
-    await db.delete(gpuPricing);
+    logger.info(
+      `[GpuPricingStore] Replacing GPU pricing data for ${nonemptyResults.length} providers...`,
+    );
 
     const historySamples: GpuPriceSampleInput[] = [];
-    const rowsToInsert: (typeof gpuPricing.$inferInsert)[] = [];
+    const rowsToInsert: GpuPricingInsert[] = [];
 
-    for (const result of providerResults) {
-      if (!result.rows.length) continue;
-
+    for (const result of nonemptyResults) {
       const observedAtIso = normalizeObservedAt(result.observedAt);
       const version = typeof result.version === "number" ? result.version : 1;
 
@@ -101,8 +128,11 @@ class GpuPricingStore {
         // Normalize gpu_model before hashing, stable key, and DB storage
         const rowData = row as PriceRowFields;
         if (rowData.gpu_model) {
-          (row as Record<string, unknown>).gpu_model = normalizeGpuModel(rowData.gpu_model);
-          rowData.gpu_model = (row as Record<string, unknown>).gpu_model as string;
+          (row as Record<string, unknown>).gpu_model = normalizeGpuModel(
+            rowData.gpu_model,
+          );
+          rowData.gpu_model = (row as Record<string, unknown>)
+            .gpu_model as string;
         }
 
         const id = computeRowId(result.provider, observedAtIso, row);
@@ -138,25 +168,41 @@ class GpuPricingStore {
       }
     }
 
-    await db.transaction(async (tx) => {
-      await tx.delete(gpuPricing);
-      if (!rowsToInsert.length) {
-        return;
-      }
-      for (const chunk of chunkArray(rowsToInsert, INSERT_CHUNK_SIZE)) {
-        await tx.insert(gpuPricing).values(chunk);
-      }
+    const touchedStableKeys = await commitGpuSnapshotAtomically<
+      DatabaseTransaction,
+      GpuPricingInsert,
+      GpuPriceSampleInput
+    >({
+      rows: rowsToInsert,
+      historySamples,
+      transaction: (work) => this.database.transaction(work),
+      replaceCurrent: async (tx, rows) => {
+        await tx.delete(gpuPricing);
+        for (const chunk of chunkArray(rows, INSERT_CHUNK_SIZE)) {
+          await tx.insert(gpuPricing).values(chunk);
+        }
+      },
+      appendHistory: (tx, samples) =>
+        this.historyStore.appendSamples(samples, tx),
     });
 
-    const touchedStableKeys = await gpuPriceHistoryStore.appendSamples(historySamples);
-    await gpuPriceHistoryStore.pruneThirtyDaysWindow();
+    try {
+      await this.historyStore.pruneThirtyDaysWindow();
+    } catch (error) {
+      logger.error(
+        "[GpuPricingStore] Failed to prune GPU price history after commit",
+        error,
+      );
+    }
 
-    logger.info(`[GpuPricingStore] Stored ${rowsToInsert.length} GPU pricing rows`);
+    logger.info(
+      `[GpuPricingStore] Stored ${rowsToInsert.length} GPU pricing rows`,
+    );
     return { stored: rowsToInsert.length, touchedStableKeys };
   }
 
   async getAllRows(): Promise<RowWithId[]> {
-    const records = await db
+    const records = await this.database
       .select()
       .from(gpuPricing)
       .orderBy(gpuPricing.provider, gpuPricing.id);
@@ -165,7 +211,7 @@ class GpuPricingStore {
   }
 
   async getRowsByProvider(provider: Provider): Promise<RowWithId[]> {
-    const records = await db
+    const records = await this.database
       .select()
       .from(gpuPricing)
       .where(eq(gpuPricing.provider, provider))
@@ -175,8 +221,11 @@ class GpuPricingStore {
   }
 
   async getProviderSnapshots(): Promise<ProviderSnapshot[]> {
-    const records = await db.select().from(gpuPricing);
-    const map = new Map<Provider, { observedAt: Date; version: number; rows: PriceRow[] }>();
+    const records = await this.database.select().from(gpuPricing);
+    const map = new Map<
+      Provider,
+      { observedAt: Date; version: number; rows: PriceRow[] }
+    >();
 
     for (const record of records) {
       const provider = record.provider as Provider;
@@ -204,8 +253,10 @@ class GpuPricingStore {
     }));
   }
 
-  async getSnapshotByProvider(provider: Provider): Promise<ProviderSnapshot | null> {
-    const records = await db
+  async getSnapshotByProvider(
+    provider: Provider,
+  ): Promise<ProviderSnapshot | null> {
+    const records = await this.database
       .select()
       .from(gpuPricing)
       .where(eq(gpuPricing.provider, provider));
@@ -232,15 +283,18 @@ class GpuPricingStore {
     };
   }
 
-  async getInstance(provider: Provider, instanceId: string): Promise<PriceRow | null> {
-    const records = await db
+  async getInstance(
+    provider: Provider,
+    instanceId: string,
+  ): Promise<PriceRow | null> {
+    const records = await this.database
       .select()
       .from(gpuPricing)
       .where(
         and(
           eq(gpuPricing.provider, provider),
-          sql`${gpuPricing.data}->>'instance_id' = ${instanceId}`
-        )
+          sql`${gpuPricing.data}->>'instance_id' = ${instanceId}`,
+        ),
       )
       .limit(1);
 
@@ -253,16 +307,16 @@ class GpuPricingStore {
     providers: string[];
     lastScrapedAt?: string;
   }> {
-    const [totalResult] = await db
+    const [totalResult] = await this.database
       .select({ count: sql<number>`count(*)` })
       .from(gpuPricing);
 
-    const providers = await db
+    const providers = await this.database
       .select({ provider: gpuPricing.provider })
       .from(gpuPricing)
       .groupBy(gpuPricing.provider);
 
-    const [latestResult] = await db
+    const [latestResult] = await this.database
       .select({ observedAt: sql<string>`max(observed_at)` })
       .from(gpuPricing);
 
@@ -274,7 +328,9 @@ class GpuPricingStore {
   }
 
   async clearAll(): Promise<number> {
-    const deleted = await db.delete(gpuPricing).returning({ id: gpuPricing.id });
+    const deleted = await this.database
+      .delete(gpuPricing)
+      .returning({ id: gpuPricing.id });
     return deleted.length;
   }
 }

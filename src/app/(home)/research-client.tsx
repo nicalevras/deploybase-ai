@@ -1,16 +1,17 @@
 "use client";
 
 import { Input } from "@/components/ui/input";
+import {
+  createRetryableLoader,
+  type RetryableLoader,
+} from "@/lib/research/retryable-loader";
+import { fetchResearchSelection } from "@/lib/research/selection-request";
 import type {
   GpuChartPayload,
   HomepageResearchManifest,
   LlmChartPayload,
   ResearchOption,
 } from "@/lib/research/types";
-import {
-  createRetryableLoader,
-  type RetryableLoader,
-} from "@/lib/research/retryable-loader";
 import { cn } from "@/lib/utils";
 import { ChevronDown, Search, X } from "lucide-react";
 import { Popover as PopoverPrimitive } from "radix-ui";
@@ -27,14 +28,10 @@ type LlmChartComponent = React.ComponentType<{
 }>;
 
 const gpuChartLoader = createRetryableLoader(() =>
-  import("./gpu-market-chart").then(
-    (module) => module.GpuMarketChart,
-  ),
+  import("./gpu-market-chart").then((module) => module.GpuMarketChart),
 );
 const llmChartLoader = createRetryableLoader(() =>
-  import("./llm-market-chart").then(
-    (module) => module.LlmMarketChart,
-  ),
+  import("./llm-market-chart").then((module) => module.LlmMarketChart),
 );
 
 function useDeferredChart<TProps>(
@@ -93,9 +90,7 @@ function Control({
     const normalizedQuery = query.trim().toLowerCase();
     if (!normalizedQuery) return options;
     return options.filter((option) =>
-      `${option.label} ${option.value}`
-        .toLowerCase()
-        .includes(normalizedQuery),
+      `${option.label} ${option.value}`.toLowerCase().includes(normalizedQuery),
     );
   }, [options, query]);
 
@@ -266,19 +261,20 @@ function useSelectionPayload<TPayload>(
       skeletonTimerRef.current = setTimeout(() => {
         if (requestRef.current === controller) setShowSkeleton(true);
       }, 175);
-      fetch(`${endpoint}?${parameter}=${encodeURIComponent(key)}`, {
-        signal: controller.signal,
-      })
-        .then(async (response) => {
-          if (!response.ok) throw new Error("Research data is unavailable.");
-          return (await response.json()) as TPayload;
-        })
+      fetchResearchSelection<TPayload>(
+        fetch,
+        endpoint,
+        parameter,
+        key,
+        controller.signal,
+      )
         .then((nextPayload) => {
           cacheRef.current.set(key, nextPayload);
           setPayload(nextPayload);
         })
         .catch((reason: unknown) => {
-          if (reason instanceof DOMException && reason.name === "AbortError") return;
+          if (reason instanceof DOMException && reason.name === "AbortError")
+            return;
           setError(true);
         })
         .finally(() => {
@@ -302,7 +298,8 @@ function useSelectionPayload<TPayload>(
     },
     [],
   );
-  return { selection, payload, loading, showSkeleton, error, select };
+  const retry = React.useCallback(() => select(selection), [select, selection]);
+  return { selection, payload, loading, showSkeleton, error, select, retry };
 }
 
 export function GpuMarketController({
@@ -321,7 +318,7 @@ export function GpuMarketController({
 
   return (
     <div className="contents">
-      <div className="z-10 col-start-1 row-start-2 mt-[42px] w-full min-w-0 justify-self-start sm:col-start-2 sm:row-start-1 sm:mt-[22px] sm:w-64 sm:justify-self-end sm:self-end">
+      <div className="z-10 col-start-1 row-start-2 mt-[42px] w-full min-w-0 justify-self-start sm:col-start-2 sm:row-start-1 sm:mt-[22px] sm:w-64 sm:self-end sm:justify-self-end">
         <Control
           label="GPU model"
           value={state.selection}
@@ -334,7 +331,10 @@ export function GpuMarketController({
         className="col-start-1 row-start-3 min-w-0 sm:col-span-2 sm:row-start-2"
       >
         {state.error ? (
-          <ResearchSurfaceError message="GPU research data is temporarily unavailable." />
+          <ResearchSurfaceError
+            message="GPU research data is temporarily unavailable."
+            onRetry={state.retry}
+          />
         ) : chart.loadError ? (
           <ResearchSurfaceError
             message="The GPU chart could not be loaded."
@@ -374,7 +374,7 @@ export function LlmMarketController({
 
   return (
     <div className="contents">
-      <div className="z-10 col-start-1 row-start-2 mt-[42px] w-full min-w-0 justify-self-start sm:col-start-2 sm:row-start-1 sm:mt-[22px] sm:w-64 sm:justify-self-end sm:self-end">
+      <div className="z-10 col-start-1 row-start-2 mt-[42px] w-full min-w-0 justify-self-start sm:col-start-2 sm:row-start-1 sm:mt-[22px] sm:w-64 sm:self-end sm:justify-self-end">
         <Control
           label="LLM model"
           value={state.selection}
@@ -387,7 +387,10 @@ export function LlmMarketController({
         className="col-start-1 row-start-3 min-w-0 sm:col-span-2 sm:row-start-2"
       >
         {state.error ? (
-          <ResearchSurfaceError message="LLM research data is temporarily unavailable." />
+          <ResearchSurfaceError
+            message="LLM research data is temporarily unavailable."
+            onRetry={state.retry}
+          />
         ) : chart.loadError ? (
           <ResearchSurfaceError
             message="The LLM chart could not be loaded."

@@ -1,9 +1,10 @@
 "use client";
 
-import * as React from "react";
-import { useRouter } from "next/navigation";
 import type { AuthView } from "@/components/auth/auth-dialog";
 import { AuthDialog } from "@/components/auth/auth-dialog";
+import type { OAuthAvailability } from "@/lib/auth-configuration";
+import { useRouter } from "next/navigation";
+import * as React from "react";
 
 interface OpenDialogOptions {
   view?: AuthView;
@@ -25,6 +26,7 @@ interface AuthDialogContextValue {
 
 interface AuthDialogProviderProps {
   children: React.ReactNode;
+  oauthProviders: OAuthAvailability;
 }
 
 type DialogState = {
@@ -36,9 +38,14 @@ type DialogState = {
   isCompleting: boolean;
 };
 
-const AuthDialogContext = React.createContext<AuthDialogContextValue | null>(null);
+const AuthDialogContext = React.createContext<AuthDialogContextValue | null>(
+  null,
+);
 
-export function AuthDialogProvider({ children }: AuthDialogProviderProps) {
+export function AuthDialogProvider({
+  children,
+  oauthProviders,
+}: AuthDialogProviderProps) {
   const router = useRouter();
   const [isNavigating, startTransition] = React.useTransition();
   const [state, setState] = React.useState<DialogState>({
@@ -93,7 +100,7 @@ export function AuthDialogProvider({ children }: AuthDialogProviderProps) {
         clearAuthQuery();
       }
     },
-    [clearAuthQuery]
+    [clearAuthQuery],
   );
 
   const closeDialog = React.useCallback(() => {
@@ -139,7 +146,7 @@ export function AuthDialogProvider({ children }: AuthDialogProviderProps) {
         open: true,
       }));
     },
-    [closeDialogInternal, state.isCompleting]
+    [closeDialogInternal, state.isCompleting],
   );
 
   const handleComplete = React.useCallback(
@@ -151,7 +158,7 @@ export function AuthDialogProvider({ children }: AuthDialogProviderProps) {
         router.refresh();
       });
     },
-    [resolveDestination, router, startTransition]
+    [resolveDestination, router, startTransition],
   );
 
   const setView = React.useCallback((nextView: AuthView) => {
@@ -176,9 +183,10 @@ export function AuthDialogProvider({ children }: AuthDialogProviderProps) {
       setView,
       showSignIn: (options) => openDialog({ ...options, view: "signIn" }),
       showSignUp: (options) => openDialog({ ...options, view: "signUp" }),
-      showForgotPassword: (options) => openDialog({ ...options, view: "forgotPassword" }),
+      showForgotPassword: (options) =>
+        openDialog({ ...options, view: "forgotPassword" }),
     }),
-    [closeDialog, openDialog, setView, state.open, state.view]
+    [closeDialog, openDialog, setView, state.open, state.view],
   );
 
   return (
@@ -194,6 +202,7 @@ export function AuthDialogProvider({ children }: AuthDialogProviderProps) {
         errorCallbackUrl={state.errorCallbackUrl}
         defaultEmail={state.defaultEmail}
         isCompleting={state.isCompleting}
+        oauthProviders={oauthProviders}
       />
     </AuthDialogContext.Provider>
   );

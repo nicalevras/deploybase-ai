@@ -612,7 +612,7 @@ export function CheckedActionsIsland({
           aria-label="Compare selected"
           onClick={handleCompareClick}
         >
-          <GitCompare className="h-4 w-4 text-foreground transition-colors group-hover:text-[hsl(var(--chart-2))]" />
+          <GitCompare className="h-4 w-4 text-foreground transition-colors group-hover:text-[hsl(var(--signal))]" />
           <span>Compare</span>
         </Button>
         <Button

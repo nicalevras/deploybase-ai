@@ -1,3 +1,5 @@
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+--> statement-breakpoint
 CREATE TABLE "ai_models" (
 	"id" text PRIMARY KEY NOT NULL,
 	"slug" text NOT NULL,
@@ -65,11 +67,12 @@ CREATE TABLE "model_throughput_samples" (
 );
 --> statement-breakpoint
 CREATE TABLE "tools" (
-	"id" text PRIMARY KEY NOT NULL,
+	"id" integer PRIMARY KEY NOT NULL,
 	"name" text,
 	"developer" text,
 	"description" text,
 	"category" text,
+	"price" text,
 	"license" text,
 	"url" text,
 	"stack" text,
@@ -94,7 +97,7 @@ CREATE TABLE "user_model_favorites" (
 CREATE TABLE "user_tool_favorites" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
-	"tool_id" text NOT NULL,
+	"tool_stable_key" text NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -131,6 +134,7 @@ CREATE TABLE "user" (
 	"name" text NOT NULL,
 	"email" text NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
+	"newsletter_subscribed" boolean DEFAULT true NOT NULL,
 	"image" text,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
@@ -177,12 +181,11 @@ CREATE INDEX "ai_models_prompt_price_idx" ON "ai_models" USING btree ("prompt_pr
 CREATE INDEX "ai_models_completion_price_idx" ON "ai_models" USING btree ("completion_price");--> statement-breakpoint
 CREATE INDEX "ai_models_normalized_name_idx" ON "ai_models" USING btree ((COALESCE(lower(trim("short_name")), lower(trim("name")), '')));--> statement-breakpoint
 CREATE INDEX "ai_models_modality_score_idx" ON "ai_models" USING btree ("modality_score");--> statement-breakpoint
-CREATE INDEX "gpu_price_samples_stable_key_idx" ON "gpu_price_samples" USING btree ("stable_key");--> statement-breakpoint
 CREATE INDEX "gpu_price_samples_provider_idx" ON "gpu_price_samples" USING btree ("provider");--> statement-breakpoint
 CREATE INDEX "gpu_price_samples_observed_idx" ON "gpu_price_samples" USING btree ("observed_at");--> statement-breakpoint
 CREATE INDEX "gpu_pricing_provider_idx" ON "gpu_pricing" USING btree ("provider");--> statement-breakpoint
 CREATE INDEX "gpu_pricing_provider_priority_idx" ON "gpu_pricing" USING btree ((array_position(
-      ARRAY['coreweave','lambda','runpod','digitalocean','oracle','nebius','hyperstack','crusoe'],
+      ARRAY['coreweave','lambda','runpod','digitalocean','oracle','nebius','hyperstack','crusoe','flyio','vultr','latitude','ori','voltagepark','googlecloud','verda','scaleway','replicate','thundercompute','koyeb','sesterce','aws','azure','civo','vast','hotaisle','alibaba','oblivus','paperspace','togetherai'],
       lower("provider")
     )),lower("provider"));--> statement-breakpoint
 CREATE INDEX "gpu_pricing_observed_at_idx" ON "gpu_pricing" USING btree ("observed_at");--> statement-breakpoint
@@ -199,15 +202,10 @@ CREATE INDEX "gpu_pricing_vcpus_idx" ON "gpu_pricing" USING btree ((CAST("data"-
 CREATE INDEX "gpu_pricing_system_ram_idx" ON "gpu_pricing" USING btree ((CAST("data"->>'system_ram_gb' AS NUMERIC)));--> statement-breakpoint
 CREATE INDEX "gpu_pricing_type_sort_idx" ON "gpu_pricing" USING btree ((COALESCE("data"->>'type', '')));--> statement-breakpoint
 CREATE INDEX "gpu_pricing_stable_key_idx" ON "gpu_pricing" USING btree ("stable_key");--> statement-breakpoint
-CREATE INDEX "model_latency_permaslug_idx" ON "model_latency_samples" USING btree ("permaslug");--> statement-breakpoint
 CREATE INDEX "model_latency_endpoint_idx" ON "model_latency_samples" USING btree ("endpoint_id");--> statement-breakpoint
-CREATE INDEX "model_latency_observed_idx" ON "model_latency_samples" USING btree ("observed_at");--> statement-breakpoint
-CREATE INDEX "model_throughput_permaslug_idx" ON "model_throughput_samples" USING btree ("permaslug");--> statement-breakpoint
 CREATE INDEX "model_throughput_endpoint_idx" ON "model_throughput_samples" USING btree ("endpoint_id");--> statement-breakpoint
-CREATE INDEX "model_throughput_observed_idx" ON "model_throughput_samples" USING btree ("observed_at");--> statement-breakpoint
 CREATE INDEX "tools_name_idx" ON "tools" USING btree ("name");--> statement-breakpoint
-CREATE INDEX "tools_developer_idx" ON "tools" USING btree ("developer");--> statement-breakpoint
-CREATE INDEX "tools_category_idx" ON "tools" USING btree ("category");--> statement-breakpoint
+CREATE INDEX "tools_price_idx" ON "tools" USING btree ("price");--> statement-breakpoint
 CREATE INDEX "tools_license_idx" ON "tools" USING btree ("license");--> statement-breakpoint
 CREATE INDEX "tools_stack_idx" ON "tools" USING btree ("stack");--> statement-breakpoint
 CREATE INDEX "tools_oss_idx" ON "tools" USING btree ("oss");--> statement-breakpoint
@@ -219,5 +217,5 @@ CREATE INDEX "tools_category_name_idx" ON "tools" USING btree ("category","name"
 CREATE UNIQUE INDEX "user_gpu_unique" ON "user_favorites" USING btree ("user_id","gpu_uuid");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_model_unique" ON "user_model_favorites" USING btree ("user_id","model_id");--> statement-breakpoint
 CREATE INDEX "user_model_favorites_model_id_idx" ON "user_model_favorites" USING btree ("model_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "user_tool_unique" ON "user_tool_favorites" USING btree ("user_id","tool_id");--> statement-breakpoint
-CREATE INDEX "user_tool_favorites_tool_id_idx" ON "user_tool_favorites" USING btree ("tool_id");
+CREATE UNIQUE INDEX "user_tool_unique" ON "user_tool_favorites" USING btree ("user_id","tool_stable_key");--> statement-breakpoint
+CREATE INDEX "user_tool_favorites_tool_stable_key_idx" ON "user_tool_favorites" USING btree ("tool_stable_key");

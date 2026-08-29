@@ -1,16 +1,18 @@
-import type { Metadata } from "next";
-import * as React from "react";
-import {
-  HydrationBoundary,
-  QueryClient,
-  dehydrate,
-} from "@tanstack/react-query";
+import { buildGpuSchema } from "@/features/data-explorer/table/gpu-schema";
 import { dataOptions } from "@/features/data-explorer/table/query-options";
-import { ProviderGpuClient } from "./provider-gpu-client";
 import { searchParamsCache } from "@/features/data-explorer/table/search-params";
 import { getGpuPricingPage } from "@/lib/gpu-pricing-loader";
-import { buildGpuSchema } from "@/features/data-explorer/table/gpu-schema";
 import { logger } from "@/lib/logger";
+import { resolveGpuProviderRoute } from "@/lib/provider-route-resolver";
+import {
+  dehydrate,
+  HydrationBoundary,
+  QueryClient,
+} from "@tanstack/react-query";
+import type { Metadata } from "next";
+import { notFound, permanentRedirect } from "next/navigation";
+import * as React from "react";
+import { ProviderGpuClient } from "./provider-gpu-client";
 
 export const revalidate = 43200;
 
@@ -57,19 +59,22 @@ type Props = { params: Promise<{ provider: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { provider } = await params;
-  const name = formatProvider(provider);
+  const resolved = await resolveGpuProviderRoute(provider);
+  if (!resolved) notFound();
+  if (!resolved.isCanonical) permanentRedirect(`/gpus/${resolved.segment}`);
+  const name = formatProvider(resolved.value);
   const title = `${name} GPU Pricing & Availability | Deploybase`;
   const description = `${name} GPU pricing with hourly rates, specs, and availability across all models.`;
 
   return {
     title,
     description,
-    alternates: { canonical: `/gpus/${provider}` },
+    alternates: { canonical: `/gpus/${resolved.segment}` },
     openGraph: {
       title,
       description,
       images: [SHARED_OG_IMAGE],
-      url: `/gpus/${provider}`,
+      url: `/gpus/${resolved.segment}`,
       type: "website",
     },
     twitter: {
@@ -99,9 +104,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  */
 export default async function GpuProviderPage({ params }: Props) {
   const { provider } = await params;
-  const parsedSearch = searchParamsCache.parse({ provider: [provider] });
+  const resolved = await resolveGpuProviderRoute(provider);
+  if (!resolved) notFound();
+  if (!resolved.isCanonical) permanentRedirect(`/gpus/${resolved.segment}`);
+  const parsedSearch = searchParamsCache.parse({ provider: [resolved.value] });
   const queryClient = new QueryClient();
-  const captured: { firstPage: Awaited<ReturnType<typeof getGpuPricingPage>> | null } = { firstPage: null };
+  const captured: {
+    firstPage: Awaited<ReturnType<typeof getGpuPricingPage>> | null;
+  } = { firstPage: null };
 
   try {
     const infiniteOptions = dataOptions(parsedSearch);
@@ -128,13 +138,13 @@ export default async function GpuProviderPage({ params }: Props) {
     });
   } catch (error) {
     logger.error("[GpuProviderPage] Failed to prefetch GPU data", {
-      provider,
+      provider: resolved.value,
       error: error instanceof Error ? error.message : String(error),
     });
   }
 
   const dehydratedState = dehydrate(queryClient);
-  const name = formatProvider(provider);
+  const name = formatProvider(resolved.value);
   const schemaMarkup = buildGpuSchema(
     captured.firstPage,
     `${name} GPU Pricing Feed`,
@@ -155,13 +165,15 @@ export default async function GpuProviderPage({ params }: Props) {
       <HydrationBoundary state={dehydratedState}>
         <div
           className="w-full"
-          style={{
-            "--total-padding-mobile": "0.5rem",
-            "--total-padding-desktop": "3rem",
-          } as React.CSSProperties}
+          style={
+            {
+              "--total-padding-mobile": "0.5rem",
+              "--total-padding-desktop": "3rem",
+            } as React.CSSProperties
+          }
         >
           <React.Suspense fallback={null}>
-            <ProviderGpuClient provider={provider} />
+            <ProviderGpuClient provider={resolved.value} />
           </React.Suspense>
         </div>
       </HydrationBoundary>

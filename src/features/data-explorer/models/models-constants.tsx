@@ -32,7 +32,7 @@ export const formatThroughputDisplay = (value: number | null | undefined) => {
   if (value === null || value === undefined) return "N/A";
   if (!Number.isFinite(value)) return "N/A";
   const formatted = value.toFixed(1);
-  return `${formatted} TPS`;
+  return `${formatted} tps`;
 };
 
 const LogoBadge = ({

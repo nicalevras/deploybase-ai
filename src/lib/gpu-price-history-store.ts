@@ -2,6 +2,8 @@ import { db } from "@/db/client";
 import { gpuPriceSamples } from "@/db/schema";
 import { lte, sql } from "drizzle-orm";
 
+type HistoryInsertExecutor = Pick<typeof db, "insert">;
+
 export interface GpuPriceSampleInput {
   stableKey: string;
   provider: string;
@@ -12,17 +14,22 @@ export interface GpuPriceSampleInput {
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
 function startOfUtcDay(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  return new Date(
+    Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()),
+  );
 }
 
 class GpuPriceHistoryStore {
-  async appendSamples(samples: GpuPriceSampleInput[]): Promise<string[]> {
+  async appendSamples(
+    samples: GpuPriceSampleInput[],
+    executor: HistoryInsertExecutor = db,
+  ): Promise<string[]> {
     if (!samples.length) {
       return [];
     }
 
     const touched = new Set<string>();
-    const dedupedMap = new Map<string, typeof samples[0]>();
+    const dedupedMap = new Map<string, (typeof samples)[0]>();
 
     // Deduplicate: keep last occurrence
     for (const sample of samples) {
@@ -40,12 +47,15 @@ class GpuPriceHistoryStore {
       scrapedAt: new Date(),
     }));
 
-    await db
+    await executor
       .insert(gpuPriceSamples)
       .values(values)
       .onConflictDoUpdate({
         target: [gpuPriceSamples.stableKey, gpuPriceSamples.observedAt],
-        set: { priceUsd: sql`excluded.price_usd`, scrapedAt: sql`excluded.scraped_at` },
+        set: {
+          priceUsd: sql`excluded.price_usd`,
+          scrapedAt: sql`excluded.scraped_at`,
+        },
       });
 
     return Array.from(touched);

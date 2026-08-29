@@ -1,1 +1,0 @@
--- Migration no longer needed after column cleanup

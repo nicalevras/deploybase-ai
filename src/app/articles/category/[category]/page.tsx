@@ -1,5 +1,6 @@
 import { SiteFooter } from "@/components/site/site-footer";
 import { CATEGORIES, getCategoryBySlug } from "@/lib/article-categories";
+import { buildCategoryCollectionJsonLd } from "@/lib/article-category-structured-data";
 import { getArticlesByCategory } from "@/lib/articles-loader";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -41,24 +42,11 @@ export default async function CategoryPage({ params }: Props) {
   const categoryIndex = CATEGORIES.findIndex((item) => item.slug === slug);
   const nextCategory = CATEGORIES[(categoryIndex + 1) % CATEGORIES.length];
 
-  const itemListElement = articles.slice(0, 50).map((article, index) => ({
-    "@type": "ListItem",
-    position: index + 1,
-    url: `https://deploybase.ai/articles/${article.slug}`,
-    name: article.title,
-  }));
-  const collectionJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "CollectionPage",
-    name: `${category.name} Articles`,
-    description: category.description,
-    url: `https://deploybase.ai/articles/category/${slug}`,
-    mainEntity: {
-      "@type": "ItemList",
-      numberOfItems: itemListElement.length,
-      itemListElement,
-    },
-  };
+  const collectionJsonLd = buildCategoryCollectionJsonLd(
+    category,
+    slug,
+    articles,
+  );
   const breadcrumbJsonLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",

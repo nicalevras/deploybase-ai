@@ -22,6 +22,14 @@ const SheetLineChart = dynamic(
   },
 );
 
+const SERIES_COLORS = [
+  "hsl(var(--chart-1))",
+  "hsl(var(--signal))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+];
+
 type TimeseriesPoint = { observedAt: string };
 
 type ThroughputApiResponse = {
@@ -76,7 +84,7 @@ export function ModelComparisonCharts({
           endpointId: data.endpointId,
           label: data.shortName ?? data.name ?? data.permaslug,
           provider: data.provider ?? undefined,
-          color: `hsl(var(--chart-${(index % 5) + 1}))`,
+          color: SERIES_COLORS[index % SERIES_COLORS.length],
         };
       })
       .filter((target): target is NonNullable<typeof target> => Boolean(target));

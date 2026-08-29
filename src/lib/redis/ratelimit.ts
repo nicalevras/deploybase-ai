@@ -1,27 +1,56 @@
+import { getRedisClient } from "@/lib/redis/client";
+import {
+  BoundedMemoryRateLimiter,
+  type RateLimitResult,
+} from "@/lib/redis/memory-rate-limiter";
 import { Ratelimit } from "@upstash/ratelimit";
-import { Redis } from "@upstash/redis";
 
-// Use Upstash Redis env config for ratelimit (separate from our json client)
-const redis = Redis.fromEnv();
+function createLazyRateLimiter({
+  requests,
+  duration,
+  windowMs,
+  prefix,
+}: {
+  requests: number;
+  duration: Parameters<typeof Ratelimit.fixedWindow>[1];
+  windowMs: number;
+  prefix: string;
+}) {
+  const memory = new BoundedMemoryRateLimiter(requests, windowMs);
+  let upstash: Ratelimit | null = null;
 
-// Writes: stricter
-export const writeLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.fixedWindow(100, "24 h"),
+  return {
+    async limit(key: string): Promise<RateLimitResult> {
+      const redis = getRedisClient();
+      if (!redis) return memory.limit(key);
+      upstash ??= new Ratelimit({
+        redis,
+        limiter: Ratelimit.fixedWindow(requests, duration),
+        prefix,
+      });
+      return upstash.limit(key);
+    },
+  };
+}
+
+export const writeLimiter = createLazyRateLimiter({
+  requests: 100,
+  duration: "24 h",
+  windowMs: 24 * 60 * 60 * 1000,
   prefix: "ratelimit:write",
 });
 
-// Reads: higher limit for public GET endpoints
-export const readLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.fixedWindow(200, "1 m"),
+export const readLimiter = createLazyRateLimiter({
+  requests: 200,
+  duration: "1 m",
+  windowMs: 60 * 1000,
   prefix: "ratelimit:read",
 });
 
-// Newsletter subscribe: stricter to prevent abuse
-export const newsletterLimiter = new Ratelimit({
-  redis,
-  limiter: Ratelimit.fixedWindow(5, "1 h"),
+export const newsletterLimiter = createLazyRateLimiter({
+  requests: 5,
+  duration: "1 h",
+  windowMs: 60 * 60 * 1000,
   prefix: "ratelimit:newsletter",
 });
 

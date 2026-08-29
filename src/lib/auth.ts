@@ -1,18 +1,23 @@
+import * as authSchema from "@/db/auth-schema";
+import { db } from "@/db/client";
+import { getOAuthAvailability } from "@/lib/auth-configuration";
+import { sendPasswordResetEmail, sendVerificationEmail } from "@/lib/email";
+import { logger } from "@/lib/logger";
+import { enqueueNewsletterSync } from "@/lib/newsletter-queue";
+import { createBetterAuthRateLimitStorage } from "@/lib/redis/better-auth-rate-limit";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { eq } from "drizzle-orm";
-import { db } from "@/db/client";
-import * as authSchema from "@/db/auth-schema";
-import { sendVerificationEmail, sendPasswordResetEmail } from "@/lib/email";
-import { enqueueNewsletterSync } from "@/lib/newsletter-queue";
-import { logger } from "@/lib/logger";
+
+const oauthAvailability = getOAuthAvailability();
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, { provider: "pg", schema: authSchema }),
   rateLimit: {
     window: 60, // 60-second sliding window
     max: 100, // max requests per window (global)
+    customStorage: createBetterAuthRateLimitStorage(),
     customRules: {
       "/sign-in/email": { window: 60, max: 5 },
       "/sign-up/email": { window: 60, max: 5 },
@@ -47,9 +52,15 @@ export const auth = betterAuth({
           .update(authSchema.user)
           .set({ newsletterSubscribed: true })
           .where(eq(authSchema.user.id, user.id));
-        await enqueueNewsletterSync({ userId: user.id, email: user.email }, request?.url);
+        await enqueueNewsletterSync(
+          { userId: user.id, email: user.email },
+          request?.url,
+        );
       } catch (error) {
-        logger.error("Failed to enqueue newsletter sync after verification", error);
+        logger.error(
+          "Failed to enqueue newsletter sync after verification",
+          error,
+        );
       }
     },
   },
@@ -64,9 +75,15 @@ export const auth = betterAuth({
       enabled: true,
       afterDelete: async (user, request) => {
         try {
-          await enqueueNewsletterSync({ email: user.email, forceUnsubscribe: true }, request?.url);
+          await enqueueNewsletterSync(
+            { email: user.email, forceUnsubscribe: true },
+            request?.url,
+          );
         } catch (error) {
-          logger.error("Failed to enqueue newsletter unsubscribe on delete", error);
+          logger.error(
+            "Failed to enqueue newsletter unsubscribe on delete",
+            error,
+          );
         }
       },
     },
@@ -86,19 +103,31 @@ export const auth = betterAuth({
     },
   },
   socialProviders: {
-    google: {
-      clientId: process.env.GOOGLE_CLIENT_ID!,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-      prompt: "select_account",
-    },
-    github: {
-      clientId: process.env.GITHUB_CLIENT_ID!,
-      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-    },
-    huggingface: {
-      clientId: process.env.HUGGINGFACE_CLIENT_ID!,
-      clientSecret: process.env.HUGGINGFACE_CLIENT_SECRET!,
-    },
+    ...(oauthAvailability.google
+      ? {
+          google: {
+            clientId: process.env.GOOGLE_CLIENT_ID!,
+            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+            prompt: "select_account",
+          },
+        }
+      : {}),
+    ...(oauthAvailability.github
+      ? {
+          github: {
+            clientId: process.env.GITHUB_CLIENT_ID!,
+            clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+          },
+        }
+      : {}),
+    ...(oauthAvailability.huggingface
+      ? {
+          huggingface: {
+            clientId: process.env.HUGGINGFACE_CLIENT_ID!,
+            clientSecret: process.env.HUGGINGFACE_CLIENT_SECRET!,
+          },
+        }
+      : {}),
   },
   plugins: [nextCookies()],
 });

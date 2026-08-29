@@ -33,6 +33,14 @@ type PriceHistoryResponse = {
   series: PriceHistoryPoint[];
 };
 
+const SERIES_COLORS = [
+  "hsl(var(--chart-1))",
+  "hsl(var(--signal))",
+  "hsl(var(--chart-3))",
+  "hsl(var(--chart-4))",
+  "hsl(var(--chart-5))",
+];
+
 async function fetchPriceHistory(stableKey: string) {
   const params = new URLSearchParams({ stableKey });
   const res = await fetch(`/api/gpus/price-history?${params.toString()}`, {
@@ -76,7 +84,7 @@ export function GpuCompareChart({
           stableKey,
           label: baseLabel,
           provider: providerName ?? undefined,
-          color: `hsl(var(--chart-${(index % 5) + 1}))`,
+          color: SERIES_COLORS[index % SERIES_COLORS.length],
         };
       })
       .filter((target): target is NonNullable<typeof target> => Boolean(target));

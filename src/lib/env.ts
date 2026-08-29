@@ -35,7 +35,7 @@ export const env = {
   /** Secret used by better-auth for signing tokens / cookies */
   BETTER_AUTH_SECRET: requireEnv("BETTER_AUTH_SECRET"),
 
-  // -- Upstash Redis (required for rate-limiting) ---------------------------
+  // -- Upstash Redis (optional; bounded per-instance fallback) ---------------
   UPSTASH_REDIS_REST_URL: optionalEnv("UPSTASH_REDIS_REST_URL"),
   UPSTASH_REDIS_REST_TOKEN: optionalEnv("UPSTASH_REDIS_REST_TOKEN"),
 

@@ -1,1 +1,0 @@
-CREATE INDEX "gpu_pricing_data_idx" ON "gpu_pricing" USING gin ("data");
