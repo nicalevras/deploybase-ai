@@ -13,10 +13,9 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import * as React from "react";
 import { ProviderLlmClient } from "./provider-llm-client";
+import { OG_IMAGE, OG_SITE_NAME } from "@/lib/og";
 
 export const revalidate = 43200;
-
-const SHARED_OG_IMAGE = "/assets/og-image.png";
 
 type Props = { params: Promise<{ provider: string }> };
 
@@ -36,7 +35,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title,
       description,
-      images: [SHARED_OG_IMAGE],
+      siteName: OG_SITE_NAME,
+      images: [OG_IMAGE],
       url: `/llms/${resolved.segment}`,
       type: "website",
     },
@@ -44,7 +44,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: "summary_large_image",
       title,
       description,
-      images: [SHARED_OG_IMAGE],
+      images: [OG_IMAGE],
     },
   };
 }

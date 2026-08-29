@@ -264,7 +264,7 @@ export function GpuMarketChart({
         <div className="mb-4 flex shrink-0 items-center justify-between gap-3">
           <h3 className="text-sm font-semibold">Provider pricing</h3>
           <Link
-            href={payload.resultsHref}
+            href="/gpus"
             prefetch={false}
             className="text-xs font-medium text-foreground hover:text-signal"
           >

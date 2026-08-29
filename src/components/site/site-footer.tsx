@@ -17,8 +17,11 @@ export function SiteFooter() {
         <div className="space-y-2">
           <Brand />
           <p className="max-w-md text-sm text-muted-foreground">
-            Realtime GPU and LLM pricing with performance benchmarks across
-            every major provider.
+            Live GPU cloud and LLM API pricing, performance benchmarks, and
+            market data across leading AI infrastructure providers.
+          </p>
+          <p className="text-xs text-muted-foreground/70">
+            © {new Date().getFullYear()} Deploybase. All rights reserved.
           </p>
         </div>
         <nav className="flex flex-wrap gap-x-5 gap-y-2" aria-label="Footer navigation">

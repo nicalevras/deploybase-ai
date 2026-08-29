@@ -17,12 +17,14 @@ import {
 } from "./research-client";
 import { LatestResearch } from "./latest-research";
 import { ResearchSurfaceSkeleton } from "./research-surface-skeleton";
+import { OG_IMAGE, OG_SITE_NAME } from "@/lib/og";
 
 export const revalidate = 43200;
 
-const HOME_META_TITLE = "AI Infrastructure Pricing & Performance | Deploybase";
+const HOME_META_TITLE =
+  "AI Compute Pricing and Performance Benchmarks | Deploybase";
 const HOME_META_DESCRIPTION =
-  "Independent GPU cloud pricing and LLM inference performance data across providers.";
+  "Live GPU cloud and LLM API pricing, performance benchmarks, and market data across leading AI infrastructure providers. Analyze the AI compute market.";
 const HOME_URL = "https://deploybase.ai";
 
 const homepageJsonLd = buildHomepageStructuredData({
@@ -39,14 +41,15 @@ export const metadata: Metadata = {
     title: HOME_META_TITLE,
     description: HOME_META_DESCRIPTION,
     url: "/",
-    images: ["/assets/og-image.png"],
+    siteName: OG_SITE_NAME,
+    images: [OG_IMAGE],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
     title: HOME_META_TITLE,
     description: HOME_META_DESCRIPTION,
-    images: ["/assets/og-image.png"],
+    images: [OG_IMAGE],
   },
 };
 
@@ -164,17 +167,20 @@ export default function HomePage() {
           __html: JSON.stringify(homepageJsonLd).replace(/</g, "\\u003c"),
         }}
       />
-      <section>
+      <section aria-labelledby="hero-title">
         <header className="mx-auto w-full max-w-[1400px] px-5 pt-8 sm:px-8 sm:pt-16">
           <div className="border-b border-border pt-0 sm:border-t sm:pt-8">
             <div className="grid gap-0 pb-0 min-[900px]:grid-cols-[minmax(0,1fr)_22rem] min-[900px]:items-center min-[900px]:gap-10 min-[900px]:pb-8 lg:grid-cols-[minmax(0,1fr)_25rem] lg:gap-16">
               <div>
-                <h1 className="max-w-5xl text-[2.74rem] font-semibold leading-[1.02] tracking-tighter sm:text-[3.75rem] lg:text-[4.5rem]">
+                <h1
+                  id="hero-title"
+                  className="max-w-5xl text-[2.74rem] font-semibold leading-[1.02] tracking-tighter sm:text-[3.75rem] lg:text-[4.5rem]"
+                >
                   Market intelligence for AI compute
                 </h1>
                 <p className="mt-6 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-                  Realtime GPU and LLM pricing with performance benchmarks
-                  across every major provider.
+                  Live GPU cloud and LLM API pricing, performance benchmarks,
+                  and market data across leading AI infrastructure providers.
                 </p>
                 <div className="max-w-2xl">
                   <NewsletterSignup />
@@ -228,8 +234,8 @@ export default function HomePage() {
                         MLOps
                       </span>
                       <span className="mt-2 block text-sm leading-6 text-muted-foreground">
-                        Explore infrastructure, observability, orchestration,
-                        and developer tools.
+                        Discover tools for training, inference,
+                        observability, and deployment.
                       </span>
                     </span>
                     <span className="flex h-12 w-12 items-center justify-center rounded-md bg-muted text-foreground transition-colors group-hover:bg-accent group-hover:text-signal">
@@ -261,12 +267,8 @@ export default function HomePage() {
               id="gpu-market-title"
               className="mt-2 max-w-3xl text-3xl font-semibold sm:text-4xl"
             >
-              GPU prices by provider
+              GPU cloud prices by provider
             </h2>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Single-GPU listings are prioritized. Providers without one use
-              their lowest multi-GPU listing normalized per GPU.
-            </p>
           </div>
           <ResearchControlLabel>GPU model</ResearchControlLabel>
           <Suspense fallback={<ResearchControllerFallback kind="gpu" />}>
@@ -284,12 +286,8 @@ export default function HomePage() {
               id="llm-market-title"
               className="mt-2 max-w-3xl text-3xl font-semibold sm:text-4xl"
             >
-              LLM output vs cost
+              LLM performance vs cost
             </h2>
-            <p className="mt-2 max-w-2xl text-sm text-muted-foreground">
-              Latest available p50 measurements across endpoints listed by
-              OpenRouter.
-            </p>
           </div>
           <ResearchControlLabel>LLM model</ResearchControlLabel>
           <Suspense fallback={<ResearchControllerFallback kind="llm" />}>

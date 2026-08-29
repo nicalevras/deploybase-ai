@@ -11,13 +11,13 @@ import { toolsSearchParamsCache } from "@/features/data-explorer/tools/tools-sea
 import { getToolsPage } from "@/lib/tools-loader";
 import { buildToolsSchema } from "@/features/data-explorer/tools/build-tools-schema";
 import { logger } from "@/lib/logger";
+import { OG_IMAGE, OG_SITE_NAME } from "@/lib/og";
 
 export const revalidate = 43200;
 
-const TOOLS_META_TITLE = "MLOps Tools Directory | Deploybase";
+const TOOLS_META_TITLE = "AI and Machine Learning Tools | Deploybase";
 const TOOLS_META_DESCRIPTION =
-  "Directory of MLOps tools for training, inference, and deployment. Browse by category and provider.";
-const SHARED_OG_IMAGE = "/assets/og-image.png";
+  "Discover AI/ML tools for model training, inference, serving, RAG, vector databases, observability, evaluation, and deployment.";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
@@ -27,7 +27,8 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: {
       title: TOOLS_META_TITLE,
       description: TOOLS_META_DESCRIPTION,
-      images: [SHARED_OG_IMAGE],
+      siteName: OG_SITE_NAME,
+      images: [OG_IMAGE],
       url: "/tools",
       type: "website",
     },
@@ -35,7 +36,7 @@ export async function generateMetadata(): Promise<Metadata> {
       card: "summary_large_image",
       title: TOOLS_META_TITLE,
       description: TOOLS_META_DESCRIPTION,
-      images: [SHARED_OG_IMAGE],
+      images: [OG_IMAGE],
     },
   };
 }

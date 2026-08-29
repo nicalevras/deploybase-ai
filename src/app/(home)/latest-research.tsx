@@ -1,6 +1,6 @@
 import { getAllArticleMetadata } from "@/lib/articles-loader";
 import { cn } from "@/lib/utils";
-import { ArrowRight } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 
 export function LatestResearch() {
@@ -30,7 +30,7 @@ export function LatestResearch() {
               prefetch={false}
               className="inline-flex items-center gap-1 text-sm font-medium text-foreground hover:text-signal"
             >
-              All research <ArrowRight className="h-4 w-4" />
+              All research <ArrowUpRight className="h-4 w-4" />
             </Link>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3">

@@ -13,6 +13,7 @@ import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import * as React from "react";
 import { ProviderGpuClient } from "./provider-gpu-client";
+import { OG_IMAGE, OG_SITE_NAME } from "@/lib/og";
 
 export const revalidate = 43200;
 
@@ -53,8 +54,6 @@ function formatProvider(slug: string): string {
   return KNOWN_NAMES[slug] ?? slug.charAt(0).toUpperCase() + slug.slice(1);
 }
 
-const SHARED_OG_IMAGE = "/assets/og-image.png";
-
 type Props = { params: Promise<{ provider: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -73,7 +72,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title,
       description,
-      images: [SHARED_OG_IMAGE],
+      siteName: OG_SITE_NAME,
+      images: [OG_IMAGE],
       url: `/gpus/${resolved.segment}`,
       type: "website",
     },
@@ -81,7 +81,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: "summary_large_image",
       title,
       description,
-      images: [SHARED_OG_IMAGE],
+      images: [OG_IMAGE],
     },
   };
 }

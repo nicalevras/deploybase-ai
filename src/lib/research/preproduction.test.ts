@@ -64,7 +64,7 @@ describe("homepage research manifest", () => {
     const manifest = createHomepageResearchManifest(
       {
         options: [],
-        initial: { model: "", offers: [], resultsHref: "/gpus" },
+        initial: { model: "", offers: [] },
       },
       {
         options: [],
@@ -72,7 +72,6 @@ describe("homepage research manifest", () => {
           selection: "featured",
           isMultiModelView: true,
           endpoints: [],
-          resultsHref: "/llms",
         },
       },
     );

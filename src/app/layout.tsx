@@ -3,6 +3,7 @@ import localFont from "next/font/local";
 import "@/styles/globals.css";
 import { AppHeader } from "@/components/site/app-header-shell";
 import { getOAuthAvailability } from "@/lib/auth-configuration";
+import { OG_IMAGE, OG_SITE_NAME } from "@/lib/og";
 import { AuthDialogParamsSync } from "@/providers/auth-dialog-params-sync";
 import { AuthDialogProvider } from "@/providers/auth-dialog-provider";
 import { AuthProvider } from "@/providers/auth-provider";
@@ -67,15 +68,15 @@ export const metadata: Metadata = {
     address: false,
   },
   twitter: {
-    images: ["/assets/og-image.png"],
+    images: [OG_IMAGE],
     card: "summary_large_image",
     title: TITLE,
     description: DESCRIPTION,
   },
   openGraph: {
     type: "website",
-    siteName: "Deploybase",
-    images: ["/assets/og-image.png"],
+    siteName: OG_SITE_NAME,
+    images: [OG_IMAGE],
     title: TITLE,
     description: DESCRIPTION,
   },

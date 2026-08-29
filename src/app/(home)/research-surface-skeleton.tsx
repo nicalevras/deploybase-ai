@@ -53,12 +53,12 @@ function ChartHeader({ kind }: { kind: "gpu" | "llm" }) {
       <h3 className="text-sm font-semibold">
         {kind === "gpu"
           ? "Comparable provider price"
-          : "Output price versus throughput"}
+          : "Output price vs throughput"}
       </h3>
       <span className="text-right text-xs text-muted-foreground">
         {kind === "gpu"
           ? "USD per GPU-hour"
-          : "USD / 1M output tokens · p50 TPS · log price axis"}
+          : "USD / 1M output tokens"}
       </span>
     </div>
   );

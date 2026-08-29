@@ -70,14 +70,12 @@ export interface ResearchFreshness {
 export interface GpuChartPayload {
   model: string;
   offers: GpuChartOffer[];
-  resultsHref: string;
 }
 
 export interface LlmChartPayload {
   selection: string;
   isMultiModelView: boolean;
   endpoints: LlmChartEndpoint[];
-  resultsHref: string;
 }
 
 export interface HomepageResearchManifest {

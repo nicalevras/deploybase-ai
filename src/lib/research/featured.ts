@@ -22,10 +22,6 @@ export const FEATURED_LLM_PROVIDERS = [
 export const featuredLlmProviderSet = new Set<string>(
   FEATURED_LLM_PROVIDERS,
 );
-const featuredLlmSearchParams = new URLSearchParams({
-  provider: FEATURED_LLM_PROVIDERS.join(","),
-});
-export const featuredLlmHref = `/llms?${featuredLlmSearchParams.toString()}`;
 
 export const featuredLlmPermaslugSet = new Set([
   "anthropic/claude-4.8-opus-20260528",

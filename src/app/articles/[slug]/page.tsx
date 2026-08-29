@@ -14,6 +14,7 @@ import { notFound } from "next/navigation";
 import rehypeSlug from "rehype-slug";
 import remarkGfm from "remark-gfm";
 import { mdxComponents } from "../_components/mdx-components";
+import { OG_IMAGE, OG_SITE_NAME } from "@/lib/og";
 
 export const revalidate = 43200;
 
@@ -41,6 +42,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: frontmatter.title,
       description: frontmatter.description,
       url,
+      siteName: OG_SITE_NAME,
+      images: [OG_IMAGE],
       type: "article",
       publishedTime: frontmatter.date,
       modifiedTime: dateModified,
@@ -51,6 +54,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: "summary_large_image",
       title: frontmatter.title,
       description: frontmatter.description,
+      images: [OG_IMAGE],
     },
   };
 }

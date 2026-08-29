@@ -10,7 +10,6 @@ import { STANDARD_CACHE_TTL } from "@/lib/cache/constants";
 import {
   FEATURED_MODELS,
   FEATURED_RELEASE_START,
-  featuredLlmHref,
   featuredLlmPermaslugSet,
   featuredLlmProviderSet,
 } from "@/lib/research/featured";
@@ -244,7 +243,6 @@ function buildGpuPayload(
   return {
     model,
     offers: selectLowestGpuOffersByProvider(offers, model).map(toGpuChartOffer),
-    resultsHref: `/gpus?${new URLSearchParams({ gpu_model: model }).toString()}`,
   };
 }
 
@@ -292,17 +290,11 @@ function buildLlmPayload(
     .sort((left, right) => (right.throughput ?? 0) - (left.throughput ?? 0));
 
   if (!selected.length) return null;
-  const modelLabel = selected[0]?.model;
 
   return {
     selection,
     isMultiModelView,
     endpoints: selected.map(toLlmChartEndpoint),
-    resultsHref: isMultiModelView
-      ? featuredLlmHref
-      : modelLabel
-        ? `/llms?name=${encodeURIComponent(modelLabel)}`
-        : "/llms?sort=throughput.desc",
   };
 }
 
@@ -365,13 +357,11 @@ export async function getHomepageResearchManifest(): Promise<HomepageResearchMan
   const initialGpu = buildGpuPayload(gpuResult, defaultGpuModel) ?? {
     model: "",
     offers: [],
-    resultsHref: "/gpus",
   };
   const initialLlm = buildLlmPayload(llmResult, FEATURED_MODELS) ?? {
     selection: FEATURED_MODELS,
     isMultiModelView: true,
     endpoints: [],
-    resultsHref: featuredLlmHref,
   };
 
   return createHomepageResearchManifest(

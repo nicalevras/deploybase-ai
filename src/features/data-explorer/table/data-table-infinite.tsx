@@ -437,10 +437,10 @@ export function DataTableInfinite<
   const modelLabel = String(firstFilterValue(activeModel) ?? "").trim();
   let explorerTitle =
     currentNavValue === "/llms"
-      ? "LLM inference"
+      ? "LLM API Pricing and Performance Benchmarks"
       : currentNavValue === "/tools"
-        ? "MLOps directory"
-        : "GPU cloud pricing";
+        ? "AI and Machine Learning Tools"
+        : "GPU Cloud Pricing and Performance Benchmarks";
   if (currentNavValue === "/llms" && providerLabel) {
     explorerTitle = `${providerLabel} LLM inference`;
   } else if (modelLabel) {

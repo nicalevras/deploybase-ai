@@ -18,13 +18,14 @@ import {
   buildLlmDatasetStructuredData,
   combineStructuredData,
 } from "@/lib/research/structured-data";
+import { OG_IMAGE, OG_SITE_NAME } from "@/lib/og";
 
 export const revalidate = 43200;
 
-const LLMS_META_TITLE = "LLM API Pricing Comparison | Deploybase";
+const LLMS_META_TITLE =
+  "LLM API Pricing and Performance Benchmarks | Deploybase";
 const LLMS_META_DESCRIPTION =
-  "LLM API pricing across all providers. Compare cost per token, context windows, and models.";
-const SHARED_OG_IMAGE = "/assets/og-image.png";
+  "Live LLM API pricing and performance benchmarks across frontier labs and inference providers. Compare token pricing, context windows, throughput, and latency.";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
@@ -35,14 +36,15 @@ export async function generateMetadata(): Promise<Metadata> {
       title: LLMS_META_TITLE,
       description: LLMS_META_DESCRIPTION,
       url: "/llms",
-      images: [SHARED_OG_IMAGE],
+      siteName: OG_SITE_NAME,
+      images: [OG_IMAGE],
       type: "website",
     },
     twitter: {
       card: "summary_large_image",
       title: LLMS_META_TITLE,
       description: LLMS_META_DESCRIPTION,
-      images: [SHARED_OG_IMAGE],
+      images: [OG_IMAGE],
     },
   };
 }

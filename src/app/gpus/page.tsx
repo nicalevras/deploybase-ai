@@ -20,13 +20,14 @@ import {
   buildGpuDatasetStructuredData,
   combineStructuredData,
 } from "@/lib/research/structured-data";
+import { OG_IMAGE, OG_SITE_NAME } from "@/lib/og";
 
 export const revalidate = 43200;
 
-const GPU_META_TITLE = "GPU Cloud Pricing Comparison | Deploybase";
+const GPU_META_TITLE =
+  "GPU Cloud Pricing and Performance Benchmarks | Deploybase";
 const GPU_META_DESCRIPTION =
-  "GPU cloud pricing across all providers. Compare hourly rates, VRAM, specs, and availability.";
-const SHARED_OG_IMAGE = "/assets/og-image.png";
+  "Live GPU cloud pricing and performance benchmarks across hyperscalers and neoclouds. Compare hourly rates, specs, availability, and historical price trends.";
 
 export async function generateMetadata(): Promise<Metadata> {
   return {
@@ -36,7 +37,8 @@ export async function generateMetadata(): Promise<Metadata> {
     openGraph: {
       title: GPU_META_TITLE,
       description: GPU_META_DESCRIPTION,
-      images: [SHARED_OG_IMAGE],
+      siteName: OG_SITE_NAME,
+      images: [OG_IMAGE],
       url: "/gpus",
       type: "website",
     },
@@ -44,7 +46,7 @@ export async function generateMetadata(): Promise<Metadata> {
       card: "summary_large_image",
       title: GPU_META_TITLE,
       description: GPU_META_DESCRIPTION,
-      images: [SHARED_OG_IMAGE],
+      images: [OG_IMAGE],
     },
   };
 }

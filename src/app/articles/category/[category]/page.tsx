@@ -5,6 +5,7 @@ import { getArticlesByCategory } from "@/lib/articles-loader";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ArticleCollection } from "../../_components/article-collection";
+import { OG_IMAGE, OG_SITE_NAME } from "@/lib/og";
 
 export const revalidate = 43200;
 
@@ -29,7 +30,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       title: `${category.name} Articles`,
       description: category.description,
       url,
+      siteName: OG_SITE_NAME,
+      images: [OG_IMAGE],
       type: "website",
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: `${category.name} Articles`,
+      description: category.description,
+      images: [OG_IMAGE],
     },
   };
 }

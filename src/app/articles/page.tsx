@@ -5,20 +5,30 @@ import { cn } from "@/lib/utils";
 import { ArrowRight, ChevronDown } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { OG_IMAGE, OG_SITE_NAME } from "@/lib/og";
 
 export const revalidate = 43200;
 
 export const metadata: Metadata = {
-  title: "AI Infrastructure Research | Deploybase",
+  title: "AI/ML Research and Analysis | Deploybase",
   description:
-    "GPU pricing guides, LLM comparisons, and AI infrastructure research from Deploybase.",
+    "Data-driven research on GPU economics, LLM performance, model training, inference, MLOps, and emerging trends across AI and machine learning.",
   alternates: { canonical: "/articles" },
   openGraph: {
-    title: "AI Infrastructure Research | Deploybase",
+    title: "AI/ML Research and Analysis | Deploybase",
     description:
-      "GPU pricing guides, LLM comparisons, and AI infrastructure research from Deploybase.",
+      "Data-driven research on GPU economics, LLM performance, model training, inference, MLOps, and emerging trends across AI and machine learning.",
     url: "/articles",
+    siteName: OG_SITE_NAME,
+    images: [OG_IMAGE],
     type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "AI/ML Research and Analysis | Deploybase",
+    description:
+      "Data-driven research on GPU economics, LLM performance, model training, inference, MLOps, and emerging trends across AI and machine learning.",
+    images: [OG_IMAGE],
   },
 };
 
@@ -69,11 +79,12 @@ export default async function ArticlesPage() {
               DEPLOYBASE RESEARCH
             </p>
             <h1 className="mt-4 max-w-3xl text-balance text-4xl font-semibold leading-tight sm:text-5xl">
-              Research for AI infrastructure decisions
+              AI/ML Research and Analysis
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-muted-foreground">
-              Pricing analysis, provider comparisons, deployment guides, and
-              market context.
+              Data-driven research on GPU economics, LLM performance, model
+              training, inference, MLOps, and emerging trends across AI and
+              machine learning.
             </p>
           </div>
         </header>
@@ -84,7 +95,7 @@ export default async function ArticlesPage() {
         >
           <div className="flex items-end justify-between pb-0 sm:pb-5">
             <div>
-              <p className="text-xs font-semibold text-signal">INDEX</p>
+              <p className="text-xs font-semibold text-signal">CATEGORIES</p>
               <h2 id="topics-title" className="mt-2 text-2xl font-semibold">
                 Browse by topic
               </h2>

@@ -281,9 +281,9 @@ export function LlmMarketChart({
     <div className={cn(researchSurfaceClassName, className)}>
       <div className={researchPlotPanelClassName}>
         <div className="mb-4 flex shrink-0 items-baseline justify-between gap-4">
-          <h3 className="text-sm font-semibold">Output price versus throughput</h3>
+          <h3 className="text-sm font-semibold">Output price vs throughput</h3>
           <span className="text-xs text-muted-foreground">
-            USD / 1M output tokens · p50 TPS · log price axis
+            USD / 1M output tokens
           </span>
         </div>
         <div className="min-h-0 w-full min-w-0 flex-1">
@@ -390,7 +390,7 @@ export function LlmMarketChart({
         <div className="mb-4 flex shrink-0 items-center justify-between gap-3">
           <h3 className="text-sm font-semibold">Fastest measured</h3>
           <Link
-            href={payload.resultsHref}
+            href="/llms"
             prefetch={false}
             className="text-xs font-medium text-foreground hover:text-signal"
           >

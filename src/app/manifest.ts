@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Compare GPU cloud and LLM API pricing across all providers.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f4f6f3",
-    theme_color: "#f4f6f3",
+    background_color: "#f5f4ef",
+    theme_color: "#f5f4ef",
     icons: [
       {
         src: "/assets/icon-192x192.png",
@@ -21,7 +21,7 @@ export default function manifest(): MetadataRoute.Manifest {
         type: "image/png",
       },
       {
-        src: "/assets/icon-512x512.png",
+        src: "/assets/icon-512x512-maskable.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",

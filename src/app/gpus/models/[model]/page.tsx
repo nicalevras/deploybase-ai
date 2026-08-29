@@ -14,10 +14,9 @@ import { buildGpuSchema } from "@/features/data-explorer/table/gpu-schema";
 import { gpuPricingCache } from "@/lib/gpu-pricing-cache";
 import { toGpuModelSlug, resolveGpuModelFromSlug } from "@/lib/gpu-model-slug";
 import { logger } from "@/lib/logger";
+import { OG_IMAGE, OG_SITE_NAME } from "@/lib/og";
 
 export const revalidate = 43200;
-
-const SHARED_OG_IMAGE = "/assets/og-image.png";
 
 type Props = { params: Promise<{ model: string }> };
 
@@ -48,7 +47,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title,
       description,
-      images: [SHARED_OG_IMAGE],
+      siteName: OG_SITE_NAME,
+      images: [OG_IMAGE],
       url: `/gpus/models/${slug}`,
       type: "website",
     },
@@ -56,7 +56,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: "summary_large_image",
       title,
       description,
-      images: [SHARED_OG_IMAGE],
+      images: [OG_IMAGE],
     },
   };
 }

@@ -12,7 +12,6 @@ import {
 import {
   FEATURED_LLM_PROVIDERS,
   FEATURED_RELEASE_START,
-  featuredLlmHref,
 } from "./featured.ts";
 import { isFeaturedLlmEndpoint } from "./analytics.ts";
 import { resolveResearchRouteResult } from "./route-result.ts";
@@ -68,15 +67,6 @@ describe("research cache safety", () => {
 });
 
 describe("research URL and search behavior", () => {
-  it("encodes the complete featured provider filter", () => {
-    const url = new URL(featuredLlmHref, "https://deploybase.ai");
-    assert.equal(
-      url.searchParams.get("provider"),
-      FEATURED_LLM_PROVIDERS.join(","),
-    );
-    assert.equal(featuredLlmHref.includes(" "), false);
-  });
-
   it("keeps the featured release boundary fixed with no end date", () => {
     assert.equal(
       FEATURED_RELEASE_START,
