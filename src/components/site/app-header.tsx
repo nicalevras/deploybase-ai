@@ -17,7 +17,11 @@ import { useAuth } from "@/providers/auth-client-provider";
 import { useAuthDialog } from "@/providers/auth-dialog-provider";
 import { Bookmark, Menu, X } from "lucide-react";
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import {
+  usePathname,
+  useSearchParams,
+  useSelectedLayoutSegment,
+} from "next/navigation";
 import * as React from "react";
 
 const NAV_ITEMS = [
@@ -52,8 +56,9 @@ export function AppHeaderNavigation({
   desktopNavigation: React.ReactNode;
 }) {
   const pathname = usePathname() ?? "";
+  const activeRootSegment = useSelectedLayoutSegment();
   const usesContainedHeader =
-    pathname === "/" || pathname.startsWith("/articles");
+    activeRootSegment === "(home)" || activeRootSegment === "articles";
   const isExplorerPath =
     pathname.startsWith("/gpus") ||
     pathname.startsWith("/llms") ||

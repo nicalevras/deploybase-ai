@@ -1,11 +1,5 @@
 "use client";
 
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/custom/accordion";
 import { Avatar, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +13,6 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import {
-  Bookmark,
   EllipsisVertical,
   LogIn,
   LogOut,
@@ -29,7 +22,6 @@ import {
 // Use next/dynamic with ssr: false for truly client-only lazy loading
 // This prevents any SSR/prefetching and ensures components only load when dialog is opened
 import dynamic from "next/dynamic";
-import Link from "next/link";
 import * as React from "react";
 
 const LazySettingsDialog = dynamic(
@@ -293,65 +285,8 @@ export function UserMenu({
           align="end"
           className="mt-1 w-auto rounded border-border bg-site-chrome sm:mr-0 sm:mt-0"
         >
-          <div className="flex flex-col space-y-1">
-            {isAuthenticated ? (
-              <Accordion
-                type="single"
-                collapsible
-                className="-mx-2 w-[calc(100%+16px)] px-2"
-              >
-                <AccordionItem value="favorites" className="border-none">
-                  <AccordionTrigger className="flex w-full cursor-pointer select-none items-center justify-between gap-2 rounded-sm px-2 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:no-underline focus-visible:bg-muted focus-visible:text-accent-foreground">
-                    <span className="flex items-center gap-2">
-                      <Bookmark className="h-4 w-4" />
-                      <span>Bookmarks</span>
-                    </span>
-                  </AccordionTrigger>
-                  <AccordionContent className="px-0 pt-0 [&>div]:pb-0">
-                    <div className="relative flex flex-col gap-1 pl-[25px]">
-                      <span
-                        aria-hidden
-                        className="pointer-events-none absolute bottom-1 left-[15px] top-1 w-px bg-muted"
-                      />
-                      <DropdownMenuItem
-                        asChild
-                        className={
-                          "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 pl-2 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:no-underline focus-visible:bg-muted focus-visible:text-accent-foreground"
-                        }
-                      >
-                        <Link href="/gpus?bookmarks=true">
-                          <span>GPUs</span>
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        asChild
-                        className={
-                          "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 pl-2 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:no-underline focus-visible:bg-muted focus-visible:text-accent-foreground"
-                        }
-                      >
-                        <Link href="/llms?bookmarks=true">
-                          <span>LLMs</span>
-                        </Link>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        asChild
-                        className={
-                          "flex w-full items-center gap-2 rounded-sm px-2 py-1.5 pl-2 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:no-underline focus-visible:bg-muted focus-visible:text-accent-foreground"
-                        }
-                      >
-                        <Link href="/tools?bookmarks=true">
-                          <span>MLOps</span>
-                        </Link>
-                      </DropdownMenuItem>
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
-            ) : null}
-          </div>
           {isAuthenticated ? (
             <>
-              <DropdownMenuSeparator />
               <DropdownMenuItem
                 className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm font-medium text-foreground transition-colors hover:bg-muted hover:no-underline focus-visible:bg-muted focus-visible:text-accent-foreground"
                 onSelect={() => {
