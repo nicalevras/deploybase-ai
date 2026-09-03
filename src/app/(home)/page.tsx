@@ -265,7 +265,7 @@ export default function HomePage() {
             <p className="research-kicker">GPUs</p>
             <h2
               id="gpu-market-title"
-              className="mt-2 max-w-3xl text-3xl font-semibold sm:text-4xl"
+              className="mt-2 max-w-3xl text-3xl font-semibold tracking-tighter sm:text-4xl"
             >
               GPU cloud prices by provider
             </h2>
@@ -284,7 +284,7 @@ export default function HomePage() {
             <p className="research-kicker">LLMs</p>
             <h2
               id="llm-market-title"
-              className="mt-2 max-w-3xl text-3xl font-semibold sm:text-4xl"
+              className="mt-2 max-w-3xl text-3xl font-semibold tracking-tighter sm:text-4xl"
             >
               LLM performance vs cost
             </h2>

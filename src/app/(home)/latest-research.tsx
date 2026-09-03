@@ -20,7 +20,7 @@ export function LatestResearch() {
               <p className="research-kicker">Articles</p>
               <h2
                 id="latest-research-title"
-                className="mt-2 text-3xl font-semibold sm:text-4xl"
+                className="mt-2 text-3xl font-semibold tracking-tighter sm:text-4xl"
               >
                 Latest research
               </h2>
