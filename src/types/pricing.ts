@@ -504,7 +504,7 @@ export type ThundercomputePriceRow = {
 
   // Hardware
   gpu_model: string;            // e.g., "NVIDIA A100"
-  gpu_count: number;            // Always 1 (pricing is per-GPU)
+  gpu_count: number;            // GPU count for the complete instance
   vram_gb?: number;
   vcpus?: number;
   system_ram_gb?: number;
@@ -514,8 +514,10 @@ export type ThundercomputePriceRow = {
   price_hour_usd: number;
   raw_cost: string;
 
-  // Tier
-  tier: "prototyping" | "production";
+  // v2 configurations no longer use prototyping/production tiers.
+  tier?: "prototyping" | "production";
+  storage_gb?: number;
+  availability?: "available";
 
   // Flags
   class: "GPU";
